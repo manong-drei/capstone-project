@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import * as authService from "../services/authService";
 import DevLoginPanel from "../components/common/DevLoginPanel";
+import TermsPrivacyModal from "../components/common/TermsPrivacyModal";
 
 /* ── Inline Navbar (same design system) ───────────────────────────────── */
 const Navbar = () => {
@@ -36,7 +37,6 @@ const Navbar = () => {
             <rect x="7" y="13" width="18" height="6" rx="1.5" fill="white" />
           </svg>
         </div>
-
         <span className="text-white font-extrabold text-sm sm:text-base tracking-widest uppercase select-none">
           E-KALUSUGAN
         </span>
@@ -99,6 +99,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showTerms, setShowTerms] = useState(false);
 
   const handleChange = (e) => {
     setError("");
@@ -165,7 +166,6 @@ const LoginPage = () => {
             >
               Welcome!
             </h2>
-
             <p
               className="text-xs leading-snug px-2"
               style={{ color: "#6b7280" }}
@@ -188,7 +188,6 @@ const LoginPage = () => {
               >
                 Username:
               </label>
-
               <input
                 type="text"
                 name="username"
@@ -208,7 +207,6 @@ const LoginPage = () => {
               >
                 Password:
               </label>
-
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -220,7 +218,6 @@ const LoginPage = () => {
                   className="w-full px-3 py-2 pr-9 rounded-lg border text-sm text-gray-700 placeholder-gray-300 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                   style={{ border: "1px solid #d1d5db" }}
                 />
-
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
@@ -236,21 +233,37 @@ const LoginPage = () => {
               style={{ color: "#9ca3af" }}
             >
               By signing up you agree to our{" "}
-              <a
-                href="#"
+              <button
+                type="button"
+                onClick={() => setShowTerms(true)}
                 className="hover:underline"
-                style={{ color: "#3b82f6" }}
+                style={{
+                  color: "#3b82f6",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  fontSize: "inherit",
+                }}
               >
                 terms and conditions
-              </a>{" "}
+              </button>{" "}
               and{" "}
-              <a
-                href="#"
+              <button
+                type="button"
+                onClick={() => setShowTerms(true)}
                 className="hover:underline"
-                style={{ color: "#3b82f6" }}
+                style={{
+                  color: "#3b82f6",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  fontSize: "inherit",
+                }}
               >
                 privacy policy
-              </a>
+              </button>
             </p>
 
             <button
@@ -301,9 +314,17 @@ const LoginPage = () => {
               Sign up
             </Link>
           </p>
+
           <DevLoginPanel />
         </div>
       </div>
+
+      {/* ── Terms & Privacy Modal ── */}
+      <TermsPrivacyModal
+        open={showTerms}
+        onClose={() => setShowTerms(false)}
+        onAccept={() => setShowTerms(false)}
+      />
     </div>
   );
 };

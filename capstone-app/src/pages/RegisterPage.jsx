@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import TermsPrivacyModal from "../components/common/TermsPrivacyModal"; // adjust path as needed
 
-/* ── Navbar ────────────────────────────────────────────────────────────── */
+/* -- Navbar -------------------------------------------------------------- */
 const Navbar = () => {
   const navigate = useNavigate();
   return (
@@ -40,7 +41,7 @@ const Navbar = () => {
   );
 };
 
-/* ── Icons ─────────────────────────────────────────────────────────────── */
+/* -- Icons --------------------------------------------------------------- */
 const EyeIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
     <path
@@ -85,7 +86,7 @@ const CheckIcon = () => (
   </svg>
 );
 
-/* ── Password strength ─────────────────────────────────────────────────── */
+/* -- Password strength --------------------------------------------------- */
 const getStrength = (pw) => {
   if (!pw) return { score: 0, label: "", color: "" };
   let score = 0;
@@ -103,7 +104,7 @@ const getStrength = (pw) => {
   return { score, ...map[score] };
 };
 
-/* ── Input component ───────────────────────────────────────────────────── */
+/* -- Input component ----------------------------------------------------- */
 const Field = ({ label, children }) => (
   <div>
     <label
@@ -120,7 +121,7 @@ const inputCls =
   "w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white";
 const inputStyle = { border: "1px solid #d1d5db", color: "#111827" };
 
-/* ── RegisterPage ──────────────────────────────────────────────────────── */
+/* -- RegisterPage -------------------------------------------------------- */
 const RegisterPage = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -128,6 +129,9 @@ const RegisterPage = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // ← NEW: controls the Terms & Privacy modal
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -144,7 +148,7 @@ const RegisterPage = () => {
     setForm((p) => ({ ...p, [k]: e.target.value }));
   };
 
-  /* ── Step 1 validation ── */
+  /* -- Step 1 validation -- */
   const nextStep = () => {
     const { fullName, address, phone, age, gender } = form;
     if (!fullName.trim()) return setError("Full name is required.");
@@ -157,14 +161,20 @@ const RegisterPage = () => {
     setStep(2);
   };
 
-  /* ── Step 2 / Submit ── */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /* -- Step 2: validate passwords, then show modal instead of submitting -- */
+  const handleRegisterClick = () => {
     const { password, confirmPassword } = form;
     if (password.length < 8)
       return setError("Password must be at least 8 characters.");
     if (password !== confirmPassword)
       return setError("Passwords do not match.");
+    setError("");
+    setShowTermsModal(true); // ← open modal; don't submit yet
+  };
+
+  /* -- Actual API call: triggered only after user accepts the modal -- */
+  const handleSubmit = async () => {
+    setShowTermsModal(false);
     setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
@@ -197,6 +207,13 @@ const RegisterPage = () => {
     >
       <Navbar />
 
+      {/* Terms & Privacy Modal ------------------------------------------ */}
+      <TermsPrivacyModal
+        open={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={handleSubmit}
+      />
+
       {/* Body */}
       <div
         className="flex-1 flex items-center justify-center px-4 py-8"
@@ -215,7 +232,7 @@ const RegisterPage = () => {
             boxShadow: "0 8px 40px rgba(0,0,0,0.13)",
           }}
         >
-          {/* ── Step indicator ── */}
+          {/* -- Step indicator -- */}
           <div className="flex items-center gap-2 mb-6">
             {[1, 2].map((n) => (
               <React.Fragment key={n}>
@@ -246,7 +263,7 @@ const RegisterPage = () => {
             ))}
           </div>
 
-          {/* ── Header ── */}
+          {/* -- Header -- */}
           <div className="mb-5">
             <h2
               className="font-bold text-lg"
@@ -261,7 +278,7 @@ const RegisterPage = () => {
             </p>
           </div>
 
-          {/* ── Error ── */}
+          {/* -- Error -- */}
           {error && (
             <div
               className="mb-4 px-3 py-2 rounded-xl text-xs text-center"
@@ -275,7 +292,7 @@ const RegisterPage = () => {
             </div>
           )}
 
-          {/* ════════════════ STEP 1 ════════════════ */}
+          {/* ---------------- STEP 1 ---------------- */}
           {step === 1 && (
             <div className="space-y-3.5">
               <Field label="Full Name">
@@ -309,7 +326,6 @@ const RegisterPage = () => {
                 />
               </Field>
 
-              {/* Age + Gender side by side */}
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Age">
                   <input
@@ -350,7 +366,6 @@ const RegisterPage = () => {
                 </Field>
               </div>
 
-              {/* Next */}
               <button
                 type="button"
                 onClick={nextStep}
@@ -365,9 +380,10 @@ const RegisterPage = () => {
             </div>
           )}
 
-          {/* ════════════════ STEP 2 ════════════════ */}
+          {/* ---------------- STEP 2 ---------------- */}
           {step === 2 && (
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+            // ← Note: no onSubmit here; submission is handled via the modal
+            <div className="space-y-3.5">
               <Field label="Password">
                 <div className="relative">
                   <input
@@ -387,7 +403,6 @@ const RegisterPage = () => {
                     {showPw ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
-                {/* Strength bar */}
                 {form.password && (
                   <div className="mt-2">
                     <div className="flex gap-1 mb-1">
@@ -428,7 +443,6 @@ const RegisterPage = () => {
                     {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
-                {/* Match indicator */}
                 {form.confirmPassword && (
                   <p
                     className="text-xs mt-1"
@@ -446,30 +460,28 @@ const RegisterPage = () => {
                 )}
               </Field>
 
-              {/* Terms */}
+              {/* Terms notice — reassures the user what's coming */}
               <p
                 className="text-xs text-center leading-relaxed"
                 style={{ color: "#9ca3af" }}
               >
                 By registering you agree to our{" "}
-                <a
-                  href="#"
-                  className="hover:underline"
-                  style={{ color: "#3b82f6" }}
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(true)}
+                  className="hover:underline font-semibold"
+                  style={{
+                    color: "#3b82f6",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
                 >
-                  Terms
-                </a>{" "}
-                and{" "}
-                <a
-                  href="#"
-                  className="hover:underline"
-                  style={{ color: "#3b82f6" }}
-                >
-                  Privacy Policy
-                </a>
+                  Terms &amp; Privacy Policy
+                </button>
               </p>
 
-              {/* Buttons */}
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
@@ -486,10 +498,13 @@ const RegisterPage = () => {
                 >
                   ← Back
                 </button>
+
+                {/* ← Clicks open the modal, not the form */}
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleRegisterClick}
                   disabled={loading}
-                  className="flex-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{
                     background:
                       "linear-gradient(90deg, #1a3a8f 0%, #2563eb 100%)",
@@ -525,10 +540,9 @@ const RegisterPage = () => {
                   )}
                 </button>
               </div>
-            </form>
+            </div>
           )}
 
-          {/* Already have account */}
           <p className="text-xs text-center mt-4" style={{ color: "#9ca3af" }}>
             Already have an account?{" "}
             <Link
