@@ -1,19 +1,10 @@
 const express = require("express");
 const router = express.Router();
+const authenticate = require("../middleware/authenticate");
+const authorize = require("../middleware/authorize");
+const { getOverview } = require("../controllers/adminController");
 
-router.get("/overview", (req, res) => {
-  res.json({
-    success: true,
-    data: { totalPatients: 0, todayAppointments: 0, activeQueues: 0 },
-  });
-});
-
-router.get("/staff", (req, res) => {
-  res.json({ success: true, data: [] });
-});
-
-router.get("/reports", (req, res) => {
-  res.json({ success: true, data: [] });
-});
+// GET /api/admin/overview
+router.get("/overview", authenticate, authorize("admin"), getOverview);
 
 module.exports = router;

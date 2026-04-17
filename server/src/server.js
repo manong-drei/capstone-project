@@ -6,7 +6,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-
+const db = require("./config/db");
 // Middleware imports
 const devBypass = require("./middleware/devBypass");
 
@@ -63,18 +63,36 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: "Internal server error." });
 });
 
-// ── Start Server ───────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n  E-KALUSUGAN API`);
-  console.log(`  Server     : http://localhost:${PORT}`);
-  console.log(`  Health     : http://localhost:${PORT}/api/health`);
-  console.log(`  Environment: ${process.env.NODE_ENV}`);
+// ── Start Server & Test Database Connection ─────────────────────────────────
+const startServer = async () => {
+  try {
+    // Attempt to get a connection from the pool to test it
+    const connection = await db.getConnection();
+    console.log(`\n✅ MySQL Database connected successfully!`);
+    connection.release(); // Release the connection back to the pool
 
-  if (process.env.NODE_ENV === "development") {
-    console.log(`\n  [DEV BYPASS ACTIVE]`);
-    console.log(`  Add header  x-dev-role: patient | doctor | staff | admin`);
-    console.log(`  to any request to skip JWT auth.\n`);
-  } else {
-    console.log("");
+    // Start the Express server only after DB is verified
+    app.listen(PORT, () => {
+      console.log(`\n 🚀 E-KALUSUGAN API`);
+      console.log(`  Server     : http://localhost:${PORT}`);
+      console.log(`  Health     : http://localhost:${PORT}/api/health`);
+      console.log(`  Environment: ${process.env.NODE_ENV}`);
+
+      if (process.env.NODE_ENV === "development") {
+        console.log(`\n  [DEV BYPASS ACTIVE]`);
+        console.log(
+          `  Add header  x-dev-role: patient | doctor | staff | admin`,
+        );
+        console.log(`  to any request to skip JWT auth.\n`);
+      } else {
+        console.log("");
+      }
+    });
+  } catch (error) {
+    console.error(`\n❌ Failed to connect to the MySQL database:`);
+    console.error(error.message);
+    process.exit(1); // Stop the server if the database isn't running
   }
-});
+};
+
+startServer();

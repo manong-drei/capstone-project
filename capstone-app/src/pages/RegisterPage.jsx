@@ -120,6 +120,32 @@ const Field = ({ label, children }) => (
 const inputCls =
   "w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white";
 const inputStyle = { border: "1px solid #d1d5db", color: "#111827" };
+const BAGO_BARANGAYS = [
+  "Abuanan",
+  "Alianza",
+  "Atipuluan",
+  "Bacong",
+  "Bagroy",
+  "Balingasag",
+  "Binubuhan",
+  "Busay",
+  "Calumangan",
+  "Caridad",
+  "Don Jorge Araneta",
+  "Dulao",
+  "Ilijan",
+  "Lag-asan",
+  "Ma-ao",
+  "Mailum",
+  "Malingin",
+  "Napoles",
+  "Pacol",
+  "Poblacion",
+  "Sagasa",
+  "Sampinit",
+  "Tabunan",
+  "Taloc",
+];
 
 /* -- RegisterPage -------------------------------------------------------- */
 const RegisterPage = () => {
@@ -129,11 +155,13 @@ const RegisterPage = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
 
   // ← NEW: controls the Terms & Privacy modal
   const [showTermsModal, setShowTermsModal] = useState(false);
 
   const [form, setForm] = useState({
+    username: "",
     fullName: "",
     address: "",
     phone: "",
@@ -150,7 +178,8 @@ const RegisterPage = () => {
 
   /* -- Step 1 validation -- */
   const nextStep = () => {
-    const { fullName, address, phone, age, gender } = form;
+    const { username, fullName, address, phone, age, gender } = form;
+    if (!username.trim()) return setError("Username is required.");
     if (!fullName.trim()) return setError("Full name is required.");
     if (!address.trim()) return setError("Address is required.");
     if (!phone.trim()) return setError("Phone number is required.");
@@ -295,6 +324,16 @@ const RegisterPage = () => {
           {/* ---------------- STEP 1 ---------------- */}
           {step === 1 && (
             <div className="space-y-3.5">
+              <Field label="Username">
+                <input
+                  className={inputCls}
+                  style={inputStyle}
+                  placeholder=" "
+                  value={form.username}
+                  onChange={set("username")}
+                  autoComplete="username"
+                />
+              </Field>
               <Field label="Full Name">
                 <input
                   className={inputCls}
@@ -306,15 +345,76 @@ const RegisterPage = () => {
               </Field>
 
               <Field label="Address">
-                <input
-                  className={inputCls}
-                  style={inputStyle}
-                  placeholder="Barangay, City, Province"
-                  value={form.address}
-                  onChange={set("address")}
-                />
-              </Field>
+                <div className="relative">
+                  {/* Dropdown Button */}
+                  <button
+                    type="button"
+                    className={`${inputCls} flex items-center justify-between text-left`}
+                    style={{
+                      ...inputStyle,
+                      color: form.address ? "#111827" : "#9ca3af", // gray text if empty
+                    }}
+                    onClick={() => setShowDropdown(!showDropdown)}
+                  >
+                    <span className="truncate">
+                      {form.address || "Select your barangay"}
+                    </span>
+                    {/* Down Arrow Icon */}
+                    <svg
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        showDropdown ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
 
+                  {/* Dropdown Menu (Forces to bottom) */}
+                  {showDropdown && (
+                    <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                      <ul className="max-h-60 overflow-y-auto py-1">
+                        {BAGO_BARANGAYS.map((brgy) => {
+                          const fullAddress = `Barangay ${brgy}, Bago City`;
+                          const isSelected = form.address === fullAddress;
+
+                          return (
+                            <li key={brgy}>
+                              <button
+                                type="button"
+                                className="w-full text-left px-3.5 py-2.5 text-sm transition-colors hover:bg-blue-50 focus:bg-blue-100 outline-none"
+                                style={{
+                                  background: isSelected
+                                    ? "#eff6ff"
+                                    : "transparent",
+                                  color: isSelected ? "#1d4ed8" : "#374151",
+                                  fontWeight: isSelected ? "600" : "400",
+                                }}
+                                onClick={() => {
+                                  // Reuses your existing set() logic by faking an event object
+                                  set("address")({
+                                    target: { value: fullAddress },
+                                  });
+                                  setShowDropdown(false); // Close menu after picking
+                                }}
+                              >
+                                Barangay {brgy}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </Field>
               <Field label="Phone Number">
                 <input
                   className={inputCls}

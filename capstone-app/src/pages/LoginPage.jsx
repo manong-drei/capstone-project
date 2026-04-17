@@ -119,7 +119,7 @@ const LoginPage = () => {
 
     try {
       const response = await authService.login({
-        email: form.username,
+        username: form.username,
         password: form.password,
       });
 
@@ -193,7 +193,7 @@ const LoginPage = () => {
                 name="username"
                 value={form.username}
                 onChange={handleChange}
-                placeholder="Enter your email"
+                placeholder="Enter your username"
                 autoComplete="username"
                 className="w-full px-3 py-2 rounded-lg border text-sm text-gray-700 placeholder-gray-300 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                 style={{ border: "1px solid #d1d5db" }}

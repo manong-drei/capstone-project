@@ -1,3 +1,10 @@
+// src/App.jsx
+// ─── CHANGES from previous version ───────────────────────────────────────────
+//   1. Import StaffDashboard
+//   2. Add STAFF_DASHBOARD destination in RoleRedirect (was pointing to admin)
+//   3. Add protected /staff route
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { ROUTES } from "./constants/routes";
@@ -9,18 +16,13 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
+import StaffDashboard from "./pages/StaffDashboard"; // ← NEW
 import AdminDashboard from "./pages/AdminDashboard";
 
-/**
- * ProtectedRoute
- * Redirects to /login if not authenticated.
- * Redirects to / if the user's role is not in allowedRoles.
- */
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    // Prevent flash of redirect while session is being restored
     return (
       <div
         style={{
@@ -44,10 +46,6 @@ function ProtectedRoute({ children, allowedRoles }) {
   return children;
 }
 
-/**
- * RoleRedirect
- * After login, sends each role to their correct dashboard.
- */
 function RoleRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to={ROUTES.LOGIN} replace />;
@@ -55,8 +53,8 @@ function RoleRedirect() {
   const destinations = {
     [ROLES.PATIENT]: ROUTES.PATIENT_DASHBOARD,
     [ROLES.DOCTOR]: ROUTES.DOCTOR_DASHBOARD,
+    [ROLES.STAFF]: ROUTES.STAFF_DASHBOARD, // ← CHANGED (was ADMIN_DASHBOARD)
     [ROLES.ADMIN]: ROUTES.ADMIN_DASHBOARD,
-    [ROLES.STAFF]: ROUTES.ADMIN_DASHBOARD, // ← staff currently shares admin dashboard
   };
 
   return <Navigate to={destinations[user.role] ?? ROUTES.HOME} replace />;
@@ -71,7 +69,7 @@ export default function App() {
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
         <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
 
-        {/* Role-based redirect (e.g. after login) */}
+        {/* Role-based redirect */}
         <Route path="/dashboard" element={<RoleRedirect />} />
 
         {/* Protected: Patient */}
@@ -90,6 +88,16 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={[ROLES.DOCTOR]}>
               <DoctorDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Protected: Staff  ← NEW */}
+        <Route
+          path={ROUTES.STAFF_DASHBOARD}
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.STAFF]}>
+              <StaffDashboard />
             </ProtectedRoute>
           }
         />
