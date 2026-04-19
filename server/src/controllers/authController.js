@@ -23,7 +23,7 @@ const register = async (req, res) => {
       username,
       phone,
       password,
-      role: role ?? "patient",
+      role: "patient",
     });
 
     await Patient.create({ user_id, ...profileData, phone });

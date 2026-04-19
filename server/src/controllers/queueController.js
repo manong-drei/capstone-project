@@ -1,172 +1,117 @@
-const Queue = require("../models/Queue");
-const Patient = require("../models/Patient");
-const generateQueueNumber = require("../utils/generateQueueNumber");
+const Queue = require('../models/Queue');
+const Patient = require('../models/Patient');
 
-/** GET /api/queue — staff/doctor sees all today's active queues */
-const getAll = async (req, res) => {
+/** GET /api/queue — all today's active queues (doctor/staff) */
+const getAllQueues = async (req, res) => {
   try {
     const queues = await Queue.findTodayActive();
-    res.json({ success: true, data: queues });
+    res.json(queues);
   } catch (err) {
-    console.error("getAll queues error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    console.error('getAllQueues error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-/** GET /api/queue/me — patient sees their own active queue today */
+/** GET /api/queue/me — patient's own active queue today */
 const getMyQueue = async (req, res) => {
   try {
     const patient = await Patient.findByUserId(req.user.user_id);
     if (!patient) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Patient profile not found." });
+      return res.status(404).json({ success: false, message: 'Patient profile not found.' });
     }
     const queue = await Queue.findByPatientId(patient.patient_id);
-    res.json({ success: true, data: queue });
+    res.json(queue);
   } catch (err) {
-    console.error("getMyQueue error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    console.error('getMyQueue error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
 /** POST /api/queue — patient gets a queue number */
 const createQueue = async (req, res) => {
   try {
+    const { services, type } = req.body;
+
     const patient = await Patient.findByUserId(req.user.user_id);
     if (!patient) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Patient profile not found." });
+      return res.status(404).json({ success: false, message: 'Patient profile not found.' });
     }
 
+    // Check for existing active queue today
     const existing = await Queue.findByPatientId(patient.patient_id);
     if (existing) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "You already have an active queue number.",
-        });
+      return res.status(409).json({ success: false, message: 'You already have an active queue today.' });
     }
 
-    const { type = "regular", services } = req.body;
-    const queue_number = await generateQueueNumber(type);
+    // Generate queue number: Q-001 format based on today's count
+    const [[countRow]] = await require('../config/db').query(
+      `SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()`
+    );
+    const queueNumber = `Q-${String(countRow.count + 1).padStart(3, '0')}`;
+
     const queue = await Queue.create({
       patient_id: patient.patient_id,
-      queue_number,
-      type,
-      services,
+      queue_number: queueNumber,
+      type: type || 'regular',
+      services: services || [],
     });
-    res.status(201).json({ success: true, data: queue });
+
+    res.status(201).json(queue);
   } catch (err) {
-    console.error("createQueue error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    console.error('createQueue error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-/** POST /api/queue/call-next — staff or doctor calls the next patient */
+/** POST /api/queue/call-next — doctor calls next patient */
 const callNext = async (req, res) => {
   try {
     const next = await Queue.callNext();
     if (!next) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No patients waiting." });
+      return res.status(404).json({ success: false, message: 'No patients waiting.' });
     }
-    res.json({ success: true, data: next });
+    res.json(next);
   } catch (err) {
-    console.error("callNext error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    console.error('callNext error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-/** PATCH /api/queue/:id/status — update a queue entry's status */
+/** PATCH /api/queue/:id/status — update queue status */
 const updateStatus = async (req, res) => {
   try {
+    const { id } = req.params;
     const { status } = req.body;
-    const validStatuses = ["waiting", "serving", "done", "cancelled"];
-    if (!validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid status value." });
+
+    const allowed = ['waiting', 'serving', 'done', 'cancelled'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status value.' });
     }
-    const updated = await Queue.updateStatus(req.params.id, status);
+
+    const updated = await Queue.updateStatus(id, status);
     if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Queue entry not found." });
+      return res.status(404).json({ success: false, message: 'Queue entry not found.' });
     }
-    res.json({ success: true, data: updated });
+    res.json(updated);
   } catch (err) {
-    console.error("updateStatus error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    console.error('updateStatus error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-/** PATCH /api/queue/:id/cancel — cancel a queue entry */
+/** PATCH /api/queue/:id/cancel — patient cancels their queue */
 const cancelQueue = async (req, res) => {
   try {
-    const updated = await Queue.updateStatus(req.params.id, "cancelled");
+    const { id } = req.params;
+    const updated = await Queue.updateStatus(id, 'cancelled');
     if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Queue entry not found." });
+      return res.status(404).json({ success: false, message: 'Queue entry not found.' });
     }
-    res.json({ success: true, data: updated });
+    res.json(updated);
   } catch (err) {
-    console.error("cancelQueue error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    console.error('cancelQueue error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-/** POST /api/queue/walkin — staff creates a walk-in queue entry for a patient */
-const createWalkIn = async (req, res) => {
-  try {
-    const { patient_id, type = "regular", services } = req.body;
-    if (!patient_id) {
-      return res
-        .status(400)
-        .json({ success: false, message: "patient_id is required." });
-    }
-
-    const patient = await Patient.findById(patient_id);
-    if (!patient) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Patient not found." });
-    }
-
-    const existing = await Queue.findByPatientId(patient_id);
-    if (existing) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "Patient already has an active queue number.",
-        });
-    }
-
-    const queue_number = await generateQueueNumber(type);
-    const queue = await Queue.create({
-      patient_id,
-      queue_number,
-      type,
-      services,
-    });
-    res.status(201).json({ success: true, data: queue });
-  } catch (err) {
-    console.error("createWalkIn error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
-  }
-};
-
-module.exports = {
-  getAll,
-  getMyQueue,
-  createQueue,
-  callNext,
-  updateStatus,
-  cancelQueue,
-  createWalkIn,
-};
+module.exports = { getAllQueues, getMyQueue, createQueue, callNext, updateStatus, cancelQueue };

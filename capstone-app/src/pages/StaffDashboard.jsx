@@ -1,20 +1,6 @@
 /**
  * StaffDashboard.jsx — Staff Queue Management Panel
- * E-KALUSUGAN Frontend
- *
- * Matches the uploaded UI design:
- *   - Navbar with logo + Help + Logout
- *   - Hero banner (Bago City Health Center background)
- *   - Left: Now Serving card, Next Serving list, Next Queue button
- *   - Right: Walk-in patient registration form
- *
- * API calls:
- *   GET  /api/queue           — fetch today's queue
- *   POST /api/queue/next      — advance to next patient
- *   POST /api/queue/walkin    — register a walk-in patient
- *
- * PLACEMENT:   src/pages/StaffDashboard.jsx
- */
+ **/
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -28,14 +14,42 @@ const INDIGO = "#2d3a8c";
 const ORANGE = "#f97316";
 const BLUE = "#1e4db7";
 
+// ─── Constants ──────────────────────────────────────────────────────────────
+const BAGO_BARANGAYS = [
+  "Abuanan",
+  "Alianza",
+  "Atipuluan",
+  "Bacong",
+  "Bagroy",
+  "Balingasag",
+  "Binubuhan",
+  "Busay",
+  "Calumangan",
+  "Caridad",
+  "Don Jorge Araneta",
+  "Dulao",
+  "Ilijan",
+  "Lag-asan",
+  "Ma-ao",
+  "Mailum",
+  "Malingin",
+  "Napoles",
+  "Pacol",
+  "Poblacion",
+  "Sagasa",
+  "Sampinit",
+  "Tabunan",
+  "Taloc",
+];
+
 // ─── Shared CSS injected once ───────────────────────────────────────────────
 const GLOBAL_STYLES = `
   @keyframes pulse-dot {
-    0%, 100% { opacity: 1;   transform: scale(1);   }
+    0%, 100% { opacity: 1; transform: scale(1);   }
     50%       { opacity: 0.5; transform: scale(1.5); }
   }
   @keyframes spin-anim {
-    from { transform: rotate(0deg);   }
+    from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
   .ek-spin { animation: spin-anim 0.75s linear infinite; }
@@ -532,6 +546,10 @@ function WalkInForm({ onSuccess }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Dropdown states
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [addressFocused, setAddressFocused] = useState(false);
+
   const set = (field) => (e) => {
     setError("");
     setSuccess("");
@@ -597,27 +615,168 @@ function WalkInForm({ onSuccess }) {
         onChange={set("fullName")}
       />
 
-      {/* Address */}
-      <FormField
-        icon={
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#9ca3af"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      {/* Address Dropdown */}
+      <div style={{ position: "relative" }}>
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              left: "13px",
+              pointerEvents: "none",
+              display: "flex",
+              alignItems: "center",
+            }}
           >
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-        }
-        placeholder="Address"
-        value={form.address}
-        onChange={set("address")}
-      />
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#9ca3af"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowDropdown(!showDropdown)}
+            onFocus={() => setAddressFocused(true)}
+            onBlur={() => {
+              // Delay blur slightly so clicks on dropdown items can register
+              setTimeout(() => setAddressFocused(false), 200);
+            }}
+            style={{
+              width: "100%",
+              padding: "12px 14px 12px 40px", // 40px left padding to accommodate the icon
+              borderRadius: "10px",
+              border: `1.5px solid ${showDropdown || addressFocused ? BLUE : "#dde1ec"}`,
+              fontSize: "14px",
+              color: form.address ? "#111827" : "#9ca3af",
+              background: "#ffffff",
+              outline: "none",
+              fontFamily: "inherit",
+              boxSizing: "border-box",
+              boxShadow:
+                showDropdown || addressFocused
+                  ? `0 0 0 3px rgba(30,77,183,0.12)`
+                  : "none",
+              transition: "border-color 0.15s, box-shadow 0.15s",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {form.address || "Address"}
+            </span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              style={{
+                transition: "transform 0.2s",
+                transform: showDropdown ? "rotate(180deg)" : "rotate(0deg)",
+              }}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Dropdown Menu */}
+        {showDropdown && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              width: "100%",
+              marginTop: "4px",
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: "10px",
+              boxShadow:
+                "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+              zIndex: 50,
+              overflow: "hidden",
+            }}
+          >
+            <ul
+              style={{
+                margin: 0,
+                padding: "4px 0",
+                listStyle: "none",
+                maxHeight: "240px",
+                overflowY: "auto",
+              }}
+            >
+              {BAGO_BARANGAYS.map((brgy) => {
+                const fullAddress = `Barangay ${brgy}, Bago City`;
+                const isSelected = form.address === fullAddress;
+                return (
+                  <li key={brgy}>
+                    <button
+                      type="button"
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "10px 14px",
+                        fontSize: "14px",
+                        background: isSelected ? "#eff6ff" : "transparent",
+                        color: isSelected ? "#1d4ed8" : "#374151",
+                        fontWeight: isSelected ? "600" : "400",
+                        border: "none",
+                        cursor: "pointer",
+                        outline: "none",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected)
+                          e.currentTarget.style.background = "#eff6ff";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected)
+                          e.currentTarget.style.background = "transparent";
+                      }}
+                      onClick={() => {
+                        // Reuses existing set() logic to clear errors smoothly
+                        set("address")({ target: { value: fullAddress } });
+                        setShowDropdown(false);
+                      }}
+                    >
+                      Barangay {brgy}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
 
       {/* Contact Number */}
       <ContactField value={form.contact} onChange={set("contact")} />
@@ -716,6 +875,7 @@ function WalkInForm({ onSuccess }) {
 
 function FormField({ icon, placeholder, value, onChange, type = "text" }) {
   const [focused, setFocused] = useState(false);
+
   return (
     <div
       style={{ position: "relative", display: "flex", alignItems: "center" }}
@@ -759,6 +919,7 @@ function FormField({ icon, placeholder, value, onChange, type = "text" }) {
 
 function ContactField({ value, onChange }) {
   const [focused, setFocused] = useState(false);
+
   return (
     <div
       style={{
@@ -812,7 +973,6 @@ function ContactField({ value, onChange }) {
 export default function StaffDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
-
   const [queues, setQueues] = useState([]);
   const [calling, setCalling] = useState(false);
   const intervalRef = useRef(null);

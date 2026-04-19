@@ -2,18 +2,28 @@ const pool = require("../config/db");
 
 const Queue = {
   // All today's active queues — used by staff and doctor dashboards
+
+  _parse: (row) => {
+    if (!row) return null;
+    try {
+      row.services = row.services ? JSON.parse(row.services) : [];
+    } catch {
+      row.services = [];
+    }
+    return row;
+  },
   findTodayActive: async () => {
     const [rows] = await pool.query(`
-      SELECT q.*, p.first_name, p.last_name
-      FROM   queues q
-      JOIN   patients p ON q.patient_id = p.patient_id
+      SELECT q.*, p.full_name
+FROM   queues q
+JOIN   patients p ON q.patient_id = p.patient_id
       WHERE  DATE(q.created_at) = CURDATE()
         AND  q.status IN ('waiting', 'serving')
       ORDER BY
         FIELD(q.type, 'priority', 'regular'),
         q.created_at ASC
     `);
-    return rows;
+    return rows.map(Queue._parse);
   },
 
   // Patient's own active queue for today
@@ -29,7 +39,7 @@ const Queue = {
     `,
       [patient_id],
     );
-    return rows[0] || null;
+    return Queue._parse(rows[0] || null);
   },
 
   // Insert a new queue entry
@@ -47,7 +57,7 @@ const Queue = {
     const [rows] = await pool.query("SELECT * FROM queues WHERE id = ?", [
       result.insertId,
     ]);
-    return rows[0];
+    return Queue._parse(rows[0]);
   },
 
   // Pull the next waiting patient (priority first), set to serving atomically
@@ -82,7 +92,7 @@ const Queue = {
       const [updated] = await conn.query("SELECT * FROM queues WHERE id = ?", [
         next.id,
       ]);
-      return updated[0];
+      return Queue._parse(updated[0]);
     } catch (err) {
       await conn.rollback();
       throw err;
@@ -98,7 +108,7 @@ const Queue = {
       [status, id],
     );
     const [rows] = await pool.query("SELECT * FROM queues WHERE id = ?", [id]);
-    return rows[0] || null;
+    return Queue._parse(rows[0] || null);
   },
 
   // Aggregate stats for today — used by admin overview

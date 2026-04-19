@@ -2,28 +2,40 @@ import { useState, useEffect } from 'react'
 import Icon from '../../common/AppIcons'
 import api from '../../../services/api'
 
-const ROLES = ['doctor', 'admin']
+const ROLES = ['doctor', 'staff', 'admin']
 
 /**
  * StaffManager
  * Admin panel for viewing, adding, and deactivating staff accounts.
  */
 export default function StaffManager() {
-  const [staff,      setStaff]      = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [showForm,   setShowForm]   = useState(false)
-  const [formError,  setFormError]  = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [staff,           setStaff]           = useState([])
+  const [loading,         setLoading]         = useState(true)
+  const [showForm,        setShowForm]        = useState(false)
+  const [formError,       setFormError]       = useState('')
+  const [submitting,      setSubmitting]      = useState(false)
+  const [specializations, setSpecializations] = useState([])
 
   const [form, setForm] = useState({
-    first_name: '',
-    last_name:  '',
-    email:      '',
-    password:   '',
-    role:       'doctor',
+    username:          '',
+    first_name:        '',
+    last_name:         '',
+    email:             '',
+    phone:             '',
+    password:          '',
+    role:              'doctor',
+    // doctor-specific
+    license_number:    '',
+    specialization_id: '',
+    // staff-specific
+    position:          '',
   })
 
   useEffect(() => { fetchStaff() }, [])
+
+  useEffect(() => {
+    if (form.role === 'doctor') fetchSpecializations()
+  }, [form.role])
 
   const fetchStaff = async () => {
     setLoading(true)
@@ -37,21 +49,54 @@ export default function StaffManager() {
     }
   }
 
+  const fetchSpecializations = async () => {
+    try {
+      const data = await api.get('/admin/specializations')
+      setSpecializations(data?.specializations ?? [])
+    } catch {
+      setSpecializations([])
+    }
+  }
+
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleRoleChange = (value) => {
+    setForm(prev => ({
+      ...prev,
+      role:              value,
+      license_number:    '',
+      specialization_id: '',
+      position:          '',
+    }))
+  }
+
   const handleAddStaff = async () => {
     setFormError('')
-    if (!form.first_name || !form.last_name || !form.email || !form.password) {
+
+    if (!form.username || !form.first_name || !form.last_name || !form.email || !form.phone || !form.password) {
       setFormError('All fields are required.')
       return
     }
+    if (form.role === 'doctor' && !form.license_number) {
+      setFormError('License number is required for doctors.')
+      return
+    }
+    if (form.role === 'staff' && !form.position) {
+      setFormError('Position is required for staff.')
+      return
+    }
+
     setSubmitting(true)
     try {
       await api.post('/admin/staff', form)
       setShowForm(false)
-      setForm({ first_name: '', last_name: '', email: '', password: '', role: 'doctor' })
+      setForm({
+        username: '', first_name: '', last_name: '', email: '',
+        phone: '', password: '', role: 'doctor',
+        license_number: '', specialization_id: '', position: '',
+      })
       fetchStaff()
     } catch (err) {
       setFormError(err.message)
@@ -60,10 +105,10 @@ export default function StaffManager() {
     }
   }
 
-  const handleDeactivate = async (id) => {
+  const handleDeactivate = async (user_id) => {
     if (!window.confirm('Deactivate this staff account?')) return
     try {
-      await api.patch(`/admin/staff/${id}/deactivate`)
+      await api.patch(`/admin/staff/${user_id}/deactivate`)
       fetchStaff()
     } catch (err) {
       alert(err.message)
@@ -83,6 +128,23 @@ export default function StaffManager() {
     fontFamily: 'inherit',
   }
 
+  const labelStyle = {
+    display: 'block',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#374151',
+    marginBottom: '5px',
+  }
+
+  const roleBadge = (role) => {
+    const map = {
+      admin:  { bg: '#fef3c7', color: '#92400e' },
+      doctor: { bg: '#ede9fe', color: '#5b21b6' },
+      staff:  { bg: '#dcfce7', color: '#166534' },
+    }
+    return map[role] ?? { bg: '#f3f4f6', color: '#374151' }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
@@ -91,7 +153,7 @@ export default function StaffManager() {
         <div>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#111827' }}>Staff Management</h2>
           <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#6b7280' }}>
-            Manage doctor and admin accounts
+            Manage doctor, staff, and admin accounts
           </p>
         </div>
         <button
@@ -110,19 +172,50 @@ export default function StaffManager() {
 
       {/* Add Staff Form */}
       {showForm && (
-        <div
-          style={{
-            background: '#f9fafb', border: '1.5px solid #e5e7eb',
-            borderRadius: '14px', padding: '20px',
-          }}
-        >
+        <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '20px' }}>
           <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, color: '#111827' }}>
             New Staff Account
           </h3>
 
+          {/* Role — first so dynamic fields render immediately */}
+          <div style={{ marginBottom: '12px' }}>
+            <label style={labelStyle}>Role</label>
+            <select
+              style={inputStyle}
+              value={form.role}
+              onChange={e => handleRoleChange(e.target.value)}
+            >
+              {ROLES.map(r => (
+                <option key={r} value={r}>
+                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Common fields */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>First Name</label>
+              <label style={labelStyle}>Username</label>
+              <input
+                style={inputStyle}
+                value={form.username}
+                onChange={e => handleChange('username', e.target.value)}
+                placeholder="e.g. dr.santos"
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Phone</label>
+              <input
+                type="tel"
+                style={inputStyle}
+                value={form.phone}
+                onChange={e => handleChange('phone', e.target.value)}
+                placeholder="09XX XXX XXXX"
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>First Name</label>
               <input
                 style={inputStyle}
                 value={form.first_name}
@@ -131,7 +224,7 @@ export default function StaffManager() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>Last Name</label>
+              <label style={labelStyle}>Last Name</label>
               <input
                 style={inputStyle}
                 value={form.last_name}
@@ -140,7 +233,7 @@ export default function StaffManager() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>Email</label>
+              <label style={labelStyle}>Email</label>
               <input
                 type="email"
                 style={inputStyle}
@@ -150,7 +243,7 @@ export default function StaffManager() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>Password</label>
+              <label style={labelStyle}>Password</label>
               <input
                 type="password"
                 style={inputStyle}
@@ -159,21 +252,64 @@ export default function StaffManager() {
                 placeholder="Temporary password"
               />
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>Role</label>
-              <select
-                style={inputStyle}
-                value={form.role}
-                onChange={e => handleChange('role', e.target.value)}
-              >
-                {ROLES.map(r => (
-                  <option key={r} value={r}>
-                    {r.charAt(0).toUpperCase() + r.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
+
+          {/* Doctor-specific fields */}
+          {form.role === 'doctor' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <label style={labelStyle}>
+                  License Number <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <input
+                  style={inputStyle}
+                  value={form.license_number}
+                  onChange={e => handleChange('license_number', e.target.value)}
+                  placeholder="PRC License No."
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Specialization</label>
+                {specializations.length > 0 ? (
+                  <select
+                    style={inputStyle}
+                    value={form.specialization_id}
+                    onChange={e => handleChange('specialization_id', e.target.value)}
+                  >
+                    <option value="">-- None --</option>
+                    {specializations.map(s => (
+                      <option key={s.specialization_id} value={s.specialization_id}>
+                        {s.specialization_name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    style={inputStyle}
+                    value={form.specialization_id}
+                    onChange={e => handleChange('specialization_id', e.target.value)}
+                    placeholder="Specialization ID (optional)"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Staff-specific fields */}
+          {form.role === 'staff' && (
+            <div style={{ marginBottom: '12px' }}>
+              <label style={labelStyle}>
+                Position <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <input
+                style={inputStyle}
+                value={form.position}
+                onChange={e => handleChange('position', e.target.value)}
+                placeholder="e.g. Nurse, Clerk"
+              />
+            </div>
+          )}
 
           {formError && (
             <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#dc2626' }}>{formError}</p>
@@ -207,13 +343,7 @@ export default function StaffManager() {
       )}
 
       {/* Staff Table */}
-      <div
-        style={{
-          background: '#ffffff', border: '1px solid #e5e7eb',
-          borderRadius: '14px', overflow: 'hidden',
-        }}
-      >
-        {/* Table Header */}
+      <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden' }}>
         <div
           style={{
             display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px',
@@ -237,43 +367,45 @@ export default function StaffManager() {
             No staff accounts found.
           </div>
         ) : (
-          staff.map((member) => (
-            <div
-              key={member.id}
-              style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px',
-                padding: '14px 20px', borderBottom: '1px solid #f9fafb',
-                alignItems: 'center',
-              }}
-            >
-              <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
-                {member.first_name} {member.last_name}
-              </span>
-              <span style={{ fontSize: '13px', color: '#6b7280' }}>{member.email}</span>
-              <span
+          staff.map((member) => {
+            const badge = roleBadge(member.role)
+            return (
+              <div
+                key={member.user_id}
                 style={{
-                  display: 'inline-flex', width: 'fit-content',
-                  fontSize: '11px', fontWeight: 600,
-                  padding: '3px 8px', borderRadius: '20px',
-                  background: member.role === 'admin' ? '#fef3c7' : '#ede9fe',
-                  color:      member.role === 'admin' ? '#92400e'  : '#5b21b6',
+                  display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px',
+                  padding: '14px 20px', borderBottom: '1px solid #f9fafb',
+                  alignItems: 'center',
                 }}
               >
-                {member.role}
-              </span>
-              <button
-                onClick={() => handleDeactivate(member.id)}
-                style={{
-                  padding: '5px 10px', borderRadius: '7px', border: 'none',
-                  background: '#fee2e2', color: '#dc2626',
-                  fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                  width: 'fit-content',
-                }}
-              >
-                Deactivate
-              </button>
-            </div>
-          ))
+                <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
+                  {member.first_name} {member.last_name}
+                </span>
+                <span style={{ fontSize: '13px', color: '#6b7280' }}>{member.email}</span>
+                <span
+                  style={{
+                    display: 'inline-flex', width: 'fit-content',
+                    fontSize: '11px', fontWeight: 600,
+                    padding: '3px 8px', borderRadius: '20px',
+                    background: badge.bg, color: badge.color,
+                  }}
+                >
+                  {member.role}
+                </span>
+                <button
+                  onClick={() => handleDeactivate(member.user_id)}
+                  style={{
+                    padding: '5px 10px', borderRadius: '7px', border: 'none',
+                    background: '#fee2e2', color: '#dc2626',
+                    fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                    width: 'fit-content',
+                  }}
+                >
+                  Deactivate
+                </button>
+              </div>
+            )
+          })
         )}
       </div>
     </div>

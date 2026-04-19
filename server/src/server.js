@@ -35,7 +35,7 @@ app.use(devBypass);
 // ── Routes ─────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/patients", patientRoutes);
-app.use("/api/doctors", doctorRoutes);
+app.use("/api/doctor", doctorRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/queue", queueRoutes);
 app.use("/api/appointments", appointmentRoutes);
