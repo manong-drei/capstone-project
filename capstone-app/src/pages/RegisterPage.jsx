@@ -195,6 +195,8 @@ const RegisterPage = () => {
     const { password, confirmPassword } = form;
     if (password.length < 8)
       return setError("Password must be at least 8 characters.");
+    if (!/[0-9]/.test(password))
+      return setError("Password must contain at least one number.");
     if (password !== confirmPassword)
       return setError("Passwords do not match.");
     setError("");
@@ -520,6 +522,27 @@ const RegisterPage = () => {
                     <p className="text-xs" style={{ color: strength.color }}>
                       {strength.label}
                     </p>
+                    <ul className="mt-1.5 space-y-0.5">
+                      {[
+                        {
+                          label: "At least 8 characters",
+                          ok: form.password.length >= 8,
+                        },
+                        {
+                          label: "One number (0–9)",
+                          ok: /[0-9]/.test(form.password),
+                        },
+                      ].map(({ label, ok }) => (
+                        <li
+                          key={label}
+                          className="flex items-center gap-1 text-xs"
+                          style={{ color: ok ? "#22c55e" : "#ef4444" }}
+                        >
+                          <span>{ok ? "✓" : "✗"}</span>
+                          <span>{label}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </Field>

@@ -63,6 +63,57 @@ const createQueue = async (req, res) => {
   }
 };
 
+/** POST /api/queue/walkin — staff registers a walk-in patient (no account) */
+const createWalkIn = async (req, res) => {
+  try {
+    const { full_name, contact, type } = req.body;
+
+    if (!full_name || !full_name.trim()) {
+      return res.status(400).json({ success: false, message: 'Full name is required.' });
+    }
+
+    const db = require('../config/db');
+
+    // Enforce walk-in daily limit (uses the first doctor's daily_doctor_settings as active dentist)
+    const [[settings]] = await db.query(
+      `SELECT walk_in_limit FROM daily_doctor_settings
+       WHERE date = CURDATE()
+       ORDER BY doctor_id ASC
+       LIMIT 1`
+    );
+    const walkInLimit = settings?.walk_in_limit ?? 0;
+    const [[{ walkinToday }]] = await db.query(
+      `SELECT COUNT(*) AS walkinToday FROM queues
+       WHERE patient_id IS NULL AND DATE(created_at) = CURDATE()`
+    );
+    if (walkInLimit > 0 && walkinToday >= walkInLimit) {
+      return res.status(409).json({
+        success: false,
+        message: 'Walk-in slots are full for today.',
+      });
+    }
+
+    const [[countRow]] = await db.query(
+      `SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()`
+    );
+    const queueNumber = `Q-${String(countRow.count + 1).padStart(3, '0')}`;
+
+    const queue = await Queue.create({
+      patient_id: null,
+      queue_number: queueNumber,
+      type: type || 'regular',
+      services: [],
+      walk_in_name: full_name.trim(),
+      walk_in_contact: contact || null,
+    });
+
+    res.status(201).json({ success: true, queue });
+  } catch (err) {
+    console.error('createWalkIn error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
 /** POST /api/queue/call-next — doctor calls next patient */
 const callNext = async (req, res) => {
   try {
@@ -99,14 +150,26 @@ const updateStatus = async (req, res) => {
   }
 };
 
-/** PATCH /api/queue/:id/cancel — patient cancels their queue */
+/** PATCH /api/queue/:id/cancel — patient cancels their own queue */
 const cancelQueue = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await Queue.updateStatus(id, 'cancelled');
-    if (!updated) {
+
+    const patient = await Patient.findByUserId(req.user.user_id);
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient profile not found.' });
+    }
+
+    const db = require('../config/db');
+    const [[queueRow]] = await db.query('SELECT * FROM queues WHERE id = ?', [id]);
+    if (!queueRow) {
       return res.status(404).json({ success: false, message: 'Queue entry not found.' });
     }
+    if (queueRow.patient_id !== patient.patient_id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to cancel this queue entry.' });
+    }
+
+    const updated = await Queue.updateStatus(id, 'cancelled');
     res.json(updated);
   } catch (err) {
     console.error('cancelQueue error:', err);
@@ -114,4 +177,4 @@ const cancelQueue = async (req, res) => {
   }
 };
 
-module.exports = { getAllQueues, getMyQueue, createQueue, callNext, updateStatus, cancelQueue };
+module.exports = { getAllQueues, getMyQueue, createQueue, createWalkIn, callNext, updateStatus, cancelQueue };

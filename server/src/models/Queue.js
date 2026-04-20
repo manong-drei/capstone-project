@@ -14,9 +14,10 @@ const Queue = {
   },
   findTodayActive: async () => {
     const [rows] = await pool.query(`
-      SELECT q.*, p.full_name
-FROM   queues q
-JOIN   patients p ON q.patient_id = p.patient_id
+      SELECT q.*,
+             COALESCE(p.full_name, q.walk_in_name) AS full_name
+      FROM   queues q
+      LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  DATE(q.created_at) = CURDATE()
         AND  q.status IN ('waiting', 'serving')
       ORDER BY
@@ -42,16 +43,25 @@ JOIN   patients p ON q.patient_id = p.patient_id
     return Queue._parse(rows[0] || null);
   },
 
-  // Insert a new queue entry
-  create: async ({ patient_id, queue_number, type, services }) => {
+  // Insert a new queue entry (supports both patient self-queue and staff walk-in)
+  create: async ({
+    patient_id,
+    queue_number,
+    type,
+    services,
+    walk_in_name,
+    walk_in_contact,
+  }) => {
     const [result] = await pool.query(
-      `INSERT INTO queues (patient_id, queue_number, type, services)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO queues (patient_id, queue_number, type, services, walk_in_name, walk_in_contact)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
-        patient_id,
+        patient_id || null,
         queue_number,
         type || "regular",
         services ? JSON.stringify(services) : null,
+        walk_in_name || null,
+        walk_in_contact || null,
       ],
     );
     const [rows] = await pool.query("SELECT * FROM queues WHERE id = ?", [

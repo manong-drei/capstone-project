@@ -6,6 +6,8 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const db = require("./config/db");
 // Middleware imports
 const devBypass = require("./middleware/devBypass");
@@ -23,17 +25,31 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ── Middleware ─────────────────────────────────────────────────────────────
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(helmet());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",")
+    : ["http://localhost:5173"],
+  credentials: true,
+}));
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 
-// Dev bypass — must come BEFORE routes so req.user is set before
-// any authenticate middleware runs inside the route files.
-// Completely inert when NODE_ENV !== 'development'.
-app.use(devBypass);
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many attempts. Please try again in 15 minutes." },
+});
+
+// Dev bypass — only mounted in development mode
+if (process.env.NODE_ENV === "development") {
+  app.use(devBypass);
+}
 
 // ── Routes ─────────────────────────────────────────────────────────────────
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/doctor", doctorRoutes);
 app.use("/api/admin", adminRoutes);

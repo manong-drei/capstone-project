@@ -12,6 +12,26 @@ const register = async (req, res) => {
     const { username, phone, password, role, confirmPassword, ...profileData } =
       req.body;
 
+    if (!username || !phone || !password) {
+      return res.status(400).json({ success: false, message: "username, phone, and password are required." });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
+    }
+    if (!/[0-9]/.test(password)) {
+      return res.status(400).json({ success: false, message: "Password must contain at least one number." });
+    }
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      return res.status(400).json({ success: false, message: "Passwords do not match." });
+    }
+
+    const existingUsername = await User.findByUsername(username);
+    if (existingUsername) {
+      return res
+        .status(409)
+        .json({ success: false, message: "Username is already taken." });
+    }
+
     const existing = await User.findByPhone(phone);
     if (existing) {
       return res

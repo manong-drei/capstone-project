@@ -76,6 +76,10 @@ const createStaff = async (req, res) => {
       return res.status(400).json({ success: false, message: "Required fields are missing." });
     }
 
+    if (!['doctor', 'staff', 'admin'].includes(role)) {
+      return res.status(400).json({ success: false, message: "Invalid role. Must be doctor, staff, or admin." });
+    }
+
     if (role === 'doctor' && !license_number) {
       return res.status(400).json({ success: false, message: "License number is required for doctors." });
     }
@@ -99,40 +103,63 @@ const createStaff = async (req, res) => {
       return res.status(409).json({ success: false, message: "Username already in use." });
     }
 
-    // Create user
-    const password_hash = await bcrypt.hash(password, 10);
-    const [userResult] = await pool.query(
-      `INSERT INTO users (username, email, phone, password_hash, role)
-       VALUES (?, ?, ?, ?, ?)`,
-      [username, email || null, phone, password_hash, role]
-    );
-    const user_id = userResult.insertId;
-
-    // Create role-specific profile
-    if (role === 'doctor') {
-      await Doctor.create({
-        user_id,
-        first_name,
-        last_name,
-        license_number,
-        specialization_id: specialization_id || null,
-        contact_number: phone,
-      });
-    } else {
-      // staff and admin both go into the staff table
-      await Staff.create({
-        user_id,
-        first_name,
-        last_name,
-        position: role === 'admin' ? 'Administrator' : position,
-        contact_number: phone,
-      });
+    if (email) {
+      const [[existingEmail]] = await pool.query(
+        "SELECT user_id FROM users WHERE email = ?", [email]
+      );
+      if (existingEmail) {
+        return res.status(409).json({ success: false, message: "Email address already in use." });
+      }
     }
 
-    res.status(201).json({ success: true, message: "Staff account created.", user_id });
+    // Use a transaction so user row is rolled back if profile insert fails
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      const password_hash = await bcrypt.hash(password, 10);
+      const [userResult] = await conn.query(
+        `INSERT INTO users (username, email, phone, password_hash, role)
+         VALUES (?, ?, ?, ?, ?)`,
+        [username, email || null, phone, password_hash, role]
+      );
+      const user_id = userResult.insertId;
+
+      if (role === 'doctor') {
+        await conn.query(
+          `INSERT INTO doctors (user_id, specialization_id, first_name, last_name, license_number, contact_number)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [user_id, specialization_id || null, first_name, last_name, license_number, phone || null]
+        );
+      } else {
+        await conn.query(
+          `INSERT INTO staff (user_id, first_name, last_name, position, contact_number)
+           VALUES (?, ?, ?, ?, ?)`,
+          [user_id, first_name, last_name, role === 'admin' ? 'Administrator' : position, phone || null]
+        );
+      }
+
+      await conn.commit();
+      res.status(201).json({ success: true, message: "Staff account created.", user_id });
+    } catch (innerErr) {
+      await conn.rollback();
+      throw innerErr;
+    } finally {
+      conn.release();
+    }
   } catch (err) {
     console.error("createStaff error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    // Surface readable message for known MySQL errors
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: "A duplicate value was found. Check username, email, phone, or license number." });
+    }
+    if (err.code === 'ER_NO_DEFAULT_FOR_FIELD' || err.code === 'ER_BAD_NULL_ERROR') {
+      return res.status(400).json({ success: false, message: `Missing required field: ${err.sqlMessage}` });
+    }
+    if (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(500).json({ success: false, message: `Database schema error: ${err.sqlMessage}` });
+    }
+    res.status(500).json({ success: false, message: err.sqlMessage || "Server error." });
   }
 };
 

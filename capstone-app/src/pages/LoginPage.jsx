@@ -145,7 +145,7 @@ const LoginPage = () => {
       <div
         className="flex-1 flex items-center justify-center px-4 py-8"
         style={{
-          backgroundImage: "url('/assets/login_bg.jpg')",
+          backgroundImage: "url('/assets/Hero.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",

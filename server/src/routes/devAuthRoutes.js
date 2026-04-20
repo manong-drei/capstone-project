@@ -66,9 +66,9 @@ router.post("/dev-login", (req, res) => {
 
   // Issue a real JWT (same structure as authController.login)
   const token = jwt.sign(
-    { id: mockUser.id, role: mockUser.role },
+    { user_id: mockUser.id, role: mockUser.role },
     process.env.JWT_SECRET,
-    { expiresIn: "8h" },
+    { expiresIn: process.env.JWT_EXPIRES_IN || "8h" },
   );
 
   console.log(`[DEV LOGIN] Issued token for role: ${mockUser.role}`);

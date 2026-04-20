@@ -1,6 +1,7 @@
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
 const Doctor = require("../models/Doctor");
+const pool = require("../config/db");
 
 /** GET /api/appointments/me — patient's own appointments */
 const getMyAppointments = async (req, res) => {
@@ -44,6 +45,15 @@ const createAppointment = async (req, res) => {
       });
     }
 
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(appointment_date) || isNaN(new Date(appointment_date).getTime())) {
+      return res.status(400).json({ success: false, message: "Invalid appointment_date format. Use YYYY-MM-DD." });
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (new Date(appointment_date) < today) {
+      return res.status(400).json({ success: false, message: "Appointment date cannot be in the past." });
+    }
+
     const patient = await Patient.findByUserId(req.user.user_id);
     if (!patient) {
       return res
@@ -56,6 +66,24 @@ const createAppointment = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Doctor not found." });
+    }
+
+    // Enforce doctor's daily appointment limit
+    const [[settings]] = await pool.query(
+      "SELECT appointment_limit FROM daily_doctor_settings WHERE doctor_id = ? AND date = ?",
+      [doctor_id, appointment_date],
+    );
+    const limit = settings?.appointment_limit ?? 10;
+    const [[{ booked }]] = await pool.query(
+      `SELECT COUNT(*) AS booked FROM appointments
+       WHERE doctor_id = ? AND appointment_date = ? AND status IN ('pending','confirmed')`,
+      [doctor_id, appointment_date],
+    );
+    if (booked >= limit) {
+      return res.status(409).json({
+        success: false,
+        message: "This doctor has no available appointment slots for that date.",
+      });
     }
 
     const appointment = await Appointment.create({
@@ -83,12 +111,25 @@ const updateAppointmentStatus = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid status value." });
     }
-    const updated = await Appointment.updateStatus(req.params.id, status);
-    if (!updated) {
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
       return res
         .status(404)
         .json({ success: false, message: "Appointment not found." });
     }
+
+    // Doctors can only update appointments assigned to them
+    if (req.user.role === "doctor") {
+      const doctor = await Doctor.findByUserId(req.user.user_id);
+      if (!doctor || appointment.doctor_id !== doctor.doctor_id) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Not authorized to update this appointment." });
+      }
+    }
+
+    const updated = await Appointment.updateStatus(req.params.id, status);
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error("updateAppointmentStatus error:", err);

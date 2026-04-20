@@ -22,7 +22,7 @@ const DEV_MODE = import.meta.env.VITE_DEV_BYPASS === "true";
 
 const ROLES = [
   { role: "patient", label: "Patient", emoji: "🧑‍⚕️", color: "#4f46e5" },
-  { role: "doctor", label: "Doctor", emoji: "👨‍⚕️", color: "#0891b2" },
+  { role: "doctor", label: "Dentist", emoji: "👨‍⚕️", color: "#0891b2" },
   { role: "staff", label: "Staff", emoji: "🏥", color: "#059669" },
   { role: "admin", label: "Admin", emoji: "🔧", color: "#dc2626" },
 ];
@@ -50,8 +50,6 @@ export default function DevLoginPanel() {
     try {
       const res = await api.post("/auth/dev-login", { role });
 
-      // Make sure the response actually has what we expect
-      console.log("[DEV] Response:", res);
       const { token, user } = res;
 
       if (!token || !user) {
@@ -65,7 +63,6 @@ export default function DevLoginPanel() {
         navigate("/dashboard"); // ← always, RoleRedirect will sort by role
       }, 100);
     } catch (err) {
-      console.error("[DEV] Login error:", err);
       setError(err.response?.data?.message || "Dev login failed.");
     } finally {
       setLoading(null);

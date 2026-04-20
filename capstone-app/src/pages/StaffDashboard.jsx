@@ -565,13 +565,14 @@ function WalkInForm({ onSuccess }) {
 
     setLoading(true);
     try {
-      await api.post("/queue/walkin", {
+      const res = await api.post("/queue/walkin", {
         full_name: form.fullName,
         address: form.address,
         contact: "+63" + form.contact.replace(/^0+/, ""),
         type: "regular",
       });
-      setSuccess("Walk-in patient registered! Queue number assigned.");
+      const queueNumber = res?.queue?.queue_number ?? "assigned";
+      setSuccess(`Walk-in registered — queue number ${queueNumber}.`);
       setForm({ fullName: "", address: "", contact: "" });
       onSuccess?.();
     } catch (err) {
@@ -996,7 +997,7 @@ export default function StaffDashboard() {
   const handleCallNext = async () => {
     setCalling(true);
     try {
-      await api.post("/queue/next");
+      await api.post("/queue/call-next");
       await fetchQueue();
     } catch (err) {
       alert(err.message || "Failed to call next patient.");

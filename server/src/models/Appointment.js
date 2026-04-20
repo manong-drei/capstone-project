@@ -27,8 +27,7 @@ const Appointment = {
       `
       SELECT
         a.*,
-        p.first_name  AS patient_first_name,
-        p.last_name   AS patient_last_name
+        p.full_name   AS patient_full_name
       FROM   appointments a
       JOIN   patients p ON a.patient_id = p.patient_id
       WHERE  a.doctor_id = ?
@@ -44,8 +43,7 @@ const Appointment = {
     const [rows] = await pool.query(`
       SELECT
         a.*,
-        p.first_name  AS patient_first_name,
-        p.last_name   AS patient_last_name,
+        p.full_name   AS patient_full_name,
         d.first_name  AS doctor_first_name,
         d.last_name   AS doctor_last_name
       FROM   appointments a
@@ -93,6 +91,15 @@ const Appointment = {
       [result.insertId],
     );
     return rows[0];
+  },
+
+  // Fetch a single appointment by id
+  findById: async (appointment_id) => {
+    const [rows] = await pool.query(
+      "SELECT * FROM appointments WHERE appointment_id = ?",
+      [appointment_id],
+    );
+    return rows[0] || null;
   },
 
   // Update appointment status
