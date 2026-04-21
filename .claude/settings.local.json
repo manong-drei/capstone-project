@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm audit *)",
       "Bash(node -e ' *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(npm list *)"
     ]
   }
 }
