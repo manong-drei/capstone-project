@@ -5,9 +5,6 @@ import { useQueue } from "../hooks/useQueue";
 import { ROUTES } from "../constants/routes";
 import { QUEUE_STATUS } from "../constants/services";
 
-import StatCard from "../components/common/StatCard";
-import ActionCard from "../components/common/ActionCard";
-import NavBtn from "../components/common/NavBtn";
 import Icon from "../components/common/AppIcons";
 import GetQueueModal from "../components/dashboards/patient/GetQueueModal";
 import QueueStatus from "../components/dashboards/patient/QueueStatus";
@@ -15,13 +12,12 @@ import QueueStatus from "../components/dashboards/patient/QueueStatus";
 import * as appointmentService from "../services/appointmentService";
 import * as queueService from "../services/queueService";
 
-const INDIGO = "#4f46e5";
 const ORANGE = "#f97316";
 const NAVY = "#2d3a8c";
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { queue, loading, error, fetchMyQueue, submitQueue } = useQueue();
 
   const [activeTab, setActiveTab] = useState("home");
@@ -79,259 +75,549 @@ export default function PatientDashboard() {
     queue.status !== QUEUE_STATUS.CANCELLED;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f9fafb", display: "flex" }}>
-      {/* ── Sidebar (desktop) ── */}
-      <aside
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f3f4f6",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* ── Top Navbar ── */}
+      <nav
         style={{
-          width: "220px",
-          flexShrink: 0,
-          background: "#ffffff",
-          borderRight: "1px solid #f3f4f6",
-          padding: "24px 12px",
+          background: "linear-gradient(90deg, #1a3a8f 0%, #1e4db7 100%)",
+          padding: "10px 24px",
           display: "flex",
-          flexDirection: "column",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
         }}
-        className="sidebar-desktop"
       >
-        {/* Brand */}
-        <div style={{ padding: "0 8px", marginBottom: "28px" }}>
-          <h1
+        {/* Logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <img
+            src="/assets/Logo.jpg"
+            alt="E-KALUSUGAN"
             style={{
-              margin: 0,
-              fontSize: "16px",
+              width: 38,
+              height: 38,
+              borderRadius: "50%",
+              objectFit: "cover",
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              color: "white",
               fontWeight: 800,
-              color: NAVY,
+              fontSize: "16px",
+              letterSpacing: "0.1em",
             }}
           >
             E-KALUSUGAN
-          </h1>
-          <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#9ca3af" }}>
-            Bago City Health Center
-          </p>
+          </span>
         </div>
 
-        {/* Nav */}
-        <nav
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "4px",
-            flex: 1,
-          }}
-        >
-          <NavBtn
-            icon="home"
-            label="Home"
-            active={activeTab === "home"}
-            onClick={() => setActiveTab("home")}
-            color={INDIGO}
-          />
-          <NavBtn
-            icon="queue"
-            label="My Queue"
-            active={activeTab === "queue"}
-            onClick={() => setActiveTab("queue")}
-            color={INDIGO}
-          />
-          <NavBtn
-            icon="appointment"
-            label="Appointments"
-            active={activeTab === "appointments"}
-            onClick={() => setActiveTab("appointments")}
-            color={INDIGO}
-          />
-        </nav>
-
-        {/* User + Logout */}
-        <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "16px" }}>
-          <div style={{ padding: "0 8px", marginBottom: "8px" }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "#111827",
-              }}
-            >
-              {user?.first_name} {user?.last_name}
-            </p>
-            <p
-              style={{ margin: "1px 0 0", fontSize: "11px", color: "#9ca3af" }}
-            >
-              Patient
-            </p>
-          </div>
-          <NavBtn
-            icon="logout"
-            label="Logout"
-            onClick={handleLogout}
-            color="#dc2626"
-          />
-        </div>
-      </aside>
-
-      {/* ── Main Content ── */}
-      <main style={{ flex: 1, padding: "28px 24px", maxWidth: "860px" }}>
-        {/* Home Tab */}
-        {activeTab === "home" && (
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "24px" }}
+        {/* Right Nav Items */}
+        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          {/* Help */}
+          <button
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "none",
+              border: "none",
+              color: "white",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+              padding: "7px 12px",
+              borderRadius: "8px",
+            }}
           >
-            {/* Welcome */}
+            <Icon name="info" size={16} color="white" />
+            Help
+          </button>
+
+          {/* Notification */}
+          <button
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "none",
+              border: "none",
+              color: "white",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+              padding: "7px 12px",
+              borderRadius: "8px",
+            }}
+          >
+            <Icon name="bell" size={16} color="white" />
+            Notification
+          </button>
+
+          {/* Settings */}
+          <button
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "none",
+              border: "none",
+              color: "white",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+              padding: "7px 12px",
+              borderRadius: "8px",
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="white"
+              strokeWidth="1.5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            Settings
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              background: "rgba(255,255,255,0.15)",
+              border: "1.5px solid rgba(255,255,255,0.35)",
+              color: "white",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+              padding: "7px 16px",
+              borderRadius: "24px",
+              marginLeft: "8px",
+            }}
+          >
+            <Icon name="user" size={16} color="white" />
+            Logout
+          </button>
+        </div>
+      </nav>
+
+      {/* ── Home Tab ── */}
+      {activeTab === "home" && (
+        <>
+          {/* Hero Section */}
+          <section
+            style={{
+              position: "relative",
+              minHeight: "380px",
+              backgroundImage: "url('/assets/BGHero.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+            }}
+          >
             <div
               style={{
-                background: `linear-gradient(135deg, ${NAVY} 0%, ${INDIGO} 100%)`,
-                borderRadius: "20px",
-                padding: "28px",
-                color: "#ffffff",
+                position: "absolute",
+                inset: 0,
+                background: "rgba(255,255,255,0.42)",
+              }}
+            />
+            <div
+              style={{ position: "relative", zIndex: 1, padding: "48px 24px" }}
+            >
+              <h1
+                style={{
+                  margin: "0 0 2px",
+                  fontSize: "clamp(1.8rem, 4vw, 2.5rem)",
+                  fontWeight: 800,
+                  color: "#111827",
+                  lineHeight: 1.2,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Your Health, Schedule.
+              </h1>
+              <h1
+                style={{
+                  margin: "0 0 20px",
+                  fontSize: "clamp(1.8rem, 4vw, 2.5rem)",
+                  fontWeight: 800,
+                  color: "#1e4db7",
+                  lineHeight: 1.2,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                No More Long Waits.
+              </h1>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "clamp(0.875rem, 2vw, 1rem)",
+                  color: "#374151",
+                  maxWidth: "540px",
+                  lineHeight: 1.6,
+                }}
+              >
+                Get your queue number online, check doctor availability, and
+                track your wait time—all from your phone
+              </p>
+            </div>
+          </section>
+
+          {/* Action Buttons */}
+          <div
+            style={{
+              background: "#f3f4f6",
+              padding: "28px 24px",
+              display: "flex",
+              gap: "16px",
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              onClick={() => setShowQueueModal(true)}
+              disabled={hasActiveQueue}
+              style={{
+                flex: "1 1 220px",
+                maxWidth: "340px",
+                padding: "22px 32px",
+                borderRadius: "16px",
+                border: "none",
+                background: ORANGE,
+                color: "white",
+                fontSize: "15px",
+                fontWeight: 800,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                cursor: hasActiveQueue ? "not-allowed" : "pointer",
+                opacity: hasActiveQueue ? 0.65 : 1,
+                boxShadow: "0 4px 14px rgba(249,115,22,0.35)",
+              }}
+            >
+              GET QUEUE NUMBER
+            </button>
+
+            <button
+              onClick={() => setActiveTab("appointments")}
+              style={{
+                flex: "1 1 220px",
+                maxWidth: "340px",
+                padding: "22px 32px",
+                borderRadius: "16px",
+                border: "none",
+                background: "#e5e7eb",
+                color: "#374151",
+                fontSize: "15px",
+                fontWeight: 800,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+            >
+              APPOINTMENT SLOTS
+            </button>
+          </div>
+
+          {/* Active Queue Alert */}
+          {hasActiveQueue && (
+            <div style={{ padding: "0 24px 8px" }}>
+              <QueueStatus queue={queue} onCancel={handleCancelQueue} />
+            </div>
+          )}
+
+          {/* Info Cards Grid */}
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            style={{ padding: "0 24px 32px" }}
+          >
+            {/* Card 1 — Currently Serving */}
+            <div
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                borderLeft: "4px solid #f97316",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                position: "relative",
+                minHeight: "130px",
               }}
             >
               <p
                 style={{
-                  margin: "0 0 4px",
-                  fontSize: "13px",
-                  color: "#c7d2fe",
+                  margin: "0 0 6px",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: "#9ca3af",
+                  letterSpacing: "0.12em",
                 }}
               >
-                Welcome back,
+                CURRENTLY SERVING
               </p>
-              <h2
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: "28px",
+                  fontWeight: 800,
+                  color: "#f97316",
+                }}
+              >
+                {hasActiveQueue ? queue.queue_number : "—"}
+              </p>
+              <p style={{ margin: 0, fontSize: "12px", color: "#9ca3af" }}>
+                At the main clinic
+              </p>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "16px",
+                  right: "16px",
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "50%",
+                  background: "#fff7ed",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name="user" size={18} color="#f97316" />
+              </div>
+            </div>
+
+            {/* Card 2 — Est. Wait Time */}
+            <div
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                borderLeft: "4px solid #1e4db7",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                position: "relative",
+                minHeight: "130px",
+              }}
+            >
+              <p
                 style={{
                   margin: "0 0 6px",
-                  fontSize: "24px",
-                  fontWeight: 800,
-                  color: "#ffffff",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: "#9ca3af",
+                  letterSpacing: "0.12em",
                 }}
               >
-                {user?.first_name ?? "Patient"} 👋
-              </h2>
-              <p style={{ margin: 0, fontSize: "13px", color: "#a5b4fc" }}>
-                Bago City Health Center —{" "}
-                {new Date().toLocaleDateString("en-PH", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                EST. WAIT TIME
+              </p>
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: "28px",
+                  fontWeight: 800,
+                  color: "#1e4db7",
+                }}
+              >
+                ~15 min
+              </p>
+              <p style={{ margin: 0, fontSize: "12px", color: "#9ca3af" }}>
+                Based on current queue
+              </p>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "16px",
+                  right: "16px",
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "50%",
+                  background: "#eff6ff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name="clock" size={18} color="#1e4db7" />
+              </div>
+            </div>
+
+            {/* Card 3 — Doctor Availability */}
+            <div
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                borderLeft: "4px solid #1e1b4b",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "130px",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "24px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  textAlign: "center",
+                }}
+              >
+                Doctor Availability
               </p>
             </div>
 
-            {/* Active Queue Alert */}
-            {hasActiveQueue && (
-              <QueueStatus queue={queue} onCancel={handleCancelQueue} />
-            )}
-
-            {/* Quick Actions */}
-            <div>
-              <h3
+            {/* Card 4 — Appointment History */}
+            <div
+              onClick={() => setActiveTab("appointments")}
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                borderLeft: "4px solid #1e4db7",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "130px",
+                cursor: "pointer",
+              }}
+            >
+              <p
                 style={{
-                  margin: "0 0 12px",
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  color: "#374151",
+                  margin: 0,
+                  fontSize: "24px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  textAlign: "center",
                 }}
               >
-                Quick Actions
-              </h3>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: "12px",
-                }}
-              >
-                <ActionCard
-                  icon="queue"
-                  title="Get Queue Number"
-                  description="Join today's patient queue"
-                  color={NAVY}
-                  disabled={hasActiveQueue}
-                  onClick={() => setShowQueueModal(true)}
-                />
-                <ActionCard
-                  icon="appointment"
-                  title="Book Appointment"
-                  description="Schedule a future visit"
-                  color={ORANGE}
-                  onClick={() => setActiveTab("appointments")}
-                />
-              </div>
-              {hasActiveQueue && (
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    fontSize: "12px",
-                    color: "#9ca3af",
-                  }}
-                >
-                  You already have an active queue number. Cancel it first to
-                  get a new one.
-                </p>
-              )}
+                Appointment
+                <br />
+                History
+              </p>
             </div>
 
-            {/* Stats */}
-            <div>
-              <h3
+            {/* Card 5 — Location */}
+            <div
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                borderLeft: "4px solid #1e1b4b",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "130px",
+              }}
+            >
+              <p
                 style={{
-                  margin: "0 0 12px",
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  color: "#374151",
+                  margin: 0,
+                  fontSize: "24px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  textAlign: "center",
                 }}
               >
-                Your Activity
-              </h3>
-              <div
+                Location
+              </p>
+            </div>
+
+            {/* Card 6 — CHO Service */}
+            <div
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                borderLeft: "4px solid #f97316",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "130px",
+              }}
+            >
+              <p
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                  gap: "12px",
+                  margin: 0,
+                  fontSize: "24px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  textAlign: "center",
                 }}
               >
-                <StatCard
-                  icon="queue"
-                  label="Queue Today"
-                  value={hasActiveQueue ? queue.queue_number : "—"}
-                  color={NAVY}
-                />
-                <StatCard
-                  icon="appointment"
-                  label="Upcoming Visits"
-                  value={
-                    appointments.filter((a) => a.status === "confirmed").length
-                  }
-                  color={ORANGE}
-                />
-                <StatCard
-                  icon="checkCircle"
-                  label="Past Consultations"
-                  value="—"
-                  color={INDIGO}
-                />
-              </div>
+                CHO SERVICE
+              </p>
             </div>
           </div>
-        )}
+        </>
+      )}
 
-        {/* Queue Tab */}
-        {activeTab === "queue" && (
+      {/* ── Queue Tab ── */}
+      {activeTab === "queue" && (
+        <div
+          style={{
+            flex: 1,
+            padding: "28px 24px",
+            maxWidth: "860px",
+            margin: "0 auto",
+            width: "100%",
+          }}
+        >
           <div
             style={{ display: "flex", flexDirection: "column", gap: "20px" }}
           >
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "18px",
-                fontWeight: 700,
-                color: "#111827",
-              }}
-            >
-              My Queue
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <button
+                onClick={() => setActiveTab("home")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                }}
+              >
+                ← Back
+              </button>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "18px",
+                  fontWeight: 700,
+                  color: "#111827",
+                }}
+              >
+                My Queue
+              </h2>
+            </div>
             {loading && <p style={{ color: "#9ca3af" }}>Loading...</p>}
             {error && <p style={{ color: "#dc2626" }}>{error}</p>}
             {!loading && !hasActiveQueue && (
@@ -366,20 +652,37 @@ export default function PatientDashboard() {
               <QueueStatus queue={queue} onCancel={handleCancelQueue} />
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Appointments Tab */}
-        {activeTab === "appointments" && (
+      {/* ── Appointments Tab ── */}
+      {activeTab === "appointments" && (
+        <div
+          style={{
+            flex: 1,
+            padding: "28px 24px",
+            maxWidth: "860px",
+            margin: "0 auto",
+            width: "100%",
+          }}
+        >
           <div
             style={{ display: "flex", flexDirection: "column", gap: "20px" }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <button
+                onClick={() => setActiveTab("home")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                }}
+              >
+                ← Back
+              </button>
               <h2
                 style={{
                   margin: 0,
@@ -463,8 +766,8 @@ export default function PatientDashboard() {
               </div>
             )}
           </div>
-        )}
-      </main>
+        </div>
+      )}
 
       {/* ── Get Queue Modal ── */}
       <GetQueueModal

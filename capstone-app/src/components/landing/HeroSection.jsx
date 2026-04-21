@@ -20,7 +20,7 @@ const HeroSection = () => {
       style={{
         minHeight: "320px",
         // REDESIGN NOTE: swap the url() value for the real asset path
-        backgroundImage: "url('/assets/Hero.png')",
+        backgroundImage: "url('/assets/BGHero.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -28,16 +28,6 @@ const HeroSection = () => {
     >
       {/* Hero Text */}
       <div className="relative z-10 text-center px-4 py-16 sm:py-20">
-        <p
-          className="text-white font-semibold uppercase tracking-widest mb-2"
-          style={{
-            fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
-            letterSpacing: "0.3em",
-            textShadow: "0 1px 8px rgba(0,0,0,0.4)",
-          }}
-        >
-          WELCOME
-        </p>
         <h1
           className="text-white font-extrabold uppercase"
           style={{
@@ -47,6 +37,7 @@ const HeroSection = () => {
             textShadow: "0 2px 16px rgba(0,0,0,0.4)",
           }}
         >
+          WELCOME <br />
           STAY HEALTHY, STAY SAFE
         </h1>
       </div>

@@ -190,12 +190,15 @@ const features = [
 
 const FeaturesSection = () => {
   return (
-    <section className="w-full bg-gray-50 py-10 sm:py-12 px-4 sm:px-6">
+    <section
+      className="w-full py-10 sm:py-12 px-4 sm:px-6"
+      style={{ background: "#6b7fe0" }}
+    >
       <div className="max-w-3xl mx-auto">
         {/* Heading */}
         <h2
           className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8"
-          style={{ color: "#1a3a8f" }}
+          style={{ color: "#ffffff" }}
         >
           Why Choose E-KALUSUGAN?
         </h2>

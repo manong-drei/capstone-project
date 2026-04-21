@@ -14,25 +14,11 @@ const Navbar = () => {
         className="flex items-center gap-2 cursor-pointer"
         onClick={() => navigate("/")}
       >
-        <div className="w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0 flex items-center justify-center">
-          <svg
-            viewBox="0 0 32 32"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-full h-full"
-          >
-            <circle
-              cx="16"
-              cy="16"
-              r="15"
-              stroke="white"
-              strokeWidth="1.5"
-              fill="none"
-            />
-            <rect x="13" y="7" width="6" height="18" rx="1.5" fill="white" />
-            <rect x="7" y="13" width="18" height="6" rx="1.5" fill="white" />
-          </svg>
-        </div>
+        <img
+          src="/assets/Logo.jpg"
+          alt="E-KALUSUGAN Logo"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover shrink-0"
+        />
         <span className="text-white font-extrabold text-sm sm:text-base md:text-lg tracking-widest uppercase select-none">
           E-KALUSUGAN
         </span>
@@ -83,7 +69,7 @@ const Navbar = () => {
           <span
             className="
               absolute inset-0 -skew-x-12
-              bg-gradient-to-r from-transparent via-white/25 to-transparent
+              bg-linear-to-r from-transparent via-white/25 to-transparent
               -translate-x-full group-hover:translate-x-full
               transition-transform duration-500 ease-in-out
             "
