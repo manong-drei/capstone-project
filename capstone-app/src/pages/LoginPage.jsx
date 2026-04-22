@@ -4,6 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import * as authService from "../services/authService";
 import DevLoginPanel from "../components/common/DevLoginPanel";
 import TermsPrivacyModal from "../components/common/TermsPrivacyModal";
+import { setSessionItem } from "@analytics/session-storage-utils";
 
 /* ── Inline Navbar (same design system) ───────────────────────────────── */
 const Navbar = () => {
@@ -110,6 +111,7 @@ const LoginPage = () => {
       });
 
       login(response.user, response.token);
+      setSessionItem("user", response.user.user_id);
       navigate("/dashboard");
     } catch (err) {
       setError(err.message || "Invalid credentials. Please try again.");

@@ -5,6 +5,7 @@ import { useQueue } from "../hooks/useQueue";
 import { ROUTES } from "../constants/routes";
 import { QUEUE_STATUS } from "../constants/services";
 
+import Footer from "../components/landing/Footer";
 import Icon from "../components/common/AppIcons";
 import GetQueueModal from "../components/dashboards/patient/GetQueueModal";
 import QueueStatus from "../components/dashboards/patient/QueueStatus";
@@ -20,7 +21,9 @@ const formatServices = (appt) => {
     const raw = appt?.queue_services;
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (Array.isArray(parsed) && parsed.length > 0) return parsed.join(", ");
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
   return appt?.reason || "—";
 };
 
@@ -208,17 +211,35 @@ export default function PatientDashboard() {
             color: "white",
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             {mobileMenuOpen ? (
-              <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>
+              <>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </>
             ) : (
-              <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>
+              <>
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </>
             )}
           </svg>
         </button>
 
         {/* Right Nav Items (desktop) */}
-        <div className="pd-nav-items pd-nav-items-desktop" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        <div
+          className="pd-nav-items pd-nav-items-desktop"
+          style={{ display: "flex", alignItems: "center", gap: "4px" }}
+        >
           {/* Help */}
           <button
             style={{
@@ -357,9 +378,26 @@ export default function PatientDashboard() {
               onClick={() => setMobileMenuOpen(false)}
               style={mobileMenuBtn}
             >
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="1.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5" />
-                <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="1.5" />
+              <svg
+                width="16"
+                height="16"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="white"
+                strokeWidth="1.5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10.5 6a7.5 7.5 0 107.5 7.5"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                  stroke="white"
+                  strokeWidth="1.5"
+                />
               </svg>
               Settings
             </button>
@@ -368,7 +406,11 @@ export default function PatientDashboard() {
                 setMobileMenuOpen(false);
                 handleLogout();
               }}
-              style={{ ...mobileMenuBtn, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)" }}
+              style={{
+                ...mobileMenuBtn,
+                background: "rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.3)",
+              }}
             >
               <Icon name="user" size={16} color="white" />
               Logout
@@ -509,9 +551,7 @@ export default function PatientDashboard() {
           )}
 
           {/* Info Cards Grid */}
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pd-content-pad"
-          >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pd-content-pad">
             {/* Card 1 — Currently Serving */}
             <div
               style={{
@@ -732,6 +772,7 @@ export default function PatientDashboard() {
               </p>
             </div>
           </div>
+          <Footer />
         </>
       )}
 
@@ -865,7 +906,8 @@ export default function PatientDashboard() {
                 }}
               >
                 {appointments.map((appt) => {
-                  const doctorName = `Dr. ${appt.doctor_first_name ?? ""} ${appt.doctor_last_name ?? ""}`.trim();
+                  const doctorName =
+                    `Dr. ${appt.doctor_first_name ?? ""} ${appt.doctor_last_name ?? ""}`.trim();
                   const services = formatServices(appt);
                   return (
                     <div
@@ -900,13 +942,18 @@ export default function PatientDashboard() {
                             color: "#6b7280",
                           }}
                         >
-                          {new Date(appt.appointment_date).toLocaleDateString("en-PH", {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                          {appt.appointment_time ? ` at ${appt.appointment_time}` : ""}
+                          {new Date(appt.appointment_date).toLocaleDateString(
+                            "en-PH",
+                            {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            },
+                          )}
+                          {appt.appointment_time
+                            ? ` at ${appt.appointment_time}`
+                            : ""}
                         </p>
                         <p
                           style={{
@@ -925,13 +972,21 @@ export default function PatientDashboard() {
                           padding: "3px 10px",
                           borderRadius: "20px",
                           background:
-                            appt.status === "confirmed" ? "#d1fae5" :
-                            appt.status === "completed" ? "#dbeafe" :
-                            appt.status === "cancelled" ? "#fee2e2" : "#f3f4f6",
+                            appt.status === "confirmed"
+                              ? "#d1fae5"
+                              : appt.status === "completed"
+                                ? "#dbeafe"
+                                : appt.status === "cancelled"
+                                  ? "#fee2e2"
+                                  : "#f3f4f6",
                           color:
-                            appt.status === "confirmed" ? "#059669" :
-                            appt.status === "completed" ? "#1d4ed8" :
-                            appt.status === "cancelled" ? "#b91c1c" : "#6b7280",
+                            appt.status === "confirmed"
+                              ? "#059669"
+                              : appt.status === "completed"
+                                ? "#1d4ed8"
+                                : appt.status === "cancelled"
+                                  ? "#b91c1c"
+                                  : "#6b7280",
                         }}
                       >
                         {appt.status}

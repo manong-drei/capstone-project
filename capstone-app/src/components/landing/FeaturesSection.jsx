@@ -192,7 +192,7 @@ const FeaturesSection = () => {
   return (
     <section
       className="w-full py-10 sm:py-12 px-4 sm:px-6"
-      style={{ background: "#6b7fe0" }}
+      style={{ background: "#1E3A8A" }}
     >
       <div className="max-w-3xl mx-auto">
         {/* Heading */}
