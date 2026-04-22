@@ -1,137 +1,176 @@
-# E-KALUSUGAN — Claude Code Context
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-Web-based appointment scheduling, queue management, and analytics system for
-Bago City Primary Care Facility (dental services only). Capstone project for
-BSIT at STI West Negros University.
+**E-KALUSUGAN** is a full-stack appointment scheduling and patient management system for healthcare facilities. It's built as a two-part application:
 
-Scope: dental services at Bago City Primary Care Facility only. Does not
-replace actual medical consultations or integrate with external platforms.
+- **Frontend**: React 19 + Vite + React Router + Tailwind CSS + Recharts
+- **Backend**: Express.js + MySQL 2 + JWT authentication + bcrypt password hashing
+- **Database**: MySQL with role-based access control (patient, doctor, staff, admin)
+
+The project supports role-based dashboards and workflows for four user types: patients (book appointments), doctors (view schedules), staff (manage queue), and admins (system oversight).
 
 ## Directory Structure
 
-Capstone/
-├── capstone-app/ # React + Vite frontend
-│ └── src/
-│ ├── components/
-│ │ └── common/ # Shared UI components
-│ ├── pages/ # Role-based dashboards and views
-│ └── api.js # Axios instance with interceptor
-└── server/
-└── src/
-├── controllers/
-├── routes/
-├── models/
-├── middleware/
-└── seedAdmin.js # Excluded from Git via .gitignore
+```
+capstone-app/          # React frontend (port 3000)
+  src/
+    pages/             # Role-specific dashboards + auth pages
+    components/        # UI components (common, dashboards, landing)
+    services/          # API client layer (authService, appointmentService, queueService)
+    hooks/             # Custom hooks (useAuth, useQueue)
+    context/           # React Context (AuthContext for session state)
+    constants/         # Routes, roles, API endpoints
+    index.css          # Tailwind-based styling
 
-## Tech Stack
-
-- **Frontend**: React, Vite, Tailwind CSS, React Router v6, Axios
-- **Backend**: Node.js, Express.js, MySQL, jsonwebtoken, bcryptjs, Nodemon
-- **Dev/Testing**: Thunder Client, Postman, cURL
-- **Vite proxy**: `/api` → `localhost:5000`
-
-## User Roles
-
-patient, doctor, staff, admin — each has a dedicated portal/dashboard.
-
-## Database Schema (MySQL)
-
-Tables: `users`, `patient_profiles`, `services`, `queues`, `queue_services`,
-`appointments`, `consultations`, `doctor_availability`
-
-Key column notes:
-
-- `patients` table uses `full_name` as a single column, NOT `first_name`/`last_name`
-- `queue_services.services` is stored as `JSON.stringify`; must be parsed on
-  every retrieval using a `_parse` helper applied across all Queue model methods
-- No `admins` table exists. Admin accounts are stored in the `staff` table
-  with `position = 'Administrator'`. The GET staff query uses UNION to include them.
-
-## Auth & Security
-
-- JWT-based auth with role-based access control
-- `role` field must NEVER be caller-controlled in registration endpoints
-- Staff and nurse accounts must be admin-created, never self-registered
-- Initial admin account created via `seedAdmin.js` (direct DB insert, excluded from Git)
-- JWT secrets generated via `crypto.randomBytes`; never reuse between dev and production
-
-## Critical Coding Rules
-
-### Axios Interceptor
-
-`api.js` auto-unwraps `res.data`. All downstream service consumers must operate
-on the unwrapped result directly. Never access `.data` again on the result.
-
-```js
-// WRONG
-const result = await someService.get();
-console.log(result.data);
-
-// CORRECT
-const result = await someService.get();
-console.log(result);
+server/                # Express backend (port 5000)
+  src/
+    server.js          # Express app entry point with middleware setup
+    config/            # Database connection pool (mysql2/promise)
+    models/            # Data access layer (User, Patient, Doctor, Appointment, Queue, etc.)
+    controllers/       # Request handlers (logic layer)
+    routes/            # API endpoint definitions (auth, patient, doctor, admin, queue, appointment)
+    middleware/        # authenticate (JWT), authorize, devBypass (dev-only auth bypass)
+    utils/             # Utility functions
 ```
 
-### Text Colors in React
+## Development Commands
 
-All text colors must use inline `style={{ color: "#..." }}`, NOT Tailwind color
-utility classes. `index.css` CSS custom properties override Tailwind in dark mode.
+### Frontend (capstone-app/)
 
-```jsx
-// WRONG
-<p className="text-blue-700">...</p>
-
-// CORRECT
-<p style={{ color: "#1a3a8f" }}>...</p>
+```bash
+npm run dev      # Start Vite dev server with HMR (http://localhost:3000)
+npm run build    # Build optimized production bundle
+npm run preview  # Preview production build locally
+npm run lint     # Run ESLint to check code style
 ```
 
-### React Hooks Scope
+The frontend proxies API calls to `http://localhost:5000` via Vite's proxy config (`vite.config.js`).
 
-Hooks (e.g., `useNavigate`, `useState`) must always be called inside component
-function bodies, never at module scope.
+### Backend (server/)
 
-### Targeted Fixes
+```bash
+npm run dev      # Start Express with nodemon auto-reload (http://localhost:5000)
+npm start        # Start Express directly (production)
+npm run test:db  # Test MySQL database connection
+```
 
-Only change the specific part of the code that needs fixing. Do not rewrite
-entire files unless explicitly asked.
+The backend requires MySQL running locally with credentials specified in `server/.env`.
 
-## Design System
+### Full Stack Startup
 
-| Token          | Value                  |
-| -------------- | ---------------------- |
-| Primary blue   | `#1a3a8f`              |
-| Secondary blue | `#1e4db7`              |
-| Indigo accent  | `#4f46e5`              |
-| Orange accent  | `#f97316`              |
-| Dark navy      | `#2d3a8c` / `#1e1b4b`  |
-| Border radius  | `20px` / `rounded-2xl` |
+1. Start MySQL server locally
+2. In `server/`: `npm run dev`
+3. In `capstone-app/`: `npm run dev`
 
-## API Route Conventions
+Access the app at `http://localhost:3000` (frontend proxies API calls to the backend).
 
-Watch for singular/plural mismatch: `DoctorDashboard.jsx` may call `/api/doctor`
-while the route is mounted as `/api/doctors` (or vice versa). Verify before
-adding new routes.
+## Authentication & Security
 
-## Dev Bypass System
+### JWT-Based Auth Flow
 
-`devBypass.js` middleware + `DevLoginPanel.jsx` are in place for local
-role-based testing without going through normal login flow.
+1. User logs in via LoginPage → calls `authService.login()` → POST `/api/auth/login`
+2. Backend returns JWT token + user object
+3. Frontend stores both in localStorage (keys: `ek_token`, `ek_user`) via AuthContext
+4. API requests include token in `Authorization: Bearer <token>` header
+5. Backend middleware (`authenticate.js`) verifies JWT using `process.env.JWT_SECRET`
 
-## Known Outstanding Work
+### Development Auth Bypass
 
-- `adminRoutes.js` handlers return hardcoded stub data — replace with real MySQL queries
-- Confirm `StaffDashboard` component exists and is complete (previously missing;
-  staff were routed to admin dashboard as a workaround)
-- Descriptive and predictive analytics module — not yet started
-- Doctor availability tracking UI — not yet started
-- PWA/offline functionality — listed in scope, not yet implemented
-- Audit all API route names for singular/plural consistency
+In development mode, the `devBypass` middleware (mounted in `server.js` before authenticate) allows skipping JWT by adding an HTTP header:
 
-## Resolved Issues (Do Not Reopen)
+```
+x-dev-role: patient | doctor | staff | admin
+```
 
-- `queueService.js` copy-pasted auth exports bug — fully resolved
-- Security loophole (caller-controlled `role` in registration) — closed via
-  admin-only account creation for privileged roles
+This is only active when `NODE_ENV=development`. In production, this middleware does nothing. Mock user objects are injected directly (id, fullName, email, role).
+
+### Role-Based Routing
+
+- Frontend: `ProtectedRoute` component checks `user.role` and redirects to appropriate dashboard
+- Backend: Routes are not role-protected at the middleware level (most endpoints rely on client-side filtering or accept any authenticated user)
+- Four roles: `patient`, `doctor`, `staff`, `admin`
+
+## Key Architecture Patterns
+
+### Frontend
+
+- **AuthContext + useAuth**: Global session state managed via React Context (not Redux)
+- **Router-based role redirect**: `/dashboard` endpoint uses `RoleRedirect` component to route users to their role-specific dashboard based on `user.role`
+- **Service layer**: `api.js` (axios instance with baseURL), `authService.js`, `appointmentService.js`, `queueService.js` separate API calls from components
+- **Tailwind CSS**: All styling uses utility classes; custom theme colors use inline style props (blue gradients: `#1a3a8f` to `#1e4db7`)
+
+### Backend
+
+- **Connection pooling**: `config/db.js` uses mysql2/promise pool with 10 max connections, Philippine timezone (+08:00)
+- **Models as static objects**: No ORM; `User.js`, `Patient.js`, `Doctor.js`, etc. are modules with async query methods
+- **Controller pattern**: Routes delegate to controllers (in `controllers/`); controllers call model methods
+- **Helmet + CORS**: Security headers enabled; CORS origins configurable via `process.env.ALLOWED_ORIGINS`
+- **Rate limiting**: 10 requests per 15 minutes on `/api/auth/*` endpoints
+- **Health check**: GET `/api/health` available for monitoring
+
+## Configuration
+
+### Environment Variables
+
+**Frontend** (`capstone-app/.env.development`):
+```
+VITE_API_URL=http://localhost:5000
+VITE_DEV_BYPASS=true
+```
+
+**Backend** (`server/.env`):
+```
+PORT=5000
+NODE_ENV=development
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=''
+DB_NAME=ekalusugan_db
+JWT_SECRET=ekalusugan_super_secret_key_change_in_production
+JWT_EXPIRES_IN=7d
+```
+
+In production, change `JWT_SECRET`, set `NODE_ENV=production`, and use proper database credentials.
+
+## Database
+
+Tables include: `users` (base), `patients`, `doctors`, `staff`, `appointments`, `queue`, etc.
+
+- **Authentication**: passwords are bcrypt-hashed; stored in `password_hash` column
+- **User lookup**: by `phone` (primary) or `username`
+- **Timestamps**: `created_at`, `updated_at` in UTC (converted to PST +08:00 at connection level)
+
+## Common Development Tasks
+
+### Adding a New API Endpoint
+
+1. Create route handler in `server/src/routes/newRoutes.js`
+2. Write controller logic in `server/src/controllers/newController.js`
+3. Add model queries to `server/src/models/Model.js`
+4. Mount route in `server.js`: `app.use("/api/new", newRoutes)`
+5. Create service function in `capstone-app/src/services/newService.js`
+6. Use service in component via hooks or direct calls
+
+### Testing Auth Flow
+
+Use the dev bypass header in development:
+```bash
+curl -H "x-dev-role: patient" http://localhost:5000/api/patients
+```
+
+Or log in normally via the UI and copy the token from localStorage to use in Postman/curl.
+
+### Database Issues
+
+Run `npm run test:db` in `server/` to verify MySQL connection. Check `.env` credentials and MySQL server status.
+
+## Recent Changes
+
+- StaffDashboard added with dedicated role-based route (`/staff`)
+- Dev bypass middleware supports all four roles
+- Role redirect in App.jsx routes staff to `/staff` instead of admin dashboard
+

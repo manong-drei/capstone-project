@@ -37,14 +37,63 @@ const createQueue = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Patient profile not found.' });
     }
 
+    const db = require('../config/db');
+
     // Check for existing active queue today
     const existing = await Queue.findByPatientId(patient.patient_id);
     if (existing) {
       return res.status(409).json({ success: false, message: 'You already have an active queue today.' });
     }
 
+    // Resolve the active dentist (single-doctor facility — use the first)
+    const [[activeDoc]] = await db.query(
+      `SELECT doctor_id FROM doctors ORDER BY doctor_id ASC LIMIT 1`
+    );
+
+    // A registered-patient queue must consume an appointment slot. If the
+    // patient has no pending/confirmed appointment for today, create one.
+    if (activeDoc) {
+      const [[existingAppt]] = await db.query(
+        `SELECT appointment_id FROM appointments
+         WHERE patient_id = ? AND appointment_date = CURDATE()
+           AND status IN ('pending','confirmed')
+         LIMIT 1`,
+        [patient.patient_id]
+      );
+
+      if (!existingAppt) {
+        const [[settings]] = await db.query(
+          `SELECT appointment_limit FROM daily_doctor_settings
+           WHERE doctor_id = ? AND date = CURDATE()`,
+          [activeDoc.doctor_id]
+        );
+        const limit = settings?.appointment_limit ?? 10;
+
+        const [[{ booked }]] = await db.query(
+          `SELECT COUNT(*) AS booked FROM appointments
+           WHERE doctor_id = ? AND appointment_date = CURDATE()
+             AND status IN ('pending','confirmed')`,
+          [activeDoc.doctor_id]
+        );
+
+        if (booked >= limit) {
+          return res.status(409).json({
+            success: false,
+            message: 'No appointment slots available for today.',
+          });
+        }
+
+        await db.query(
+          `INSERT INTO appointments
+             (patient_id, doctor_id, appointment_date, appointment_time, reason, status)
+           VALUES (?, ?, CURDATE(), CURTIME(), ?, 'confirmed')`,
+          [patient.patient_id, activeDoc.doctor_id, 'Same-day queue registration']
+        );
+      }
+    }
+
     // Generate queue number: Q-001 format based on today's count
-    const [[countRow]] = await require('../config/db').query(
+    const [[countRow]] = await db.query(
       `SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()`
     );
     const queueNumber = `Q-${String(countRow.count + 1).padStart(3, '0')}`;
@@ -66,10 +115,16 @@ const createQueue = async (req, res) => {
 /** POST /api/queue/walkin — staff registers a walk-in patient (no account) */
 const createWalkIn = async (req, res) => {
   try {
-    const { full_name, contact, type } = req.body;
+    const { full_name, age, gender, contact, type } = req.body;
 
     if (!full_name || !full_name.trim()) {
       return res.status(400).json({ success: false, message: 'Full name is required.' });
+    }
+    if (!age || isNaN(age) || age < 1 || age > 120) {
+      return res.status(400).json({ success: false, message: 'A valid age is required.' });
+    }
+    if (!gender || !['male', 'female'].includes(gender)) {
+      return res.status(400).json({ success: false, message: 'Gender must be male or female.' });
     }
 
     const db = require('../config/db');
@@ -104,6 +159,8 @@ const createWalkIn = async (req, res) => {
       type: type || 'regular',
       services: [],
       walk_in_name: full_name.trim(),
+      walk_in_age: parseInt(age),
+      walk_in_gender: gender,
       walk_in_contact: contact || null,
     });
 
@@ -143,6 +200,18 @@ const updateStatus = async (req, res) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Queue entry not found.' });
     }
+
+    // When a registered patient's queue is done, mark their appointment as completed
+    if (status === 'done' && updated.patient_id) {
+      const db = require('../config/db');
+      await db.query(
+        `UPDATE appointments
+         SET status = 'completed', updated_at = NOW()
+         WHERE patient_id = ? AND appointment_date = CURDATE() AND status IN ('pending', 'confirmed')`,
+        [updated.patient_id]
+      );
+    }
+
     res.json(updated);
   } catch (err) {
     console.error('updateStatus error:', err);

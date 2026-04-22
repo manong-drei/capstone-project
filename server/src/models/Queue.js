@@ -50,17 +50,21 @@ const Queue = {
     type,
     services,
     walk_in_name,
+    walk_in_age,
+    walk_in_gender,
     walk_in_contact,
   }) => {
     const [result] = await pool.query(
-      `INSERT INTO queues (patient_id, queue_number, type, services, walk_in_name, walk_in_contact)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO queues (patient_id, queue_number, type, services, walk_in_name, walk_in_age, walk_in_gender, walk_in_contact)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         patient_id || null,
         queue_number,
         type || "regular",
         services ? JSON.stringify(services) : null,
         walk_in_name || null,
+        walk_in_age || null,
+        walk_in_gender || null,
         walk_in_contact || null,
       ],
     );

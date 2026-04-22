@@ -15,6 +15,57 @@ import * as queueService from "../services/queueService";
 const ORANGE = "#f97316";
 const NAVY = "#2d3a8c";
 
+const mobileMenuBtn = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  background: "none",
+  border: "none",
+  color: "white",
+  fontSize: "14px",
+  fontWeight: 500,
+  cursor: "pointer",
+  padding: "10px 12px",
+  borderRadius: "8px",
+  textAlign: "left",
+  width: "100%",
+};
+
+const PATIENT_RESPONSIVE_CSS = `
+  .pd-nav { padding: 10px 24px; }
+  .pd-nav-items { display: flex; align-items: center; gap: 4px; }
+  .pd-nav-btn-label { display: inline; }
+  .pd-hamburger { display: none; }
+  .pd-mobile-menu { display: none; }
+  .pd-actions { padding: 28px 24px; }
+  .pd-content-pad { padding: 0 24px 32px; }
+  .pd-tab-pad { padding: 28px 24px; }
+  .pd-hero-pad { padding: 48px 24px; }
+  .pd-doctor-hero-pad { padding: 40px 24px; }
+  @media (max-width: 768px) {
+    .pd-nav { padding: 10px 16px; }
+    .pd-nav-items { gap: 2px; }
+    .pd-nav-btn-label { display: none; }
+    .pd-brand-text { font-size: 14px !important; letter-spacing: 0.06em !important; }
+  }
+  @media (max-width: 640px) {
+    .pd-nav { padding: 10px 14px; }
+    .pd-hamburger { display: flex !important; }
+    .pd-nav-items-desktop { display: none !important; }
+    .pd-mobile-menu.open { display: block; }
+    .pd-actions { padding: 20px 14px; gap: 12px !important; }
+    .pd-content-pad { padding: 0 14px 24px; }
+    .pd-tab-pad { padding: 20px 14px; }
+    .pd-hero-pad { padding: 36px 16px !important; }
+    .pd-doctor-hero-pad { padding: 32px 16px !important; }
+    .pd-brand-logo { width: 32px !important; height: 32px !important; }
+    .pd-action-btn { padding: 16px 18px !important; font-size: 13px !important; flex: 1 1 100% !important; }
+    .pd-info-card { padding: 16px !important; min-height: 110px !important; }
+    .pd-info-card-big { font-size: 18px !important; }
+    .pd-info-card-num { font-size: 24px !important; }
+  }
+`;
+
 export default function PatientDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -24,6 +75,7 @@ export default function PatientDashboard() {
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     fetchMyQueue();
@@ -74,6 +126,12 @@ export default function PatientDashboard() {
     queue.status !== QUEUE_STATUS.DONE &&
     queue.status !== QUEUE_STATUS.CANCELLED;
 
+  useEffect(() => {
+    if (!hasActiveQueue) return;
+    const interval = setInterval(fetchMyQueue, 15_000);
+    return () => clearInterval(interval);
+  }, [hasActiveQueue]);
+
   return (
     <div
       style={{
@@ -83,15 +141,17 @@ export default function PatientDashboard() {
         flexDirection: "column",
       }}
     >
+      <style>{PATIENT_RESPONSIVE_CSS}</style>
       {/* ── Top Navbar ── */}
       <nav
+        className="pd-nav"
         style={{
           background: "linear-gradient(90deg, #1a3a8f 0%, #1e4db7 100%)",
-          padding: "10px 24px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexShrink: 0,
+          position: "relative",
         }}
       >
         {/* Logo */}
@@ -99,6 +159,7 @@ export default function PatientDashboard() {
           <img
             src="/assets/Logo.jpg"
             alt="E-KALUSUGAN"
+            className="pd-brand-logo"
             style={{
               width: 38,
               height: 38,
@@ -108,6 +169,7 @@ export default function PatientDashboard() {
             }}
           />
           <span
+            className="pd-brand-text"
             style={{
               color: "white",
               fontWeight: 800,
@@ -119,8 +181,35 @@ export default function PatientDashboard() {
           </span>
         </div>
 
-        {/* Right Nav Items */}
-        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        {/* Hamburger (mobile) */}
+        <button
+          className="pd-hamburger"
+          onClick={() => setMobileMenuOpen((v) => !v)}
+          aria-label="Toggle menu"
+          style={{
+            display: "none",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255,255,255,0.15)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: "8px",
+            width: "38px",
+            height: "38px",
+            cursor: "pointer",
+            color: "white",
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+            {mobileMenuOpen ? (
+              <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>
+            ) : (
+              <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>
+            )}
+          </svg>
+        </button>
+
+        {/* Right Nav Items (desktop) */}
+        <div className="pd-nav-items pd-nav-items-desktop" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
           {/* Help */}
           <button
             style={{
@@ -138,7 +227,7 @@ export default function PatientDashboard() {
             }}
           >
             <Icon name="info" size={16} color="white" />
-            Help
+            <span className="pd-nav-btn-label">Help</span>
           </button>
 
           {/* Notification */}
@@ -158,7 +247,7 @@ export default function PatientDashboard() {
             }}
           >
             <Icon name="bell" size={16} color="white" />
-            Notification
+            <span className="pd-nav-btn-label">Notification</span>
           </button>
 
           {/* Settings */}
@@ -196,7 +285,7 @@ export default function PatientDashboard() {
                 d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
-            Settings
+            <span className="pd-nav-btn-label">Settings</span>
           </button>
 
           {/* Logout */}
@@ -218,9 +307,65 @@ export default function PatientDashboard() {
             }}
           >
             <Icon name="user" size={16} color="white" />
-            Logout
+            <span className="pd-nav-btn-label">Logout</span>
           </button>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        {mobileMenuOpen && (
+          <div
+            className="pd-mobile-menu open"
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: "#1e4db7",
+              borderTop: "1px solid rgba(255,255,255,0.15)",
+              padding: "8px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
+              zIndex: 50,
+              boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
+            }}
+          >
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              style={mobileMenuBtn}
+            >
+              <Icon name="info" size={16} color="white" />
+              Help
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              style={mobileMenuBtn}
+            >
+              <Icon name="bell" size={16} color="white" />
+              Notification
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              style={mobileMenuBtn}
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5" />
+                <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="1.5" />
+              </svg>
+              Settings
+            </button>
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+              style={{ ...mobileMenuBtn, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)" }}
+            >
+              <Icon name="user" size={16} color="white" />
+              Logout
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* ── Home Tab ── */}
@@ -248,7 +393,8 @@ export default function PatientDashboard() {
               }}
             />
             <div
-              style={{ position: "relative", zIndex: 1, padding: "48px 24px" }}
+              className="pd-hero-pad"
+              style={{ position: "relative", zIndex: 1 }}
             >
               <h1
                 style={{
@@ -291,9 +437,9 @@ export default function PatientDashboard() {
 
           {/* Action Buttons */}
           <div
+            className="pd-actions"
             style={{
               background: "#f3f4f6",
-              padding: "28px 24px",
               display: "flex",
               gap: "16px",
               justifyContent: "center",
@@ -303,6 +449,7 @@ export default function PatientDashboard() {
             <button
               onClick={() => setShowQueueModal(true)}
               disabled={hasActiveQueue}
+              className="pd-action-btn"
               style={{
                 flex: "1 1 220px",
                 maxWidth: "340px",
@@ -325,6 +472,7 @@ export default function PatientDashboard() {
 
             <button
               onClick={() => setActiveTab("appointments")}
+              className="pd-action-btn"
               style={{
                 flex: "1 1 220px",
                 maxWidth: "340px",
@@ -346,15 +494,14 @@ export default function PatientDashboard() {
 
           {/* Active Queue Alert */}
           {hasActiveQueue && (
-            <div style={{ padding: "0 24px 8px" }}>
+            <div className="pd-content-pad" style={{ paddingBottom: 8 }}>
               <QueueStatus queue={queue} onCancel={handleCancelQueue} />
             </div>
           )}
 
           {/* Info Cards Grid */}
           <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-            style={{ padding: "0 24px 32px" }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pd-content-pad"
           >
             {/* Card 1 — Currently Serving */}
             <div
@@ -582,9 +729,9 @@ export default function PatientDashboard() {
       {/* ── Queue Tab ── */}
       {activeTab === "queue" && (
         <div
+          className="pd-tab-pad"
           style={{
             flex: 1,
-            padding: "28px 24px",
             maxWidth: "860px",
             margin: "0 auto",
             width: "100%",
@@ -658,9 +805,9 @@ export default function PatientDashboard() {
       {/* ── Appointments Tab ── */}
       {activeTab === "appointments" && (
         <div
+          className="pd-tab-pad"
           style={{
             flex: 1,
-            padding: "28px 24px",
             maxWidth: "860px",
             margin: "0 auto",
             width: "100%",
@@ -719,6 +866,8 @@ export default function PatientDashboard() {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      gap: "10px",
+                      flexWrap: "wrap",
                     }}
                   >
                     <div>

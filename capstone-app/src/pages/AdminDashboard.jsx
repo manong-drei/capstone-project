@@ -16,6 +16,65 @@ const BLUE2  = '#1e4db7'
 const ORANGE = '#f97316'
 const NAVY   = '#2d3a8c'
 
+/* ─── Responsive CSS ───────────────────────────────────────── */
+const ADMIN_RESPONSIVE_CSS = `
+  .ad-nav { padding: 0 24px; }
+  .ad-hamburger { display: none; }
+  .ad-sidebar-backdrop { display: none; }
+  .ad-main { padding: 24px; }
+  .ad-hero-pad { padding: 28px 32px; }
+  .ad-section-pad { padding: 20px; }
+  .ad-tab-pad { padding: 24px; }
+  @media (max-width: 900px) {
+    .ad-nav { padding: 0 14px !important; }
+    .ad-brand-text { font-size: 14px !important; letter-spacing: 0.3px !important; }
+    .ad-nav-btn { padding: 6px 10px !important; font-size: 12px !important; }
+    .ad-hamburger { display: flex !important; }
+    .ad-sidebar {
+      position: fixed !important;
+      top: 64px !important;
+      left: 0 !important;
+      height: calc(100vh - 64px) !important;
+      z-index: 99 !important;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      box-shadow: 4px 0 16px rgba(0,0,0,0.18);
+    }
+    .ad-sidebar-open { transform: translateX(0) !important; }
+    .ad-sidebar-backdrop-active {
+      display: block !important;
+      position: fixed;
+      inset: 64px 0 0 0;
+      background: rgba(15,23,42,0.45);
+      z-index: 98;
+    }
+    .ad-main { padding: 14px !important; }
+    .ad-hero-pad { padding: 22px 18px !important; }
+    .ad-section-pad { padding: 16px !important; }
+    .ad-tab-pad { padding: 16px !important; }
+    .ad-hide-on-mobile { display: none !important; }
+    .ad-show-on-mobile { display: flex !important; flex-direction: column; gap: 10px; }
+  }
+  @media (min-width: 901px) {
+    .ad-show-on-mobile { display: none !important; }
+  }
+`;
+
+const adminHamburgerStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '38px',
+  height: '38px',
+  borderRadius: '8px',
+  background: 'rgba(255,255,255,0.18)',
+  border: 'none',
+  color: '#fff',
+  cursor: 'pointer',
+  marginRight: '8px',
+  flexShrink: 0,
+};
+
 /* ─── Chart / Sidebar data (static placeholders) ──────────── */
 const trafficData = [
   { name: 'Bago City',    value: 52.1, color: '#60a5fa' },
@@ -97,6 +156,7 @@ export default function AdminDashboard() {
   const [volumeTab,  setVolumeTab]  = useState('Daily')
   const [overview,   setOverview]   = useState(null)
   const [ovLoading,  setOvLoading]  = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => { fetchOverview() }, [])
 
@@ -119,26 +179,48 @@ export default function AdminDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: 'Poppins, system-ui, sans-serif' }}>
+      <style>{ADMIN_RESPONSIVE_CSS}</style>
 
       {/* ═══════════════ TOP NAVBAR ═══════════════ */}
       <nav
+        className="ad-nav"
         style={{
           background: `linear-gradient(135deg, ${BLUE} 0%, ${BLUE2} 100%)`,
-          padding: '0 24px',
           height: '64px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           position: 'sticky', top: 0, zIndex: 100,
           boxShadow: '0 2px 12px rgba(26,58,143,0.18)',
         }}
       >
-        {/* Left: Logo + brand */}
+        {/* Left: Hamburger (mobile) + Logo + brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            className="ad-hamburger"
+            onClick={() => setSidebarOpen(p => !p)}
+            style={adminHamburgerStyle}
+            aria-label="Toggle menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round">
+              {sidebarOpen ? (
+                <>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </>
+              )}
+            </svg>
+          </button>
           <img
             src="/assets/Logo.jpg"
             alt="logo"
             style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)' }}
           />
-          <span style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff', letterSpacing: '0.5px' }}>
+          <span className="ad-brand-text" style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff', letterSpacing: '0.5px' }}>
             E-KALUSUGAN
           </span>
         </div>
@@ -146,11 +228,13 @@ export default function AdminDashboard() {
         {/* Right: Help + Logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
+            className="ad-nav-btn"
             style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', padding: '7px 14px', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
           >
             Help
           </button>
           <button
+            className="ad-nav-btn"
             onClick={handleLogout}
             style={{ background: '#f97316', border: 'none', borderRadius: '8px', padding: '7px 16px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
           >
@@ -159,11 +243,19 @@ export default function AdminDashboard() {
         </div>
       </nav>
 
+      {/* Mobile sidebar backdrop */}
+      <div
+        className={`ad-sidebar-backdrop ${sidebarOpen ? 'ad-sidebar-backdrop-active' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+
       {/* ═══════════════ BODY: SIDEBAR + MAIN ═══════════════ */}
       <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
 
         {/* ── Sidebar ── */}
         <aside
+          className={`ad-sidebar ${sidebarOpen ? 'ad-sidebar-open' : ''}`}
           style={{
             width: '180px', flexShrink: 0,
             background: '#ffffff',
@@ -180,7 +272,7 @@ export default function AdminDashboard() {
           {sidebarItems.map(({ label, tab }) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { setActiveTab(tab); setSidebarOpen(false); }}
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
                 padding: '10px 16px', border: 'none', cursor: 'pointer',
@@ -199,7 +291,7 @@ export default function AdminDashboard() {
         </aside>
 
         {/* ── Main Content ── */}
-        <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+        <main className="ad-main" style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
 
           {/* ════════ OVERVIEW / DASHBOARD ════════ */}
           {activeTab === 'overview' && (
@@ -214,7 +306,7 @@ export default function AdminDashboard() {
               >
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(/assets/BGHero.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.42)' }} />
-                <div style={{ position: 'relative', padding: '28px 32px' }}>
+                <div className="ad-hero-pad" style={{ position: 'relative' }}>
                   <p style={{ margin: '0 0 4px', fontSize: '12px', fontWeight: 500, color: '#475569' }}>Admin Panel</p>
                   <h2 style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: 800, color: BLUE }}>
                     {new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 18 ? 'Good Afternoon' : 'Good Evening'}!
@@ -253,7 +345,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Donut — Traffic by Location */}
-                <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                   <h3 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Traffic by Location</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                     <ResponsiveContainer width={160} height={160}>
@@ -276,7 +368,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Bar — Patient Volume */}
-                <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                     <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Patient Volume</h3>
                     <div style={{ display: 'flex', gap: '4px' }}>
@@ -307,7 +399,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Doctors Profile */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Doctors Profile</h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {doctorsPlaceholder.map(d => (
@@ -326,7 +418,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Queue Statistics Bar Chart */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                 <h3 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Queue Statistics</h3>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={queueStatsData} barSize={28}>
@@ -341,9 +433,11 @@ export default function AdminDashboard() {
               </div>
 
               {/* Patient History Table */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Patient History</h3>
-                <div style={{ overflowX: 'auto' }}>
+
+                {/* Desktop table */}
+                <div className="ad-hide-on-mobile" style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
@@ -364,10 +458,24 @@ export default function AdminDashboard() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Mobile cards */}
+                <div className="ad-show-on-mobile">
+                  {patientHistoryPlaceholder.map((r, i) => (
+                    <div key={i} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px', background: '#f8fafc' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{r.name}</span>
+                        <StatusBadge status={r.status} />
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>{r.service}</span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>{r.date}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Account Management */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Account Management</h3>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                   {['Patient', 'Doctor'].map(t => (
@@ -389,7 +497,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Notifications Placeholder */}
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Notifications</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {notificationsPlaceholder.map(n => (
@@ -415,7 +523,7 @@ export default function AdminDashboard() {
 
           {/* ════════ QUEUE MONITOR ════════ */}
           {activeTab === 'queuemonitor' && (
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+            <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Queue Monitor</h3>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Live queue monitoring — coming soon.</p>
             </div>
@@ -423,7 +531,7 @@ export default function AdminDashboard() {
 
           {/* ════════ STATISTICS / ANALYTICS ════════ */}
           {activeTab === 'reports' && (
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+            <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Statistics & Analytics</h3>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Descriptive and predictive analytics — coming soon.</p>
             </div>
@@ -431,7 +539,7 @@ export default function AdminDashboard() {
 
           {/* ════════ DOCTORS ════════ */}
           {activeTab === 'doctors' && (
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+            <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Doctors</h3>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Doctor availability tracking — coming soon.</p>
             </div>
@@ -439,7 +547,7 @@ export default function AdminDashboard() {
 
           {/* ════════ PATIENTS HISTORY ════════ */}
           {activeTab === 'patientshistory' && (
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+            <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Patients History</h3>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Full patient history — coming soon.</p>
             </div>
@@ -447,7 +555,7 @@ export default function AdminDashboard() {
 
           {/* ════════ NOTIFICATIONS ════════ */}
           {activeTab === 'notifications' && (
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+            <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Notifications</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {notificationsPlaceholder.map(n => (
@@ -471,7 +579,7 @@ export default function AdminDashboard() {
 
           {/* ════════ ACCOUNTS / STAFF ════════ */}
           {activeTab === 'staff' && (
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+            <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Account Management</h3>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                 {['Patient', 'Doctor'].map(t => (

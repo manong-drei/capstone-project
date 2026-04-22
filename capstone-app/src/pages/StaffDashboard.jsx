@@ -55,6 +55,12 @@ const GLOBAL_STYLES = `
   .ek-spin { animation: spin-anim 0.75s linear infinite; }
   .ek-pulse { animation: pulse-dot 2s ease-in-out infinite; }
 
+  @media (max-width: 768px) {
+    .ek-nav { padding: 0 14px !important; }
+    .ek-nav-label { display: none !important; }
+    .ek-nav-btn { padding: 5px 9px !important; }
+    .ek-brand-text { font-size: 13px !important; letter-spacing: 0.08em !important; }
+  }
   @media (max-width: 640px) {
     .ek-grid { grid-template-columns: 1fr !important; }
     .ek-hero { height: 150px !important; }
@@ -67,6 +73,7 @@ function Navbar({ onLogout }) {
 
   return (
     <nav
+      className="ek-nav"
       style={{
         background: `linear-gradient(90deg, ${NAVY} 0%, ${INDIGO} 100%)`,
         height: "54px",
@@ -101,6 +108,7 @@ function Navbar({ onLogout }) {
           </svg>
         </div>
         <span
+          className="ek-brand-text"
           style={{
             color: "#ffffff",
             fontWeight: 800,
@@ -125,6 +133,7 @@ function Navbar({ onLogout }) {
       >
         {/* Help */}
         <button
+          className="ek-nav-btn"
           onClick={() => setHelpOpen((p) => !p)}
           style={navBtnStyle}
           onMouseEnter={(e) =>
@@ -148,7 +157,7 @@ function Navbar({ onLogout }) {
             <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          Help
+          <span className="ek-nav-label">Help</span>
         </button>
 
         {/* Help tooltip */}
@@ -195,6 +204,7 @@ function Navbar({ onLogout }) {
 
         {/* Logout */}
         <button
+          className="ek-nav-btn"
           onClick={onLogout}
           style={navBtnStyle}
           onMouseEnter={(e) =>
@@ -218,7 +228,7 @@ function Navbar({ onLogout }) {
             <polyline points="16 17 21 12 16 7" />
             <line x1="21" y1="12" x2="9" y2="12" />
           </svg>
-          Logout
+          <span className="ek-nav-label">Logout</span>
         </button>
       </div>
     </nav>
@@ -541,7 +551,7 @@ function QueuePanel({ currentServing, nextQueue, onCallNext, loading }) {
 
 // ─── Walk-In Form (right) ────────────────────────────────────────────────────
 function WalkInForm({ onSuccess }) {
-  const [form, setForm] = useState({ fullName: "", address: "", contact: "" });
+  const [form, setForm] = useState({ fullName: "", age: "", gender: "", address: "", contact: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -560,6 +570,9 @@ function WalkInForm({ onSuccess }) {
     setError("");
     setSuccess("");
     if (!form.fullName.trim()) return setError("Full name is required.");
+    if (!form.age || isNaN(form.age) || form.age < 1 || form.age > 120)
+      return setError("A valid age is required.");
+    if (!form.gender) return setError("Please select a gender.");
     if (!form.address.trim()) return setError("Address is required.");
     if (!form.contact.trim()) return setError("Contact number is required.");
 
@@ -567,13 +580,15 @@ function WalkInForm({ onSuccess }) {
     try {
       const res = await api.post("/queue/walkin", {
         full_name: form.fullName,
+        age: parseInt(form.age),
+        gender: form.gender,
         address: form.address,
         contact: "+63" + form.contact.replace(/^0+/, ""),
         type: "regular",
       });
       const queueNumber = res?.queue?.queue_number ?? "assigned";
       setSuccess(`Walk-in registered — queue number ${queueNumber}.`);
-      setForm({ fullName: "", address: "", contact: "" });
+      setForm({ fullName: "", age: "", gender: "", address: "", contact: "" });
       onSuccess?.();
     } catch (err) {
       setError(err.message || "Failed to register patient.");
@@ -615,6 +630,36 @@ function WalkInForm({ onSuccess }) {
         value={form.fullName}
         onChange={set("fullName")}
       />
+
+      {/* Age + Gender row */}
+      <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ flex: "0 0 120px" }}>
+          <FormField
+            icon={
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#9ca3af"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            }
+            placeholder="Age"
+            type="number"
+            value={form.age}
+            onChange={set("age")}
+          />
+        </div>
+        <GenderField value={form.gender} onChange={set("gender")} />
+      </div>
 
       {/* Address Dropdown */}
       <div style={{ position: "relative" }}>
@@ -966,6 +1011,78 @@ function ContactField({ value, onChange }) {
           background: "transparent",
         }}
       />
+    </div>
+  );
+}
+
+function GenderField({ value, onChange }) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}>
+      <span
+        style={{
+          position: "absolute",
+          left: "13px",
+          pointerEvents: "none",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#9ca3af"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="8" r="4" />
+          <path d="M12 12v8M8 20h8" />
+        </svg>
+      </span>
+      <select
+        value={value}
+        onChange={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          width: "100%",
+          padding: "12px 14px 12px 40px",
+          borderRadius: "10px",
+          border: `1.5px solid ${focused ? BLUE : "#dde1ec"}`,
+          fontSize: "14px",
+          color: value ? "#111827" : "#9ca3af",
+          background: "#ffffff",
+          outline: "none",
+          fontFamily: "inherit",
+          boxSizing: "border-box",
+          boxShadow: focused ? `0 0 0 3px rgba(30,77,183,0.12)` : "none",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+          appearance: "none",
+          cursor: "pointer",
+        }}
+      >
+        <option value="" disabled>Gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <span
+        style={{
+          position: "absolute",
+          right: "13px",
+          pointerEvents: "none",
+          display: "flex",
+          alignItems: "center",
+          color: "#9ca3af",
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 9l-7 7-7-7" />
+        </svg>
+      </span>
     </div>
   );
 }

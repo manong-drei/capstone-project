@@ -4,6 +4,18 @@ import api from '../../../services/api'
 
 const ROLES = ['doctor', 'staff', 'admin']
 
+const STAFF_RESPONSIVE_CSS = `
+  .sm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .sm-table-row, .sm-table-head { display: grid; grid-template-columns: 1fr 1fr 80px 90px; }
+  .sm-cards-mobile { display: none; }
+  @media (max-width: 640px) {
+    .sm-form-grid { grid-template-columns: 1fr !important; }
+    .sm-table-row, .sm-table-head { display: none !important; }
+    .sm-cards-mobile { display: flex !important; flex-direction: column; gap: 10px; padding: 14px; }
+    .sm-empty-mobile { padding: 28px 16px !important; }
+  }
+`;
+
 /**
  * StaffManager
  * Admin panel for viewing, adding, and deactivating staff accounts.
@@ -147,6 +159,7 @@ export default function StaffManager() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <style>{STAFF_RESPONSIVE_CSS}</style>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
@@ -194,7 +207,7 @@ export default function StaffManager() {
           </div>
 
           {/* Common fields */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+          <div className="sm-form-grid" style={{ marginBottom: '12px' }}>
             <div>
               <label style={labelStyle}>Username</label>
               <input
@@ -256,7 +269,7 @@ export default function StaffManager() {
 
           {/* Doctor-specific fields */}
           {form.role === 'doctor' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <div className="sm-form-grid" style={{ marginBottom: '12px' }}>
               <div>
                 <label style={labelStyle}>
                   License Number <span style={{ color: '#dc2626' }}>*</span>
@@ -345,8 +358,8 @@ export default function StaffManager() {
       {/* Staff Table */}
       <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden' }}>
         <div
+          className="sm-table-head"
           style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px',
             padding: '12px 20px', background: '#f9fafb',
             borderBottom: '1px solid #f3f4f6',
           }}
@@ -367,45 +380,94 @@ export default function StaffManager() {
             No staff accounts found.
           </div>
         ) : (
-          staff.map((member) => {
-            const badge = roleBadge(member.role)
-            return (
-              <div
-                key={member.user_id}
-                style={{
-                  display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px',
-                  padding: '14px 20px', borderBottom: '1px solid #f9fafb',
-                  alignItems: 'center',
-                }}
-              >
-                <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
-                  {member.first_name} {member.last_name}
-                </span>
-                <span style={{ fontSize: '13px', color: '#6b7280' }}>{member.email}</span>
-                <span
+          <>
+            {/* Desktop table rows */}
+            {staff.map((member) => {
+              const badge = roleBadge(member.role)
+              return (
+                <div
+                  key={member.user_id}
+                  className="sm-table-row"
                   style={{
-                    display: 'inline-flex', width: 'fit-content',
-                    fontSize: '11px', fontWeight: 600,
-                    padding: '3px 8px', borderRadius: '20px',
-                    background: badge.bg, color: badge.color,
+                    padding: '14px 20px', borderBottom: '1px solid #f9fafb',
+                    alignItems: 'center',
                   }}
                 >
-                  {member.role}
-                </span>
-                <button
-                  onClick={() => handleDeactivate(member.user_id)}
-                  style={{
-                    padding: '5px 10px', borderRadius: '7px', border: 'none',
-                    background: '#fee2e2', color: '#dc2626',
-                    fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                    width: 'fit-content',
-                  }}
-                >
-                  Deactivate
-                </button>
-              </div>
-            )
-          })
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
+                    {member.first_name} {member.last_name}
+                  </span>
+                  <span style={{ fontSize: '13px', color: '#6b7280' }}>{member.email}</span>
+                  <span
+                    style={{
+                      display: 'inline-flex', width: 'fit-content',
+                      fontSize: '11px', fontWeight: 600,
+                      padding: '3px 8px', borderRadius: '20px',
+                      background: badge.bg, color: badge.color,
+                    }}
+                  >
+                    {member.role}
+                  </span>
+                  <button
+                    onClick={() => handleDeactivate(member.user_id)}
+                    style={{
+                      padding: '5px 10px', borderRadius: '7px', border: 'none',
+                      background: '#fee2e2', color: '#dc2626',
+                      fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                      width: 'fit-content',
+                    }}
+                  >
+                    Deactivate
+                  </button>
+                </div>
+              )
+            })}
+
+            {/* Mobile cards */}
+            <div className="sm-cards-mobile">
+              {staff.map((member) => {
+                const badge = roleBadge(member.role)
+                return (
+                  <div
+                    key={`m-${member.user_id}`}
+                    style={{
+                      border: '1px solid #e5e7eb', borderRadius: '10px',
+                      padding: '12px', background: '#fafafa',
+                      display: 'flex', flexDirection: 'column', gap: '6px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
+                        {member.first_name} {member.last_name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '11px', fontWeight: 600,
+                          padding: '3px 8px', borderRadius: '20px',
+                          background: badge.bg, color: badge.color,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {member.role}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '12px', color: '#6b7280', wordBreak: 'break-all' }}>{member.email}</span>
+                    <button
+                      onClick={() => handleDeactivate(member.user_id)}
+                      style={{
+                        marginTop: '4px',
+                        padding: '7px 10px', borderRadius: '7px', border: 'none',
+                        background: '#fee2e2', color: '#dc2626',
+                        fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                        alignSelf: 'flex-start',
+                      }}
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>
