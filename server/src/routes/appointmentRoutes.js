@@ -5,12 +5,16 @@ const authorize = require("../middleware/authorize");
 const {
   getMyAppointments,
   getAllAppointments,
+  getMyDoctorAppointments,
   createAppointment,
   updateAppointmentStatus,
 } = require("../controllers/appointmentController");
 
 // GET /api/appointments/me — patient's own appointments
 router.get("/me", authenticate, authorize("patient"), getMyAppointments);
+
+// GET /api/appointments/doctor — doctor's own appointments
+router.get("/doctor", authenticate, authorize("doctor"), getMyDoctorAppointments);
 
 // GET /api/appointments — admin/staff sees all
 router.get("/", authenticate, authorize("admin", "staff"), getAllAppointments);

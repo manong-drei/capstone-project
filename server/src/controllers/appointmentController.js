@@ -31,6 +31,23 @@ const getAllAppointments = async (req, res) => {
   }
 };
 
+/** GET /api/appointments/doctor — doctor's own assigned appointments */
+const getMyDoctorAppointments = async (req, res) => {
+  try {
+    const doctor = await Doctor.findByUserId(req.user.user_id);
+    if (!doctor) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Doctor profile not found." });
+    }
+    const appointments = await Appointment.findByDoctorId(doctor.doctor_id);
+    res.json({ success: true, appointments });
+  } catch (err) {
+    console.error("getMyDoctorAppointments error:", err);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
 /** POST /api/appointments — patient books an appointment */
 const createAppointment = async (req, res) => {
   try {
@@ -140,6 +157,7 @@ const updateAppointmentStatus = async (req, res) => {
 module.exports = {
   getMyAppointments,
   getAllAppointments,
+  getMyDoctorAppointments,
   createAppointment,
   updateAppointmentStatus,
 };

@@ -15,6 +15,15 @@ import * as queueService from "../services/queueService";
 const ORANGE = "#f97316";
 const NAVY = "#2d3a8c";
 
+const formatServices = (appt) => {
+  try {
+    const raw = appt?.queue_services;
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed.join(", ");
+  } catch { /* fall through */ }
+  return appt?.reason || "—";
+};
+
 const mobileMenuBtn = {
   display: "flex",
   alignItems: "center",
@@ -488,7 +497,7 @@ export default function PatientDashboard() {
                 cursor: "pointer",
               }}
             >
-              APPOINTMENT SLOTS
+              APPOINTMENT HISTORY
             </button>
           </div>
 
@@ -838,7 +847,7 @@ export default function PatientDashboard() {
                   color: "#111827",
                 }}
               >
-                Appointments
+                Appointment History
               </h2>
             </div>
             {apptLoading ? (
@@ -855,63 +864,81 @@ export default function PatientDashboard() {
                   gap: "10px",
                 }}
               >
-                {appointments.map((appt) => (
-                  <div
-                    key={appt.id}
-                    style={{
-                      background: "#ffffff",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                      padding: "16px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "10px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontWeight: 600,
-                          fontSize: "14px",
-                          color: "#111827",
-                        }}
-                      >
-                        {appt.service}
-                      </p>
-                      <p
-                        style={{
-                          margin: "2px 0 0",
-                          fontSize: "12px",
-                          color: "#6b7280",
-                        }}
-                      >
-                        {new Date(appt.date).toLocaleDateString("en-PH", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                        {appt.time ? ` at ${appt.time}` : ""}
-                      </p>
-                    </div>
-                    <span
+                {appointments.map((appt) => {
+                  const doctorName = `Dr. ${appt.doctor_first_name ?? ""} ${appt.doctor_last_name ?? ""}`.trim();
+                  const services = formatServices(appt);
+                  return (
+                    <div
+                      key={appt.appointment_id}
                       style={{
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        padding: "3px 10px",
-                        borderRadius: "20px",
-                        background:
-                          appt.status === "confirmed" ? "#d1fae5" : "#f3f4f6",
-                        color:
-                          appt.status === "confirmed" ? "#059669" : "#6b7280",
+                        background: "#ffffff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "12px",
+                        padding: "16px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "10px",
+                        flexWrap: "wrap",
                       }}
                     >
-                      {appt.status}
-                    </span>
-                  </div>
-                ))}
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: 600,
+                            fontSize: "14px",
+                            color: "#111827",
+                          }}
+                        >
+                          {doctorName || "Doctor"}
+                        </p>
+                        <p
+                          style={{
+                            margin: "2px 0 0",
+                            fontSize: "12px",
+                            color: "#6b7280",
+                          }}
+                        >
+                          {new Date(appt.appointment_date).toLocaleDateString("en-PH", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                          {appt.appointment_time ? ` at ${appt.appointment_time}` : ""}
+                        </p>
+                        <p
+                          style={{
+                            margin: "4px 0 0",
+                            fontSize: "12px",
+                            color: "#374151",
+                          }}
+                        >
+                          {services}
+                        </p>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          padding: "3px 10px",
+                          borderRadius: "20px",
+                          background:
+                            appt.status === "confirmed" ? "#d1fae5" :
+                            appt.status === "completed" ? "#dbeafe" :
+                            appt.status === "cancelled" ? "#fee2e2" : "#f3f4f6",
+                          color:
+                            appt.status === "confirmed" ? "#059669" :
+                            appt.status === "completed" ? "#1d4ed8" :
+                            appt.status === "cancelled" ? "#b91c1c" : "#6b7280",
+                        }}
+                      >
+                        {appt.status}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

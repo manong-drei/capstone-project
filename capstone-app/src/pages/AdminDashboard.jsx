@@ -7,8 +7,20 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
-import StaffManager from '../components/dashboards/admin/StaffManager'
-import api          from '../services/api'
+import StaffManager  from '../components/dashboards/admin/StaffManager'
+import ReportsPanel  from '../components/dashboards/admin/ReportsPanel'
+import api           from '../services/api'
+import { SERVICES }  from '../constants/services'
+import * as appointmentService from '../services/appointmentService'
+
+const formatServices = (appt) => {
+  try {
+    const raw = appt?.queue_services
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed.join(', ')
+  } catch { /* fall through */ }
+  return appt?.reason || '—'
+}
 
 /* ─── Palette ─────────────────────────────────────────────── */
 const BLUE   = '#1a3a8f'
@@ -75,13 +87,43 @@ const adminHamburgerStyle = {
   flexShrink: 0,
 };
 
+/* ─── Department Distribution: derive from SERVICES constant ─ */
+const GROUP_NAME_MAP = {
+  'Restoration (Tooth Filling)':          'Restoration',
+  'Removable Partial Denture (Vitaflex)': 'Prosthetics / RPD',
+  'Dental Surgery':                       'Dental Surgery',
+}
+const GROUP_COLORS = {
+  'General':           ['#60a5fa', '#93c5fd', '#4ade80', '#2d3a8c', '#bfdbfe', '#dbeafe'],
+  'Restoration':       ['#c084fc', '#a855f7'],
+  'Prosthetics / RPD': ['#34d399', '#10b981'],
+  'Dental Surgery':    ['#fb923c', '#f97316', '#ea580c'],
+}
+const PLACEHOLDER_USAGE = {
+  CONSULTATION: 42, ORAL_PROPHYLAXIS: 28, PERMANENT_FILLING: 15, TEMPORARY_FILLING: 12,
+  FLUORIDE: 10, SILVER_DIAMINE: 5, RPD_UPPER: 8, RPD_LOWER: 6,
+  CLOSED_EXTRACTION: 25, OPEN_EXTRACTION: 18, ODONTECTOMY: 10, SPECIAL_SURGERY: 7, OTHERS: 4,
+}
+function buildDeptServices() {
+  const grouped = {}
+  SERVICES.forEach(s => {
+    const dept = s.group ? (GROUP_NAME_MAP[s.group] ?? s.group) : 'General'
+    if (!grouped[dept]) grouped[dept] = []
+    grouped[dept].push(s)
+  })
+  const result = {}
+  Object.entries(grouped).forEach(([dept, svcs]) => {
+    const colors = GROUP_COLORS[dept] ?? ['#60a5fa', '#93c5fd', '#4ade80', '#2d3a8c']
+    result[dept] = svcs.map((s, i) => ({
+      name: s.label, value: PLACEHOLDER_USAGE[s.id] ?? 5, color: colors[i % colors.length],
+    }))
+  })
+  return result
+}
+const departmentServices = buildDeptServices()
+const DEPARTMENTS = Object.keys(departmentServices)
+
 /* ─── Chart / Sidebar data (static placeholders) ──────────── */
-const trafficData = [
-  { name: 'Bago City',    value: 52.1, color: '#60a5fa' },
-  { name: 'Iloilo City',  value: 22.8, color: '#93c5fd' },
-  { name: 'Bacolod City', value: 13.9, color: '#4ade80' },
-  { name: 'Other',        value: 11.2, color: '#1e1b4b' },
-]
 
 const queueStatsData = [
   { day: 'Mon', count: 25, color: '#60a5fa' },
@@ -151,14 +193,34 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
   const { logout } = useAuth()
 
-  const [activeTab,  setActiveTab]  = useState('overview')
-  const [accountTab, setAccountTab] = useState('Patient')
-  const [volumeTab,  setVolumeTab]  = useState('Daily')
-  const [overview,   setOverview]   = useState(null)
-  const [ovLoading,  setOvLoading]  = useState(true)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeTab,    setActiveTab]    = useState('overview')
+  const [accountTab,   setAccountTab]   = useState('Patient')
+  const [volumeTab,    setVolumeTab]    = useState('Daily')
+  const [overview,     setOverview]     = useState(null)
+  const [ovLoading,    setOvLoading]    = useState(true)
+  const [sidebarOpen,  setSidebarOpen]  = useState(false)
+  const [selectedDept, setSelectedDept] = useState(DEPARTMENTS[0])
+  const [appointments, setAppointments] = useState([])
+  const [apptLoading,  setApptLoading]  = useState(false)
 
   useEffect(() => { fetchOverview() }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'patientshistory') return
+    let cancelled = false
+    ;(async () => {
+      setApptLoading(true)
+      try {
+        const res = await appointmentService.getAllAppointments()
+        if (!cancelled) setAppointments(res?.data ?? [])
+      } catch {
+        if (!cancelled) setAppointments([])
+      } finally {
+        if (!cancelled) setApptLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [activeTab])
 
   const fetchOverview = async () => {
     setOvLoading(true)
@@ -344,25 +406,41 @@ export default function AdminDashboard() {
               {/* Traffic by Location + Patient Volume */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-                {/* Donut — Traffic by Location */}
+                {/* Donut — Department Distribution */}
                 <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Traffic by Location</h3>
+                  <h3 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Department Distribution: Top Services Used</h3>
+                  <select
+                    value={selectedDept}
+                    onChange={e => setSelectedDept(e.target.value)}
+                    style={{
+                      marginBottom: '14px', padding: '6px 10px', borderRadius: '8px',
+                      border: '1.5px solid #e2e8f0', fontSize: '12px', color: '#1e293b',
+                      background: '#f8fafc', outline: 'none', cursor: 'pointer',
+                      width: '100%', fontFamily: 'inherit',
+                    }}
+                  >
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                     <ResponsiveContainer width={160} height={160}>
                       <PieChart>
-                        <Pie data={trafficData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
-                          {trafficData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                        <Pie data={departmentServices[selectedDept]} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                          {departmentServices[selectedDept].map((d, i) => <Cell key={i} fill={d.color} />)}
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {trafficData.map(d => (
-                        <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: '12px', color: '#475569' }}>{d.name}</span>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', marginLeft: 'auto' }}>{d.value}%</span>
-                        </div>
-                      ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
+                      {departmentServices[selectedDept].map(d => {
+                        const total = departmentServices[selectedDept].reduce((sum, s) => sum + s.value, 0)
+                        const pct = ((d.value / total) * 100).toFixed(1)
+                        return (
+                          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: '12px', color: '#475569', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>{pct}%</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -415,21 +493,6 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {/* Queue Statistics Bar Chart */}
-              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-                <h3 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Queue Statistics</h3>
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={queueStatsData} barSize={28}>
-                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis hide />
-                    <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ fontSize: '12px', borderRadius: '8px' }} />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                      {queueStatsData.map((d, i) => <Cell key={i} fill={d.color} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
               </div>
 
               {/* Patient History Table */}
@@ -531,9 +594,95 @@ export default function AdminDashboard() {
 
           {/* ════════ STATISTICS / ANALYTICS ════════ */}
           {activeTab === 'reports' && (
-            <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Statistics & Analytics</h3>
-              <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Descriptive and predictive analytics — coming soon.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              {/* ── Section Header ── */}
+              <div>
+                <h2 style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 800, color: BLUE }}>Statistics & Analytics</h2>
+                <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Queue performance, service breakdowns, and forecasting insights.</p>
+              </div>
+
+              {/* ── 1. Queue Statistics ── */}
+              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: '#1e293b' }}>Queue Statistics</h3>
+
+                {/* Today summary stat cards */}
+                <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Today</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: '24px' }}>
+                  {[
+                    { label: 'Waiting',   value: ovLoading ? '—' : (overview?.activeQueues ?? 0), color: '#2d3a8c', bg: '#eef2ff', icon: '⏳' },
+                    { label: 'Serving',   value: ovLoading ? '—' : (overview?.serving      ?? 0), color: '#059669', bg: '#d1fae5', icon: '🩺' },
+                    { label: 'Done',      value: ovLoading ? '—' : (overview?.doneToday     ?? 0), color: '#0891b2', bg: '#e0f2fe', icon: '✅' },
+                    { label: 'Cancelled', value: ovLoading ? '—' : (overview?.cancelled     ?? 0), color: '#dc2626', bg: '#fee2e2', icon: '✗'  },
+                  ].map(({ label, value, color, bg, icon }) => (
+                    <div
+                      key={label}
+                      style={{
+                        background: bg, borderRadius: '14px', padding: '16px 18px',
+                        display: 'flex', flexDirection: 'column', gap: '6px',
+                      }}
+                    >
+                      <span style={{ fontSize: '20px' }}>{icon}</span>
+                      <span style={{ fontSize: '24px', fontWeight: 800, color }}>{value}</span>
+                      <span style={{ fontSize: '12px', color, opacity: 0.8 }}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Weekly trend bar chart */}
+                <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Weekly Trend</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={queueStatsData} barSize={28}>
+                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis hide />
+                    <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ fontSize: '12px', borderRadius: '8px' }} />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                      {queueStatsData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* ── 2. Descriptive Analytics ── */}
+              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                <h3 style={{ margin: '0 0 20px', fontSize: '15px', fontWeight: 700, color: '#1e293b' }}>Descriptive Analytics</h3>
+                <ReportsPanel />
+              </div>
+
+              {/* ── 3. Predictive Analytics ── */}
+              <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                <h3 style={{ margin: '0 0 20px', fontSize: '15px', fontWeight: 700, color: '#1e293b' }}>Predictive Analytics</h3>
+                <div
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: '16px', padding: '40px 24px', borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)',
+                    border: '1.5px dashed #bfdbfe', textAlign: 'center',
+                  }}
+                >
+                  <div style={{
+                    width: '56px', height: '56px', borderRadius: '50%',
+                    background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px',
+                  }}>
+                    🔮
+                  </div>
+                  <div>
+                    <p style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Forecasting Models Coming Soon</p>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b', maxWidth: '380px', lineHeight: '1.6' }}>
+                      This section will include patient volume predictions, appointment trend analysis, and queue load forecasting based on historical data.
+                    </p>
+                  </div>
+                  <span
+                    style={{
+                      padding: '4px 14px', borderRadius: '99px', fontSize: '11px', fontWeight: 700,
+                      background: '#dbeafe', color: BLUE, letterSpacing: '0.5px',
+                    }}
+                  >
+                    COMING SOON
+                  </span>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -548,8 +697,69 @@ export default function AdminDashboard() {
           {/* ════════ PATIENTS HISTORY ════════ */}
           {activeTab === 'patientshistory' && (
             <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Patients History</h3>
-              <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Full patient history — coming soon.</p>
+              <h3 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Patients History</h3>
+
+              {apptLoading ? (
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Loading appointments...</p>
+              ) : appointments.length === 0 ? (
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>No appointments recorded yet.</p>
+              ) : (
+                <>
+                  {/* Desktop table */}
+                  <div className="ad-hide-on-mobile" style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#475569' }}>
+                          <th style={{ padding: '10px 12px' }}>Date</th>
+                          <th style={{ padding: '10px 12px' }}>Patient Name</th>
+                          <th style={{ padding: '10px 12px' }}>Services</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {appointments.map((appt) => (
+                          <tr key={appt.appointment_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '10px 12px', color: '#1e293b' }}>
+                              {new Date(appt.appointment_date).toLocaleDateString('en-PH', {
+                                month: 'short', day: 'numeric', year: 'numeric',
+                              })}
+                            </td>
+                            <td style={{ padding: '10px 12px', color: '#1e293b' }}>
+                              {appt.patient_full_name || '—'}
+                            </td>
+                            <td style={{ padding: '10px 12px', color: '#475569' }}>
+                              {formatServices(appt)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <div className="ad-show-on-mobile" style={{ display: 'none', flexDirection: 'column', gap: '10px' }}>
+                    {appointments.map((appt) => (
+                      <div
+                        key={appt.appointment_id}
+                        style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '13px' }}>
+                            {appt.patient_full_name || '—'}
+                          </span>
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>
+                            {new Date(appt.appointment_date).toLocaleDateString('en-PH', {
+                              month: 'short', day: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '12px', color: '#475569' }}>
+                          {formatServices(appt)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

@@ -9,7 +9,15 @@ const Appointment = {
         a.*,
         d.first_name       AS doctor_first_name,
         d.last_name        AS doctor_last_name,
-        s.specialization_name
+        s.specialization_name,
+        (
+          SELECT q.services FROM queues q
+          WHERE q.patient_id = a.patient_id
+            AND DATE(q.created_at) = a.appointment_date
+            AND q.status != 'cancelled'
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        ) AS queue_services
       FROM   appointments a
       JOIN   doctors d ON a.doctor_id = d.doctor_id
       LEFT   JOIN specializations s ON d.specialization_id = s.specialization_id
@@ -27,11 +35,19 @@ const Appointment = {
       `
       SELECT
         a.*,
-        p.full_name   AS patient_full_name
+        p.full_name   AS patient_full_name,
+        (
+          SELECT q.services FROM queues q
+          WHERE q.patient_id = a.patient_id
+            AND DATE(q.created_at) = a.appointment_date
+            AND q.status != 'cancelled'
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        ) AS queue_services
       FROM   appointments a
       JOIN   patients p ON a.patient_id = p.patient_id
       WHERE  a.doctor_id = ?
-      ORDER  BY a.appointment_date ASC, a.appointment_time ASC
+      ORDER  BY a.appointment_date DESC, a.appointment_time DESC
     `,
       [doctor_id],
     );
@@ -45,7 +61,15 @@ const Appointment = {
         a.*,
         p.full_name   AS patient_full_name,
         d.first_name  AS doctor_first_name,
-        d.last_name   AS doctor_last_name
+        d.last_name   AS doctor_last_name,
+        (
+          SELECT q.services FROM queues q
+          WHERE q.patient_id = a.patient_id
+            AND DATE(q.created_at) = a.appointment_date
+            AND q.status != 'cancelled'
+          ORDER BY q.created_at ASC
+          LIMIT 1
+        ) AS queue_services
       FROM   appointments a
       JOIN   patients p ON a.patient_id = p.patient_id
       JOIN   doctors  d ON a.doctor_id  = d.doctor_id

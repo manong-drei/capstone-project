@@ -9,10 +9,20 @@ import StatCard from "../components/common/StatCard";
 import Icon from "../components/common/AppIcons";
 import ConsultationModal from "../components/dashboards/doctor/ConsultationModal";
 import api from "../services/api";
+import * as appointmentService from "../services/appointmentService";
 
 const INDIGO = "#4f46e5";
 const NAVY = "#2d3a8c";
 const TODAY = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+const formatServices = (appt) => {
+  try {
+    const raw = appt?.queue_services;
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed.join(", ");
+  } catch { /* fall through */ }
+  return appt?.reason || "—";
+};
 
 const DOC_RESPONSIVE_CSS = `
   .dd-nav { padding: 10px 24px; }
@@ -21,6 +31,8 @@ const DOC_RESPONSIVE_CSS = `
   .dd-content-pad { padding: 20px 24px 0; }
   .dd-hero-pad { padding: 40px 24px; }
   .dd-tab-pad { padding: 28px 24px; }
+  .dd-hide-on-mobile { display: block; }
+  .dd-show-on-mobile { display: none; }
   @media (max-width: 900px) {
     .dd-nav-btn-label { display: none; }
   }
@@ -37,6 +49,8 @@ const DOC_RESPONSIVE_CSS = `
     .dd-capacity-body { padding: 14px !important; }
     .dd-queue-card { padding: 18px 20px !important; }
     .dd-stat-card { padding: 16px !important; }
+    .dd-hide-on-mobile { display: none !important; }
+    .dd-show-on-mobile { display: flex !important; }
   }
 `;
 
@@ -78,6 +92,9 @@ export default function DoctorDashboard() {
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [showLimitWarning, setShowLimitWarning] = useState(false);
   const [pendingSettings, setPendingSettings] = useState(null);
+
+  const [appointments, setAppointments] = useState([]);
+  const [apptLoading, setApptLoading] = useState(false);
 
   const fetchDailySettings = async () => {
     try {
@@ -145,6 +162,23 @@ export default function DoctorDashboard() {
     }, 30_000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "appointments") return;
+    let cancelled = false;
+    (async () => {
+      setApptLoading(true);
+      try {
+        const data = await appointmentService.getDoctorAppointments();
+        if (!cancelled) setAppointments(data?.appointments ?? []);
+      } catch {
+        if (!cancelled) setAppointments([]);
+      } finally {
+        if (!cancelled) setApptLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab]);
 
   const handleCallNext = async () => {
     try {
@@ -268,17 +302,35 @@ export default function DoctorDashboard() {
             color: "white",
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             {mobileMenuOpen ? (
-              <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>
+              <>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </>
             ) : (
-              <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>
+              <>
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </>
             )}
           </svg>
         </button>
 
         {/* Right Nav */}
-        <div className="dd-nav-items-desktop" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        <div
+          className="dd-nav-items-desktop"
+          style={{ display: "flex", alignItems: "center", gap: "4px" }}
+        >
           {/* Analytics */}
           <button
             onClick={() => setActiveTab("analytics")}
@@ -385,14 +437,20 @@ export default function DoctorDashboard() {
             }}
           >
             <button
-              onClick={() => { setActiveTab("analytics"); setMobileMenuOpen(false); }}
+              onClick={() => {
+                setActiveTab("analytics");
+                setMobileMenuOpen(false);
+              }}
               style={docMobileMenuBtn}
             >
               <Icon name="chart" size={16} color="white" />
               Analytics
             </button>
             <button
-              onClick={() => { setActiveTab("appointments"); setMobileMenuOpen(false); }}
+              onClick={() => {
+                setActiveTab("appointments");
+                setMobileMenuOpen(false);
+              }}
               style={docMobileMenuBtn}
             >
               <Icon name="appointment" size={16} color="white" />
@@ -406,8 +464,15 @@ export default function DoctorDashboard() {
               Help
             </button>
             <button
-              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
-              style={{ ...docMobileMenuBtn, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)" }}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+              style={{
+                ...docMobileMenuBtn,
+                background: "rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.3)",
+              }}
             >
               <Icon name="user" size={16} color="white" />
               Logout
@@ -737,13 +802,13 @@ export default function DoctorDashboard() {
                       <input
                         type="number"
                         min={0}
-                        max={999}
+                        max={30}
                         placeholder="0"
                         value={walkInLimit === 0 ? "" : walkInLimit}
                         onChange={(e) =>
                           setWalkInLimit(
                             Math.min(
-                              999,
+                              30,
                               Math.max(0, parseInt(e.target.value) || 0),
                             ),
                           )
@@ -825,9 +890,7 @@ export default function DoctorDashboard() {
           </div>
 
           {/* ── Now Queuing / Next Queuing ── */}
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4 dd-content-pad"
-          >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 dd-content-pad">
             {/* Now Queuing */}
             <div
               style={{
@@ -898,9 +961,7 @@ export default function DoctorDashboard() {
           </div>
 
           {/* ── Queue Cards Grid ── */}
-          <div
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4 dd-content-pad"
-          >
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 dd-content-pad">
             {/* Currently Serving */}
             <div
               style={{
@@ -1304,9 +1365,88 @@ export default function DoctorDashboard() {
               Appointment History
             </h2>
           </div>
-          <p style={{ color: "#9ca3af", fontSize: "14px" }}>
-            Appointment history coming soon.
-          </p>
+
+          {apptLoading ? (
+            <p style={{ color: "#9ca3af", fontSize: "14px" }}>Loading appointments...</p>
+          ) : appointments.length === 0 ? (
+            <p style={{ color: "#9ca3af", fontSize: "14px" }}>No appointments yet.</p>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                }}
+                className="dd-hide-on-mobile"
+              >
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                  <thead>
+                    <tr style={{ background: "#f9fafb", borderBottom: "2px solid #e5e7eb" }}>
+                      <th style={{ padding: "10px 14px", textAlign: "left", color: "#374151" }}>Date</th>
+                      <th style={{ padding: "10px 14px", textAlign: "left", color: "#374151" }}>Patient Name</th>
+                      <th style={{ padding: "10px 14px", textAlign: "left", color: "#374151" }}>Services</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appointments.map((appt) => (
+                      <tr key={appt.appointment_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "10px 14px", color: "#111827" }}>
+                          {new Date(appt.appointment_date).toLocaleDateString("en-PH", {
+                            month: "short", day: "numeric", year: "numeric",
+                          })}
+                          {appt.appointment_time ? ` · ${appt.appointment_time}` : ""}
+                        </td>
+                        <td style={{ padding: "10px 14px", color: "#111827" }}>
+                          {appt.patient_full_name || "—"}
+                        </td>
+                        <td style={{ padding: "10px 14px", color: "#374151" }}>
+                          {formatServices(appt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <div
+                className="dd-show-on-mobile"
+                style={{ display: "flex", flexDirection: "column", gap: 10 }}
+              >
+                {appointments.map((appt) => (
+                  <div
+                    key={appt.appointment_id}
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      padding: 14,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 600, color: "#111827" }}>
+                        {appt.patient_full_name || "—"}
+                      </span>
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>
+                        {new Date(appt.appointment_date).toLocaleDateString("en-PH", {
+                          month: "short", day: "numeric",
+                        })}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 13, color: "#374151" }}>
+                      {formatServices(appt)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1329,7 +1469,7 @@ export default function DoctorDashboard() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 999,
+            zIndex: 30,
           }}
         >
           <div
