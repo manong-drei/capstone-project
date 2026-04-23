@@ -1,5 +1,10 @@
-export const SERVICES = [
-  { id: "CONSULTATION", label: "Consultation", group: null },
+export const SERVICE_CATEGORIES = {
+  DENTAL: { id: "dental", label: "Dental Check-up" },
+  GENERAL: { id: "general", label: "General Consultation" },
+};
+
+export const DENTAL_SERVICES = [
+  { id: "CONSULTATION", label: "Dental Check-up", group: null },
   { id: "ORAL_PROPHYLAXIS", label: "Oral Prophylaxis", group: null },
   {
     id: "PERMANENT_FILLING",
@@ -37,6 +42,15 @@ export const SERVICES = [
   { id: "SPECIAL_SURGERY", label: "Special Surgery", group: null },
   { id: "OTHERS", label: "Others", group: null },
 ];
+
+export const GENERAL_SERVICES = [
+  { id: "GENERAL_CONSULTATION", label: "General Consultation", group: null },
+];
+
+// Backward-compat alias: existing consumers (AdminDashboard, etc.) expect a
+// `SERVICES` export. The alias keeps them working without edits and always
+// resolves to the dental list — the patient-facing service catalogue.
+export const SERVICES = DENTAL_SERVICES;
 
 export const QUEUE_TYPE = {
   REGULAR: "regular",

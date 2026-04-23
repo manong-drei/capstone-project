@@ -1,6 +1,9 @@
 const jwt = require("jsonwebtoken");
 
 module.exports = (req, res, next) => {
+  // devBypass already authenticated this request in development mode.
+  if (req.devBypass) return next();
+
   const header = req.headers["authorization"];
   if (!header || !header.startsWith("Bearer ")) {
     return res

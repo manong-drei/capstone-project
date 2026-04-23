@@ -80,7 +80,8 @@ const Footer = () => {
         {/* Divider */}
         <div className="border-t border-gray-700 pt-4">
           <p className="text-gray-500 text-xs text-center">
-            © 2024 E-KALUSUGAN. All rights reserved. | Bago City Health Center
+            © 2024 E-KALUSUGAN. All rights reserved. | Bago City Healthcare
+            Facility
           </p>
         </div>
       </div>

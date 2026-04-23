@@ -6,4 +6,5 @@ export const ROUTES = {
   DOCTOR_DASHBOARD: "/doctor",
   STAFF_DASHBOARD: "/staff",
   ADMIN_DASHBOARD: "/admin",
+  GENERAL_QUEUE_MONITOR: "/general-queue-monitor",
 };

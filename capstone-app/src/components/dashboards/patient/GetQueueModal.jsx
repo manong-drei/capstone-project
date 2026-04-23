@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SERVICES, QUEUE_TYPE } from "../../../constants/services";
+import { DENTAL_SERVICES as SERVICES, QUEUE_TYPE } from "../../../constants/services";
 import Icon from "../../common/AppIcons";
 import { getSessionItem } from "@analytics/session-storage-utils";
 

@@ -9,8 +9,9 @@ import { useDashboardIdentity } from "../hooks/useDashboardIdentity";
 import { ROUTES } from "../constants/routes";
 import DashboardProfileMenu from "../components/common/DashboardProfileMenu";
 import api from "../services/api";
+import { createGeneralWalkIn } from "../services/queueService";
 import { getQueueDisplayName } from "../utils/queueDisplay";
-import { SERVICES } from "../constants/services";
+import { DENTAL_SERVICES as SERVICES } from "../constants/services";
 
 // ─── Brand colors ──────────────────────────────────────────────────────────
 const NAVY = "#1e2d6b";
@@ -557,7 +558,9 @@ function QueuePanel({ currentServing, nextQueue, onCallNext, loading }) {
 }
 
 // ─── Walk-In Form (right) ────────────────────────────────────────────────────
-function WalkInForm({ onSuccess }) {
+function WalkInForm({ onSuccess, category = "dental" }) {
+  const isGeneral = category === "general";
+
   const [form, setForm] = useState({ fullName: "", age: "", gender: "", address: "", contact: "" });
   const [selectedServices, setSelectedServices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -599,22 +602,30 @@ function WalkInForm({ onSuccess }) {
     if (!form.gender) return setError("Please select a gender.");
     if (!form.address.trim()) return setError("Address is required.");
     if (!form.contact.trim()) return setError("Contact number is required.");
-    if (selectedServices.length === 0) return setError("Please select at least one service.");
+    if (!isGeneral && selectedServices.length === 0)
+      return setError("Please select at least one service.");
     if (isPriority && !priorityCategory) return setError("Please select a priority category.");
 
     setLoading(true);
     try {
-      const res = await api.post("/queue/walkin", {
+      const payload = {
         full_name: form.fullName,
         age: parseInt(form.age),
         gender: form.gender,
         address: form.address,
         contact: "+63" + form.contact.replace(/^0+/, ""),
         type: isPriority ? "priority" : "regular",
-        services: selectedServices,
-      });
+      };
+      const res = isGeneral
+        ? await createGeneralWalkIn(payload)
+        : await api.post("/queue/walkin", {
+            ...payload,
+            category: "dental",
+            services: selectedServices,
+          });
       const queueNumber = res?.queue?.queue_number ?? "assigned";
-      setSuccess(`Walk-in registered — queue number ${queueNumber}.`);
+      const label = isGeneral ? "General" : "Dental";
+      setSuccess(`${label} walk-in registered — queue number ${queueNumber}.`);
       setForm({ fullName: "", age: "", gender: "", address: "", contact: "" });
       setSelectedServices([]);
       setIsPriority(false);
@@ -857,7 +868,8 @@ function WalkInForm({ onSuccess }) {
       {/* Contact Number */}
       <ContactField value={form.contact} onChange={set("contact")} />
 
-      {/* Services */}
+      {/* Services (dental only — general consultation has a fixed single service) */}
+      {!isGeneral && (
       <div style={{ position: "relative" }}>
         <p style={{ margin: "0 0 6px", fontSize: "12px", fontWeight: 600, color: "#374151" }}>
           Services <span style={{ color: "#9ca3af", fontWeight: 400 }}>(select all that apply)</span>
@@ -1031,6 +1043,7 @@ function WalkInForm({ onSuccess }) {
           </div>
         )}
       </div>
+      )}
 
       {/* Queue Type */}
       <div>
@@ -1177,6 +1190,8 @@ function WalkInForm({ onSuccess }) {
             </svg>
             Registering...
           </span>
+        ) : isGeneral ? (
+          "Register General Walk-in"
         ) : (
           "Get Queue"
         )}
@@ -1361,6 +1376,7 @@ export default function StaffDashboard() {
   const [queues, setQueues] = useState([]);
   const [calling, setCalling] = useState(false);
   const [doctorAvailable, setDoctorAvailable] = useState(null);
+  const [activeTab, setActiveTab] = useState("dental");
   const intervalRef = useRef(null);
 
   const fetchQueue = useCallback(async () => {
@@ -1392,10 +1408,10 @@ export default function StaffDashboard() {
     return () => clearInterval(intervalRef.current);
   }, [fetchQueue, fetchDoctorAvailability]);
 
-  const handleCallNext = async () => {
+  const handleCallNext = async (category) => {
     setCalling(true);
     try {
-      await api.post("/queue/call-next");
+      await api.post("/queue/call-next", { category });
       await fetchQueue();
     } catch (err) {
       alert(err.message || "Failed to call next patient.");
@@ -1409,8 +1425,14 @@ export default function StaffDashboard() {
     navigate(ROUTES.LOGIN);
   };
 
-  const currentServing = queues.find((q) => q.status === "serving") ?? null;
-  const nextQueue = queues.filter((q) => q.status === "waiting");
+  const dentalQueues = queues.filter(
+    (q) => (q.category ?? "dental") === "dental",
+  );
+  const generalQueues = queues.filter((q) => q.category === "general");
+
+  const activeList = activeTab === "general" ? generalQueues : dentalQueues;
+  const currentServing = activeList.find((q) => q.status === "serving") ?? null;
+  const nextQueue = activeList.filter((q) => q.status === "waiting");
 
   return (
     <>
@@ -1439,6 +1461,103 @@ export default function StaffDashboard() {
             boxSizing: "border-box",
           }}
         >
+          {/* Category tabs */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              marginBottom: "18px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-flex",
+                padding: "4px",
+                background: "#ffffff",
+                border: "1.5px solid #e5e7eb",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+              }}
+            >
+              {[
+                { id: "dental", label: "Dental Check-up" },
+                { id: "general", label: "General Consultation" },
+              ].map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: "9px",
+                      border: "none",
+                      background: active
+                        ? `linear-gradient(90deg, ${NAVY} 0%, ${INDIGO} 100%)`
+                        : "transparent",
+                      color: active ? "#ffffff" : "#4b5563",
+                      fontWeight: active ? 700 : 500,
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeTab === "general" && (
+              <button
+                onClick={() =>
+                  window.open(ROUTES.GENERAL_QUEUE_MONITOR, "_blank")
+                }
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "9px 16px",
+                  borderRadius: "10px",
+                  border: "1.5px solid #dde1ec",
+                  background: "#ffffff",
+                  color: NAVY,
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "background 0.15s, border-color 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#f8fafc";
+                  e.currentTarget.style.borderColor = BLUE;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#ffffff";
+                  e.currentTarget.style.borderColor = "#dde1ec";
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                Open Monitor
+              </button>
+            )}
+          </div>
+
           <div
             className="ek-grid"
             style={{
@@ -1451,14 +1570,18 @@ export default function StaffDashboard() {
             <QueuePanel
               currentServing={currentServing}
               nextQueue={nextQueue}
-              onCallNext={handleCallNext}
+              onCallNext={() => handleCallNext(activeTab)}
               loading={calling}
             />
-            <WalkInForm onSuccess={fetchQueue} />
+            <WalkInForm
+              key={activeTab}
+              onSuccess={fetchQueue}
+              category={activeTab}
+            />
           </div>
 
-          {/* Doctor Status */}
-          {doctorAvailable !== null && (
+          {/* Doctor Status (dental queue only) */}
+          {activeTab === "dental" && doctorAvailable !== null && (
             <div
               style={{
                 marginTop: "16px",

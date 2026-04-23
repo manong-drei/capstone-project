@@ -28,23 +28,33 @@ const Queue = {
     return Queue._parse(rows[0] || null);
   },
 
-  findTodayActive: async () => {
-    const [rows] = await pool.query(`
+  findTodayActive: async ({ category } = {}) => {
+    const params = [];
+    let categoryClause = "";
+    if (category) {
+      categoryClause = "AND q.category = ?";
+      params.push(category);
+    }
+    const [rows] = await pool.query(
+      `
       SELECT q.*,
              COALESCE(p.full_name, q.walk_in_name) AS full_name
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  DATE(q.created_at) = CURDATE()
         AND  q.status IN ('waiting', 'serving', 'done')
+        ${categoryClause}
       ORDER BY
         FIELD(q.status, 'serving', 'waiting', 'done'),
         FIELD(q.type, 'priority', 'regular'),
         q.created_at ASC
-    `);
+    `,
+      params,
+    );
     return rows.map(Queue._parse);
   },
 
-  // Patient's own active queue for today
+  // Patient's own active queue for today (dental only — patients cannot join general)
   findByPatientId: async (patient_id) => {
     const [rows] = await pool.query(
       `
@@ -53,6 +63,7 @@ const Queue = {
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  q.patient_id = ?
+        AND  q.category = 'dental'
         AND  DATE(q.created_at) = CURDATE()
         AND  q.status NOT IN ('done', 'cancelled')
       ORDER  BY q.created_at DESC
@@ -68,6 +79,7 @@ const Queue = {
     patient_id,
     queue_number,
     type,
+    category,
     services,
     walk_in_name,
     walk_in_age,
@@ -75,12 +87,13 @@ const Queue = {
     walk_in_contact,
   }) => {
     const [result] = await pool.query(
-      `INSERT INTO queues (patient_id, queue_number, type, services, walk_in_name, walk_in_age, walk_in_gender, walk_in_contact)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO queues (patient_id, queue_number, type, category, services, walk_in_name, walk_in_age, walk_in_gender, walk_in_contact)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         patient_id || null,
         queue_number,
         type || "regular",
+        category || "dental",
         services ? JSON.stringify(services) : null,
         walk_in_name || null,
         walk_in_age || null,
@@ -92,21 +105,31 @@ const Queue = {
   },
 
   // Pull the next waiting patient (priority first), set to serving atomically
-  callNext: async () => {
+  callNext: async ({ category } = {}) => {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
-      const [rows] = await conn.query(`
+      const params = [];
+      let categoryClause = "";
+      if (category) {
+        categoryClause = "AND category = ?";
+        params.push(category);
+      }
+      const [rows] = await conn.query(
+        `
         SELECT * FROM queues
         WHERE  status = 'waiting'
           AND  DATE(created_at) = CURDATE()
+          ${categoryClause}
         ORDER BY
           FIELD(type, 'priority', 'regular'),
           created_at ASC
         LIMIT 1
         FOR UPDATE
-      `);
+      `,
+        params,
+      );
 
       if (!rows[0]) {
         await conn.rollback();
@@ -139,8 +162,15 @@ const Queue = {
   },
 
   // Public status cards: now-serving and next-waiting queue + names
-  getPublicStatus: async () => {
-    const [rows] = await pool.query(`
+  getPublicStatus: async ({ category } = {}) => {
+    const params = [];
+    let categoryClause = "";
+    if (category) {
+      categoryClause = "AND q.category = ?";
+      params.push(category);
+    }
+    const [rows] = await pool.query(
+      `
       SELECT q.queue_number,
              q.status,
              COALESCE(p.full_name, q.walk_in_name) AS full_name
@@ -148,12 +178,15 @@ const Queue = {
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  DATE(q.created_at) = CURDATE()
         AND  q.status IN ('serving', 'waiting')
+        ${categoryClause}
       ORDER BY
         FIELD(q.status, 'serving', 'waiting'),
         FIELD(q.type, 'priority', 'regular'),
         q.created_at ASC
       LIMIT 2
-    `);
+    `,
+      params,
+    );
     const serving = rows.find((r) => r.status === 'serving');
     const waiting = rows.find((r) => r.status === 'waiting');
     return {

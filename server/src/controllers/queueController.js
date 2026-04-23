@@ -17,10 +17,13 @@ const ALLOWED_SERVICE_IDS = new Set([
   'OTHERS',
 ]);
 
+const GENERAL_SERVICE_ID = 'GENERAL_CONSULTATION';
+
 /** GET /api/queue/status — now-serving and next-queuing numbers (all roles) */
 const getQueueStatus = async (req, res) => {
   try {
-    const status = await Queue.getPublicStatus();
+    const { category } = req.query;
+    const status = await Queue.getPublicStatus({ category });
     res.json(status);
   } catch (err) {
     console.error('getQueueStatus error:', err);
@@ -31,7 +34,8 @@ const getQueueStatus = async (req, res) => {
 /** GET /api/queue — all today's active queues (doctor/staff) */
 const getAllQueues = async (req, res) => {
   try {
-    const queues = await Queue.findTodayActive();
+    const { category } = req.query;
+    const queues = await Queue.findTodayActive({ category });
     res.json(queues);
   } catch (err) {
     console.error('getAllQueues error:', err);
@@ -54,10 +58,18 @@ const getMyQueue = async (req, res) => {
   }
 };
 
-/** POST /api/queue — patient gets a queue number */
+/** POST /api/queue — patient gets a queue number (dental only) */
 const createQueue = async (req, res) => {
   try {
     const { services, type } = req.body;
+
+    // Patients may only book dental services — reject anything outside the dental whitelist.
+    if (Array.isArray(services)) {
+      const invalid = services.find((id) => !ALLOWED_SERVICE_IDS.has(id));
+      if (invalid) {
+        return res.status(400).json({ success: false, message: 'Invalid service selected.' });
+      }
+    }
 
     const patient = await Patient.findByUserId(req.user.user_id);
     if (!patient) {
@@ -119,9 +131,9 @@ const createQueue = async (req, res) => {
       }
     }
 
-    // Generate queue number: P-001 for priority, Q-001 for regular
+    // Generate queue number (dental-scoped): P-001 for priority, Q-001 for regular
     const [[countRow]] = await db.query(
-      `SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()`
+      `SELECT COUNT(*) AS count FROM queues WHERE category = 'dental' AND DATE(created_at) = CURDATE()`
     );
     const prefix = type === 'priority' ? 'P' : 'Q';
     const queueNumber = `${prefix}-${String(countRow.count + 1).padStart(3, '0')}`;
@@ -130,6 +142,7 @@ const createQueue = async (req, res) => {
       patient_id: patient.patient_id,
       queue_number: queueNumber,
       type: type || 'regular',
+      category: 'dental',
       services: services || [],
     });
 
@@ -143,7 +156,8 @@ const createQueue = async (req, res) => {
 /** POST /api/queue/walkin — staff registers a walk-in patient (no account) */
 const createWalkIn = async (req, res) => {
   try {
-    const { full_name, age, gender, contact, type, services } = req.body;
+    const { full_name, age, gender, contact, type, services, category } = req.body;
+    const queueCategory = category === 'general' ? 'general' : 'dental';
 
     if (!full_name || !full_name.trim()) {
       return res.status(400).json({ success: false, message: 'Full name is required.' });
@@ -154,48 +168,61 @@ const createWalkIn = async (req, res) => {
     if (!gender || !['male', 'female'].includes(gender)) {
       return res.status(400).json({ success: false, message: 'Gender must be male or female.' });
     }
-    if (!Array.isArray(services) || services.length === 0) {
-      return res.status(400).json({ success: false, message: 'Please select at least one service.' });
-    }
 
-    const selectedServices = [...new Set(services)].filter((serviceId) =>
-      ALLOWED_SERVICE_IDS.has(serviceId)
-    );
-    if (selectedServices.length !== services.length) {
-      return res.status(400).json({ success: false, message: 'Invalid service selected.' });
+    let selectedServices;
+    if (queueCategory === 'general') {
+      // General consultation has exactly one service — staff does not pick it.
+      selectedServices = [GENERAL_SERVICE_ID];
+    } else {
+      if (!Array.isArray(services) || services.length === 0) {
+        return res.status(400).json({ success: false, message: 'Please select at least one service.' });
+      }
+      selectedServices = [...new Set(services)].filter((serviceId) =>
+        ALLOWED_SERVICE_IDS.has(serviceId)
+      );
+      if (selectedServices.length !== services.length) {
+        return res.status(400).json({ success: false, message: 'Invalid service selected.' });
+      }
     }
 
     const db = require('../config/db');
 
-    // Enforce walk-in daily limit (uses the first doctor's daily_doctor_settings as active dentist)
-    const [[settings]] = await db.query(
-      `SELECT walk_in_limit FROM daily_doctor_settings
-       WHERE date = CURDATE()
-       ORDER BY doctor_id ASC
-       LIMIT 1`
-    );
-    const walkInLimit = settings?.walk_in_limit ?? 0;
-    const [[{ walkinToday }]] = await db.query(
-      `SELECT COUNT(*) AS walkinToday FROM queues
-       WHERE patient_id IS NULL AND DATE(created_at) = CURDATE()`
-    );
-    if (walkInLimit > 0 && walkinToday >= walkInLimit) {
-      return res.status(409).json({
-        success: false,
-        message: 'Walk-in slots are full for today.',
-      });
+    // Walk-in daily limit applies only to dental (it is tied to the dentist's daily_doctor_settings).
+    if (queueCategory === 'dental') {
+      const [[settings]] = await db.query(
+        `SELECT walk_in_limit FROM daily_doctor_settings
+         WHERE date = CURDATE()
+         ORDER BY doctor_id ASC
+         LIMIT 1`
+      );
+      const walkInLimit = settings?.walk_in_limit ?? 0;
+      const [[{ walkinToday }]] = await db.query(
+        `SELECT COUNT(*) AS walkinToday FROM queues
+         WHERE patient_id IS NULL AND category = 'dental' AND DATE(created_at) = CURDATE()`
+      );
+      if (walkInLimit > 0 && walkinToday >= walkInLimit) {
+        return res.status(409).json({
+          success: false,
+          message: 'Walk-in slots are full for today.',
+        });
+      }
     }
 
+    // Queue number is scoped per-category and uses a category-specific prefix.
     const [[countRow]] = await db.query(
-      `SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()`
+      `SELECT COUNT(*) AS count FROM queues
+       WHERE category = ? AND DATE(created_at) = CURDATE()`,
+      [queueCategory]
     );
-    const walkInPrefix = type === 'priority' ? 'P' : 'Q';
-    const queueNumber = `${walkInPrefix}-${String(countRow.count + 1).padStart(3, '0')}`;
+    const prefix =
+      queueCategory === 'general' ? 'G' : type === 'priority' ? 'P' : 'Q';
+    const queueNumber = `${prefix}-${String(countRow.count + 1).padStart(3, '0')}`;
 
     const queue = await Queue.create({
       patient_id: null,
       queue_number: queueNumber,
       type: type || 'regular',
+      category: queueCategory,
       services: selectedServices,
       walk_in_name: full_name.trim(),
       walk_in_age: parseInt(age),
@@ -210,10 +237,11 @@ const createWalkIn = async (req, res) => {
   }
 };
 
-/** POST /api/queue/call-next — doctor calls next patient */
+/** POST /api/queue/call-next — doctor/staff calls next patient (optionally scoped by category) */
 const callNext = async (req, res) => {
   try {
-    const next = await Queue.callNext();
+    const { category } = req.body || {};
+    const next = await Queue.callNext({ category });
     if (!next) {
       return res.status(404).json({ success: false, message: 'No patients waiting.' });
     }

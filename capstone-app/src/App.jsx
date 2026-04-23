@@ -18,6 +18,7 @@ import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import StaffDashboard from "./pages/StaffDashboard"; // ← NEW
 import AdminDashboard from "./pages/AdminDashboard";
+import GeneralQueueMonitor from "./pages/GeneralQueueMonitor";
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
@@ -108,6 +109,16 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
               <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* General Queue Monitor — staff/admin only kiosk display */}
+        <Route
+          path={ROUTES.GENERAL_QUEUE_MONITOR}
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.STAFF, ROLES.ADMIN]}>
+              <GeneralQueueMonitor />
             </ProtectedRoute>
           }
         />
