@@ -5,7 +5,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useDashboardIdentity } from "../hooks/useDashboardIdentity";
 import { ROUTES } from "../constants/routes";
+import DashboardProfileMenu from "../components/common/DashboardProfileMenu";
 import api from "../services/api";
 
 // ─── Brand colors ──────────────────────────────────────────────────────────
@@ -68,7 +70,7 @@ const GLOBAL_STYLES = `
 `;
 
 // ─── Navbar ─────────────────────────────────────────────────────────────────
-function Navbar({ onLogout }) {
+function Navbar({ identity, onLogout }) {
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
@@ -166,7 +168,7 @@ function Navbar({ onLogout }) {
             style={{
               position: "absolute",
               top: "44px",
-              right: "80px",
+              right: 0,
               background: "#ffffff",
               border: "1px solid #e5e7eb",
               borderRadius: "10px",
@@ -202,34 +204,15 @@ function Navbar({ onLogout }) {
           </div>
         )}
 
-        {/* Logout */}
-        <button
-          className="ek-nav-btn"
-          onClick={onLogout}
-          style={navBtnStyle}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "rgba(220,38,38,0.35)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = navBtnStyle.background)
-          }
-        >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-          <span className="ek-nav-label">Logout</span>
-        </button>
+        <DashboardProfileMenu
+          identity={identity}
+          onLogout={onLogout}
+          accentColor={ORANGE}
+          chipBg="rgba(255,255,255,0.12)"
+          chipBorder="rgba(255,255,255,0.25)"
+          chipTextColor="#ffffff"
+          subtitleColor="rgba(255,255,255,0.72)"
+        />
       </div>
     </nav>
   );
@@ -1091,6 +1074,7 @@ function GenderField({ value, onChange }) {
 export default function StaffDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { identity } = useDashboardIdentity();
   const [queues, setQueues] = useState([]);
   const [calling, setCalling] = useState(false);
   const intervalRef = useRef(null);
@@ -1144,7 +1128,7 @@ export default function StaffDashboard() {
           fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
         }}
       >
-        <Navbar onLogout={handleLogout} />
+        <Navbar identity={identity} onLogout={handleLogout} />
         <HeroBanner />
 
         {/* Main content */}

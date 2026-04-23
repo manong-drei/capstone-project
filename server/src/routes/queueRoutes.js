@@ -3,6 +3,7 @@ const router = express.Router();
 const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
 const {
+  getQueueStatus,
   getAllQueues,
   getMyQueue,
   createQueue,
@@ -11,6 +12,9 @@ const {
   updateStatus,
   cancelQueue,
 } = require('../controllers/queueController');
+
+// Public status (all authenticated roles)
+router.get('/status',        authenticate,                                          getQueueStatus);
 
 // Patient routes
 router.get('/me',            authenticate, authorize('patient'),                    getMyQueue);

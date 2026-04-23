@@ -90,6 +90,18 @@ const getStrength = (pw) => {
   return { score, ...map[score] };
 };
 
+const normalizePhilippineMobilePhone = (value) => {
+  const sanitized = String(value ?? "")
+    .trim()
+    .replace(/[\s\-()]/g, "");
+
+  if (/^09\d{9}$/.test(sanitized)) return sanitized;
+  if (/^\+639\d{9}$/.test(sanitized)) return `0${sanitized.slice(3)}`;
+  if (/^639\d{9}$/.test(sanitized)) return `0${sanitized.slice(2)}`;
+
+  return null;
+};
+
 /* -- Input component ----------------------------------------------------- */
 const Field = ({ label, children }) => (
   <div>
@@ -169,6 +181,11 @@ const RegisterPage = () => {
     if (!fullName.trim()) return setError("Full name is required.");
     if (!address.trim()) return setError("Address is required.");
     if (!phone.trim()) return setError("Phone number is required.");
+    if (!normalizePhilippineMobilePhone(phone)) {
+      return setError(
+        "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
+      );
+    }
     if (!age || isNaN(age) || +age < 1 || +age > 120)
       return setError("Please enter a valid age.");
     if (!gender) return setError("Please select a gender.");
@@ -316,7 +333,7 @@ const RegisterPage = () => {
                 <input
                   className={inputCls}
                   style={inputStyle}
-                  placeholder=" "
+                  placeholder="username"
                   value={form.username}
                   onChange={set("username")}
                   autoComplete="username"
@@ -407,7 +424,7 @@ const RegisterPage = () => {
                 <input
                   className={inputCls}
                   style={inputStyle}
-                  placeholder="09XX XXX XXXX"
+                  placeholder="09xxxxxxxxx"
                   type="tel"
                   value={form.phone}
                   onChange={set("phone")}

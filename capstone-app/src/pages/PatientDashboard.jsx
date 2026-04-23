@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useDashboardIdentity } from "../hooks/useDashboardIdentity";
 import { useQueue } from "../hooks/useQueue";
 import { ROUTES } from "../constants/routes";
 import { QUEUE_STATUS } from "../constants/services";
 
+import DashboardProfileMenu from "../components/common/DashboardProfileMenu";
 import Footer from "../components/landing/Footer";
 import Icon from "../components/common/AppIcons";
 import GetQueueModal from "../components/dashboards/patient/GetQueueModal";
@@ -44,54 +46,72 @@ const mobileMenuBtn = {
 };
 
 const PATIENT_RESPONSIVE_CSS = `
-  .pd-nav { padding: 10px 24px; }
-  .pd-nav-items { display: flex; align-items: center; gap: 4px; }
-  .pd-nav-btn-label { display: inline; }
-  .pd-hamburger { display: none; }
-  .pd-mobile-menu { display: none; }
-  .pd-actions { padding: 28px 24px; }
-  .pd-content-pad { padding: 0 24px 32px; }
-  .pd-tab-pad { padding: 28px 24px; }
-  .pd-hero-pad { padding: 48px 24px; }
-  .pd-doctor-hero-pad { padding: 40px 24px; }
-  @media (max-width: 768px) {
-    .pd-nav { padding: 10px 16px; }
-    .pd-nav-items { gap: 2px; }
-    .pd-nav-btn-label { display: none; }
-    .pd-brand-text { font-size: 14px !important; letter-spacing: 0.06em !important; }
-  }
-  @media (max-width: 640px) {
-    .pd-nav { padding: 10px 14px; }
-    .pd-hamburger { display: flex !important; }
-    .pd-nav-items-desktop { display: none !important; }
-    .pd-mobile-menu.open { display: block; }
-    .pd-actions { padding: 20px 14px; gap: 12px !important; }
-    .pd-content-pad { padding: 0 14px 24px; }
-    .pd-tab-pad { padding: 20px 14px; }
-    .pd-hero-pad { padding: 36px 16px !important; }
-    .pd-doctor-hero-pad { padding: 32px 16px !important; }
-    .pd-brand-logo { width: 32px !important; height: 32px !important; }
-    .pd-action-btn { padding: 16px 18px !important; font-size: 13px !important; flex: 1 1 100% !important; }
-    .pd-info-card { padding: 16px !important; min-height: 110px !important; }
-    .pd-info-card-big { font-size: 18px !important; }
-    .pd-info-card-num { font-size: 24px !important; }
-  }
-`;
+    .pd-nav { padding: 10px 24px; }
+    .pd-nav-items { display: flex; align-items: center; gap: 4px; }
+    .pd-nav-btn-label { display: inline; }
+    .pd-hamburger { display: none; }
+    .pd-mobile-menu { display: none; }
+    .pd-actions { padding: 28px 24px; }
+    .pd-content-pad { padding: 0 24px 32px; }
+    .pd-tab-pad { padding: 28px 24px; }
+    .pd-hero-pad { padding: 48px 24px; }
+    .pd-doctor-hero-pad { padding: 40px 24px; }
+    @media (max-width: 768px) {
+      .pd-nav { padding: 10px 16px; }
+      .pd-nav-items { gap: 2px; }
+      .pd-nav-btn-label { display: none; }
+      .pd-brand-text { font-size: 14px !important; letter-spacing: 0.06em !important; }
+    }
+    @media (max-width: 640px) {
+      .pd-nav { padding: 10px 14px; }
+      .pd-hamburger { display: flex !important; }
+      .pd-nav-items-desktop { display: none !important; }
+      .pd-mobile-menu.open { display: block; }
+      .pd-actions { padding: 20px 14px; gap: 12px !important; }
+      .pd-content-pad { padding: 0 14px 24px; }
+      .pd-tab-pad { padding: 20px 14px; }
+      .pd-hero-pad { padding: 36px 16px !important; }
+      .pd-doctor-hero-pad { padding: 32px 16px !important; }
+      .pd-brand-logo { width: 32px !important; height: 32px !important; }
+      .pd-action-btn { padding: 16px 18px !important; font-size: 13px !important; flex: 1 1 100% !important; }
+      .pd-info-card { padding: 16px !important; min-height: 110px !important; }
+      .pd-info-card-big { font-size: 18px !important; }
+      .pd-info-card-num { font-size: 24px !important; }
+    }
+  `;
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { queue, loading, error, fetchMyQueue, submitQueue } = useQueue();
+  const { identity } = useDashboardIdentity();
+  const {
+    queue,
+    loading,
+    error,
+    fetchMyQueue,
+    submitQueue,
+  } = useQueue();
 
   const [activeTab, setActiveTab] = useState("home");
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [queueStatus, setQueueStatus] = useState({ now_serving: null, next_queuing: null });
+
+  const fetchQueueStatus = async () => {
+    try {
+      const data = await queueService.getQueueStatus();
+      setQueueStatus(data ?? { now_serving: null, next_queuing: null });
+    } catch {
+      /* silently ignore — display stays as — */
+    }
+  };
 
   useEffect(() => {
     fetchMyQueue();
-  }, []);
+    fetchQueueStatus();
+  }, [fetchMyQueue]);
 
   useEffect(() => {
     if (activeTab === "appointments") loadAppointments();
@@ -139,10 +159,12 @@ export default function PatientDashboard() {
     queue.status !== QUEUE_STATUS.CANCELLED;
 
   useEffect(() => {
-    if (!hasActiveQueue) return;
-    const interval = setInterval(fetchMyQueue, 15_000);
+    const interval = setInterval(() => {
+      fetchQueueStatus();
+      if (hasActiveQueue) fetchMyQueue();
+    }, 15_000);
     return () => clearInterval(interval);
-  }, [hasActiveQueue]);
+  }, [hasActiveQueue, fetchMyQueue]);
 
   return (
     <div
@@ -318,27 +340,17 @@ export default function PatientDashboard() {
             <span className="pd-nav-btn-label">Settings</span>
           </button>
 
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "7px",
-              background: "rgba(255,255,255,0.15)",
-              border: "1.5px solid rgba(255,255,255,0.35)",
-              color: "white",
-              fontSize: "13px",
-              fontWeight: 600,
-              cursor: "pointer",
-              padding: "7px 16px",
-              borderRadius: "24px",
-              marginLeft: "8px",
-            }}
-          >
-            <Icon name="user" size={16} color="white" />
-            <span className="pd-nav-btn-label">Logout</span>
-          </button>
+          <div style={{ marginLeft: "8px" }}>
+            <DashboardProfileMenu
+              identity={identity}
+              onLogout={handleLogout}
+              accentColor={ORANGE}
+              chipBg="rgba(255,255,255,0.15)"
+              chipBorder="rgba(255,255,255,0.35)"
+              chipTextColor="#ffffff"
+              subtitleColor="rgba(255,255,255,0.72)"
+            />
+          </div>
         </div>
 
         {/* Mobile Dropdown Menu */}
@@ -360,6 +372,18 @@ export default function PatientDashboard() {
               boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
             }}
           >
+            <DashboardProfileMenu
+              mobile
+              identity={identity}
+              onLogout={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+              accentColor={ORANGE}
+              panelBg="rgba(255,255,255,0.1)"
+              panelTextColor="#ffffff"
+              panelMutedColor="rgba(255,255,255,0.72)"
+            />
             <button
               onClick={() => setMobileMenuOpen(false)}
               style={mobileMenuBtn}
@@ -400,20 +424,6 @@ export default function PatientDashboard() {
                 />
               </svg>
               Settings
-            </button>
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                handleLogout();
-              }}
-              style={{
-                ...mobileMenuBtn,
-                background: "rgba(255,255,255,0.15)",
-                border: "1px solid rgba(255,255,255,0.3)",
-              }}
-            >
-              <Icon name="user" size={16} color="white" />
-              Logout
             </button>
           </div>
         )}
@@ -485,7 +495,78 @@ export default function PatientDashboard() {
               </p>
             </div>
           </section>
+          {/* ── Now Queuing / Next Queuing ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pd-content-pad">
+            {/* Now Queuing */}
+            <div
+              style={{
+                background: "#f97316",
+                marginTop: "20px",
+                borderRadius: "16px",
+                padding: "24px 28px",
+                boxShadow: "0 4px 16px rgba(249,115,22,0.3)",
+              }}
+            >
+              <p
+                style={{
+                  margin: "0 0 6px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.8)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Now Queuing
+              </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "clamp(2.5rem, 6vw, 4rem)",
+                  fontWeight: 900,
+                  color: "white",
+                  lineHeight: 1,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {queueStatus.now_serving ?? "—"}
+              </p>
+            </div>
 
+            {/* Next Queuing */}
+            <div
+              style={{
+                background: NAVY,
+                borderRadius: "16px",
+                padding: "24px 28px",
+                boxShadow: "0 4px 16px rgba(45,58,140,0.25)",
+                marginTop: "20px",
+              }}
+            >
+              <p
+                style={{
+                  margin: "0 0 6px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.8)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Next Queuing
+              </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "clamp(2.5rem, 6vw, 4rem)",
+                  fontWeight: 900,
+                  color: "white",
+                  lineHeight: 1,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {queueStatus.next_queuing ?? "—"}
+              </p>
+            </div>
+          </div>
           {/* Action Buttons */}
           <div
             className="pd-actions"

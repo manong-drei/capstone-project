@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth }     from '../hooks/useAuth'
+import { useDashboardIdentity } from '../hooks/useDashboardIdentity'
 import { ROUTES }      from '../constants/routes'
 import {
   PieChart, Pie, Cell,
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
+import DashboardProfileMenu from '../components/common/DashboardProfileMenu'
 import StaffManager  from '../components/dashboards/admin/StaffManager'
 import ReportsPanel  from '../components/dashboards/admin/ReportsPanel'
 import api           from '../services/api'
@@ -192,6 +194,7 @@ function StatusBadge({ status }) {
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const { logout } = useAuth()
+  const { identity } = useDashboardIdentity()
 
   const [activeTab,    setActiveTab]    = useState('overview')
   const [accountTab,   setAccountTab]   = useState('Patient')
@@ -287,7 +290,7 @@ export default function AdminDashboard() {
           </span>
         </div>
 
-        {/* Right: Help + Logout */}
+        {/* Right: Help + Profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             className="ad-nav-btn"
@@ -295,13 +298,15 @@ export default function AdminDashboard() {
           >
             Help
           </button>
-          <button
-            className="ad-nav-btn"
-            onClick={handleLogout}
-            style={{ background: '#f97316', border: 'none', borderRadius: '8px', padding: '7px 16px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
-          >
-            Log Out
-          </button>
+          <DashboardProfileMenu
+            identity={identity}
+            onLogout={handleLogout}
+            accentColor={ORANGE}
+            chipBg='rgba(255,255,255,0.15)'
+            chipBorder='rgba(255,255,255,0.24)'
+            chipTextColor='#ffffff'
+            subtitleColor='rgba(255,255,255,0.72)'
+          />
         </div>
       </nav>
 

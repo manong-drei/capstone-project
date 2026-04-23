@@ -1,6 +1,7 @@
 import api from "./api";
 
 export const getMyQueue = () => api.get("/queue/me");
+export const getQueueStatus = () => api.get("/queue/status");
 export const getAllQueues = () => api.get("/queue");
 export const createQueue = (payload) => api.post("/queue", payload);
 export const callNextQueue = () => api.post("/queue/call-next");

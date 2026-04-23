@@ -18,7 +18,7 @@ import { useAuth } from "../../hooks/useAuth";
 import api from "../../services/api";
 
 // Only render in dev mode (controlled by .env.development)
-const DEV_MODE = import.meta.env.VITE_DEV_BYPASS === "true";
+const DEV_MODE = import.meta.env.VITE_DEV_BYPASS === "false";
 
 const ROLES = [
   { role: "patient", label: "Patient", emoji: "🧑‍⚕️", color: "#4f46e5" },

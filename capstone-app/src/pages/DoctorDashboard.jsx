@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useDashboardIdentity } from "../hooks/useDashboardIdentity";
 import { useQueue } from "../hooks/useQueue";
 import { ROUTES } from "../constants/routes";
 import { QUEUE_STATUS } from "../constants/services";
 
+import DashboardProfileMenu from "../components/common/DashboardProfileMenu";
 import StatCard from "../components/common/StatCard";
 import Icon from "../components/common/AppIcons";
 import ConsultationModal from "../components/dashboards/doctor/ConsultationModal";
+import Footer from "../components/landing/Footer";
 import api from "../services/api";
 import * as appointmentService from "../services/appointmentService";
 
@@ -20,7 +23,9 @@ const formatServices = (appt) => {
     const raw = appt?.queue_services;
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (Array.isArray(parsed) && parsed.length > 0) return parsed.join(", ");
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
   return appt?.reason || "—";
 };
 
@@ -73,6 +78,7 @@ const docMobileMenuBtn = {
 export default function DoctorDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { identity } = useDashboardIdentity();
   const { queues, loading, error, fetchAllQueues, callNext, updateStatus } =
     useQueue();
 
@@ -177,7 +183,9 @@ export default function DoctorDashboard() {
         if (!cancelled) setApptLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeTab]);
 
   const handleCallNext = async () => {
@@ -395,27 +403,17 @@ export default function DoctorDashboard() {
             <span className="dd-nav-btn-label">Help</span>
           </button>
 
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "7px",
-              background: "rgba(255,255,255,0.15)",
-              border: "1.5px solid rgba(255,255,255,0.35)",
-              color: "white",
-              fontSize: "13px",
-              fontWeight: 600,
-              cursor: "pointer",
-              padding: "7px 16px",
-              borderRadius: "24px",
-              marginLeft: "8px",
-            }}
-          >
-            <Icon name="user" size={16} color="white" />
-            <span className="dd-nav-btn-label">Logout</span>
-          </button>
+          <div style={{ marginLeft: "8px" }}>
+            <DashboardProfileMenu
+              identity={identity}
+              onLogout={handleLogout}
+              accentColor={INDIGO}
+              chipBg="rgba(255,255,255,0.15)"
+              chipBorder="rgba(255,255,255,0.35)"
+              chipTextColor="#ffffff"
+              subtitleColor="rgba(255,255,255,0.72)"
+            />
+          </div>
         </div>
 
         {/* Mobile Dropdown Menu */}
@@ -436,6 +434,18 @@ export default function DoctorDashboard() {
               boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
             }}
           >
+            <DashboardProfileMenu
+              mobile
+              identity={identity}
+              onLogout={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+              accentColor={INDIGO}
+              panelBg="rgba(255,255,255,0.1)"
+              panelTextColor="#ffffff"
+              panelMutedColor="rgba(255,255,255,0.72)"
+            />
             <button
               onClick={() => {
                 setActiveTab("analytics");
@@ -462,20 +472,6 @@ export default function DoctorDashboard() {
             >
               <Icon name="info" size={16} color="white" />
               Help
-            </button>
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                handleLogout();
-              }}
-              style={{
-                ...docMobileMenuBtn,
-                background: "rgba(255,255,255,0.15)",
-                border: "1px solid rgba(255,255,255,0.3)",
-              }}
-            >
-              <Icon name="user" size={16} color="white" />
-              Logout
             </button>
           </div>
         )}
@@ -1098,7 +1094,7 @@ export default function DoctorDashboard() {
                   letterSpacing: "0.04em",
                 }}
               >
-                Competed List
+                Completed List
               </p>
               {doneQueues.length === 0 ? (
                 <p
@@ -1118,21 +1114,52 @@ export default function DoctorDashboard() {
                     listStyle: "none",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "6px",
+                    gap: "10px",
+                    maxHeight: "220px",
+                    overflowY: "auto",
                   }}
                 >
-                  {doneQueues.slice(0, 5).map((q) => (
-                    <li
-                      key={q.id}
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        color: "#374151",
-                      }}
-                    >
-                      #{q.patient_name ?? q.full_name ?? q.queue_number}
-                    </li>
-                  ))}
+                  {doneQueues.map((q) => {
+                    const name = q.full_name ?? q.walk_in_name ?? q.queue_number;
+                    const services = Array.isArray(q.services) && q.services.length > 0
+                      ? q.services.join(", ")
+                      : "—";
+                    const completedAt = q.updated_at
+                      ? new Date(q.updated_at).toLocaleTimeString("en-PH", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })
+                      : null;
+                    return (
+                      <li
+                        key={q.id}
+                        style={{
+                          borderBottom: "1px solid #f3f4f6",
+                          paddingBottom: "8px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontSize: "12px", fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "1px 7px", borderRadius: "20px" }}>
+                            {q.queue_number}
+                          </span>
+                          <span style={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+                            {name}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", marginTop: "3px", flexWrap: "wrap" }}>
+                          {completedAt && (
+                            <span style={{ fontSize: "11px", color: "#6b7280" }}>
+                              ✓ {completedAt}
+                            </span>
+                          )}
+                          <span style={{ fontSize: "11px", color: "#374151" }}>
+                            {services}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -1232,6 +1259,7 @@ export default function DoctorDashboard() {
               {error}
             </p>
           )}
+          <Footer />
         </>
       )}
 
@@ -1319,6 +1347,7 @@ export default function DoctorDashboard() {
               />
             </div>
           </div>
+          <Footer />
         </div>
       )}
 
@@ -1367,9 +1396,13 @@ export default function DoctorDashboard() {
           </div>
 
           {apptLoading ? (
-            <p style={{ color: "#9ca3af", fontSize: "14px" }}>Loading appointments...</p>
+            <p style={{ color: "#9ca3af", fontSize: "14px" }}>
+              Loading appointments...
+            </p>
           ) : appointments.length === 0 ? (
-            <p style={{ color: "#9ca3af", fontSize: "14px" }}>No appointments yet.</p>
+            <p style={{ color: "#9ca3af", fontSize: "14px" }}>
+              No appointments yet.
+            </p>
           ) : (
             <>
               {/* Desktop table */}
@@ -1382,22 +1415,67 @@ export default function DoctorDashboard() {
                 }}
                 className="dd-hide-on-mobile"
               >
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 14,
+                  }}
+                >
                   <thead>
-                    <tr style={{ background: "#f9fafb", borderBottom: "2px solid #e5e7eb" }}>
-                      <th style={{ padding: "10px 14px", textAlign: "left", color: "#374151" }}>Date</th>
-                      <th style={{ padding: "10px 14px", textAlign: "left", color: "#374151" }}>Patient Name</th>
-                      <th style={{ padding: "10px 14px", textAlign: "left", color: "#374151" }}>Services</th>
+                    <tr
+                      style={{
+                        background: "#f9fafb",
+                        borderBottom: "2px solid #e5e7eb",
+                      }}
+                    >
+                      <th
+                        style={{
+                          padding: "10px 14px",
+                          textAlign: "left",
+                          color: "#374151",
+                        }}
+                      >
+                        Date
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 14px",
+                          textAlign: "left",
+                          color: "#374151",
+                        }}
+                      >
+                        Patient Name
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 14px",
+                          textAlign: "left",
+                          color: "#374151",
+                        }}
+                      >
+                        Services
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {appointments.map((appt) => (
-                      <tr key={appt.appointment_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <tr
+                        key={appt.appointment_id}
+                        style={{ borderBottom: "1px solid #f1f5f9" }}
+                      >
                         <td style={{ padding: "10px 14px", color: "#111827" }}>
-                          {new Date(appt.appointment_date).toLocaleDateString("en-PH", {
-                            month: "short", day: "numeric", year: "numeric",
-                          })}
-                          {appt.appointment_time ? ` · ${appt.appointment_time}` : ""}
+                          {new Date(appt.appointment_date).toLocaleDateString(
+                            "en-PH",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            },
+                          )}
+                          {appt.appointment_time
+                            ? ` · ${appt.appointment_time}`
+                            : ""}
                         </td>
                         <td style={{ padding: "10px 14px", color: "#111827" }}>
                           {appt.patient_full_name || "—"}
@@ -1414,7 +1492,7 @@ export default function DoctorDashboard() {
               {/* Mobile cards */}
               <div
                 className="dd-show-on-mobile"
-                style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                style={{ flexDirection: "column", gap: 10 }}
               >
                 {appointments.map((appt) => (
                   <div
@@ -1429,14 +1507,24 @@ export default function DoctorDashboard() {
                       gap: 4,
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
                       <span style={{ fontWeight: 600, color: "#111827" }}>
                         {appt.patient_full_name || "—"}
                       </span>
                       <span style={{ fontSize: 12, color: "#6b7280" }}>
-                        {new Date(appt.appointment_date).toLocaleDateString("en-PH", {
-                          month: "short", day: "numeric",
-                        })}
+                        {new Date(appt.appointment_date).toLocaleDateString(
+                          "en-PH",
+                          {
+                            month: "short",
+                            day: "numeric",
+                          },
+                        )}
                       </span>
                     </div>
                     <span style={{ fontSize: 13, color: "#374151" }}>
@@ -1447,6 +1535,7 @@ export default function DoctorDashboard() {
               </div>
             </>
           )}
+          <Footer />
         </div>
       )}
 

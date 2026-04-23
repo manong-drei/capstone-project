@@ -15,13 +15,7 @@ const CTASection = () => {
   const navigate = useNavigate(); // ✅ moved inside the component
 
   return (
-    <section
-      className="w-full py-10 sm:py-14 px-4 sm:px-6 flex flex-col items-center justify-center text-center"
-      style={{
-        background:
-          "linear-gradient(135deg, #c2410c 0%, #ea580c 50%, #f97316 100%)",
-      }}
-    >
+    <section className="w-full py-10 sm:py-14 px-4 sm:px-6 flex flex-col items-center justify-center text-center bg-linear-to-br from-orange-500 via-orange-400 to-orange-300">
       <h2
         className="text-white font-extrabold mb-3 max-w-sm sm:max-w-md"
         style={{ fontSize: "clamp(1.1rem, 3vw, 1.5rem)", lineHeight: 1.3 }}

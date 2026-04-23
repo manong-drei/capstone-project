@@ -1,6 +1,17 @@
 const Queue = require('../models/Queue');
 const Patient = require('../models/Patient');
 
+/** GET /api/queue/status — now-serving and next-queuing numbers (all roles) */
+const getQueueStatus = async (req, res) => {
+  try {
+    const status = await Queue.getPublicStatus();
+    res.json(status);
+  } catch (err) {
+    console.error('getQueueStatus error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
 /** GET /api/queue — all today's active queues (doctor/staff) */
 const getAllQueues = async (req, res) => {
   try {
@@ -246,4 +257,4 @@ const cancelQueue = async (req, res) => {
   }
 };
 
-module.exports = { getAllQueues, getMyQueue, createQueue, createWalkIn, callNext, updateStatus, cancelQueue };
+module.exports = { getQueueStatus, getAllQueues, getMyQueue, createQueue, createWalkIn, callNext, updateStatus, cancelQueue };

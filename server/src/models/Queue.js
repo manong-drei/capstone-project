@@ -19,8 +19,9 @@ const Queue = {
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  DATE(q.created_at) = CURDATE()
-        AND  q.status IN ('waiting', 'serving')
+        AND  q.status IN ('waiting', 'serving', 'done')
       ORDER BY
+        FIELD(q.status, 'serving', 'waiting', 'done'),
         FIELD(q.type, 'priority', 'regular'),
         q.created_at ASC
     `);
@@ -123,6 +124,27 @@ const Queue = {
     );
     const [rows] = await pool.query("SELECT * FROM queues WHERE id = ?", [id]);
     return Queue._parse(rows[0] || null);
+  },
+
+  // Minimal public status: now-serving and next-waiting queue numbers only
+  getPublicStatus: async () => {
+    const [rows] = await pool.query(`
+      SELECT queue_number, status
+      FROM   queues
+      WHERE  DATE(created_at) = CURDATE()
+        AND  status IN ('serving', 'waiting')
+      ORDER BY
+        FIELD(status, 'serving', 'waiting'),
+        FIELD(type, 'priority', 'regular'),
+        created_at ASC
+      LIMIT 2
+    `);
+    const serving = rows.find((r) => r.status === 'serving');
+    const waiting = rows.find((r) => r.status === 'waiting');
+    return {
+      now_serving: serving?.queue_number ?? null,
+      next_queuing: waiting?.queue_number ?? null,
+    };
   },
 
   // Aggregate stats for today — used by admin overview

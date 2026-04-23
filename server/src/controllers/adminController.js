@@ -4,6 +4,7 @@ const Queue = require("../models/Queue");
 const Appointment = require("../models/Appointment");
 const Doctor = require("../models/Doctor");
 const Staff = require("../models/Staff");
+const { normalizePhilippineMobilePhone } = require("../utils/phone");
 
 /** GET /api/admin/overview — live stats for the admin dashboard */
 const getOverview = async (req, res) => {
@@ -71,9 +72,16 @@ const createStaff = async (req, res) => {
       username, first_name, last_name, email, phone, password, role,
       license_number, specialization_id, position,
     } = req.body;
+    const normalizedPhone = normalizePhilippineMobilePhone(phone);
 
     if (!username || !first_name || !last_name || !phone || !password || !role) {
       return res.status(400).json({ success: false, message: "Required fields are missing." });
+    }
+    if (!normalizedPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
+      });
     }
 
     if (!['doctor', 'staff', 'admin'].includes(role)) {
@@ -90,7 +98,7 @@ const createStaff = async (req, res) => {
 
     // Check duplicates
     const [[existingPhone]] = await pool.query(
-      "SELECT user_id FROM users WHERE phone = ?", [phone]
+      "SELECT user_id FROM users WHERE phone = ?", [normalizedPhone]
     );
     if (existingPhone) {
       return res.status(409).json({ success: false, message: "Phone number already in use." });
@@ -121,7 +129,7 @@ const createStaff = async (req, res) => {
       const [userResult] = await conn.query(
         `INSERT INTO users (username, email, phone, password_hash, role)
          VALUES (?, ?, ?, ?, ?)`,
-        [username, email || null, phone, password_hash, role]
+        [username, email || null, normalizedPhone, password_hash, role]
       );
       const user_id = userResult.insertId;
 
@@ -129,13 +137,13 @@ const createStaff = async (req, res) => {
         await conn.query(
           `INSERT INTO doctors (user_id, specialization_id, first_name, last_name, license_number, contact_number)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [user_id, specialization_id || null, first_name, last_name, license_number, phone || null]
+          [user_id, specialization_id || null, first_name, last_name, license_number, normalizedPhone]
         );
       } else {
         await conn.query(
           `INSERT INTO staff (user_id, first_name, last_name, position, contact_number)
            VALUES (?, ?, ?, ?, ?)`,
-          [user_id, first_name, last_name, role === 'admin' ? 'Administrator' : position, phone || null]
+          [user_id, first_name, last_name, role === 'admin' ? 'Administrator' : position, normalizedPhone]
         );
       }
 
