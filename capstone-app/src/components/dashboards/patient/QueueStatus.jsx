@@ -1,5 +1,6 @@
 import { QUEUE_STATUS } from "../../../constants/services";
 import Icon from "../../common/AppIcons";
+import { getQueueDisplayName } from "../../../utils/queueDisplay";
 
 const STATUS_CONFIG = {
   [QUEUE_STATUS.WAITING]: {
@@ -42,6 +43,7 @@ export default function QueueStatus({ queue, onCancel }) {
   const config =
     STATUS_CONFIG[queue.status] ?? STATUS_CONFIG[QUEUE_STATUS.WAITING];
   const isPriority = queue.type === "priority";
+  const patientName = getQueueDisplayName(queue);
 
   return (
     <div
@@ -94,6 +96,16 @@ export default function QueueStatus({ queue, onCancel }) {
             </span>
           )}
         </div>
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#374151",
+          }}
+        >
+          {patientName}
+        </p>
       </div>
 
       {/* Status Badge */}

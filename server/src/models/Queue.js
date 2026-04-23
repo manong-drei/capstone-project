@@ -1,7 +1,7 @@
 const pool = require("../config/db");
 
 const Queue = {
-  // All today's active queues — used by staff and doctor dashboards
+  // All today's active queues used by staff and doctor dashboards
 
   _parse: (row) => {
     if (!row) return null;
@@ -12,6 +12,22 @@ const Queue = {
     }
     return row;
   },
+
+  _fetchById: async (id, connection = pool) => {
+    const [rows] = await connection.query(
+      `
+      SELECT q.*,
+             COALESCE(p.full_name, q.walk_in_name) AS full_name
+      FROM   queues q
+      LEFT JOIN patients p ON q.patient_id = p.patient_id
+      WHERE  q.id = ?
+      LIMIT  1
+      `,
+      [id],
+    );
+    return Queue._parse(rows[0] || null);
+  },
+
   findTodayActive: async () => {
     const [rows] = await pool.query(`
       SELECT q.*,
@@ -32,11 +48,14 @@ const Queue = {
   findByPatientId: async (patient_id) => {
     const [rows] = await pool.query(
       `
-      SELECT * FROM queues
-      WHERE  patient_id = ?
-        AND  DATE(created_at) = CURDATE()
-        AND  status NOT IN ('done', 'cancelled')
-      ORDER  BY created_at DESC
+      SELECT q.*,
+             COALESCE(p.full_name, q.walk_in_name) AS full_name
+      FROM   queues q
+      LEFT JOIN patients p ON q.patient_id = p.patient_id
+      WHERE  q.patient_id = ?
+        AND  DATE(q.created_at) = CURDATE()
+        AND  q.status NOT IN ('done', 'cancelled')
+      ORDER  BY q.created_at DESC
       LIMIT  1
     `,
       [patient_id],
@@ -69,10 +88,7 @@ const Queue = {
         walk_in_contact || null,
       ],
     );
-    const [rows] = await pool.query("SELECT * FROM queues WHERE id = ?", [
-      result.insertId,
-    ]);
-    return Queue._parse(rows[0]);
+    return Queue._fetchById(result.insertId);
   },
 
   // Pull the next waiting patient (priority first), set to serving atomically
@@ -104,10 +120,7 @@ const Queue = {
       );
       await conn.commit();
 
-      const [updated] = await conn.query("SELECT * FROM queues WHERE id = ?", [
-        next.id,
-      ]);
-      return Queue._parse(updated[0]);
+      return Queue._fetchById(next.id, conn);
     } catch (err) {
       await conn.rollback();
       throw err;
@@ -122,32 +135,36 @@ const Queue = {
       `UPDATE queues SET status = ?, updated_at = NOW() WHERE id = ?`,
       [status, id],
     );
-    const [rows] = await pool.query("SELECT * FROM queues WHERE id = ?", [id]);
-    return Queue._parse(rows[0] || null);
+    return Queue._fetchById(id);
   },
 
-  // Minimal public status: now-serving and next-waiting queue numbers only
+  // Public status cards: now-serving and next-waiting queue + names
   getPublicStatus: async () => {
     const [rows] = await pool.query(`
-      SELECT queue_number, status
-      FROM   queues
-      WHERE  DATE(created_at) = CURDATE()
-        AND  status IN ('serving', 'waiting')
+      SELECT q.queue_number,
+             q.status,
+             COALESCE(p.full_name, q.walk_in_name) AS full_name
+      FROM   queues q
+      LEFT JOIN patients p ON q.patient_id = p.patient_id
+      WHERE  DATE(q.created_at) = CURDATE()
+        AND  q.status IN ('serving', 'waiting')
       ORDER BY
-        FIELD(status, 'serving', 'waiting'),
-        FIELD(type, 'priority', 'regular'),
-        created_at ASC
+        FIELD(q.status, 'serving', 'waiting'),
+        FIELD(q.type, 'priority', 'regular'),
+        q.created_at ASC
       LIMIT 2
     `);
     const serving = rows.find((r) => r.status === 'serving');
     const waiting = rows.find((r) => r.status === 'waiting');
     return {
       now_serving: serving?.queue_number ?? null,
+      now_serving_name: serving?.full_name ?? null,
       next_queuing: waiting?.queue_number ?? null,
+      next_queuing_name: waiting?.full_name ?? null,
     };
   },
 
-  // Aggregate stats for today — used by admin overview
+  // Aggregate stats for today used by admin overview
   getTodayStats: async () => {
     const [rows] = await pool.query(`
       SELECT

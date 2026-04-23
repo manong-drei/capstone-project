@@ -13,6 +13,7 @@ import ConsultationModal from "../components/dashboards/doctor/ConsultationModal
 import Footer from "../components/landing/Footer";
 import api from "../services/api";
 import * as appointmentService from "../services/appointmentService";
+import { getQueueDisplayName } from "../utils/queueDisplay";
 
 const INDIGO = "#4f46e5";
 const NAVY = "#2d3a8c";
@@ -106,6 +107,7 @@ export default function DoctorDashboard() {
   const [apptLoading, setApptLoading] = useState(false);
   const [sortField, setSortField] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
+  const [appointmentHistoryFilter, setAppointmentHistoryFilter] = useState("today");
 
   const fetchDailySettings = async () => {
     try {
@@ -258,6 +260,8 @@ export default function DoctorDashboard() {
   const waiting = queues.filter((q) => q.status === QUEUE_STATUS.WAITING);
   const serving = queues.filter((q) => q.status === QUEUE_STATUS.SERVING);
   const doneQueues = queues.filter((q) => q.status === QUEUE_STATUS.DONE);
+  const servingQueue = serving[0] ?? null;
+  const nextQueue = waiting[0] ?? null;
   const done = doneQueues.length;
   const priority = queues.filter((q) => q.type === "priority").length;
 
@@ -272,7 +276,13 @@ export default function DoctorDashboard() {
       : 0;
   const apptFull = bookedCount >= appointmentLimit && appointmentLimit > 0;
 
-  const sortedAppointments = [...appointments].sort((a, b) => {
+  const getDateKey = (value) => String(value ?? "").split("T")[0];
+  const filteredAppointments =
+    appointmentHistoryFilter === "today"
+      ? appointments.filter((appt) => getDateKey(appt.appointment_date) === TODAY)
+      : appointments;
+
+  const sortedAppointments = [...filteredAppointments].sort((a, b) => {
     let cmp = 0;
     if (sortField === "date") {
       cmp = (a.appointment_date ?? "").localeCompare(b.appointment_date ?? "");
@@ -1015,7 +1025,17 @@ export default function DoctorDashboard() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                {serving.length > 0 ? serving[0].queue_number : "—"}
+                {servingQueue ? servingQueue.queue_number : "—"}
+              </p>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.92)",
+                }}
+              >
+                {servingQueue ? getQueueDisplayName(servingQueue) : "—"}
               </p>
             </div>
 
@@ -1049,7 +1069,17 @@ export default function DoctorDashboard() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                {waiting.length > 0 ? waiting[0].queue_number : "—"}
+                {nextQueue ? nextQueue.queue_number : "—"}
+              </p>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.92)",
+                }}
+              >
+                {nextQueue ? getQueueDisplayName(nextQueue) : "—"}
               </p>
             </div>
           </div>
@@ -1096,9 +1126,9 @@ export default function DoctorDashboard() {
                     color: "#111827",
                   }}
                 >
-                  {serving.length > 0 ? serving[0].queue_number : "—"}
+                  {servingQueue ? servingQueue.queue_number : "—"}
                 </span>
-                {serving.length > 0 && (
+                {servingQueue && (
                   <span
                     style={{
                       fontSize: "14px",
@@ -1106,7 +1136,7 @@ export default function DoctorDashboard() {
                       color: "#374151",
                     }}
                   >
-                    {serving[0].patient_name ?? serving[0].full_name ?? ""}
+                    {getQueueDisplayName(servingQueue)}
                   </span>
                 )}
               </div>
@@ -1132,7 +1162,7 @@ export default function DoctorDashboard() {
               <div style={{ display: "flex", gap: "10px", marginTop: "auto" }}>
                 <button
                   onClick={() =>
-                    serving.length > 0 && handleMarkDone(serving[0].id)
+                    servingQueue && handleMarkDone(servingQueue.id)
                   }
                   disabled={serving.length === 0}
                   style={{
@@ -1218,7 +1248,7 @@ export default function DoctorDashboard() {
                   }}
                 >
                   {doneQueues.map((q) => {
-                    const name = q.full_name ?? q.walk_in_name ?? q.queue_number;
+                    const name = getQueueDisplayName(q);
                     const services = Array.isArray(q.services) && q.services.length > 0
                       ? q.services.join(", ")
                       : "—";
@@ -1342,7 +1372,7 @@ export default function DoctorDashboard() {
                         color: "#374151",
                       }}
                     >
-                      {q.patient_name ?? q.full_name ?? q.queue_number}
+                      {getQueueDisplayName(q)}
                     </li>
                   ))}
                 </ol>
@@ -1467,10 +1497,13 @@ export default function DoctorDashboard() {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "12px",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              rowGap: "10px",
               marginBottom: "24px",
             }}
           >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <button
               onClick={() => setActiveTab("home")}
               style={{
@@ -1494,15 +1527,54 @@ export default function DoctorDashboard() {
             >
               Appointment History
             </h2>
+            </div>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "3px",
+                borderRadius: "10px",
+                border: "1px solid #e5e7eb",
+                background: "#f9fafb",
+                gap: "4px",
+              }}
+            >
+              {[
+                { key: "today", label: "Today" },
+                { key: "all", label: "All" },
+              ].map(({ key, label }) => {
+                const active = appointmentHistoryFilter === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setAppointmentHistoryFilter(key)}
+                    style={{
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      background: active ? INDIGO : "transparent",
+                      color: active ? "#ffffff" : "#374151",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {apptLoading ? (
             <p style={{ color: "#9ca3af", fontSize: "14px" }}>
               Loading appointments...
             </p>
-          ) : appointments.length === 0 ? (
+          ) : sortedAppointments.length === 0 ? (
             <p style={{ color: "#9ca3af", fontSize: "14px" }}>
-              No appointments yet.
+              {appointmentHistoryFilter === "today"
+                ? "No appointments for today."
+                : "No appointments yet."}
             </p>
           ) : (
             <>

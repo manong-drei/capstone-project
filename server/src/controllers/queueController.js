@@ -1,6 +1,22 @@
 const Queue = require('../models/Queue');
 const Patient = require('../models/Patient');
 
+const ALLOWED_SERVICE_IDS = new Set([
+  'CONSULTATION',
+  'ORAL_PROPHYLAXIS',
+  'PERMANENT_FILLING',
+  'TEMPORARY_FILLING',
+  'FLUORIDE',
+  'SILVER_DIAMINE',
+  'RPD_UPPER',
+  'RPD_LOWER',
+  'CLOSED_EXTRACTION',
+  'OPEN_EXTRACTION',
+  'ODONTECTOMY',
+  'SPECIAL_SURGERY',
+  'OTHERS',
+]);
+
 /** GET /api/queue/status — now-serving and next-queuing numbers (all roles) */
 const getQueueStatus = async (req, res) => {
   try {
@@ -83,7 +99,7 @@ const createQueue = async (req, res) => {
         const [[{ booked }]] = await db.query(
           `SELECT COUNT(*) AS booked FROM appointments
            WHERE doctor_id = ? AND appointment_date = CURDATE()
-             AND status IN ('pending','confirmed')`,
+             AND status != 'cancelled'`,
           [activeDoc.doctor_id]
         );
 
@@ -127,7 +143,7 @@ const createQueue = async (req, res) => {
 /** POST /api/queue/walkin — staff registers a walk-in patient (no account) */
 const createWalkIn = async (req, res) => {
   try {
-    const { full_name, age, gender, contact, type } = req.body;
+    const { full_name, age, gender, contact, type, services } = req.body;
 
     if (!full_name || !full_name.trim()) {
       return res.status(400).json({ success: false, message: 'Full name is required.' });
@@ -137,6 +153,16 @@ const createWalkIn = async (req, res) => {
     }
     if (!gender || !['male', 'female'].includes(gender)) {
       return res.status(400).json({ success: false, message: 'Gender must be male or female.' });
+    }
+    if (!Array.isArray(services) || services.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please select at least one service.' });
+    }
+
+    const selectedServices = [...new Set(services)].filter((serviceId) =>
+      ALLOWED_SERVICE_IDS.has(serviceId)
+    );
+    if (selectedServices.length !== services.length) {
+      return res.status(400).json({ success: false, message: 'Invalid service selected.' });
     }
 
     const db = require('../config/db');
@@ -170,7 +196,7 @@ const createWalkIn = async (req, res) => {
       patient_id: null,
       queue_number: queueNumber,
       type: type || 'regular',
-      services: [],
+      services: selectedServices,
       walk_in_name: full_name.trim(),
       walk_in_age: parseInt(age),
       walk_in_gender: gender,

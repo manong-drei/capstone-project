@@ -9,6 +9,8 @@ import { useDashboardIdentity } from "../hooks/useDashboardIdentity";
 import { ROUTES } from "../constants/routes";
 import DashboardProfileMenu from "../components/common/DashboardProfileMenu";
 import api from "../services/api";
+import { getQueueDisplayName } from "../utils/queueDisplay";
+import { SERVICES } from "../constants/services";
 
 // ─── Brand colors ──────────────────────────────────────────────────────────
 const NAVY = "#1e2d6b";
@@ -350,6 +352,18 @@ function QueuePanel({ currentServing, nextQueue, onCallNext, loading }) {
             : "—"}
         </p>
         {currentServing && (
+          <p
+            style={{
+              margin: "6px 0 0",
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.95)",
+            }}
+          >
+            {getQueueDisplayName(currentServing)}
+          </p>
+        )}
+        {currentServing && (
           <span
             style={{
               display: "inline-block",
@@ -440,15 +454,25 @@ function QueuePanel({ currentServing, nextQueue, onCallNext, loading }) {
                 (e.currentTarget.style.background = "transparent")
               }
             >
-              <span
-                style={{
-                  fontSize: "15px",
-                  fontWeight: 700,
-                  color: i === 0 ? INDIGO : "#374151",
-                }}
-              >
-                #{String(q.queue_number).padStart(3, "0")}
-              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                <span
+                  style={{
+                    fontSize: "15px",
+                    fontWeight: 700,
+                    color: i === 0 ? INDIGO : "#374151",
+                  }}
+                >
+                  #{String(q.queue_number).padStart(3, "0")}
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: "#6b7280",
+                  }}
+                >
+                  {getQueueDisplayName(q)}
+                </span>
+              </div>
               <span
                 style={{
                   fontSize: "11px",
@@ -535,6 +559,7 @@ function QueuePanel({ currentServing, nextQueue, onCallNext, loading }) {
 // ─── Walk-In Form (right) ────────────────────────────────────────────────────
 function WalkInForm({ onSuccess }) {
   const [form, setForm] = useState({ fullName: "", age: "", gender: "", address: "", contact: "" });
+  const [selectedServices, setSelectedServices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -544,12 +569,26 @@ function WalkInForm({ onSuccess }) {
   // Dropdown states
   const [showDropdown, setShowDropdown] = useState(false);
   const [addressFocused, setAddressFocused] = useState(false);
+  const [showServicesDropdown, setShowServicesDropdown] = useState(false);
+  const [servicesFocused, setServicesFocused] = useState(false);
 
   const set = (field) => (e) => {
     setError("");
     setSuccess("");
     setForm((p) => ({ ...p, [field]: e.target.value }));
   };
+
+  const toggleService = (id) => {
+    setError("");
+    setSuccess("");
+    setSelectedServices((prev) =>
+      prev.includes(id) ? prev.filter((serviceId) => serviceId !== id) : [...prev, id],
+    );
+  };
+
+  const selectedServiceLabels = SERVICES
+    .filter((service) => selectedServices.includes(service.id))
+    .map((service) => service.label);
 
   const handleSubmit = async () => {
     setError("");
@@ -560,6 +599,7 @@ function WalkInForm({ onSuccess }) {
     if (!form.gender) return setError("Please select a gender.");
     if (!form.address.trim()) return setError("Address is required.");
     if (!form.contact.trim()) return setError("Contact number is required.");
+    if (selectedServices.length === 0) return setError("Please select at least one service.");
     if (isPriority && !priorityCategory) return setError("Please select a priority category.");
 
     setLoading(true);
@@ -571,10 +611,12 @@ function WalkInForm({ onSuccess }) {
         address: form.address,
         contact: "+63" + form.contact.replace(/^0+/, ""),
         type: isPriority ? "priority" : "regular",
+        services: selectedServices,
       });
       const queueNumber = res?.queue?.queue_number ?? "assigned";
       setSuccess(`Walk-in registered — queue number ${queueNumber}.`);
       setForm({ fullName: "", age: "", gender: "", address: "", contact: "" });
+      setSelectedServices([]);
       setIsPriority(false);
       setPriorityCategory("");
       onSuccess?.();
@@ -814,6 +856,181 @@ function WalkInForm({ onSuccess }) {
 
       {/* Contact Number */}
       <ContactField value={form.contact} onChange={set("contact")} />
+
+      {/* Services */}
+      <div style={{ position: "relative" }}>
+        <p style={{ margin: "0 0 6px", fontSize: "12px", fontWeight: 600, color: "#374151" }}>
+          Services <span style={{ color: "#9ca3af", fontWeight: 400 }}>(select all that apply)</span>
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowServicesDropdown(!showServicesDropdown)}
+          onFocus={() => setServicesFocused(true)}
+          onBlur={() => setTimeout(() => setServicesFocused(false), 200)}
+          style={{
+            width: "100%",
+            padding: "12px 14px",
+            borderRadius: "10px",
+            border: `1.5px solid ${showServicesDropdown || servicesFocused ? BLUE : "#dde1ec"}`,
+            fontSize: "14px",
+            color: selectedServices.length > 0 ? "#111827" : "#9ca3af",
+            background: "#ffffff",
+            outline: "none",
+            fontFamily: "inherit",
+            boxSizing: "border-box",
+            boxShadow:
+              showServicesDropdown || servicesFocused
+                ? `0 0 0 3px rgba(30,77,183,0.12)`
+                : "none",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            cursor: "pointer",
+          }}
+        >
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {selectedServices.length > 0 ? selectedServiceLabels.join(", ") : "Select services"}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+            {selectedServices.length > 0 && (
+              <span
+                style={{
+                  background: "#eff6ff",
+                  color: BLUE,
+                  borderRadius: "999px",
+                  padding: "2px 8px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                }}
+              >
+                {selectedServices.length}
+              </span>
+            )}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              style={{
+                transition: "transform 0.2s",
+                transform: showServicesDropdown ? "rotate(180deg)" : "rotate(0deg)",
+              }}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+        </button>
+
+        {showServicesDropdown && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              width: "100%",
+              marginTop: "4px",
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: "10px",
+              boxShadow:
+                "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+              zIndex: 50,
+              overflow: "hidden",
+            }}
+          >
+            <ul style={{ margin: 0, padding: "4px 0", listStyle: "none", maxHeight: "260px", overflowY: "auto" }}>
+              {SERVICES.map(({ id, label, group }) => {
+                const active = selectedServices.includes(id);
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => toggleService(id)}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        padding: "10px 14px",
+                        border: "none",
+                        background: active ? "#eff6ff" : "#ffffff",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "18px",
+                          height: "18px",
+                          borderRadius: "5px",
+                          border: `2px solid ${active ? BLUE : "#cbd5e1"}`,
+                          background: active ? BLUE : "transparent",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {active && (
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                            <path
+                              d="M1 4L3.5 6.5L9 1"
+                              stroke="white"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </span>
+                      <span style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                        <span style={{ fontSize: "13px", color: active ? BLUE : "#374151", fontWeight: active ? 600 : 500 }}>
+                          {label}
+                        </span>
+                        {group && (
+                          <span style={{ fontSize: "11px", color: "#9ca3af" }}>
+                            {group}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {selectedServices.length > 0 && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setSelectedServices([]);
+                  setError("");
+                  setSuccess("");
+                }}
+                style={{
+                  width: "100%",
+                  padding: "9px 14px",
+                  border: "none",
+                  borderTop: "1px solid #f3f4f6",
+                  background: "#f9fafb",
+                  color: "#dc2626",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  textAlign: "left",
+                }}
+              >
+                Clear selected services
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Queue Type */}
       <div>

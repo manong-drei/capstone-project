@@ -23,7 +23,7 @@ const getDailySettings = async (req, res) => {
 
     const [[{ booked_count }]] = await pool.query(
       `SELECT COUNT(*) AS booked_count FROM appointments
-       WHERE doctor_id = ? AND appointment_date = ? AND status IN ('pending','confirmed')`,
+       WHERE doctor_id = ? AND appointment_date = ? AND status != 'cancelled'`,
       [doctor.doctor_id, date],
     );
 
@@ -194,6 +194,16 @@ const createConsultation = async (req, res) => {
       "UPDATE queues SET status = 'done', updated_at = NOW() WHERE id = ?",
       [queue_id],
     );
+
+    // Completing consultation should also complete today's linked appointment.
+    if (queueRow.patient_id) {
+      await pool.query(
+        `UPDATE appointments
+         SET status = 'completed', updated_at = NOW()
+         WHERE patient_id = ? AND appointment_date = CURDATE() AND status IN ('pending', 'confirmed')`,
+        [queueRow.patient_id],
+      );
+    }
 
     res
       .status(201)

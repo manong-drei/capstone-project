@@ -41,19 +41,21 @@ const getOverview = async (req, res) => {
 const getStaff = async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT u.user_id, u.email, u.role, u.is_active,
-             d.first_name, d.last_name
+      SELECT u.user_id, u.email, u.phone, u.role, u.is_active,
+             d.first_name, d.last_name,
+             d.license_number, d.specialization_id
       FROM   users u
       JOIN   doctors d ON u.user_id = d.user_id
-      WHERE  u.role = 'doctor' AND u.is_active = 1
+      WHERE  u.role = 'doctor'
 
       UNION ALL
 
-      SELECT u.user_id, u.email, u.role, u.is_active,
-             s.first_name, s.last_name
+      SELECT u.user_id, u.email, u.phone, u.role, u.is_active,
+             s.first_name, s.last_name,
+             NULL AS license_number, NULL AS specialization_id
       FROM   users u
       JOIN   staff s ON u.user_id = s.user_id
-      WHERE  u.role IN ('staff', 'admin') AND u.is_active = 1
+      WHERE  u.role IN ('staff', 'admin')
 
       ORDER BY last_name ASC
     `);
@@ -199,6 +201,165 @@ const deactivateStaff = async (req, res) => {
   }
 };
 
+/** PATCH /api/admin/staff/:user_id/reactivate */
+const reactivateStaff = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const [[user]] = await pool.query(
+      "SELECT user_id, role FROM users WHERE user_id = ?", [user_id]
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    await pool.query(
+      "UPDATE users SET is_active = 1 WHERE user_id = ?", [user_id]
+    );
+
+    res.json({ success: true, message: "Staff account reactivated." });
+  } catch (err) {
+    console.error("reactivateStaff error:", err);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
+/** PUT /api/admin/staff/:user_id */
+const updateStaff = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { first_name, last_name, email, phone, license_number, specialization_id, position } = req.body;
+
+    const [[user]] = await pool.query(
+      "SELECT user_id, role FROM users WHERE user_id = ?", [user_id]
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      if (email || phone) {
+        let normalizedPhone = phone;
+        if (phone) {
+          normalizedPhone = normalizePhilippineMobilePhone(phone);
+          if (!normalizedPhone) {
+            await conn.rollback();
+            conn.release();
+            return res.status(400).json({ success: false, message: "Invalid Philippine mobile phone number." });
+          }
+        }
+        const fields = [];
+        const vals = [];
+        if (email) { fields.push("email = ?"); vals.push(email); }
+        if (phone) { fields.push("phone = ?"); vals.push(normalizedPhone); }
+        vals.push(user_id);
+        await conn.query(`UPDATE users SET ${fields.join(", ")} WHERE user_id = ?`, vals);
+      }
+
+      if (user.role === 'doctor') {
+        const docFields = [];
+        const docVals = [];
+        if (first_name) { docFields.push("first_name = ?"); docVals.push(first_name); }
+        if (last_name) { docFields.push("last_name = ?"); docVals.push(last_name); }
+        if (license_number) { docFields.push("license_number = ?"); docVals.push(license_number); }
+        if (specialization_id !== undefined) { docFields.push("specialization_id = ?"); docVals.push(specialization_id || null); }
+        if (docFields.length) {
+          docVals.push(user_id);
+          await conn.query(`UPDATE doctors SET ${docFields.join(", ")} WHERE user_id = ?`, docVals);
+        }
+      } else {
+        const staffFields = [];
+        const staffVals = [];
+        if (first_name) { staffFields.push("first_name = ?"); staffVals.push(first_name); }
+        if (last_name) { staffFields.push("last_name = ?"); staffVals.push(last_name); }
+        if (position && user.role !== 'admin') { staffFields.push("position = ?"); staffVals.push(position); }
+        if (staffFields.length) {
+          staffVals.push(user_id);
+          await conn.query(`UPDATE staff SET ${staffFields.join(", ")} WHERE user_id = ?`, staffVals);
+        }
+      }
+
+      await conn.commit();
+      res.json({ success: true, message: "Staff account updated." });
+    } catch (innerErr) {
+      await conn.rollback();
+      throw innerErr;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error("updateStaff error:", err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: "Email or phone already in use." });
+    }
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
+/** GET /api/admin/patients */
+const getPatients = async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT u.user_id, u.email, u.phone, u.is_active,
+             p.patient_id, p.full_name, p.contact_number,
+             p.barangay, p.city, p.gender, p.age
+      FROM   users u
+      JOIN   patients p ON u.user_id = p.user_id
+      WHERE  u.role = 'patient'
+      ORDER BY p.full_name ASC
+    `);
+    res.json({ success: true, patients: rows });
+  } catch (err) {
+    console.error("getPatients error:", err);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
+/** PATCH /api/admin/patients/:user_id/deactivate */
+const deactivatePatient = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const [[user]] = await pool.query(
+      "SELECT user_id FROM users WHERE user_id = ? AND role = 'patient'", [user_id]
+    );
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Patient not found." });
+    }
+
+    await pool.query("UPDATE users SET is_active = 0 WHERE user_id = ?", [user_id]);
+    res.json({ success: true, message: "Patient account deactivated." });
+  } catch (err) {
+    console.error("deactivatePatient error:", err);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
+/** PATCH /api/admin/patients/:user_id/reactivate */
+const reactivatePatient = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const [[user]] = await pool.query(
+      "SELECT user_id FROM users WHERE user_id = ? AND role = 'patient'", [user_id]
+    );
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Patient not found." });
+    }
+
+    await pool.query("UPDATE users SET is_active = 1 WHERE user_id = ?", [user_id]);
+    res.json({ success: true, message: "Patient account reactivated." });
+  } catch (err) {
+    console.error("reactivatePatient error:", err);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
 /** GET /api/admin/specializations */
 const getSpecializations = async (req, res) => {
   try {
@@ -212,4 +373,9 @@ const getSpecializations = async (req, res) => {
   }
 };
 
-module.exports = { getOverview, getStaff, createStaff, deactivateStaff, getSpecializations };
+module.exports = {
+  getOverview,
+  getStaff, createStaff, deactivateStaff, reactivateStaff, updateStaff,
+  getPatients, deactivatePatient, reactivatePatient,
+  getSpecializations,
+};

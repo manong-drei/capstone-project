@@ -11,6 +11,7 @@ import Footer from "../components/landing/Footer";
 import Icon from "../components/common/AppIcons";
 import GetQueueModal from "../components/dashboards/patient/GetQueueModal";
 import QueueStatus from "../components/dashboards/patient/QueueStatus";
+import { getQueueDisplayName } from "../utils/queueDisplay";
 
 import * as appointmentService from "../services/appointmentService";
 import * as queueService from "../services/queueService";
@@ -98,13 +99,25 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [queueStatus, setQueueStatus] = useState({ now_serving: null, next_queuing: null });
+  const [queueStatus, setQueueStatus] = useState({
+    now_serving: null,
+    now_serving_name: null,
+    next_queuing: null,
+    next_queuing_name: null,
+  });
   const [doctorAvailability, setDoctorAvailability] = useState(null);
 
   const fetchQueueStatus = async () => {
     try {
       const data = await queueService.getQueueStatus();
-      setQueueStatus(data ?? { now_serving: null, next_queuing: null });
+      setQueueStatus(
+        data ?? {
+          now_serving: null,
+          now_serving_name: null,
+          next_queuing: null,
+          next_queuing_name: null,
+        },
+      );
     } catch {
       /* silently ignore — display stays as — */
     }
@@ -186,15 +199,6 @@ export default function PatientDashboard() {
     queue &&
     queue.status !== QUEUE_STATUS.DONE &&
     queue.status !== QUEUE_STATUS.CANCELLED;
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchQueueStatus();
-      fetchDoctorAvailability();
-      if (hasActiveQueue) fetchMyQueue();
-    }, 15_000);
-    return () => clearInterval(interval);
-  }, [hasActiveQueue, fetchMyQueue]);
 
   return (
     <div
@@ -560,6 +564,16 @@ export default function PatientDashboard() {
               >
                 {queueStatus.now_serving ?? "—"}
               </p>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.92)",
+                }}
+              >
+                {queueStatus.now_serving_name ?? "—"}
+              </p>
             </div>
 
             {/* Next Queuing */}
@@ -594,6 +608,16 @@ export default function PatientDashboard() {
                 }}
               >
                 {queueStatus.next_queuing ?? "—"}
+              </p>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.92)",
+                }}
+              >
+                {queueStatus.next_queuing_name ?? "—"}
               </p>
             </div>
           </div>
@@ -696,8 +720,10 @@ export default function PatientDashboard() {
               >
                 {hasActiveQueue ? queue.queue_number : "—"}
               </p>
-              <p style={{ margin: 0, fontSize: "12px", color: "#9ca3af" }}>
-                At the main clinic
+              <p
+                style={{ margin: 0, fontSize: "12px", color: "#374151", fontWeight: 600 }}
+              >
+                {hasActiveQueue ? getQueueDisplayName(queue) : "—"}
               </p>
               <div
                 style={{

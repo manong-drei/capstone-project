@@ -148,7 +148,7 @@ const login = async (req, res) => {
       success: true,
       message: "Login successful.",
       token,
-      user: { user_id: user.user_id, phone: user.phone, role: user.role },
+      user: { user_id: user.user_id, phone: user.phone, role: user.role, username: user.username },
     });
   } catch (err) {
     console.error("Login error:", err);

@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import Icon from '../../common/AppIcons'
+import { getQueueDisplayName } from '../../../utils/queueDisplay'
 
 /**
  * ConsultationModal
  * Allows a doctor to record notes, diagnosis, and prescription for a patient.
  *
  * Props:
- *   isOpen    — controls visibility
- *   onClose   — close handler
- *   onSubmit  — called with { notes, diagnosis, prescription }
- *   patient   — patient object { queue_number, name }
- *   loading   — disables submit while saving
+ *   isOpen    - controls visibility
+ *   onClose   - close handler
+ *   onSubmit  - called with { notes, diagnosis, prescription }
+ *   patient   - patient object { queue_number, name }
+ *   loading   - disables submit while saving
  */
 export default function ConsultationModal({ isOpen, onClose, onSubmit, patient, loading = false }) {
   const [notes,        setNotes]        = useState('')
@@ -43,6 +44,8 @@ export default function ConsultationModal({ isOpen, onClose, onSubmit, patient, 
     transition: 'border-color 0.15s',
   }
 
+  const patientName = patient ? getQueueDisplayName(patient) : ''
+
   return (
     <div
       onClick={handleBackdropClick}
@@ -73,7 +76,7 @@ export default function ConsultationModal({ isOpen, onClose, onSubmit, patient, 
             </h2>
             {patient && (
               <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}>
-                Patient #{patient.queue_number} {patient.name ? `— ${patient.name}` : ''}
+                Patient #{patient.queue_number} {patientName ? `- ${patientName}` : ''}
               </p>
             )}
           </div>

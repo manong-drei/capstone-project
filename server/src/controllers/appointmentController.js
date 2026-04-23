@@ -93,7 +93,7 @@ const createAppointment = async (req, res) => {
     const limit = settings?.appointment_limit ?? 10;
     const [[{ booked }]] = await pool.query(
       `SELECT COUNT(*) AS booked FROM appointments
-       WHERE doctor_id = ? AND appointment_date = ? AND status IN ('pending','confirmed')`,
+       WHERE doctor_id = ? AND appointment_date = ? AND status != 'cancelled'`,
       [doctor_id, appointment_date],
     );
     if (booked >= limit) {
