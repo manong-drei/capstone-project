@@ -9,9 +9,12 @@ const Doctor = {
 
   findAll: async () => {
     const [rows] = await pool.query(`
-      SELECT d.*, s.specialization_name
+      SELECT d.*, s.specialization_name,
+        COALESCE(dds.is_available, 1) AS is_available
       FROM   doctors d
       LEFT   JOIN specializations s ON d.specialization_id = s.specialization_id
+      LEFT   JOIN daily_doctor_settings dds
+               ON dds.doctor_id = d.doctor_id AND dds.date = CURDATE()
       ORDER  BY d.last_name ASC
     `);
     return rows;

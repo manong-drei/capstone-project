@@ -38,6 +38,7 @@ const getDailySettings = async (req, res) => {
       walk_in_limit: settings?.walk_in_limit ?? 0,
       booked_count: booked_count ?? 0,
       walkin_count: walkin_count ?? 0,
+      is_available: settings?.is_available ?? 1,
     });
   } catch (err) {
     console.error("getDailySettings error:", err);
@@ -48,7 +49,7 @@ const getDailySettings = async (req, res) => {
 /** PUT /api/doctor/daily-settings */
 const upsertDailySettings = async (req, res) => {
   try {
-    const { date, appointment_limit, walk_in_limit } = req.body;
+    const { date, appointment_limit, walk_in_limit, is_available = 1 } = req.body;
 
     if (
       appointment_limit === undefined ||
@@ -84,12 +85,13 @@ const upsertDailySettings = async (req, res) => {
         .json({ success: false, message: "Dentist profile not found." });
 
     await pool.query(
-      `INSERT INTO daily_doctor_settings (doctor_id, date, appointment_limit, walk_in_limit)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO daily_doctor_settings (doctor_id, date, appointment_limit, walk_in_limit, is_available)
+       VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          appointment_limit = VALUES(appointment_limit),
-         walk_in_limit     = VALUES(walk_in_limit)`,
-      [doctor.doctor_id, date, appointment_limit, walk_in_limit],
+         walk_in_limit     = VALUES(walk_in_limit),
+         is_available      = VALUES(is_available)`,
+      [doctor.doctor_id, date, appointment_limit, walk_in_limit, is_available ? 1 : 0],
     );
 
     res.status(200).json({ success: true, message: "Daily settings saved." });

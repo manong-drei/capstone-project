@@ -108,10 +108,11 @@ export default function PatientQueue({ queues = [], onCallNext, onMarkDone, load
                   padding: '14px 20px',
                   borderBottom: '1px solid #f9fafb',
                   alignItems: 'center',
+                  borderLeft: q.type === 'priority' ? '4px solid #f97316' : '4px solid transparent',
                 }}
               >
                 {/* Number */}
-                <span style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
+                <span style={{ fontSize: '15px', fontWeight: 700, color: q.type === 'priority' ? '#f97316' : '#111827' }}>
                   {q.queue_number}
                 </span>
 

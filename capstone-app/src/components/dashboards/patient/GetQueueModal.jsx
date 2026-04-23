@@ -21,6 +21,7 @@ export default function GetQueueModal({
 }) {
   const [selected, setSelected] = useState([]);
   const [queueType, setQueueType] = useState(QUEUE_TYPE.REGULAR);
+  const [priorityCategory, setPriorityCategory] = useState(null);
 
   if (!isOpen) return null;
 
@@ -32,6 +33,7 @@ export default function GetQueueModal({
 
   const handleSubmit = () => {
     if (selected.length === 0) return;
+    if (isPriority && !priorityCategory) return;
     const value = getSessionItem("user");
     onSubmit({ services: selected, type: queueType, patient_id: value });
   };
@@ -142,7 +144,10 @@ export default function GetQueueModal({
             ].map(({ value, label, color }) => (
               <button
                 key={value}
-                onClick={() => setQueueType(value)}
+                onClick={() => {
+                  setQueueType(value);
+                  setPriorityCategory(null);
+                }}
                 style={{
                   padding: "10px",
                   borderRadius: "10px",
@@ -159,12 +164,43 @@ export default function GetQueueModal({
               </button>
             ))}
           </div>
+
+          {/* Priority eligibility confirmation */}
           {isPriority && (
-            <p
-              style={{ margin: "8px 0 0", fontSize: "12px", color: "#f97316" }}
-            >
-              Priority is for senior citizens, PWD, and pregnant women.
-            </p>
+            <div style={{ marginTop: "10px" }}>
+              <p style={{ margin: "0 0 6px", fontSize: "12px", color: "#f97316", fontWeight: 600 }}>
+                Confirm your eligibility category:
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {[
+                  { value: "senior", label: "Senior Citizen (60 years old and above)" },
+                  { value: "pwd", label: "PWD (Person with Disability)" },
+                  { value: "pregnant", label: "Pregnant" },
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setPriorityCategory(value)}
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: "8px",
+                      border: `1.5px solid ${priorityCategory === value ? "#f97316" : "#e5e7eb"}`,
+                      background: priorityCategory === value ? "#fff7ed" : "#f9fafb",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      color: priorityCategory === value ? "#f97316" : "#374151",
+                      fontWeight: priorityCategory === value ? 600 : 400,
+                      textAlign: "left",
+                      transition: "all 0.12s",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#9ca3af" }}>
+                By selecting priority, you confirm you meet the stated eligibility.
+              </p>
+            </div>
           )}
         </div>
 
@@ -246,27 +282,31 @@ export default function GetQueueModal({
         </div>
 
         {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          disabled={selected.length === 0 || loading}
-          style={{
-            width: "100%",
-            padding: "13px",
-            borderRadius: "12px",
-            border: "none",
-            background: selected.length === 0 ? "#e5e7eb" : accentColor,
-            color: selected.length === 0 ? "#9ca3af" : "#ffffff",
-            fontSize: "15px",
-            fontWeight: 600,
-            cursor:
-              selected.length === 0 || loading ? "not-allowed" : "pointer",
-            transition: "background 0.15s",
-          }}
-        >
-          {loading
-            ? "Getting your number..."
-            : `Get ${isPriority ? "Priority" : "Regular"} Queue Number`}
-        </button>
+        {(() => {
+          const isDisabled = selected.length === 0 || loading || (isPriority && !priorityCategory);
+          return (
+            <button
+              onClick={handleSubmit}
+              disabled={isDisabled}
+              style={{
+                width: "100%",
+                padding: "13px",
+                borderRadius: "12px",
+                border: "none",
+                background: isDisabled ? "#e5e7eb" : accentColor,
+                color: isDisabled ? "#9ca3af" : "#ffffff",
+                fontSize: "15px",
+                fontWeight: 600,
+                cursor: isDisabled ? "not-allowed" : "pointer",
+                transition: "background 0.15s",
+              }}
+            >
+              {loading
+                ? "Getting your number..."
+                : `Get ${isPriority ? "Priority" : "Regular"} Queue Number`}
+            </button>
+          );
+        })()}
       </div>
     </div>
   );

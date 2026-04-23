@@ -538,6 +538,8 @@ function WalkInForm({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isPriority, setIsPriority] = useState(false);
+  const [priorityCategory, setPriorityCategory] = useState("");
 
   // Dropdown states
   const [showDropdown, setShowDropdown] = useState(false);
@@ -558,6 +560,7 @@ function WalkInForm({ onSuccess }) {
     if (!form.gender) return setError("Please select a gender.");
     if (!form.address.trim()) return setError("Address is required.");
     if (!form.contact.trim()) return setError("Contact number is required.");
+    if (isPriority && !priorityCategory) return setError("Please select a priority category.");
 
     setLoading(true);
     try {
@@ -567,11 +570,13 @@ function WalkInForm({ onSuccess }) {
         gender: form.gender,
         address: form.address,
         contact: "+63" + form.contact.replace(/^0+/, ""),
-        type: "regular",
+        type: isPriority ? "priority" : "regular",
       });
       const queueNumber = res?.queue?.queue_number ?? "assigned";
       setSuccess(`Walk-in registered — queue number ${queueNumber}.`);
       setForm({ fullName: "", age: "", gender: "", address: "", contact: "" });
+      setIsPriority(false);
+      setPriorityCategory("");
       onSuccess?.();
     } catch (err) {
       setError(err.message || "Failed to register patient.");
@@ -809,6 +814,67 @@ function WalkInForm({ onSuccess }) {
 
       {/* Contact Number */}
       <ContactField value={form.contact} onChange={set("contact")} />
+
+      {/* Queue Type */}
+      <div>
+        <p style={{ margin: "0 0 6px", fontSize: "12px", fontWeight: 600, color: "#374151" }}>
+          Queue Type
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+          {[
+            { value: false, label: "Regular", color: NAVY },
+            { value: true, label: "Priority", color: "#f97316" },
+          ].map(({ value, label, color }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => { setIsPriority(value); setPriorityCategory(""); setError(""); }}
+              style={{
+                padding: "9px",
+                borderRadius: "10px",
+                border: `2px solid ${isPriority === value ? color : "#dde1ec"}`,
+                background: isPriority === value ? `${color}12` : "#ffffff",
+                cursor: "pointer",
+                fontWeight: isPriority === value ? 600 : 400,
+                fontSize: "13px",
+                color: isPriority === value ? color : "#6b7280",
+                transition: "all 0.15s",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {isPriority && (
+          <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "5px" }}>
+            {[
+              { value: "senior", label: "Senior Citizen (60+)" },
+              { value: "pwd", label: "PWD (Person with Disability)" },
+              { value: "pregnant", label: "Pregnant" },
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => { setPriorityCategory(value); setError(""); }}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: `1.5px solid ${priorityCategory === value ? "#f97316" : "#dde1ec"}`,
+                  background: priorityCategory === value ? "#fff7ed" : "#ffffff",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  color: priorityCategory === value ? "#f97316" : "#374151",
+                  fontWeight: priorityCategory === value ? 600 : 400,
+                  textAlign: "left",
+                  transition: "all 0.12s",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Error / Success banners */}
       {error && (
@@ -1077,6 +1143,7 @@ export default function StaffDashboard() {
   const { identity } = useDashboardIdentity();
   const [queues, setQueues] = useState([]);
   const [calling, setCalling] = useState(false);
+  const [doctorAvailable, setDoctorAvailable] = useState(null);
   const intervalRef = useRef(null);
 
   const fetchQueue = useCallback(async () => {
@@ -1089,11 +1156,24 @@ export default function StaffDashboard() {
     }
   }, []);
 
+  const fetchDoctorAvailability = useCallback(async () => {
+    try {
+      const data = await api.get("/doctor");
+      setDoctorAvailable(data?.data?.[0]?.is_available ?? 1);
+    } catch {
+      /* silently ignore */
+    }
+  }, []);
+
   useEffect(() => {
     fetchQueue();
-    intervalRef.current = setInterval(fetchQueue, 15_000);
+    fetchDoctorAvailability();
+    intervalRef.current = setInterval(() => {
+      fetchQueue();
+      fetchDoctorAvailability();
+    }, 15_000);
     return () => clearInterval(intervalRef.current);
-  }, [fetchQueue]);
+  }, [fetchQueue, fetchDoctorAvailability]);
 
   const handleCallNext = async () => {
     setCalling(true);
@@ -1159,6 +1239,44 @@ export default function StaffDashboard() {
             />
             <WalkInForm onSuccess={fetchQueue} />
           </div>
+
+          {/* Doctor Status */}
+          {doctorAvailable !== null && (
+            <div
+              style={{
+                marginTop: "16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                padding: "10px 20px",
+                background: "#fff",
+                borderRadius: "99px",
+                border: `1.5px solid ${doctorAvailable ? "#bbf7d0" : "#fecaca"}`,
+                width: "fit-content",
+                margin: "16px auto 0",
+              }}
+            >
+              <span
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  background: doctorAvailable ? "#059669" : "#dc2626",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: doctorAvailable ? "#059669" : "#dc2626",
+                }}
+              >
+                Doctor: {doctorAvailable ? "Available Today" : "Unavailable Today"}
+              </span>
+            </div>
+          )}
 
           {/* Live indicator */}
           <div

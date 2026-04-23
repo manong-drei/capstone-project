@@ -14,6 +14,7 @@ import QueueStatus from "../components/dashboards/patient/QueueStatus";
 
 import * as appointmentService from "../services/appointmentService";
 import * as queueService from "../services/queueService";
+import api from "../services/api";
 
 const ORANGE = "#f97316";
 const NAVY = "#2d3a8c";
@@ -98,6 +99,7 @@ export default function PatientDashboard() {
   const [apptLoading, setApptLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [queueStatus, setQueueStatus] = useState({ now_serving: null, next_queuing: null });
+  const [doctorAvailability, setDoctorAvailability] = useState(null);
 
   const fetchQueueStatus = async () => {
     try {
@@ -108,9 +110,36 @@ export default function PatientDashboard() {
     }
   };
 
+  const fetchDoctorAvailability = async () => {
+    try {
+      const data = await api.get("/doctor");
+      const doctors = data?.data ?? [];
+      if (!doctors.length) {
+        setDoctorAvailability(null);
+        return;
+      }
+
+      const hasAvailableDoctor = doctors.some(
+        (doctor) => Number(doctor?.is_available ?? 1) !== 0,
+      );
+      setDoctorAvailability(hasAvailableDoctor ? 1 : 0);
+    } catch {
+      /* silently ignore */
+    }
+  };
+
   useEffect(() => {
     fetchMyQueue();
     fetchQueueStatus();
+    fetchDoctorAvailability();
+
+    const interval = setInterval(() => {
+      fetchMyQueue();
+      fetchQueueStatus();
+      fetchDoctorAvailability();
+    }, 15_000);
+
+    return () => clearInterval(interval);
   }, [fetchMyQueue]);
 
   useEffect(() => {
@@ -161,6 +190,7 @@ export default function PatientDashboard() {
   useEffect(() => {
     const interval = setInterval(() => {
       fetchQueueStatus();
+      fetchDoctorAvailability();
       if (hasActiveQueue) fetchMyQueue();
     }, 15_000);
     return () => clearInterval(interval);
@@ -747,25 +777,60 @@ export default function PatientDashboard() {
                 background: "white",
                 borderRadius: "16px",
                 padding: "20px",
-                borderLeft: "4px solid #1e1b4b",
+                borderLeft: doctorAvailability === null
+                  ? "4px solid #d1d5db"
+                  : doctorAvailability !== 0
+                    ? "4px solid #059669"
+                    : "4px solid #dc2626",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 minHeight: "130px",
+                gap: "8px",
               }}
             >
               <p
                 style={{
                   margin: 0,
-                  fontSize: "24px",
-                  fontWeight: 700,
-                  color: "#111827",
-                  textAlign: "center",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#6b7280",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
                 }}
               >
                 Doctor Availability
               </p>
+              {doctorAvailability === null ? (
+                <p style={{ margin: 0, fontSize: "14px", color: "#9ca3af" }}>—</p>
+              ) : (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 16px",
+                    borderRadius: "99px",
+                    fontSize: "14px",
+                    fontWeight: 700,
+                    background: doctorAvailability !== 0 ? "#dcfce7" : "#fee2e2",
+                    color: doctorAvailability !== 0 ? "#059669" : "#dc2626",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      background: doctorAvailability !== 0 ? "#059669" : "#dc2626",
+                      flexShrink: 0,
+                    }}
+                  />
+                  {doctorAvailability !== 0 ? "Available Today" : "Unavailable Today"}
+                </span>
+              )}
             </div>
 
             {/* Card 4 — Appointment History */}

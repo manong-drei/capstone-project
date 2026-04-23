@@ -99,8 +99,13 @@ export default function DoctorDashboard() {
   const [showLimitWarning, setShowLimitWarning] = useState(false);
   const [pendingSettings, setPendingSettings] = useState(null);
 
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [availLoading, setAvailLoading] = useState(false);
+
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
+  const [sortField, setSortField] = useState("date");
+  const [sortDir, setSortDir] = useState("desc");
 
   const fetchDailySettings = async () => {
     try {
@@ -109,6 +114,7 @@ export default function DoctorDashboard() {
       setWalkInLimit(data.walk_in_limit ?? 0);
       setBookedCount(data.booked_count ?? 0);
       setWalkInCount(data.walkin_count ?? 0);
+      setIsAvailable(data.is_available !== 0);
     } catch (err) {
       if (import.meta.env.DEV) console.error("fetchDailySettings error:", err);
     }
@@ -121,6 +127,7 @@ export default function DoctorDashboard() {
         date: TODAY,
         appointment_limit: apptLimit,
         walk_in_limit: wiLimit,
+        is_available: isAvailable ? 1 : 0,
       });
       setAppointmentLimit(apptLimit);
       setWalkInLimit(wiLimit);
@@ -153,6 +160,28 @@ export default function DoctorDashboard() {
     fetchDailySettings(); // revert to last saved
     setShowLimitWarning(false);
     setPendingSettings(null);
+  };
+
+  const handleToggleAvailability = async (val) => {
+    setAvailLoading(true);
+    try {
+      await api.put("/doctor/daily-settings", {
+        date: TODAY,
+        appointment_limit: appointmentLimit,
+        walk_in_limit: walkInLimit,
+        is_available: val ? 1 : 0,
+      });
+      setIsAvailable(val);
+    } catch (err) {
+      alert(err.message || "Failed to update availability.");
+    } finally {
+      setAvailLoading(false);
+    }
+  };
+
+  const handleSort = (field) => {
+    if (field === sortField) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortField(field); setSortDir("asc"); }
   };
 
   useEffect(() => {
@@ -242,6 +271,18 @@ export default function DoctorDashboard() {
       ? Math.min(100, Math.round((bookedCount / appointmentLimit) * 100))
       : 0;
   const apptFull = bookedCount >= appointmentLimit && appointmentLimit > 0;
+
+  const sortedAppointments = [...appointments].sort((a, b) => {
+    let cmp = 0;
+    if (sortField === "date") {
+      cmp = (a.appointment_date ?? "").localeCompare(b.appointment_date ?? "");
+    } else if (sortField === "name") {
+      cmp = (a.patient_full_name ?? "").toLowerCase().localeCompare((b.patient_full_name ?? "").toLowerCase());
+    } else {
+      cmp = formatServices(a).toLowerCase().localeCompare(formatServices(b).toLowerCase());
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   return (
     <div
@@ -543,6 +584,63 @@ export default function DoctorDashboard() {
               </p>
             </div>
           </section>
+
+          {/* ── Availability Toggle ── */}
+          <div className="dd-content-pad" style={{ paddingTop: "20px" }}>
+            <div
+              style={{
+                background: "#fff",
+                border: `1.5px solid ${isAvailable ? "#bbf7d0" : "#fecaca"}`,
+                borderRadius: "16px",
+                padding: "16px 20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span
+                  style={{
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    background: isAvailable ? "#059669" : "#dc2626",
+                    flexShrink: 0,
+                  }}
+                />
+                <div>
+                  <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "#111827" }}>
+                    Today's Availability
+                  </p>
+                  <p style={{ margin: 0, fontSize: "11px", color: "#9ca3af" }}>
+                    {isAvailable
+                      ? "You are currently marked as available"
+                      : "You are currently marked as unavailable"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => !availLoading && handleToggleAvailability(!isAvailable)}
+                disabled={availLoading}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: "99px",
+                  border: "none",
+                  background: isAvailable ? "#059669" : "#dc2626",
+                  color: "#fff",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  cursor: availLoading ? "not-allowed" : "pointer",
+                  opacity: availLoading ? 0.7 : 1,
+                  flexShrink: 0,
+                  transition: "background 0.2s",
+                }}
+              >
+                {availLoading ? "Saving..." : isAvailable ? "Available" : "Unavailable"}
+              </button>
+            </div>
+          </div>
 
           {/* ── Daily Capacity (collapsible) ── */}
           <div className="dd-content-pad">
@@ -1265,94 +1363,97 @@ export default function DoctorDashboard() {
 
       {/* ── Analytics Tab ── */}
       {activeTab === "analytics" && (
-        <div
-          className="dd-tab-pad"
-          style={{
-            flex: 1,
-            maxWidth: "960px",
-            margin: "0 auto",
-            width: "100%",
-          }}
-        >
+        <>
           <div
-            style={{ display: "flex", flexDirection: "column", gap: "24px" }}
+            className="dd-tab-pad"
+            style={{
+              flex: 1,
+              maxWidth: "960px",
+              margin: "0 auto",
+              width: "100%",
+            }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <button
-                onClick={() => setActiveTab("home")}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#6b7280",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                }}
-              >
-                ← Back
-              </button>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: "20px",
-                  fontWeight: 700,
-                  color: "#111827",
-                }}
-              >
-                Today's Analytics
-              </h2>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              <StatCard
-                icon="users"
-                label="Waiting"
-                value={waiting.length}
-                color={NAVY}
-              />
-              <StatCard
-                icon="heart"
-                label="Serving"
-                value={serving.length}
-                color="#059669"
-              />
-              <StatCard
-                icon="checkCircle"
-                label="Completed"
-                value={done}
-                color="#6b7280"
-              />
-              <StatCard
-                icon="star"
-                label="Priority"
-                value={priority}
-                color="#f97316"
-              />
-              <StatCard
-                icon="appointment"
-                label="Appointments Today"
-                value={bookedCount}
-                color={INDIGO}
-              />
-              <StatCard
-                icon="queue"
-                label="Walk-ins Today"
-                value={walkInCount}
-                color="#f97316"
-              />
-              <StatCard
-                icon="users"
-                label="Total Patients Today"
-                value={bookedCount + walkInCount}
-                color="#1a3a8f"
-              />
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "24px" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <button
+                  onClick={() => setActiveTab("home")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#6b7280",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                  }}
+                >
+                  ← Back
+                </button>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "20px",
+                    fontWeight: 700,
+                    color: "#111827",
+                  }}
+                >
+                  Today's Analytics
+                </h2>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <StatCard
+                  icon="users"
+                  label="Waiting"
+                  value={waiting.length}
+                  color={NAVY}
+                />
+                <StatCard
+                  icon="heart"
+                  label="Serving"
+                  value={serving.length}
+                  color="#059669"
+                />
+                <StatCard
+                  icon="checkCircle"
+                  label="Completed"
+                  value={done}
+                  color="#6b7280"
+                />
+                <StatCard
+                  icon="star"
+                  label="Priority"
+                  value={priority}
+                  color="#f97316"
+                />
+                <StatCard
+                  icon="appointment"
+                  label="Appointments Today"
+                  value={bookedCount}
+                  color={INDIGO}
+                />
+                <StatCard
+                  icon="queue"
+                  label="Walk-ins Today"
+                  value={walkInCount}
+                  color="#f97316"
+                />
+                <StatCard
+                  icon="users"
+                  label="Total Patients Today"
+                  value={bookedCount + walkInCount}
+                  color="#1a3a8f"
+                />
+              </div>
             </div>
           </div>
           <Footer />
-        </div>
+        </>
       )}
 
       {/* ── Appointment History Tab ── */}
       {activeTab === "appointments" && (
+        <>
         <div
           className="dd-tab-pad"
           style={{
@@ -1429,37 +1530,33 @@ export default function DoctorDashboard() {
                         borderBottom: "2px solid #e5e7eb",
                       }}
                     >
-                      <th
-                        style={{
-                          padding: "10px 14px",
-                          textAlign: "left",
-                          color: "#374151",
-                        }}
-                      >
-                        Date
-                      </th>
-                      <th
-                        style={{
-                          padding: "10px 14px",
-                          textAlign: "left",
-                          color: "#374151",
-                        }}
-                      >
-                        Patient Name
-                      </th>
-                      <th
-                        style={{
-                          padding: "10px 14px",
-                          textAlign: "left",
-                          color: "#374151",
-                        }}
-                      >
-                        Services
-                      </th>
+                      {[
+                        { label: "Date", field: "date" },
+                        { label: "Patient Name", field: "name" },
+                        { label: "Services", field: "services" },
+                      ].map(({ label, field }) => (
+                        <th
+                          key={field}
+                          onClick={() => handleSort(field)}
+                          style={{
+                            padding: "10px 14px",
+                            textAlign: "left",
+                            color: sortField === field ? INDIGO : "#374151",
+                            cursor: "pointer",
+                            userSelect: "none",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {label}{" "}
+                          <span style={{ fontSize: 11, opacity: sortField === field ? 1 : 0.35 }}>
+                            {sortField === field ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+                          </span>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {appointments.map((appt) => (
+                    {sortedAppointments.map((appt) => (
                       <tr
                         key={appt.appointment_id}
                         style={{ borderBottom: "1px solid #f1f5f9" }}
@@ -1494,7 +1591,7 @@ export default function DoctorDashboard() {
                 className="dd-show-on-mobile"
                 style={{ flexDirection: "column", gap: 10 }}
               >
-                {appointments.map((appt) => (
+                {sortedAppointments.map((appt) => (
                   <div
                     key={appt.appointment_id}
                     style={{
@@ -1535,8 +1632,9 @@ export default function DoctorDashboard() {
               </div>
             </>
           )}
-          <Footer />
         </div>
+        <Footer />
+        </>
       )}
 
       {/* ── Consultation Modal ── */}

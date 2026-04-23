@@ -103,11 +103,12 @@ const createQueue = async (req, res) => {
       }
     }
 
-    // Generate queue number: Q-001 format based on today's count
+    // Generate queue number: P-001 for priority, Q-001 for regular
     const [[countRow]] = await db.query(
       `SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()`
     );
-    const queueNumber = `Q-${String(countRow.count + 1).padStart(3, '0')}`;
+    const prefix = type === 'priority' ? 'P' : 'Q';
+    const queueNumber = `${prefix}-${String(countRow.count + 1).padStart(3, '0')}`;
 
     const queue = await Queue.create({
       patient_id: patient.patient_id,
@@ -162,7 +163,8 @@ const createWalkIn = async (req, res) => {
     const [[countRow]] = await db.query(
       `SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()`
     );
-    const queueNumber = `Q-${String(countRow.count + 1).padStart(3, '0')}`;
+    const walkInPrefix = type === 'priority' ? 'P' : 'Q';
+    const queueNumber = `${walkInPrefix}-${String(countRow.count + 1).padStart(3, '0')}`;
 
     const queue = await Queue.create({
       patient_id: null,

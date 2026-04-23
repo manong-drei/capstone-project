@@ -15,6 +15,29 @@ import api           from '../services/api'
 import { SERVICES }  from '../constants/services'
 import * as appointmentService from '../services/appointmentService'
 
+const formatDoctorName = (appt) => {
+  const name = `Dr. ${appt?.doctor_first_name ?? ''} ${appt?.doctor_last_name ?? ''}`.trim()
+  return name === 'Dr.' ? '—' : name
+}
+
+const formatAppointmentDate = (value, withYear = true) => {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    ...(withYear ? { year: 'numeric' } : {}),
+  })
+}
+
+const formatAppointmentTime = (value) => {
+  if (!value) return '—'
+  return new Date(`2000-01-01T${value}`).toLocaleTimeString('en-PH', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
 const formatServices = (appt) => {
   try {
     const raw = appt?.queue_services
@@ -142,20 +165,6 @@ const volumeDataMap = {
   Monthly: [{ d: 'Jan', v: 320 }, { d: 'Feb', v: 290 }, { d: 'Mar', v: 340 }, { d: 'Apr', v: 305 }],
 }
 
-const doctorsPlaceholder = [
-  { name: 'Dr. Reyes',   status: 'available' },
-  { name: 'Dr. Santos',  status: 'on_leave'  },
-  { name: 'Dr. Lim',     status: 'available' },
-  { name: 'Dr. Garcia',  status: 'available' },
-]
-
-const patientHistoryPlaceholder = [
-  { name: 'Juan Dela Cruz',   date: 'Apr 20, 2026', service: 'Tooth Extraction', status: 'Done'    },
-  { name: 'Maria Santos',     date: 'Apr 20, 2026', service: 'Dental Cleaning',  status: 'Done'    },
-  { name: 'Pedro Reyes',      date: 'Apr 20, 2026', service: 'Consultation',     status: 'Pending' },
-  { name: 'Ana Gomez',        date: 'Apr 19, 2026', service: 'X-Ray',            status: 'Done'    },
-  { name: 'Ramon Villanueva', date: 'Apr 19, 2026', service: 'Tooth Extraction', status: 'Done'    },
-]
 
 const notificationsPlaceholder = [
   { id: 1, title: 'New appointment request', body: 'Juan Dela Cruz booked for Apr 22.',  time: '2 min ago'  },
@@ -176,16 +185,24 @@ const sidebarItems = [
 
 /* ─── Tiny helpers ─────────────────────────────────────────── */
 function StatusBadge({ status }) {
-  const ok = status === 'available' || status === 'Done'
+  const normalized = String(status ?? '').toLowerCase()
+  const ok = normalized === 'available' || normalized === 'done' || normalized === 'completed' || normalized === 'confirmed'
+  const warning = normalized === 'pending'
   return (
     <span
       style={{
         padding: '2px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 600,
-        background: ok ? '#dcfce7' : '#fef9c3',
-        color:      ok ? '#15803d' : '#92400e',
+        background: ok ? '#dcfce7' : warning ? '#fef9c3' : '#fee2e2',
+        color:      ok ? '#15803d' : warning ? '#92400e' : '#b91c1c',
       }}
     >
-      {status === 'available' ? 'Available' : status === 'on_leave' ? 'On Leave' : status}
+      {normalized === 'available'
+        ? 'Available'
+        : normalized === 'on_leave'
+          ? 'On Leave'
+          : normalized
+            ? normalized.charAt(0).toUpperCase() + normalized.slice(1)
+            : '—'}
     </span>
   )
 }
@@ -205,24 +222,29 @@ export default function AdminDashboard() {
   const [selectedDept, setSelectedDept] = useState(DEPARTMENTS[0])
   const [appointments, setAppointments] = useState([])
   const [apptLoading,  setApptLoading]  = useState(false)
+  const [doctors,      setDoctors]      = useState([])
 
-  useEffect(() => { fetchOverview() }, [])
+  const fetchAppointments = async () => {
+    setApptLoading(true)
+    try {
+      const res = await appointmentService.getAllAppointments()
+      setAppointments(res?.data ?? [])
+    } catch {
+      setAppointments([])
+    } finally {
+      setApptLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchOverview()
+    fetchDoctors()
+    fetchAppointments()
+  }, [])
 
   useEffect(() => {
     if (activeTab !== 'patientshistory') return
-    let cancelled = false
-    ;(async () => {
-      setApptLoading(true)
-      try {
-        const res = await appointmentService.getAllAppointments()
-        if (!cancelled) setAppointments(res?.data ?? [])
-      } catch {
-        if (!cancelled) setAppointments([])
-      } finally {
-        if (!cancelled) setApptLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
+    fetchAppointments()
   }, [activeTab])
 
   const fetchOverview = async () => {
@@ -237,10 +259,24 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchDoctors = async () => {
+    try {
+      const data = await api.get('/doctor')
+      setDoctors(data?.data ?? [])
+    } catch {
+      /* silently ignore */
+    }
+  }
+
   const handleLogout = () => {
     logout()
     navigate(ROUTES.LOGIN)
   }
+
+  const completedAppointments = appointments.filter((appt) => appt.status === 'completed').length
+  const pendingAppointments = appointments.filter((appt) => appt.status === 'pending').length
+  const confirmedAppointments = appointments.filter((appt) => appt.status === 'confirmed').length
+  const recentAppointments = appointments.slice(0, 5)
 
   return (
     <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: 'Poppins, system-ui, sans-serif' }}>
@@ -484,62 +520,76 @@ export default function AdminDashboard() {
               {/* Doctors Profile */}
               <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Doctors Profile</h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  {doctorsPlaceholder.map(d => (
-                    <div
-                      key={d.name}
-                      style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
-                    >
-                      <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
-                        👨‍⚕️
+                {doctors.length === 0 ? (
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>No doctors registered yet.</p>
+                ) : (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {doctors.map(d => (
+                      <div
+                        key={d.doctor_id}
+                        style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
+                      >
+                        <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                          👨‍⚕️
+                        </div>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>
+                          Dr. {d.first_name} {d.last_name}
+                        </span>
+                        <StatusBadge status={d.is_available ? 'available' : 'on_leave'} />
                       </div>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{d.name}</span>
-                      <StatusBadge status={d.status} />
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Patient History Table */}
               <div className="ad-section-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>Patient History</h3>
 
-                {/* Desktop table */}
-                <div className="ad-hide-on-mobile" style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                        {['Patient Name', 'Date', 'Service', 'Status'].map(h => (
-                          <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b', fontSize: '12px' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {patientHistoryPlaceholder.map((r, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '10px 12px', color: '#1e293b', fontWeight: 500 }}>{r.name}</td>
-                          <td style={{ padding: '10px 12px', color: '#64748b' }}>{r.date}</td>
-                          <td style={{ padding: '10px 12px', color: '#64748b' }}>{r.service}</td>
-                          <td style={{ padding: '10px 12px' }}><StatusBadge status={r.status} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile cards */}
-                <div className="ad-show-on-mobile">
-                  {patientHistoryPlaceholder.map((r, i) => (
-                    <div key={i} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px', background: '#f8fafc' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{r.name}</span>
-                        <StatusBadge status={r.status} />
-                      </div>
-                      <span style={{ fontSize: '12px', color: '#64748b' }}>{r.service}</span>
-                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>{r.date}</span>
+                {apptLoading ? (
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Loading recent history...</p>
+                ) : recentAppointments.length === 0 ? (
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>No appointments recorded yet.</p>
+                ) : (
+                  <>
+                    <div className="ad-hide-on-mobile" style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                            {['Patient', 'Date', 'Doctor', 'Service', 'Status'].map(h => (
+                              <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b', fontSize: '12px' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recentAppointments.map((appt) => (
+                            <tr key={appt.appointment_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '10px 12px', color: '#1e293b', fontWeight: 500 }}>{appt.patient_full_name || '—'}</td>
+                              <td style={{ padding: '10px 12px', color: '#64748b' }}>{formatAppointmentDate(appt.appointment_date)}</td>
+                              <td style={{ padding: '10px 12px', color: '#64748b' }}>{formatDoctorName(appt)}</td>
+                              <td style={{ padding: '10px 12px', color: '#64748b' }}>{formatServices(appt)}</td>
+                              <td style={{ padding: '10px 12px' }}><StatusBadge status={appt.status} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="ad-show-on-mobile">
+                      {recentAppointments.map((appt) => (
+                        <div key={appt.appointment_id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px', background: '#f8fafc' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{appt.patient_full_name || '—'}</span>
+                            <StatusBadge status={appt.status} />
+                          </div>
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>{formatDoctorName(appt)}</span>
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>{formatServices(appt)}</span>
+                          <span style={{ fontSize: '11px', color: '#94a3b8' }}>{formatAppointmentDate(appt.appointment_date)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Account Management */}
@@ -694,15 +744,94 @@ export default function AdminDashboard() {
           {/* ════════ DOCTORS ════════ */}
           {activeTab === 'doctors' && (
             <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Doctors</h3>
-              <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Doctor availability tracking — coming soon.</p>
+              <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Doctor Availability</h3>
+              {doctors.length === 0 ? (
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>No doctors registered yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {doctors.map(d => (
+                    <div
+                      key={d.doctor_id}
+                      style={{
+                        border: `1.5px solid ${d.is_available ? '#bbf7d0' : '#fecaca'}`,
+                        borderRadius: '14px',
+                        padding: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        background: d.is_available ? '#f0fdf4' : '#fef2f2',
+                      }}
+                    >
+                      <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                        👨‍⚕️
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          Dr. {d.first_name} {d.last_name}
+                        </p>
+                        {d.specialization_name && (
+                          <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#64748b' }}>{d.specialization_name}</p>
+                        )}
+                        <StatusBadge status={d.is_available ? 'available' : 'on_leave'} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* ════════ PATIENTS HISTORY ════════ */}
           {activeTab === 'patientshistory' && (
-            <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-              <h3 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Patients History</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div
+                className="ad-tab-pad"
+                style={{
+                  background: 'linear-gradient(135deg, #eff6ff 0%, #fff7ed 100%)',
+                  borderRadius: '16px',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+                }}
+              >
+                <p style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: 700, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  Patient Records
+                </p>
+                <h3 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: 800, color: '#1e293b' }}>Patients History</h3>
+                <p style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: 1.6 }}>
+                  Review appointment activity, service history, assigned doctor, and each patient case status.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                  { label: 'Total Records', value: appointments.length, color: BLUE, bg: '#dbeafe' },
+                  { label: 'Completed', value: completedAppointments, color: '#059669', bg: '#dcfce7' },
+                  { label: 'Open Cases', value: pendingAppointments + confirmedAppointments, color: ORANGE, bg: '#ffedd5' },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    style={{
+                      background: '#fff',
+                      borderRadius: '14px',
+                      padding: '18px',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      {item.label}
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <span style={{ fontSize: '28px', fontWeight: 800, color: item.color }}>{item.value}</span>
+                      <span style={{ width: '40px', height: '40px', borderRadius: '12px', background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color, fontSize: '18px', fontWeight: 800 }}>
+                        {item.value}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="ad-tab-pad" style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Appointment History</h3>
 
               {apptLoading ? (
                 <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Loading appointments...</p>
@@ -716,23 +845,33 @@ export default function AdminDashboard() {
                       <thead>
                         <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#475569' }}>
                           <th style={{ padding: '10px 12px' }}>Date</th>
-                          <th style={{ padding: '10px 12px' }}>Patient Name</th>
+                          <th style={{ padding: '10px 12px' }}>Time</th>
+                          <th style={{ padding: '10px 12px' }}>Patient</th>
+                          <th style={{ padding: '10px 12px' }}>Doctor</th>
                           <th style={{ padding: '10px 12px' }}>Services</th>
+                          <th style={{ padding: '10px 12px' }}>Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {appointments.map((appt) => (
                           <tr key={appt.appointment_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '10px 12px', color: '#1e293b' }}>
-                              {new Date(appt.appointment_date).toLocaleDateString('en-PH', {
-                                month: 'short', day: 'numeric', year: 'numeric',
-                              })}
+                            <td style={{ padding: '12px', color: '#1e293b', fontWeight: 600 }}>
+                              {formatAppointmentDate(appt.appointment_date)}
                             </td>
-                            <td style={{ padding: '10px 12px', color: '#1e293b' }}>
+                            <td style={{ padding: '12px', color: '#475569' }}>
+                              {formatAppointmentTime(appt.appointment_time)}
+                            </td>
+                            <td style={{ padding: '12px', color: '#1e293b' }}>
                               {appt.patient_full_name || '—'}
                             </td>
-                            <td style={{ padding: '10px 12px', color: '#475569' }}>
+                            <td style={{ padding: '12px', color: '#475569' }}>
+                              {formatDoctorName(appt)}
+                            </td>
+                            <td style={{ padding: '12px', color: '#475569', maxWidth: '280px' }}>
                               {formatServices(appt)}
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <StatusBadge status={appt.status} />
                             </td>
                           </tr>
                         ))}
@@ -745,9 +884,9 @@ export default function AdminDashboard() {
                     {appointments.map((appt) => (
                       <div
                         key={appt.appointment_id}
-                        style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+                        style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px', background: '#fff' }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                           <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '13px' }}>
                             {appt.patient_full_name || '—'}
                           </span>
@@ -765,6 +904,7 @@ export default function AdminDashboard() {
                   </div>
                 </>
               )}
+              </div>
             </div>
           )}
 
