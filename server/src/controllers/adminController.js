@@ -10,7 +10,7 @@ const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const getOverview = async (req, res) => {
   try {
     const [[patientRow]] = await pool.query(
-      "SELECT COUNT(*) AS count FROM patients",
+      "SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()",
     );
     const [[doctorRow]] = await pool.query(`
       SELECT COUNT(*) AS count
@@ -72,7 +72,7 @@ const createStaff = async (req, res) => {
   try {
     const {
       username, first_name, last_name, email, phone, password, role,
-      license_number, specialization_id, position,
+      license_number, position,
     } = req.body;
     const normalizedPhone = normalizePhilippineMobilePhone(phone);
 
@@ -138,8 +138,8 @@ const createStaff = async (req, res) => {
       if (role === 'doctor') {
         await conn.query(
           `INSERT INTO doctors (user_id, specialization_id, first_name, last_name, license_number, contact_number)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [user_id, specialization_id || null, first_name, last_name, license_number, normalizedPhone]
+           VALUES (?, NULL, ?, ?, ?, ?)`,
+          [user_id, first_name, last_name, license_number, normalizedPhone]
         );
       } else {
         await conn.query(
@@ -229,7 +229,7 @@ const reactivateStaff = async (req, res) => {
 const updateStaff = async (req, res) => {
   try {
     const { user_id } = req.params;
-    const { first_name, last_name, email, phone, license_number, specialization_id, position } = req.body;
+    const { first_name, last_name, email, phone, license_number, position } = req.body;
 
     const [[user]] = await pool.query(
       "SELECT user_id, role FROM users WHERE user_id = ?", [user_id]
@@ -267,7 +267,6 @@ const updateStaff = async (req, res) => {
         if (first_name) { docFields.push("first_name = ?"); docVals.push(first_name); }
         if (last_name) { docFields.push("last_name = ?"); docVals.push(last_name); }
         if (license_number) { docFields.push("license_number = ?"); docVals.push(license_number); }
-        if (specialization_id !== undefined) { docFields.push("specialization_id = ?"); docVals.push(specialization_id || null); }
         if (docFields.length) {
           docVals.push(user_id);
           await conn.query(`UPDATE doctors SET ${docFields.join(", ")} WHERE user_id = ?`, docVals);

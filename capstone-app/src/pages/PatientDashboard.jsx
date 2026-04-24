@@ -4,7 +4,10 @@ import { useAuth } from "../hooks/useAuth";
 import { useDashboardIdentity } from "../hooks/useDashboardIdentity";
 import { useQueue } from "../hooks/useQueue";
 import { ROUTES } from "../constants/routes";
-import { QUEUE_STATUS } from "../constants/services";
+import {
+  QUEUE_STATUS,
+  DENTAL_SERVICES,
+} from "../constants/services";
 
 import DashboardProfileMenu from "../components/common/DashboardProfileMenu";
 import Footer from "../components/landing/Footer";
@@ -29,6 +32,30 @@ const formatServices = (appt) => {
     /* fall through */
   }
   return appt?.reason || "—";
+};
+
+const DENTAL_SUBSERVICE_LABEL_BY_ID = DENTAL_SERVICES.reduce(
+  (acc, service) => {
+    acc[service.id] = service.label;
+    return acc;
+  },
+  {},
+);
+
+const formatQueuedServices = (queue) => {
+  if (!Array.isArray(queue?.services) || queue.services.length === 0) return "";
+
+  const labels = queue.services
+    .map((service) => {
+      if (service && typeof service === "object") {
+        return service.label || service.name || service.id || "";
+      }
+      const key = String(service ?? "").trim();
+      return DENTAL_SUBSERVICE_LABEL_BY_ID[key] || key;
+    })
+    .filter(Boolean);
+
+  return labels.join(", ");
 };
 
 const mobileMenuBtn = {
@@ -175,8 +202,8 @@ export default function PatientDashboard() {
     try {
       await submitQueue(payload);
       setShowQueueModal(false);
-    } catch {
-      /* error shown by hook */
+    } catch (err) {
+      alert(err.message || "Failed to get queue number.");
     }
   };
 
@@ -199,6 +226,13 @@ export default function PatientDashboard() {
     queue &&
     queue.status !== QUEUE_STATUS.DONE &&
     queue.status !== QUEUE_STATUS.CANCELLED;
+  const queueDisplayName = hasActiveQueue ? getQueueDisplayName(queue) : "";
+  const queuedServices = hasActiveQueue ? formatQueuedServices(queue) : "";
+  const myQueueSubtitle = hasActiveQueue
+    ? [queueDisplayName, queuedServices ? `Dental Sub-services: ${queuedServices}` : null]
+        .filter(Boolean)
+        .join(" | ")
+    : "-";
 
   return (
     <div
@@ -687,7 +721,7 @@ export default function PatientDashboard() {
 
           {/* Info Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pd-content-pad">
-            {/* Card 1 — Currently Serving */}
+            {/* Card 1 — My Queue Number */}
             <div
               style={{
                 background: "white",
@@ -708,7 +742,7 @@ export default function PatientDashboard() {
                   letterSpacing: "0.12em",
                 }}
               >
-                CURRENTLY SERVING
+                MY QUEUE NUMBER
               </p>
               <p
                 style={{
@@ -723,7 +757,7 @@ export default function PatientDashboard() {
               <p
                 style={{ margin: 0, fontSize: "12px", color: "#374151", fontWeight: 600 }}
               >
-                {hasActiveQueue ? getQueueDisplayName(queue) : "—"}
+                {myQueueSubtitle}
               </p>
               <div
                 style={{

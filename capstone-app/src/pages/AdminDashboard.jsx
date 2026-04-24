@@ -297,6 +297,7 @@ export default function AdminDashboard() {
   const [doctors, setDoctors] = useState([]);
   const [queueMonitor, setQueueMonitor] = useState([]);
   const [queueLoading, setQueueLoading] = useState(false);
+  const [queueCategoryFilter, setQueueCategoryFilter] = useState("general");
 
   const fetchAppointments = async () => {
     setApptLoading(true);
@@ -1269,13 +1270,50 @@ export default function AdminDashboard() {
                 Live queue list with queue numbers and patient names.
               </p>
 
+              <div
+                style={{
+                  display: "inline-flex",
+                  padding: "3px",
+                  background: "#f1f5f9",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  gap: "4px",
+                  marginBottom: "16px",
+                }}
+              >
+                {[
+                  { id: "general", label: "General Consultation" },
+                  { id: "dental", label: "Dental Check-up" },
+                ].map(({ id, label }) => {
+                  const active = queueCategoryFilter === id;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setQueueCategoryFilter(id)}
+                      style={{
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "6px 14px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        background: active ? BLUE2 : "transparent",
+                        color: active ? "#fff" : "#374151",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {queueLoading ? (
                 <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
                   Loading queue...
                 </p>
-              ) : queueMonitor.length === 0 ? (
+              ) : queueMonitor.filter((q) => q.category === queueCategoryFilter).length === 0 ? (
                 <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
-                  No active queue entries today.
+                  No {queueCategoryFilter === "general" ? "general consultation" : "dental"} queue entries today.
                 </p>
               ) : (
                 <div
@@ -1285,7 +1323,7 @@ export default function AdminDashboard() {
                     gap: "10px",
                   }}
                 >
-                  {queueMonitor.map((q) => {
+                  {queueMonitor.filter((q) => q.category === queueCategoryFilter).map((q) => {
                     const status = String(q.status ?? "").toLowerCase();
                     const statusColor =
                       status === QUEUE_STATUS.SERVING

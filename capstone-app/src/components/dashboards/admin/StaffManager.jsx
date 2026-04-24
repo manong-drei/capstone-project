@@ -115,14 +115,13 @@ function ConfirmModal({ open, memberName, action, onConfirm, onCancel }) {
 }
 
 // Edit staff modal
-function EditStaffModal({ member, specializations, onSave, onClose }) {
+function EditStaffModal({ member, onSave, onClose }) {
   const [form, setForm] = useState({
     first_name: member.first_name || "",
     last_name: member.last_name || "",
     email: member.email || "",
     phone: member.phone || "",
     license_number: member.license_number || "",
-    specialization_id: member.specialization_id ?? "",
     position: member.position || "",
   });
   const [saving, setSaving] = useState(false);
@@ -195,23 +194,10 @@ function EditStaffModal({ member, specializations, onSave, onClose }) {
         </div>
 
         {member.role === "doctor" && (
-          <div className="sm-form-grid" style={{ marginBottom: "12px" }}>
+          <div style={{ marginBottom: "12px" }}>
             <div>
               <label style={labelStyle}>License Number</label>
               <input style={inputStyle} value={form.license_number} onChange={(e) => handleChange("license_number", e.target.value)} />
-            </div>
-            <div>
-              <label style={labelStyle}>Specialization</label>
-              {specializations.length > 0 ? (
-                <select style={inputStyle} value={form.specialization_id} onChange={(e) => handleChange("specialization_id", e.target.value)}>
-                  <option value="">-- None --</option>
-                  {specializations.map((s) => (
-                    <option key={s.specialization_id} value={s.specialization_id}>{s.specialization_name}</option>
-                  ))}
-                </select>
-              ) : (
-                <input type="number" style={inputStyle} value={form.specialization_id} onChange={(e) => handleChange("specialization_id", e.target.value)} />
-              )}
             </div>
           </div>
         )}
@@ -253,7 +239,6 @@ export default function StaffManager() {
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [specializations, setSpecializations] = useState([]);
   const [showInactive, setShowInactive] = useState(false);
 
   const [confirm, setConfirm] = useState({ open: false, memberId: null, memberName: "", action: "" });
@@ -268,12 +253,10 @@ export default function StaffManager() {
     password: "",
     role: "doctor",
     license_number: "",
-    specialization_id: "",
     position: "",
   });
 
   useEffect(() => { fetchStaff(); }, []);
-  useEffect(() => { if (form.role === "doctor") fetchSpecializations(); }, [form.role]);
 
   const fetchStaff = async () => {
     setLoading(true);
@@ -289,19 +272,10 @@ export default function StaffManager() {
     }
   };
 
-  const fetchSpecializations = async () => {
-    try {
-      const data = await api.get("/admin/specializations");
-      setSpecializations(data?.specializations ?? []);
-    } catch {
-      setSpecializations([]);
-    }
-  };
-
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleRoleChange = (value) => {
-    setForm((prev) => ({ ...prev, role: value, license_number: "", specialization_id: "", position: "" }));
+    setForm((prev) => ({ ...prev, role: value, license_number: "", position: "" }));
   };
 
   const handleAddStaff = async () => {
@@ -322,7 +296,7 @@ export default function StaffManager() {
     try {
       await api.post("/admin/staff", form);
       setShowForm(false);
-      setForm({ username: "", first_name: "", last_name: "", email: "", phone: "", password: "", role: "doctor", license_number: "", specialization_id: "", position: "" });
+      setForm({ username: "", first_name: "", last_name: "", email: "", phone: "", password: "", role: "doctor", license_number: "", position: "" });
       fetchStaff();
     } catch (err) {
       setFormError(err.message);
@@ -365,7 +339,6 @@ export default function StaffManager() {
       {editMember && (
         <EditStaffModal
           member={editMember}
-          specializations={specializations}
           onSave={() => { setEditMember(null); fetchStaff(); }}
           onClose={() => setEditMember(null)}
         />
@@ -450,23 +423,10 @@ export default function StaffManager() {
           </div>
 
           {form.role === "doctor" && (
-            <div className="sm-form-grid" style={{ marginBottom: "12px" }}>
+            <div style={{ marginBottom: "12px" }}>
               <div>
                 <label style={labelStyle}>License Number <span style={{ color: "#dc2626" }}>*</span></label>
                 <input style={inputStyle} value={form.license_number} onChange={(e) => handleChange("license_number", e.target.value)} placeholder="PRC License No." />
-              </div>
-              <div>
-                <label style={labelStyle}>Specialization</label>
-                {specializations.length > 0 ? (
-                  <select style={inputStyle} value={form.specialization_id} onChange={(e) => handleChange("specialization_id", e.target.value)}>
-                    <option value="">-- None --</option>
-                    {specializations.map((s) => (
-                      <option key={s.specialization_id} value={s.specialization_id}>{s.specialization_name}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input type="number" style={inputStyle} value={form.specialization_id} onChange={(e) => handleChange("specialization_id", e.target.value)} placeholder="Specialization ID (optional)" />
-                )}
               </div>
             </div>
           )}
@@ -563,7 +523,7 @@ export default function StaffManager() {
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     {!isInactive && (
                       <button
-                        onClick={() => { fetchSpecializations(); setEditMember(member); }}
+                        onClick={() => { setEditMember(member); }}
                         style={{
                           padding: "5px 10px", borderRadius: "7px", border: "none",
                           background: "#e0e7ff", color: "#4338ca",
@@ -631,7 +591,7 @@ export default function StaffManager() {
                     <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
                       {!isInactive && (
                         <button
-                          onClick={() => { fetchSpecializations(); setEditMember(member); }}
+                          onClick={() => { setEditMember(member); }}
                           style={{
                             padding: "7px 10px", borderRadius: "7px", border: "none",
                             background: "#e0e7ff", color: "#4338ca",

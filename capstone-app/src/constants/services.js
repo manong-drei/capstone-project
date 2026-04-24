@@ -62,4 +62,5 @@ export const QUEUE_STATUS = {
   SERVING: "serving",
   DONE: "done",
   CANCELLED: "cancelled",
+  NO_SHOW: "no_show",
 };

@@ -80,7 +80,7 @@ export default function DoctorDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { identity } = useDashboardIdentity();
-  const { queues, loading, error, fetchAllQueues, callNext, updateStatus } =
+  const { queues, loading, error, fetchAllQueues, updateStatus } =
     useQueue();
 
   const [activeTab, setActiveTab] = useState("home");
@@ -220,8 +220,13 @@ export default function DoctorDashboard() {
   }, [activeTab]);
 
   const handleCallNext = async () => {
+    if (servingQueue) {
+      setServingPatient(servingQueue);
+      setShowConsultModal(true);
+      return;
+    }
     try {
-      const next = await callNext();
+      const next = await api.post("/queue/call-next", { category: "dental" });
       setServingPatient(next);
       setShowConsultModal(true);
       fetchAllQueues();
@@ -257,13 +262,14 @@ export default function DoctorDashboard() {
     navigate(ROUTES.LOGIN);
   };
 
-  const waiting = queues.filter((q) => q.status === QUEUE_STATUS.WAITING);
-  const serving = queues.filter((q) => q.status === QUEUE_STATUS.SERVING);
-  const doneQueues = queues.filter((q) => q.status === QUEUE_STATUS.DONE);
+  const dentalQueues = queues.filter((q) => q.category === "dental");
+  const waiting    = dentalQueues.filter((q) => q.status === QUEUE_STATUS.WAITING);
+  const serving    = dentalQueues.filter((q) => q.status === QUEUE_STATUS.SERVING);
+  const doneQueues = dentalQueues.filter((q) => q.status === QUEUE_STATUS.DONE);
   const servingQueue = serving[0] ?? null;
-  const nextQueue = waiting[0] ?? null;
-  const done = doneQueues.length;
-  const priority = queues.filter((q) => q.type === "priority").length;
+  const nextQueue    = waiting[0] ?? null;
+  const done         = doneQueues.length;
+  const priority     = dentalQueues.filter((q) => q.type === "priority").length;
 
   const walkInPercent =
     walkInLimit > 0
@@ -1181,23 +1187,20 @@ export default function DoctorDashboard() {
                 </button>
                 <button
                   onClick={handleCallNext}
-                  disabled={waiting.length === 0 || loading}
+                  disabled={(waiting.length === 0 && !servingQueue) || loading}
                   style={{
                     flex: 1,
                     padding: "10px 8px",
                     borderRadius: "10px",
                     border: "none",
-                    background: waiting.length > 0 ? NAVY : "#e5e7eb",
-                    color: waiting.length > 0 ? "white" : "#9ca3af",
+                    background: servingQueue ? "#059669" : waiting.length > 0 ? NAVY : "#e5e7eb",
+                    color: servingQueue || waiting.length > 0 ? "white" : "#9ca3af",
                     fontSize: "12px",
                     fontWeight: 700,
-                    cursor:
-                      waiting.length > 0 && !loading
-                        ? "pointer"
-                        : "not-allowed",
+                    cursor: (waiting.length > 0 || servingQueue) && !loading ? "pointer" : "not-allowed",
                   }}
                 >
-                  Next
+                  {servingQueue ? "Consult" : "Next"}
                 </button>
               </div>
             </div>

@@ -313,7 +313,7 @@ function HeroBanner() {
 }
 
 // ─── Queue Panel (left) ──────────────────────────────────────────────────────
-function QueuePanel({ currentServing, nextQueue, onCallNext, loading }) {
+function QueuePanel({ currentServing, nextQueue, onCallNext, onNoShow, loading }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       {/* Now Serving */}
@@ -379,6 +379,25 @@ function QueuePanel({ currentServing, nextQueue, onCallNext, loading }) {
           >
             {currentServing.type === "priority" ? "Priority" : "Regular"}
           </span>
+        )}
+        {currentServing && (
+          <button
+            onClick={onNoShow}
+            style={{
+              display: "block",
+              margin: "10px auto 0",
+              padding: "6px 16px",
+              borderRadius: "99px",
+              border: "1.5px solid rgba(255,255,255,0.6)",
+              background: "transparent",
+              color: "#fff",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            No Show
+          </button>
         )}
         {!currentServing && (
           <p
@@ -1420,6 +1439,16 @@ export default function StaffDashboard() {
     }
   };
 
+  const handleNoShow = async (id) => {
+    try {
+      await api.patch(`/queue/${id}/status`, { status: "no_show" });
+      await api.post("/queue/call-next", { category: activeTab });
+      await fetchQueue();
+    } catch (err) {
+      alert(err.message || "Failed to mark no-show.");
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate(ROUTES.LOGIN);
@@ -1571,6 +1600,7 @@ export default function StaffDashboard() {
               currentServing={currentServing}
               nextQueue={nextQueue}
               onCallNext={() => handleCallNext(activeTab)}
+              onNoShow={() => currentServing && handleNoShow(currentServing.id)}
               loading={calling}
             />
             <WalkInForm

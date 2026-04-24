@@ -3,6 +3,8 @@ import { DENTAL_SERVICES as SERVICES, QUEUE_TYPE } from "../../../constants/serv
 import Icon from "../../common/AppIcons";
 import { getSessionItem } from "@analytics/session-storage-utils";
 
+const MAX_SELECTED_SERVICES = 2;
+
 /**
  * GetQueueModal
  * Allows a patient to select services and choose Regular or Priority queue.
@@ -26,9 +28,14 @@ export default function GetQueueModal({
   if (!isOpen) return null;
 
   const toggleService = (id) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
+    const alreadySelected = selected.includes(id);
+    if (alreadySelected) {
+      setSelected((prev) => prev.filter((s) => s !== id));
+      return;
+    }
+
+    if (selected.length >= MAX_SELECTED_SERVICES) return;
+    setSelected((prev) => [...prev, id]);
   };
 
   const handleSubmit = () => {
@@ -44,6 +51,7 @@ export default function GetQueueModal({
 
   const isPriority = queueType === QUEUE_TYPE.PRIORITY;
   const accentColor = isPriority ? "#f97316" : "#2d3a8c";
+  const limitReached = selected.length >= MAX_SELECTED_SERVICES;
 
   return (
     <div
@@ -222,19 +230,25 @@ export default function GetQueueModal({
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {SERVICES.map(({ id, label }) => {
               const active = selected.includes(id);
+              const blocked = limitReached && !active;
               return (
                 <button
                   key={id}
-                  onClick={() => toggleService(id)}
+                  onClick={() => {
+                    if (blocked) return;
+                    toggleService(id);
+                  }}
+                  disabled={blocked}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "10px",
                     padding: "10px 14px",
                     borderRadius: "10px",
-                    border: `1.5px solid ${active ? accentColor : "#e5e7eb"}`,
+                    border: `1.5px solid ${active ? accentColor : blocked ? "#d1d5db" : "#e5e7eb"}`,
                     background: active ? `${accentColor}0d` : "#fafafa",
-                    cursor: "pointer",
+                    cursor: blocked ? "not-allowed" : "pointer",
+                    opacity: blocked ? 0.62 : 1,
                     textAlign: "left",
                     transition: "all 0.12s",
                   }}
@@ -279,6 +293,18 @@ export default function GetQueueModal({
               );
             })}
           </div>
+          <p
+            style={{
+              margin: "8px 0 0",
+              fontSize: "12px",
+              color: limitReached ? "#b45309" : "#9ca3af",
+              fontWeight: limitReached ? 600 : 400,
+            }}
+          >
+            {limitReached
+              ? "You can select up to 2 services only."
+              : "Select up to 2 services."}
+          </p>
         </div>
 
         {/* Submit */}

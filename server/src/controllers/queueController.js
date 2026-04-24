@@ -63,12 +63,19 @@ const createQueue = async (req, res) => {
   try {
     const { services, type } = req.body;
 
+    if (!Array.isArray(services) || services.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please select at least one service.' });
+    }
+
+    const selectedServices = [...new Set(services)];
+    if (selectedServices.length > 2) {
+      return res.status(400).json({ success: false, message: 'You can select up to 2 services only.' });
+    }
+
     // Patients may only book dental services — reject anything outside the dental whitelist.
-    if (Array.isArray(services)) {
-      const invalid = services.find((id) => !ALLOWED_SERVICE_IDS.has(id));
-      if (invalid) {
-        return res.status(400).json({ success: false, message: 'Invalid service selected.' });
-      }
+    const invalid = selectedServices.find((id) => !ALLOWED_SERVICE_IDS.has(id));
+    if (invalid) {
+      return res.status(400).json({ success: false, message: 'Invalid service selected.' });
     }
 
     const patient = await Patient.findByUserId(req.user.user_id);
@@ -81,7 +88,20 @@ const createQueue = async (req, res) => {
     // Check for existing active queue today
     const existing = await Queue.findByPatientId(patient.patient_id);
     if (existing) {
-      return res.status(409).json({ success: false, message: 'You already have an active queue today.' });
+      return res.status(409).json({ success: false, message: 'you already have an active queue today' });
+    }
+
+    // Limit each patient to two queue registrations per day, regardless of final status.
+    const [[{ todayQueueCount }]] = await db.query(
+      `SELECT COUNT(*) AS todayQueueCount FROM queues
+       WHERE patient_id = ? AND DATE(created_at) = CURDATE()`,
+      [patient.patient_id]
+    );
+    if (todayQueueCount >= 2) {
+      return res.status(409).json({
+        success: false,
+        message: 'You have reached your daily queue limit (2). Please try again tomorrow.',
+      });
     }
 
     // Resolve the active dentist (single-doctor facility — use the first)
@@ -143,7 +163,7 @@ const createQueue = async (req, res) => {
       queue_number: queueNumber,
       type: type || 'regular',
       category: 'dental',
-      services: services || [],
+      services: selectedServices,
     });
 
     res.status(201).json(queue);
@@ -258,7 +278,7 @@ const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowed = ['waiting', 'serving', 'done', 'cancelled'];
+    const allowed = ['waiting', 'serving', 'done', 'cancelled', 'no_show'];
     if (!allowed.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status value.' });
     }
