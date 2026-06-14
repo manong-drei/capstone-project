@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
-import * as authService from "../services/authService";
-import DevLoginPanel from "../components/common/DevLoginPanel";
-import TermsPrivacyModal from "../components/common/TermsPrivacyModal";
+import { useAuth } from "@/hooks/useAuth";
+import * as authService from "@/services/authService";
+import DevLoginPanel from "@/components/common/DevLoginPanel";
+import TermsPrivacyModal from "@/components/common/TermsPrivacyModal";
 import { setSessionItem } from "@analytics/session-storage-utils";
 
 /* ── Inline Navbar (same design system) ───────────────────────────────── */
@@ -303,7 +303,7 @@ const LoginPage = () => {
             </Link>
           </p>
 
-          <DevLoginPanel />
+          {import.meta.env.VITE_DEV_BYPASS === "true" && <DevLoginPanel />}
         </div>
       </div>
 

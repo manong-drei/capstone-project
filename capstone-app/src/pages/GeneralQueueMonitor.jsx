@@ -8,8 +8,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { getAllQueues } from "../services/queueService";
-import { getQueueDisplayName } from "../utils/queueDisplay";
+import { getAllQueues } from "@/services/queueService";
+import { getQueueDisplayName } from "@/utils/queueDisplay";
 
 const NAVY = "#1e2d6b";
 const INDIGO = "#2d3a8c";

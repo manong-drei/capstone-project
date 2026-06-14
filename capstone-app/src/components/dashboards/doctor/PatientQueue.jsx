@@ -1,5 +1,5 @@
-import Icon from '../../common/AppIcons'
-import { QUEUE_STATUS } from '../../../constants/services'
+import Icon from '@/components/common/AppIcons'
+import { QUEUE_STATUS } from '@/constants/queue'
 
 const statusColors = {
   [QUEUE_STATUS.WAITING]: { color: '#2d3a8c', bg: '#eef2ff', label: 'Waiting' },

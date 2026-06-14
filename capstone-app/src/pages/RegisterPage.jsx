@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import TermsPrivacyModal from "../components/common/TermsPrivacyModal"; // adjust path as needed
+import TermsPrivacyModal from "@/components/common/TermsPrivacyModal";
 
 /* -- Navbar -------------------------------------------------------------- */
 const Navbar = () => {

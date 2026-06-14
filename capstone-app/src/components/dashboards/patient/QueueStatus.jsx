@@ -1,6 +1,6 @@
-import { QUEUE_STATUS } from "../../../constants/services";
-import Icon from "../../common/AppIcons";
-import { getQueueDisplayName } from "../../../utils/queueDisplay";
+import { QUEUE_STATUS } from "@/constants/queue";
+import Icon from "@/components/common/AppIcons";
+import { getQueueDisplayName } from "@/utils/queueDisplay";
 
 const STATUS_CONFIG = {
   [QUEUE_STATUS.WAITING]: {

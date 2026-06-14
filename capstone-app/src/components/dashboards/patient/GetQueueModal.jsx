@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { DENTAL_SERVICES as SERVICES, QUEUE_TYPE } from "../../../constants/services";
-import Icon from "../../common/AppIcons";
+import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
+import { QUEUE_TYPE } from "@/constants/queue";
+import Icon from "@/components/common/AppIcons";
 import { getSessionItem } from "@analytics/session-storage-utils";
 
 const MAX_SELECTED_SERVICES = 2;

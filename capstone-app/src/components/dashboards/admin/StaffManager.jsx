@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import Icon from "../../common/AppIcons";
-import api from "../../../services/api";
+import Icon from "@/components/common/AppIcons";
+import api from "@/services/api";
 
 const ROLES = ["doctor", "staff", "admin"];
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import * as authService from "../services/authService";
+import * as authService from "@/services/authService";
 
 const ROLE_LABELS = {
   patient: "Patient",

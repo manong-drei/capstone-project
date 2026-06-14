@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import * as queueService from "../services/queueService";
+import * as queueService from "@/services/queueService";
 
 export function useQueue() {
   const [queue, setQueue] = useState(null);

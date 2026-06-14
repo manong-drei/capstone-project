@@ -14,8 +14,8 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
-import api from "../../services/api";
+import { useAuth } from "@/hooks/useAuth";
+import api from "@/services/api";
 
 // Only render in dev mode (controlled by .env.development)
 const DEV_MODE = import.meta.env.VITE_DEV_BYPASS === "true";

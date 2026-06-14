@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import Icon from "../../common/AppIcons";
-import api from "../../../services/api";
+import Icon from "@/components/common/AppIcons";
+import api from "@/services/api";
 
 const PM_RESPONSIVE_CSS = `
   .pm-table-row, .pm-table-head { display: grid; grid-template-columns: 1.5fr 1fr 1fr 80px 110px; }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import StatCard from '../../common/StatCard'
-import api from '../../../services/api'
-import { QUEUE_STATUS } from '../../../constants/services'
+import StatCard from '@/components/common/StatCard'
+import api from '@/services/api'
 
 /**
  * ReportsPanel
