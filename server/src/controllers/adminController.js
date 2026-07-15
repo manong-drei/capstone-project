@@ -71,54 +71,71 @@ const getStaff = async (req, res) => {
 const createStaff = async (req, res) => {
   try {
     const {
-      username, first_name, last_name, email, phone, password, role,
-      license_number, position,
+      first_name,
+      last_name,
+      email,
+      phone,
+      password,
+      role,
+      license_number,
+      specialization_id,
+      position,
     } = req.body;
-    const normalizedPhone = normalizePhilippineMobilePhone(phone);
 
-    if (!username || !first_name || !last_name || !phone || !password || !role) {
-      return res.status(400).json({ success: false, message: "Required fields are missing." });
+    if (!first_name || !last_name || !phone || !password || !role) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Required fields are missing." });
     }
     if (!normalizedPhone) {
       return res.status(400).json({
         success: false,
-        message: "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
+        message:
+          "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
       });
     }
 
-    if (!['doctor', 'staff', 'admin'].includes(role)) {
-      return res.status(400).json({ success: false, message: "Invalid role. Must be doctor, staff, or admin." });
+    if (!["doctor", "staff", "admin"].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role. Must be doctor, staff, or admin.",
+      });
     }
 
-    if (role === 'doctor' && !license_number) {
-      return res.status(400).json({ success: false, message: "License number is required for doctors." });
+    if (role === "doctor" && !license_number) {
+      return res.status(400).json({
+        success: false,
+        message: "License number is required for doctors.",
+      });
     }
 
-    if (role === 'staff' && !position) {
-      return res.status(400).json({ success: false, message: "Position is required for staff." });
+    if (role === "staff" && !position) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Position is required for staff." });
     }
 
     // Check duplicates
+    // Check duplicates
     const [[existingPhone]] = await pool.query(
-      "SELECT user_id FROM users WHERE phone = ?", [normalizedPhone]
+      "SELECT user_id FROM users WHERE phone = ?",
+      [phone],
     );
     if (existingPhone) {
-      return res.status(409).json({ success: false, message: "Phone number already in use." });
-    }
-
-    const [[existingUsername]] = await pool.query(
-      "SELECT user_id FROM users WHERE username = ?", [username]
-    );
-    if (existingUsername) {
-      return res.status(409).json({ success: false, message: "Username already in use." });
+      return res
+        .status(409)
+        .json({ success: false, message: "Phone number already in use." });
     }
 
     if (email) {
       const [[existingEmail]] = await pool.query(
-        "SELECT user_id FROM users WHERE email = ?", [email]
+        "SELECT user_id FROM users WHERE email = ?",
+        [email],
       );
       if (existingEmail) {
-        return res.status(409).json({ success: false, message: "Email address already in use." });
+        return res
+          .status(409)
+          .json({ success: false, message: "Email address already in use." });
       }
     }
 
@@ -129,28 +146,36 @@ const createStaff = async (req, res) => {
 
       const password_hash = await bcrypt.hash(password, 10);
       const [userResult] = await conn.query(
-        `INSERT INTO users (username, email, phone, password_hash, role)
-         VALUES (?, ?, ?, ?, ?)`,
-        [username, email || null, normalizedPhone, password_hash, role]
+        `INSERT INTO users (email, phone, password_hash, role)
+   VALUES (?, ?, ?, ?)`,
+        [email || null, phone, password_hash, role],
       );
       const user_id = userResult.insertId;
 
-      if (role === 'doctor') {
+      if (role === "doctor") {
         await conn.query(
           `INSERT INTO doctors (user_id, specialization_id, first_name, last_name, license_number, contact_number)
            VALUES (?, NULL, ?, ?, ?, ?)`,
-          [user_id, first_name, last_name, license_number, normalizedPhone]
+          [user_id, first_name, last_name, license_number, normalizedPhone],
         );
       } else {
         await conn.query(
           `INSERT INTO staff (user_id, first_name, last_name, position, contact_number)
            VALUES (?, ?, ?, ?, ?)`,
-          [user_id, first_name, last_name, role === 'admin' ? 'Administrator' : position, normalizedPhone]
+          [
+            user_id,
+            first_name,
+            last_name,
+            role === "admin" ? "Administrator" : position,
+            normalizedPhone,
+          ],
         );
       }
 
       await conn.commit();
-      res.status(201).json({ success: true, message: "Staff account created.", user_id });
+      res
+        .status(201)
+        .json({ success: true, message: "Staff account created.", user_id });
     } catch (innerErr) {
       await conn.rollback();
       throw innerErr;
@@ -160,16 +185,31 @@ const createStaff = async (req, res) => {
   } catch (err) {
     console.error("createStaff error:", err);
     // Surface readable message for known MySQL errors
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ success: false, message: "A duplicate value was found. Check username, email, phone, or license number." });
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "A duplicate value was found. Check username, email, phone, or license number.",
+      });
     }
-    if (err.code === 'ER_NO_DEFAULT_FOR_FIELD' || err.code === 'ER_BAD_NULL_ERROR') {
-      return res.status(400).json({ success: false, message: `Missing required field: ${err.sqlMessage}` });
+    if (
+      err.code === "ER_NO_DEFAULT_FOR_FIELD" ||
+      err.code === "ER_BAD_NULL_ERROR"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required field: ${err.sqlMessage}`,
+      });
     }
-    if (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR') {
-      return res.status(500).json({ success: false, message: `Database schema error: ${err.sqlMessage}` });
+    if (err.code === "ER_NO_SUCH_TABLE" || err.code === "ER_BAD_FIELD_ERROR") {
+      return res.status(500).json({
+        success: false,
+        message: `Database schema error: ${err.sqlMessage}`,
+      });
     }
-    res.status(500).json({ success: false, message: err.sqlMessage || "Server error." });
+    res
+      .status(500)
+      .json({ success: false, message: err.sqlMessage || "Server error." });
   }
 };
 
@@ -179,20 +219,26 @@ const deactivateStaff = async (req, res) => {
     const { user_id } = req.params;
 
     const [[user]] = await pool.query(
-      "SELECT user_id, role FROM users WHERE user_id = ?", [user_id]
+      "SELECT user_id, role FROM users WHERE user_id = ?",
+      [user_id],
     );
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
     }
 
-    if (user.role === 'admin' && user.user_id === req.user.user_id) {
-      return res.status(403).json({ success: false, message: "You cannot deactivate your own account." });
+    if (user.role === "admin" && user.user_id === req.user.user_id) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot deactivate your own account.",
+      });
     }
 
-    await pool.query(
-      "UPDATE users SET is_active = 0 WHERE user_id = ?", [user_id]
-    );
+    await pool.query("UPDATE users SET is_active = 0 WHERE user_id = ?", [
+      user_id,
+    ]);
 
     res.json({ success: true, message: "Staff account deactivated." });
   } catch (err) {
@@ -207,16 +253,19 @@ const reactivateStaff = async (req, res) => {
     const { user_id } = req.params;
 
     const [[user]] = await pool.query(
-      "SELECT user_id, role FROM users WHERE user_id = ?", [user_id]
+      "SELECT user_id, role FROM users WHERE user_id = ?",
+      [user_id],
     );
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
     }
 
-    await pool.query(
-      "UPDATE users SET is_active = 1 WHERE user_id = ?", [user_id]
-    );
+    await pool.query("UPDATE users SET is_active = 1 WHERE user_id = ?", [
+      user_id,
+    ]);
 
     res.json({ success: true, message: "Staff account reactivated." });
   } catch (err) {
@@ -229,14 +278,18 @@ const reactivateStaff = async (req, res) => {
 const updateStaff = async (req, res) => {
   try {
     const { user_id } = req.params;
-    const { first_name, last_name, email, phone, license_number, position } = req.body;
+    const { first_name, last_name, email, phone, license_number, position } =
+      req.body;
 
     const [[user]] = await pool.query(
-      "SELECT user_id, role FROM users WHERE user_id = ?", [user_id]
+      "SELECT user_id, role FROM users WHERE user_id = ?",
+      [user_id],
     );
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
     }
 
     const conn = await pool.getConnection();
@@ -250,36 +303,72 @@ const updateStaff = async (req, res) => {
           if (!normalizedPhone) {
             await conn.rollback();
             conn.release();
-            return res.status(400).json({ success: false, message: "Invalid Philippine mobile phone number." });
+            return res.status(400).json({
+              success: false,
+              message: "Invalid Philippine mobile phone number.",
+            });
           }
         }
         const fields = [];
         const vals = [];
-        if (email) { fields.push("email = ?"); vals.push(email); }
-        if (phone) { fields.push("phone = ?"); vals.push(normalizedPhone); }
+        if (email) {
+          fields.push("email = ?");
+          vals.push(email);
+        }
+        if (phone) {
+          fields.push("phone = ?");
+          vals.push(normalizedPhone);
+        }
         vals.push(user_id);
-        await conn.query(`UPDATE users SET ${fields.join(", ")} WHERE user_id = ?`, vals);
+        await conn.query(
+          `UPDATE users SET ${fields.join(", ")} WHERE user_id = ?`,
+          vals,
+        );
       }
 
-      if (user.role === 'doctor') {
+      if (user.role === "doctor") {
         const docFields = [];
         const docVals = [];
-        if (first_name) { docFields.push("first_name = ?"); docVals.push(first_name); }
-        if (last_name) { docFields.push("last_name = ?"); docVals.push(last_name); }
-        if (license_number) { docFields.push("license_number = ?"); docVals.push(license_number); }
+        if (first_name) {
+          docFields.push("first_name = ?");
+          docVals.push(first_name);
+        }
+        if (last_name) {
+          docFields.push("last_name = ?");
+          docVals.push(last_name);
+        }
+        if (license_number) {
+          docFields.push("license_number = ?");
+          docVals.push(license_number);
+        }
         if (docFields.length) {
           docVals.push(user_id);
-          await conn.query(`UPDATE doctors SET ${docFields.join(", ")} WHERE user_id = ?`, docVals);
+          await conn.query(
+            `UPDATE doctors SET ${docFields.join(", ")} WHERE user_id = ?`,
+            docVals,
+          );
         }
       } else {
         const staffFields = [];
         const staffVals = [];
-        if (first_name) { staffFields.push("first_name = ?"); staffVals.push(first_name); }
-        if (last_name) { staffFields.push("last_name = ?"); staffVals.push(last_name); }
-        if (position && user.role !== 'admin') { staffFields.push("position = ?"); staffVals.push(position); }
+        if (first_name) {
+          staffFields.push("first_name = ?");
+          staffVals.push(first_name);
+        }
+        if (last_name) {
+          staffFields.push("last_name = ?");
+          staffVals.push(last_name);
+        }
+        if (position && user.role !== "admin") {
+          staffFields.push("position = ?");
+          staffVals.push(position);
+        }
         if (staffFields.length) {
           staffVals.push(user_id);
-          await conn.query(`UPDATE staff SET ${staffFields.join(", ")} WHERE user_id = ?`, staffVals);
+          await conn.query(
+            `UPDATE staff SET ${staffFields.join(", ")} WHERE user_id = ?`,
+            staffVals,
+          );
         }
       }
 
@@ -293,8 +382,10 @@ const updateStaff = async (req, res) => {
     }
   } catch (err) {
     console.error("updateStaff error:", err);
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ success: false, message: "Email or phone already in use." });
+    if (err.code === "ER_DUP_ENTRY") {
+      return res
+        .status(409)
+        .json({ success: false, message: "Email or phone already in use." });
     }
     res.status(500).json({ success: false, message: "Server error." });
   }
@@ -325,13 +416,18 @@ const deactivatePatient = async (req, res) => {
     const { user_id } = req.params;
 
     const [[user]] = await pool.query(
-      "SELECT user_id FROM users WHERE user_id = ? AND role = 'patient'", [user_id]
+      "SELECT user_id FROM users WHERE user_id = ? AND role = 'patient'",
+      [user_id],
     );
     if (!user) {
-      return res.status(404).json({ success: false, message: "Patient not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Patient not found." });
     }
 
-    await pool.query("UPDATE users SET is_active = 0 WHERE user_id = ?", [user_id]);
+    await pool.query("UPDATE users SET is_active = 0 WHERE user_id = ?", [
+      user_id,
+    ]);
     res.json({ success: true, message: "Patient account deactivated." });
   } catch (err) {
     console.error("deactivatePatient error:", err);
@@ -345,13 +441,18 @@ const reactivatePatient = async (req, res) => {
     const { user_id } = req.params;
 
     const [[user]] = await pool.query(
-      "SELECT user_id FROM users WHERE user_id = ? AND role = 'patient'", [user_id]
+      "SELECT user_id FROM users WHERE user_id = ? AND role = 'patient'",
+      [user_id],
     );
     if (!user) {
-      return res.status(404).json({ success: false, message: "Patient not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Patient not found." });
     }
 
-    await pool.query("UPDATE users SET is_active = 1 WHERE user_id = ?", [user_id]);
+    await pool.query("UPDATE users SET is_active = 1 WHERE user_id = ?", [
+      user_id,
+    ]);
     res.json({ success: true, message: "Patient account reactivated." });
   } catch (err) {
     console.error("reactivatePatient error:", err);
@@ -363,7 +464,7 @@ const reactivatePatient = async (req, res) => {
 const getSpecializations = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT specialization_id, specialization_name FROM specializations ORDER BY specialization_name ASC"
+      "SELECT specialization_id, specialization_name FROM specializations ORDER BY specialization_name ASC",
     );
     res.json({ success: true, specializations: rows });
   } catch (err) {
@@ -374,7 +475,13 @@ const getSpecializations = async (req, res) => {
 
 module.exports = {
   getOverview,
-  getStaff, createStaff, deactivateStaff, reactivateStaff, updateStaff,
-  getPatients, deactivatePatient, reactivatePatient,
+  getStaff,
+  createStaff,
+  deactivateStaff,
+  reactivateStaff,
+  updateStaff,
+  getPatients,
+  deactivatePatient,
+  reactivatePatient,
   getSpecializations,
 };

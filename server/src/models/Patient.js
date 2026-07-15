@@ -20,7 +20,8 @@ const Patient = {
   create: async (data) => {
     const {
       user_id,
-      fullName,
+      first_name,
+      last_name,
       address,
       phone,
       age,
@@ -33,13 +34,14 @@ const Patient = {
 
     const [result] = await pool.query(
       `INSERT INTO patients
-         (user_id, full_name, age, gender, contact_number,
+         (user_id, first_name, last_name, age, gender, contact_number,
           barangay, city, philhealth_id,
           emergency_contact, emg_contact_no)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user_id,
-        fullName,
+        first_name,
+        last_name,
         age,
         gender,
         phone || null,
@@ -56,7 +58,8 @@ const Patient = {
   // Update patient profile by user_id — only allows known columns
   updateByUserId: async (user_id, data) => {
     const allowed = [
-      "full_name",
+      "first_name",
+      "last_name",
       "age",
       "gender",
       "contact_number",
@@ -85,7 +88,7 @@ const Patient = {
 
   findByBarangay: async (barangay) => {
     const [rows] = await pool.query(
-      "SELECT * FROM patients WHERE barangay = ? ORDER BY full_name ASC",
+      "SELECT * FROM patients WHERE barangay = ? ORDER BY first_name ASC, last_name ASC",
       [barangay],
     );
     return rows;

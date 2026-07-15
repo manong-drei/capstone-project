@@ -24,8 +24,8 @@ const buildDisplayName = (source = {}) => {
 
   return pickFirst(
     source.display_name,
-    source.full_name,
-    source.fullName,
+    source.first_name,
+    source.last_name,
     combined,
     source.username,
     ROLE_LABELS[source.role],

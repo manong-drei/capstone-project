@@ -390,9 +390,7 @@ export default function TermsPrivacyModal({ open, onClose, onAccept }) {
                 transition: "all 0.2s",
               }}
             >
-              {checked
-                ? "Accept & Create Account"
-                : "Read all sections to continue"}
+              {checked ? "Accept & Continue" : "Read all sections to continue"}
             </button>
           </div>
         </div>

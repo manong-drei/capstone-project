@@ -82,7 +82,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [form, setForm] = useState({ username: "", password: "" });
+  const [form, setForm] = useState({ phone: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -96,7 +96,7 @@ const LoginPage = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    if (!form.username.trim() || !form.password.trim()) {
+    if (!form.phone.trim() || !form.password.trim()) {
       setError("Please fill in all fields.");
       return;
     }
@@ -106,7 +106,8 @@ const LoginPage = () => {
 
     try {
       const response = await authService.login({
-        username: form.username,
+        //go to authcontroller.js login function
+        phone: form.phone,
         password: form.password,
       });
 
@@ -174,15 +175,14 @@ const LoginPage = () => {
                 className="block text-xs font-semibold mb-1"
                 style={{ color: "#374151" }}
               >
-                Username:
+                Phone Number:
               </label>
               <input
                 type="text"
-                name="username"
-                value={form.username}
+                name="phone"
+                value={form.phone}
                 onChange={handleChange}
-                placeholder="Enter your username"
-                autoComplete="username"
+                placeholder="09XXXXXXXXX"
                 className="w-full px-3 py-2 rounded-lg border text-sm text-gray-700 placeholder-gray-300 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                 style={{ border: "1px solid #d1d5db" }}
               />
@@ -292,21 +292,9 @@ const LoginPage = () => {
             </button>
           </form>
 
-          <p className="text-xs text-center mt-4" style={{ color: "#9ca3af" }}>
-            Don't have an account yet?{" "}
-            <Link
-              to="/register"
-              className="font-semibold hover:underline"
-              style={{ color: "#3b82f6" }}
-            >
-              Sign up
-            </Link>
-          </p>
-
           {import.meta.env.VITE_DEV_BYPASS === "true" && <DevLoginPanel />}
         </div>
       </div>
-
       {/* ── Terms & Privacy Modal ── */}
       <TermsPrivacyModal
         open={showTerms}

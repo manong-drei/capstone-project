@@ -33,7 +33,7 @@ const buildDisplayName = (row) => {
   const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
   if (combined) return combined;
 
-  return pickFirst(row.username, ROLE_LABELS[row.role], "User");
+  return pickFirst(ROLE_LABELS[row.role], "User");
 };
 
 const normalizeProfile = (row) => ({
@@ -43,12 +43,7 @@ const normalizeProfile = (row) => ({
   first_name: pickFirst(row.first_name),
   last_name: pickFirst(row.last_name),
   full_name: pickFirst(row.full_name, row.dev_full_name),
-  username: pickFirst(row.username),
-  phone: pickFirst(
-    row.profile_contact_number,
-    row.user_phone,
-    row.phone,
-  ),
+  phone: pickFirst(row.profile_contact_number, row.user_phone, row.phone),
   email: pickFirst(row.email, row.dev_email),
   position: pickFirst(row.position),
   specialization_name: pickFirst(row.specialization_name),
@@ -60,34 +55,38 @@ const normalizeProfile = (row) => ({
 /** POST /api/auth/register */
 const register = async (req, res) => {
   try {
-    const { username, phone, password, role, confirmPassword, ...profileData } =
-      req.body;
+    const { phone, password, role, confirmPassword, ...profileData } = req.body;
     const normalizedPhone = normalizePhilippineMobilePhone(phone);
 
-    if (!username || !phone || !password) {
-      return res.status(400).json({ success: false, message: "username, phone, and password are required." });
+    if (!phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "phone and password are required.",
+      });
     }
     if (!normalizedPhone) {
       return res.status(400).json({
         success: false,
-        message: "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
+        message:
+          "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
       });
     }
     if (password.length < 8) {
-      return res.status(400).json({ success: false, message: "Password must be at least 8 characters." });
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters.",
+      });
     }
     if (!/[0-9]/.test(password)) {
-      return res.status(400).json({ success: false, message: "Password must contain at least one number." });
+      return res.status(400).json({
+        success: false,
+        message: "Password must contain at least one number.",
+      });
     }
     if (confirmPassword !== undefined && password !== confirmPassword) {
-      return res.status(400).json({ success: false, message: "Passwords do not match." });
-    }
-
-    const existingUsername = await User.findByUsername(username);
-    if (existingUsername) {
       return res
-        .status(409)
-        .json({ success: false, message: "Username is already taken." });
+        .status(400)
+        .json({ success: false, message: "Passwords do not match." });
     }
 
     const existing = await User.findByPhone(normalizedPhone);
@@ -98,7 +97,6 @@ const register = async (req, res) => {
     }
 
     const user_id = await User.create({
-      username,
       phone: normalizedPhone,
       password,
       role: "patient",
@@ -122,20 +120,20 @@ const register = async (req, res) => {
 /** POST /api/auth/login */
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { phone, password } = req.body;
 
-    const user = await User.findByUsername(username);
+    const user = await User.findByPhone(phone);
     if (!user) {
       return res
         .status(401)
-        .json({ success: false, message: "Invalid username or password." });
+        .json({ success: false, message: "Invalid phone or password." });
     }
 
     const isMatch = await User.verifyPassword(password, user.password_hash);
     if (!isMatch) {
       return res
         .status(401)
-        .json({ success: false, message: "Invalid username or password." });
+        .json({ success: false, message: "Invalid phone or password." });
     }
 
     const token = jwt.sign(
@@ -148,7 +146,12 @@ const login = async (req, res) => {
       success: true,
       message: "Login successful.",
       token,
-      user: { user_id: user.user_id, phone: user.phone, role: user.role, username: user.username },
+      user: {
+        user_id: user.user_id,
+        phone: user.phone,
+        role: user.role,
+        username: user.username,
+      },
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -181,7 +184,6 @@ const getProfile = async (req, res) => {
         SELECT
           u.user_id,
           u.role,
-          u.username,
           u.phone AS user_phone,
           u.email,
           p.full_name AS patient_full_name,
@@ -221,10 +223,7 @@ const getProfile = async (req, res) => {
 
     const shapedRow = {
       ...row,
-      full_name:
-        row.role === "patient"
-          ? row.patient_full_name
-          : null,
+      full_name: row.role === "patient" ? row.patient_full_name : null,
       first_name:
         row.role === "doctor"
           ? row.doctor_first_name

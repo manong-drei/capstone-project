@@ -14,6 +14,7 @@ const User = {
     return rows[0] || null;
   },
 
+  //findByUsername is not Used Anymore
   findByUsername: async (username) => {
     const [rows] = await pool.query(
       "SELECT * FROM users WHERE username = ? AND is_active = 1",
@@ -30,12 +31,12 @@ const User = {
     return rows[0] || null;
   },
 
-  create: async ({ username, phone, password, role }) => {
+  create: async ({ phone, password, role }) => {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
     const [result] = await pool.query(
-      "INSERT INTO users (username, phone, password_hash, role) VALUES (?, ?, ?, ?)",
-      [username, phone, password_hash, role],
+      "INSERT INTO users (phone, password_hash, role) VALUES ( ?, ?, ?)",
+      [phone, password_hash, role],
     );
     return result.insertId;
   },
