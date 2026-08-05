@@ -35,7 +35,7 @@ const Appointment = {
       `
       SELECT
         a.*,
-        p.full_name   AS patient_full_name,
+        CONCAT(p.first_name, ' ' ,p.last_name)   AS patient_full_name,
         (
           SELECT q.services FROM queues q
           WHERE q.patient_id = a.patient_id
@@ -59,7 +59,7 @@ const Appointment = {
     const [rows] = await pool.query(`
       SELECT
         a.*,
-        p.full_name   AS patient_full_name,
+        CONCAT(p.first_name, ' ', p.last_name)   AS patient_full_name,
         d.first_name  AS doctor_first_name,
         d.last_name   AS doctor_last_name,
         (

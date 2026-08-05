@@ -186,7 +186,7 @@ const getProfile = async (req, res) => {
           u.role,
           u.phone AS user_phone,
           u.email,
-          p.full_name AS patient_full_name,
+          CONCAT(p.first_name, ' ', p.last_name) AS patient_full_name,
           p.contact_number AS patient_contact_number,
           p.barangay AS patient_barangay,
           p.city AS patient_city,

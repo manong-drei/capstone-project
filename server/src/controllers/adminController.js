@@ -396,12 +396,12 @@ const getPatients = async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT u.user_id, u.email, u.phone, u.is_active,
-             p.patient_id, p.full_name, p.contact_number,
-             p.barangay, p.city, p.gender, p.age
+       p.patient_id, CONCAT(p.first_name, ' ', p.last_name) AS full_name, p.contact_number,
+       p.barangay, p.city, p.gender, p.age
       FROM   users u
       JOIN   patients p ON u.user_id = p.user_id
       WHERE  u.role = 'patient'
-      ORDER BY p.full_name ASC
+      ORDER BY p.first_name ASC, p.last_name ASC
     `);
     res.json({ success: true, patients: rows });
   } catch (err) {

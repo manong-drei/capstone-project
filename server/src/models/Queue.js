@@ -17,7 +17,7 @@ const Queue = {
     const [rows] = await connection.query(
       `
       SELECT q.*,
-             COALESCE(p.full_name, q.walk_in_name) AS full_name
+             COALESCE(CONCAT(p.first_name,' ',p.last_name), q.walk_in_name) AS full_name
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  q.id = ?
@@ -38,7 +38,7 @@ const Queue = {
     const [rows] = await pool.query(
       `
       SELECT q.*,
-             COALESCE(p.full_name, q.walk_in_name) AS full_name
+             COALESCE(CONCAT(p.first_name, ' ', p.last_name), q.walk_in_name) AS full_name
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  DATE(q.created_at) = CURDATE()
@@ -59,7 +59,7 @@ const Queue = {
     const [rows] = await pool.query(
       `
       SELECT q.*,
-             COALESCE(p.full_name, q.walk_in_name) AS full_name
+             COALESCE(CONCAT(p.first_name,' ', p.last_name), q.walk_in_name) AS full_name
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  q.patient_id = ?
@@ -173,7 +173,7 @@ const Queue = {
       `
       SELECT q.queue_number,
              q.status,
-             COALESCE(p.full_name, q.walk_in_name) AS full_name
+             COALESCE(CONCAT(p.first_name, ' ', p.last_name), q.walk_in_name) AS full_name
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  DATE(q.created_at) = CURDATE()
@@ -187,8 +187,8 @@ const Queue = {
     `,
       params,
     );
-    const serving = rows.find((r) => r.status === 'serving');
-    const waiting = rows.find((r) => r.status === 'waiting');
+    const serving = rows.find((r) => r.status === "serving");
+    const waiting = rows.find((r) => r.status === "waiting");
     return {
       now_serving: serving?.queue_number ?? null,
       now_serving_name: serving?.full_name ?? null,
