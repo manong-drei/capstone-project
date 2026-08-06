@@ -456,7 +456,7 @@ export default function StaffManager() {
     setSubmitting(true);
     try {
       await api.post("/admin/staff", form);
-      setShowForm(false);
+      false;
       setForm({
         first_name: "",
         last_name: "",

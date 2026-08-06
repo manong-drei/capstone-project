@@ -4,6 +4,7 @@
 
 const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const User = {
   findByPhone: async (phone) => {
@@ -35,10 +36,39 @@ const User = {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
     const [result] = await pool.query(
-      "INSERT INTO users (phone, password_hash, role) VALUES ( ?, ?, ?)",
+      "INSERT INTO users (phone, password_hash, role, must_change_password) VALUES (?, ?, ?, 0)",
       [phone, password_hash, role],
     );
     return result.insertId;
+  },
+
+  generateTempPassword: () => {
+    // 10-character alphanumeric, excludes visually ambiguous characters (0/O, 1/l/I)
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let pw = "";
+    for (let i = 0; i < 10; i++) {
+      pw += chars[crypto.randomInt(0, chars.length)];
+    }
+    return pw;
+  },
+
+  createWithTempPassword: async ({ phone, password, role = "patient" }) => {
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(password, salt);
+    const [result] = await pool.query(
+      "INSERT INTO users (phone, password_hash, role, must_change_password) VALUES (?, ?, ?, 1)",
+      [phone, password_hash, role],
+    );
+    return result.insertId;
+  },
+
+  updatePassword: async (user_id, newPassword) => {
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(newPassword, salt);
+    await pool.query(
+      "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE user_id = ?",
+      [password_hash, user_id],
+    );
   },
 
   verifyPassword: async (plainText, hash) => {
