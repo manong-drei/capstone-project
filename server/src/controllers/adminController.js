@@ -4,8 +4,9 @@ const Queue = require("../models/Queue");
 const Appointment = require("../models/Appointment");
 const Doctor = require("../models/Doctor");
 const Staff = require("../models/Staff");
+const User = require("../models/User");
+const Patient = require("../models/Patient");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
-
 /** GET /api/admin/overview — live stats for the admin dashboard */
 const getOverview = async (req, res) => {
   try {
@@ -410,6 +411,112 @@ const getPatients = async (req, res) => {
   }
 };
 
+/** POST /api/admin/patients — admin-mediated patient account creation */
+const createPatient = async (req, res) => {
+  try {
+    const { first_name, last_name, phone, address, age, gender } = req.body;
+
+    if (!first_name || !last_name || !phone || !address || !age || !gender) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Required fields are missing." });
+    }
+
+    const normalizedPhone = normalizePhilippineMobilePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
+      });
+    }
+
+    if (isNaN(age) || age < 1 || age > 120) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Please provide a valid age." });
+    }
+
+    if (!["Male", "Female"].includes(gender)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Gender must be Male or Female." });
+    }
+
+    const [[existingPhone]] = await pool.query(
+      "SELECT user_id FROM users WHERE phone = ?",
+      [normalizedPhone],
+    );
+    if (existingPhone) {
+      return res
+        .status(409)
+        .json({ success: false, message: "Phone number already in use." });
+    }
+
+    const tempPassword = User.generateTempPassword();
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      const salt_password_hash = await bcrypt.hash(tempPassword, 10);
+      const [userResult] = await conn.query(
+        `INSERT INTO users (phone, password_hash, role, must_change_password)
+         VALUES (?, ?, 'patient', 1)`,
+        [normalizedPhone, salt_password_hash],
+      );
+      const user_id = userResult.insertId;
+
+      const [patientResult] = await conn.query(
+        `INSERT INTO patients
+           (user_id, first_name, last_name, age, gender, contact_number, barangay, city)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          user_id,
+          first_name,
+          last_name,
+          age,
+          gender,
+          normalizedPhone,
+          address,
+          "Bago City",
+        ],
+      );
+
+      await conn.commit();
+
+      // SMS delivery not yet implemented — stubbed.
+      // Temp password is returned in the response for now so the admin can
+      // relay it manually. Remove this once an SMS provider is integrated.
+      console.log(
+        `[STUB SMS] Would send credentials to ${normalizedPhone}: temp password = ${tempPassword}`,
+      );
+
+      res.status(201).json({
+        success: true,
+        message: "Patient account created.",
+        user_id,
+        patient_id: patientResult.insertId,
+        phone: normalizedPhone,
+        temp_password: tempPassword,
+      });
+    } catch (innerErr) {
+      await conn.rollback();
+      throw innerErr;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error("createPatient error:", err);
+    if (err.code === "ER_DUP_ENTRY") {
+      return res
+        .status(409)
+        .json({ success: false, message: "Phone number already in use." });
+    }
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
 /** PATCH /api/admin/patients/:user_id/deactivate */
 const deactivatePatient = async (req, res) => {
   try {
@@ -481,6 +588,7 @@ module.exports = {
   reactivateStaff,
   updateStaff,
   getPatients,
+  createPatient,
   deactivatePatient,
   reactivatePatient,
   getSpecializations,

@@ -43,10 +43,10 @@ const User = {
   },
 
   generateTempPassword: () => {
-    // 10-character alphanumeric, excludes visually ambiguous characters (0/O, 1/l/I)
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    // 6-char uppercase + digits, excluding 0/O and 1/I for clarity
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let pw = "";
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 6; i++) {
       pw += chars[crypto.randomInt(0, chars.length)];
     }
     return pw;
