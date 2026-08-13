@@ -52,7 +52,7 @@ const Navbar = () => {
         </button>
 
         {/* Register — solid orange, darkens + glows on hover */}
-        <button
+        {/*} <button
           onClick={() => navigate("/register")}
           className="
             relative px-3 sm:px-5 py-1 sm:py-1.5 rounded-full
@@ -65,7 +65,7 @@ const Navbar = () => {
           "
           style={{ background: "#f97316", border: "2px solid #f97316" }}
         >
-          {/* shimmer sweep on hover */}
+        
           <span
             className="
               absolute inset-0 -skew-x-12
@@ -76,6 +76,7 @@ const Navbar = () => {
           />
           <span className="relative z-10">Register</span>
         </button>
+        */}
       </div>
     </nav>
   );
