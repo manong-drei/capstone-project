@@ -9,6 +9,7 @@ import { DENTAL_SERVICES } from "@/constants/medicalServices";
 import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 import * as queueService from "@/services/queueService";
+import * as patientService from "@/services/patientService";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
@@ -20,15 +21,21 @@ import PatientAppointmentsTab from "@/components/dashboards/patient/PatientAppoi
 
 const ORANGE = "#f97316";
 
-const DENTAL_SUBSERVICE_LABEL_BY_ID = DENTAL_SERVICES.reduce((acc, s) => { acc[s.id] = s.label; return acc; }, {});
+const DENTAL_SUBSERVICE_LABEL_BY_ID = DENTAL_SERVICES.reduce((acc, s) => {
+  acc[s.id] = s.label;
+  return acc;
+}, {});
 
 const formatQueuedServices = (queue) => {
   if (!Array.isArray(queue?.services) || queue.services.length === 0) return "";
-  return queue.services.map((s) => {
-    if (s && typeof s === "object") return s.label || s.name || s.id || "";
-    const key = String(s ?? "").trim();
-    return DENTAL_SUBSERVICE_LABEL_BY_ID[key] || key;
-  }).filter(Boolean).join(", ");
+  return queue.services
+    .map((s) => {
+      if (s && typeof s === "object") return s.label || s.name || s.id || "";
+      const key = String(s ?? "").trim();
+      return DENTAL_SUBSERVICE_LABEL_BY_ID[key] || key;
+    })
+    .filter(Boolean)
+    .join(", ");
 };
 
 const PATIENT_RESPONSIVE_CSS = `
@@ -67,9 +74,19 @@ const PATIENT_RESPONSIVE_CSS = `
 `;
 
 const mobileMenuBtn = {
-  display: "flex", alignItems: "center", gap: "10px", background: "none", border: "none",
-  color: "white", fontSize: "14px", fontWeight: 500, cursor: "pointer",
-  padding: "10px 12px", borderRadius: "8px", textAlign: "left", width: "100%",
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  background: "none",
+  border: "none",
+  color: "white",
+  fontSize: "14px",
+  fontWeight: 500,
+  cursor: "pointer",
+  padding: "10px 12px",
+  borderRadius: "8px",
+  textAlign: "left",
+  width: "100%",
 };
 
 export default function PatientDashboard() {
@@ -78,32 +95,73 @@ export default function PatientDashboard() {
   const { identity } = useDashboardIdentity();
   const { queue, loading, error, fetchMyQueue, submitQueue } = useQueue();
 
-  const [activeTab, setActiveTab]           = useState("home");
+  const [activeTab, setActiveTab] = useState("home");
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [appointments, setAppointments]     = useState([]);
-  const [apptLoading, setApptLoading]       = useState(false);
-  const [queueStatus, setQueueStatus]       = useState({ now_serving: null, now_serving_name: null, next_queuing: null, next_queuing_name: null });
+  const [appointments, setAppointments] = useState([]);
+  const [apptLoading, setApptLoading] = useState(false);
+  const [queueStatus, setQueueStatus] = useState({
+    now_serving: null,
+    now_serving_name: null,
+    next_queuing: null,
+    next_queuing_name: null,
+  });
   const [doctorAvailability, setDoctorAvailability] = useState(null);
+  const [priorityEligible, setPriorityEligible] = useState(false);
+
+  const fetchPriorityEligibility = async () => {
+    try {
+      const profile = await patientService.getMyProfile();
+      const category = profile?.data?.priority_category;
+      const expiresAt = profile?.data?.priority_expires_at;
+      const eligible =
+        !!category && (!expiresAt || new Date(expiresAt) > new Date());
+      setPriorityEligible(eligible);
+    } catch {
+      setPriorityEligible(false);
+    }
+  };
 
   const fetchQueueStatus = async () => {
-    try { setQueueStatus(await queueService.getQueueStatus() ?? { now_serving: null, now_serving_name: null, next_queuing: null, next_queuing_name: null }); }
-    catch { /* silently ignore */ }
+    try {
+      setQueueStatus(
+        (await queueService.getQueueStatus()) ?? {
+          now_serving: null,
+          now_serving_name: null,
+          next_queuing: null,
+          next_queuing_name: null,
+        },
+      );
+    } catch {
+      /* silently ignore */
+    }
   };
 
   const fetchDoctorAvailability = async () => {
     try {
       const doctors = (await api.get("/doctor"))?.data ?? [];
-      if (!doctors.length) { setDoctorAvailability(null); return; }
-      setDoctorAvailability(doctors.some((d) => Number(d?.is_available ?? 1) !== 0) ? 1 : 0);
-    } catch { /* silently ignore */ }
+      if (!doctors.length) {
+        setDoctorAvailability(null);
+        return;
+      }
+      setDoctorAvailability(
+        doctors.some((d) => Number(d?.is_available ?? 1) !== 0) ? 1 : 0,
+      );
+    } catch {
+      /* silently ignore */
+    }
   };
 
   useEffect(() => {
     fetchMyQueue();
     fetchQueueStatus();
     fetchDoctorAvailability();
-    const interval = setInterval(() => { fetchMyQueue(); fetchQueueStatus(); fetchDoctorAvailability(); }, 15_000);
+    fetchPriorityEligibility();
+    const interval = setInterval(() => {
+      fetchMyQueue();
+      fetchQueueStatus();
+      fetchDoctorAvailability();
+    }, 15_000);
     return () => clearInterval(interval);
   }, [fetchMyQueue]);
 
@@ -113,65 +171,226 @@ export default function PatientDashboard() {
 
   const loadAppointments = async () => {
     setApptLoading(true);
-    try { setAppointments((await appointmentService.getMyAppointments())?.appointments ?? []); }
-    catch { setAppointments([]); }
-    finally { setApptLoading(false); }
+    try {
+      setAppointments(
+        (await appointmentService.getMyAppointments())?.appointments ?? [],
+      );
+    } catch {
+      setAppointments([]);
+    } finally {
+      setApptLoading(false);
+    }
   };
 
   const handleGetQueue = async (payload) => {
-    try { await submitQueue(payload); setShowQueueModal(false); }
-    catch (err) { alert(err.message || "Failed to get queue number."); }
+    try {
+      await submitQueue(payload);
+      setShowQueueModal(false);
+    } catch (err) {
+      alert(err.message || "Failed to get queue number.");
+    }
   };
 
   const handleCancelQueue = async () => {
     if (!window.confirm("Cancel your queue number?")) return;
-    try { await queueService.cancelQueue(queue.id); fetchMyQueue(); }
-    catch (err) { alert(err.message); }
+    try {
+      await queueService.cancelQueue(queue.id);
+      fetchMyQueue();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  const handleLogout = () => { logout(); navigate(ROUTES.LOGIN); };
+  const handleLogout = () => {
+    logout();
+    navigate(ROUTES.LOGIN);
+  };
 
-  const hasActiveQueue = queue && queue.status !== QUEUE_STATUS.DONE && queue.status !== QUEUE_STATUS.CANCELLED;
+  const hasActiveQueue =
+    queue &&
+    queue.status !== QUEUE_STATUS.DONE &&
+    queue.status !== QUEUE_STATUS.CANCELLED;
   const queueDisplayName = hasActiveQueue ? getQueueDisplayName(queue) : "";
-  const queuedServices   = hasActiveQueue ? formatQueuedServices(queue) : "";
-  const myQueueSubtitle  = hasActiveQueue
-    ? [queueDisplayName, queuedServices ? `Dental Sub-services: ${queuedServices}` : null].filter(Boolean).join(" | ")
+  const queuedServices = hasActiveQueue ? formatQueuedServices(queue) : "";
+  const myQueueSubtitle = hasActiveQueue
+    ? [
+        queueDisplayName,
+        queuedServices ? `Dental Sub-services: ${queuedServices}` : null,
+      ]
+        .filter(Boolean)
+        .join(" | ")
     : "-";
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f3f4f6", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f3f4f6",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <style>{PATIENT_RESPONSIVE_CSS}</style>
 
       {/* ── Navbar ── */}
-      <nav className="pd-nav" style={{ background: "linear-gradient(90deg, #1a3a8f 0%, #1e4db7 100%)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
+      <nav
+        className="pd-nav"
+        style={{
+          background: "linear-gradient(90deg, #1a3a8f 0%, #1e4db7 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+          position: "relative",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <img src="/assets/Logo.jpg" alt="E-KALUSUGAN" className="pd-brand-logo" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-          <span className="pd-brand-text" style={{ color: "white", fontWeight: 800, fontSize: "16px", letterSpacing: "0.1em" }}>E-KALUSUGAN</span>
+          <img
+            src="/assets/Logo.jpg"
+            alt="E-KALUSUGAN"
+            className="pd-brand-logo"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: "50%",
+              objectFit: "cover",
+              flexShrink: 0,
+            }}
+          />
+          <span
+            className="pd-brand-text"
+            style={{
+              color: "white",
+              fontWeight: 800,
+              fontSize: "16px",
+              letterSpacing: "0.1em",
+            }}
+          >
+            E-KALUSUGAN
+          </span>
         </div>
 
-        <button className="pd-hamburger" onClick={() => setMobileMenuOpen((v) => !v)} aria-label="Toggle menu" style={{ display: "none", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "8px", width: "38px", height: "38px", cursor: "pointer", color: "white" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
-            {mobileMenuOpen ? (<><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>) : (<><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>)}
+        <button
+          className="pd-hamburger"
+          onClick={() => setMobileMenuOpen((v) => !v)}
+          aria-label="Toggle menu"
+          style={{
+            display: "none",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255,255,255,0.15)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: "8px",
+            width: "38px",
+            height: "38px",
+            cursor: "pointer",
+            color: "white",
+          }}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            {mobileMenuOpen ? (
+              <>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </>
+            ) : (
+              <>
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </>
+            )}
           </svg>
         </button>
 
-        <div className="pd-nav-items pd-nav-items-desktop" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          {[{ icon: "info", label: "Help" }, { icon: "bell", label: "Notification" }].map(({ icon, label }) => (
-            <button key={label} style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none", color: "white", fontSize: "13px", fontWeight: 500, cursor: "pointer", padding: "7px 12px", borderRadius: "8px" }}>
+        <div
+          className="pd-nav-items pd-nav-items-desktop"
+          style={{ display: "flex", alignItems: "center", gap: "4px" }}
+        >
+          {[
+            { icon: "info", label: "Help" },
+            { icon: "bell", label: "Notification" },
+          ].map(({ icon, label }) => (
+            <button
+              key={label}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "none",
+                border: "none",
+                color: "white",
+                fontSize: "13px",
+                fontWeight: 500,
+                cursor: "pointer",
+                padding: "7px 12px",
+                borderRadius: "8px",
+              }}
+            >
               <Icon name={icon} size={16} color="white" />
               <span className="pd-nav-btn-label">{label}</span>
             </button>
           ))}
           <div style={{ marginLeft: "8px" }}>
-            <DashboardProfileMenu identity={identity} onLogout={handleLogout} accentColor={ORANGE} chipBg="rgba(255,255,255,0.15)" chipBorder="rgba(255,255,255,0.35)" chipTextColor="#ffffff" subtitleColor="rgba(255,255,255,0.72)" />
+            <DashboardProfileMenu
+              identity={identity}
+              onLogout={handleLogout}
+              accentColor={ORANGE}
+              chipBg="rgba(255,255,255,0.15)"
+              chipBorder="rgba(255,255,255,0.35)"
+              chipTextColor="#ffffff"
+              subtitleColor="rgba(255,255,255,0.72)"
+            />
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="pd-mobile-menu open" style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#1e4db7", borderTop: "1px solid rgba(255,255,255,0.15)", padding: "8px 14px", display: "flex", flexDirection: "column", gap: "4px", zIndex: 50, boxShadow: "0 6px 14px rgba(0,0,0,0.18)" }}>
-            <DashboardProfileMenu mobile identity={identity} onLogout={() => { setMobileMenuOpen(false); handleLogout(); }} accentColor={ORANGE} panelBg="rgba(255,255,255,0.1)" panelTextColor="#ffffff" panelMutedColor="rgba(255,255,255,0.72)" />
-            {[{ icon: "info", label: "Help" }, { icon: "bell", label: "Notification" }].map(({ icon, label }) => (
-              <button key={label} onClick={() => setMobileMenuOpen(false)} style={mobileMenuBtn}>
+          <div
+            className="pd-mobile-menu open"
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: "#1e4db7",
+              borderTop: "1px solid rgba(255,255,255,0.15)",
+              padding: "8px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
+              zIndex: 50,
+              boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
+            }}
+          >
+            <DashboardProfileMenu
+              mobile
+              identity={identity}
+              onLogout={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+              accentColor={ORANGE}
+              panelBg="rgba(255,255,255,0.1)"
+              panelTextColor="#ffffff"
+              panelMutedColor="rgba(255,255,255,0.72)"
+            />
+            {[
+              { icon: "info", label: "Help" },
+              { icon: "bell", label: "Notification" },
+            ].map(({ icon, label }) => (
+              <button
+                key={label}
+                onClick={() => setMobileMenuOpen(false)}
+                style={mobileMenuBtn}
+              >
                 <Icon name={icon} size={16} color="white" /> {label}
               </button>
             ))}
@@ -212,7 +431,13 @@ export default function PatientDashboard() {
       )}
 
       {/* ── Get Queue Modal ── */}
-      <GetQueueModal isOpen={showQueueModal} onClose={() => setShowQueueModal(false)} onSubmit={handleGetQueue} loading={loading} />
+      <GetQueueModal
+        isOpen={showQueueModal}
+        onClose={() => setShowQueueModal(false)}
+        onSubmit={handleGetQueue}
+        loading={loading}
+        priorityEligible={priorityEligible}
+      />
     </div>
   );
 }

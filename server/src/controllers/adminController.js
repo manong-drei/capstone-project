@@ -414,12 +414,32 @@ const getPatients = async (req, res) => {
 /** POST /api/admin/patients — admin-mediated patient account creation */
 const createPatient = async (req, res) => {
   try {
-    const { first_name, last_name, phone, address, age, gender } = req.body;
+    const {
+      first_name,
+      last_name,
+      phone,
+      address,
+      age,
+      gender,
+      priority_category,
+    } = req.body;
 
     if (!first_name || !last_name || !phone || !address || !age || !gender) {
       return res
         .status(400)
         .json({ success: false, message: "Required fields are missing." });
+    }
+
+    if (
+      priority_category !== undefined &&
+      priority_category !== null &&
+      priority_category !== "" &&
+      !["senior", "pwd", "pregnant"].includes(priority_category)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "priority_category must be senior, pwd, or pregnant.",
+      });
     }
 
     const normalizedPhone = normalizePhilippineMobilePhone(phone);
@@ -455,7 +475,14 @@ const createPatient = async (req, res) => {
 
     const tempPassword = User.generateTempPassword();
 
+    const normalizedPriorityCategory = priority_category || null;
+    const priorityExpiresAt =
+      normalizedPriorityCategory === "pregnant"
+        ? new Date(Date.now() + 280 * 24 * 60 * 60 * 1000)
+        : null;
+
     const conn = await pool.getConnection();
+
     try {
       await conn.beginTransaction();
 
@@ -469,8 +496,9 @@ const createPatient = async (req, res) => {
 
       const [patientResult] = await conn.query(
         `INSERT INTO patients
-           (user_id, first_name, last_name, age, gender, contact_number, barangay, city)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (user_id, first_name, last_name, age, gender, contact_number, barangay, city,
+            priority_category, priority_expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user_id,
           first_name,
@@ -480,6 +508,8 @@ const createPatient = async (req, res) => {
           normalizedPhone,
           address,
           "Bago City",
+          normalizedPriorityCategory,
+          priorityExpiresAt,
         ],
       );
 

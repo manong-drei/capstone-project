@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
-import { QUEUE_TYPE } from "@/constants/queue";
 import Icon from "@/components/common/AppIcons";
 import { getSessionItem } from "@analytics/session-storage-utils";
 
@@ -15,16 +14,16 @@ const MAX_SELECTED_SERVICES = 2;
  *   onClose  — close handler
  *   onSubmit — called with { services: [...], type: 'regular'|'priority' }
  *   loading  — disables submit while request is in-flight
+ *  priorityEligible — if true, allows the user to select "priority" queue
  */
 export default function GetQueueModal({
   isOpen,
   onClose,
   onSubmit,
   loading = false,
+  priorityEligible = false,
 }) {
   const [selected, setSelected] = useState([]);
-  const [queueType, setQueueType] = useState(QUEUE_TYPE.REGULAR);
-  const [priorityCategory, setPriorityCategory] = useState(null);
 
   if (!isOpen) return null;
 
@@ -41,17 +40,19 @@ export default function GetQueueModal({
 
   const handleSubmit = () => {
     if (selected.length === 0) return;
-    if (isPriority && !priorityCategory) return;
     const value = getSessionItem("user");
-    onSubmit({ services: selected, type: queueType, patient_id: value });
+    onSubmit({
+      services: selected,
+      type: priorityEligible ? "priority" : "regular",
+      patient_id: value,
+    });
   };
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
 
-  const isPriority = queueType === QUEUE_TYPE.PRIORITY;
-  const accentColor = isPriority ? "#f97316" : "#2d3a8c";
+  const accentColor = "#2d3a8c";
   const limitReached = selected.length >= MAX_SELECTED_SERVICES;
 
   return (
@@ -122,95 +123,6 @@ export default function GetQueueModal({
           >
             <Icon name="close" size={16} color="#6b7280" />
           </button>
-        </div>
-
-        {/* Queue Type Toggle */}
-        <div style={{ marginBottom: "20px" }}>
-          <p
-            style={{
-              margin: "0 0 8px",
-              fontSize: "13px",
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Queue Type
-          </p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "8px",
-            }}
-          >
-            {[
-              { value: QUEUE_TYPE.REGULAR, label: "Regular", color: "#2d3a8c" },
-              {
-                value: QUEUE_TYPE.PRIORITY,
-                label: "Priority",
-                color: "#f97316",
-              },
-            ].map(({ value, label, color }) => (
-              <button
-                key={value}
-                onClick={() => {
-                  setQueueType(value);
-                  setPriorityCategory(null);
-                }}
-                style={{
-                  padding: "10px",
-                  borderRadius: "10px",
-                  border: `2px solid ${queueType === value ? color : "#e5e7eb"}`,
-                  background: queueType === value ? `${color}12` : "#f9fafb",
-                  cursor: "pointer",
-                  fontWeight: queueType === value ? 600 : 400,
-                  fontSize: "14px",
-                  color: queueType === value ? color : "#6b7280",
-                  transition: "all 0.15s",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Priority eligibility confirmation */}
-          {isPriority && (
-            <div style={{ marginTop: "10px" }}>
-              <p style={{ margin: "0 0 6px", fontSize: "12px", color: "#f97316", fontWeight: 600 }}>
-                Confirm your eligibility category:
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {[
-                  { value: "senior", label: "Senior Citizen (60 years old and above)" },
-                  { value: "pwd", label: "PWD (Person with Disability)" },
-                  { value: "pregnant", label: "Pregnant" },
-                ].map(({ value, label }) => (
-                  <button
-                    key={value}
-                    onClick={() => setPriorityCategory(value)}
-                    style={{
-                      padding: "9px 12px",
-                      borderRadius: "8px",
-                      border: `1.5px solid ${priorityCategory === value ? "#f97316" : "#e5e7eb"}`,
-                      background: priorityCategory === value ? "#fff7ed" : "#f9fafb",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      color: priorityCategory === value ? "#f97316" : "#374151",
-                      fontWeight: priorityCategory === value ? 600 : 400,
-                      textAlign: "left",
-                      transition: "all 0.12s",
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#9ca3af" }}>
-                By selecting priority, you confirm you meet the stated eligibility.
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Services */}
@@ -310,7 +222,7 @@ export default function GetQueueModal({
 
         {/* Submit */}
         {(() => {
-          const isDisabled = selected.length === 0 || loading || (isPriority && !priorityCategory);
+          const isDisabled = selected.length === 0 || loading;
           return (
             <button
               onClick={handleSubmit}
@@ -328,9 +240,7 @@ export default function GetQueueModal({
                 transition: "background 0.15s",
               }}
             >
-              {loading
-                ? "Getting your number..."
-                : `Get ${isPriority ? "Priority" : "Regular"} Queue Number`}
+              {loading ? "Getting your number..." : "Get Queue Number"}
             </button>
           );
         })()}

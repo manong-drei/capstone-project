@@ -192,6 +192,7 @@ export default function PatientManager() {
     address: "",
     age: "",
     gender: "",
+    priority_category: "",
   });
 
   const fetchPatients = async () => {
@@ -235,6 +236,7 @@ export default function PatientManager() {
         address: "",
         age: "",
         gender: "",
+        priority_category: "",
       });
       fetchPatients();
     } catch (err) {
@@ -440,12 +442,52 @@ export default function PatientManager() {
             </div>
             <div>
               <label style={labelStyle}>Address / Barangay</label>
-              <input
+              <select
                 style={inputStyle}
                 value={form.address}
                 onChange={(e) => handleChange("address", e.target.value)}
-                placeholder="Barangay, Bago City"
-              />
+              >
+                <option value="">Select Barangay</option>
+                <option value="Abuanan">Abuanan</option>
+                <option value="Alianza">Alianza</option>
+                <option value="Atipuluan">Atipuluan</option>
+                <option value="Bacong">Bacong</option>
+                <option value="Bagroy">Bagroy</option>
+                <option value="Balingasag">Balingasag</option>
+                <option value="Binubuhan">Binubuhan</option>
+                <option value="Busay">Busay</option>
+                <option value="Calumangan">Calumangan</option>
+                <option value="Caridad">Caridad</option>
+                <option value="Don Jorge Araneta">Don Jorge Araneta</option>
+                <option value="Dulao">Dulao</option>
+                <option value="Ilijan">Ilijan</option>
+                <option value="Lag-asan">Lag-asan</option>
+                <option value="Ma-ao">Ma-ao</option>
+                <option value="Mailum">Mailum</option>
+                <option value="Malingin">Malingin</option>
+                <option value="Napoles">Napoles</option>
+                <option value="Pacol">Pacol</option>
+                <option value="Poblacion">Poblacion</option>
+                <option value="Sagasa">Sagasa</option>
+                <option value="Sampinit">Sampinit</option>
+                <option value="Tabunan">Tabunan</option>
+                <option value="Taloc">Taloc</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Priority Status</label>
+              <select
+                style={inputStyle}
+                value={form.priority_category}
+                onChange={(e) =>
+                  handleChange("priority_category", e.target.value)
+                }
+              >
+                <option value="">None</option>
+                <option value="senior">Senior Citizen</option>
+                <option value="pwd">PWD (Person with Disability)</option>
+                <option value="pregnant">Pregnant</option>
+              </select>
             </div>
           </div>
 
@@ -493,7 +535,6 @@ export default function PatientManager() {
           </div>
         </div>
       )}
-
       {/* Search */}
       <div style={{ position: "relative" }}>
         <span

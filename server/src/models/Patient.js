@@ -30,14 +30,16 @@ const Patient = {
       philhealth_id,
       emergency_contact,
       emg_contact_no,
+      priority_category,
+      priority_expires_at,
     } = data;
 
     const [result] = await pool.query(
       `INSERT INTO patients
          (user_id, first_name, last_name, age, gender, contact_number,
           barangay, city, philhealth_id,
-          emergency_contact, emg_contact_no)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          emergency_contact, emg_contact_no, priority_category, priority_expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user_id,
         first_name,
@@ -50,6 +52,8 @@ const Patient = {
         philhealth_id || null,
         emergency_contact || null,
         emg_contact_no || null,
+        priority_category || null,
+        priority_expires_at || null,
       ],
     );
     return result.insertId;
@@ -68,6 +72,8 @@ const Patient = {
       "philhealth_id",
       "emergency_contact",
       "emg_contact_no",
+      "priority_category",
+      "priority_expires_at",
     ];
     const fields = Object.keys(data).filter((k) => allowed.includes(k));
     if (!fields.length) return null;
