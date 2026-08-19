@@ -88,6 +88,9 @@ const createStaff = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Required fields are missing." });
     }
+
+    // Normalize the phone number FIRST
+    const normalizedPhone = normalizePhilippineMobilePhone(phone);
     if (!normalizedPhone) {
       return res.status(400).json({
         success: false,
@@ -116,11 +119,10 @@ const createStaff = async (req, res) => {
         .json({ success: false, message: "Position is required for staff." });
     }
 
-    // Check duplicates
-    // Check duplicates
+    // Check duplicates using the NORMALIZED phone
     const [[existingPhone]] = await pool.query(
       "SELECT user_id FROM users WHERE phone = ?",
-      [phone],
+      [normalizedPhone],
     );
     if (existingPhone) {
       return res
@@ -148,8 +150,8 @@ const createStaff = async (req, res) => {
       const password_hash = await bcrypt.hash(password, 10);
       const [userResult] = await conn.query(
         `INSERT INTO users (email, phone, password_hash, role)
-   VALUES (?, ?, ?, ?)`,
-        [email || null, phone, password_hash, role],
+         VALUES (?, ?, ?, ?)`,
+        [email || null, normalizedPhone, password_hash, role],
       );
       const user_id = userResult.insertId;
 
@@ -185,12 +187,11 @@ const createStaff = async (req, res) => {
     }
   } catch (err) {
     console.error("createStaff error:", err);
-    // Surface readable message for known MySQL errors
     if (err.code === "ER_DUP_ENTRY") {
       return res.status(409).json({
         success: false,
         message:
-          "A duplicate value was found. Check username, email, phone, or license number.",
+          "A duplicate value was found. Check phone, email, or license number.",
       });
     }
     if (
@@ -349,6 +350,10 @@ const updateStaff = async (req, res) => {
             docVals,
           );
         }
+        if (phone) {
+          docFields.push("contact_number = ?");
+          docVals.push(normalizedPhone);
+        }
       } else {
         const staffFields = [];
         const staffVals = [];
@@ -359,6 +364,10 @@ const updateStaff = async (req, res) => {
         if (last_name) {
           staffFields.push("last_name = ?");
           staffVals.push(last_name);
+        }
+        if (phone) {
+          staffFields.push("contact_number = ?");
+          staffVals.push(normalizedPhone);
         }
         if (position && user.role !== "admin") {
           staffFields.push("position = ?");

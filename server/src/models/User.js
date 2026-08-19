@@ -16,6 +16,7 @@ const User = {
   },
 
   //findByUsername is not Used Anymore
+  /*
   findByUsername: async (username) => {
     const [rows] = await pool.query(
       "SELECT * FROM users WHERE username = ? AND is_active = 1",
@@ -23,7 +24,7 @@ const User = {
     );
     return rows[0] || null;
   },
-
+*/
   findById: async (user_id) => {
     const [rows] = await pool.query(
       "SELECT user_id, phone, role, is_active, created_at FROM users WHERE user_id = ?",

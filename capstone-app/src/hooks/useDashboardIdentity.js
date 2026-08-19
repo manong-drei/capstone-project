@@ -27,7 +27,6 @@ const buildDisplayName = (source = {}) => {
     source.first_name,
     source.last_name,
     combined,
-    source.username,
     ROLE_LABELS[source.role],
     "User",
   );

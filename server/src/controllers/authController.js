@@ -150,7 +150,6 @@ const login = async (req, res) => {
         user_id: user.user_id,
         phone: user.phone,
         role: user.role,
-        username: user.username,
       },
     });
   } catch (err) {
