@@ -149,8 +149,8 @@ const createStaff = async (req, res) => {
 
       const password_hash = await bcrypt.hash(password, 10);
       const [userResult] = await conn.query(
-        `INSERT INTO users (email, phone, password_hash, role)
-         VALUES (?, ?, ?, ?)`,
+        `INSERT INTO users (email, phone, password_hash, role, must_change_password)
+         VALUES (?, ?, ?, ?, 0)`,
         [email || null, normalizedPhone, password_hash, role],
       );
       const user_id = userResult.insertId;

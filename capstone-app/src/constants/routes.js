@@ -7,4 +7,5 @@ export const ROUTES = {
   STAFF_DASHBOARD: "/staff",
   ADMIN_DASHBOARD: "/admin",
   GENERAL_QUEUE_MONITOR: "/general-queue-monitor",
+  CHANGE_PASSWORD: "/change-password",
 };

@@ -13,12 +13,13 @@ import { ROLES } from "./constants/roles";
 // Pages
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+//import RegisterPage from "./pages/RegisterPage";
 import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
-import StaffDashboard from "./pages/StaffDashboard"; // ← NEW
+import StaffDashboard from "./pages/StaffDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import GeneralQueueMonitor from "./pages/GeneralQueueMonitor";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
@@ -40,6 +41,12 @@ function ProtectedRoute({ children, allowedRoles }) {
 
   if (!user) return <Navigate to={ROUTES.LOGIN} replace />;
 
+  if (
+    user.must_change_password &&
+    window.location.pathname !== ROUTES.CHANGE_PASSWORD
+  )
+    return <Navigate to={ROUTES.CHANGE_PASSWORD} replace />;
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to={ROUTES.HOME} replace />;
   }
@@ -54,7 +61,7 @@ function RoleRedirect() {
   const destinations = {
     [ROLES.PATIENT]: ROUTES.PATIENT_DASHBOARD,
     [ROLES.DOCTOR]: ROUTES.DOCTOR_DASHBOARD,
-    [ROLES.STAFF]: ROUTES.STAFF_DASHBOARD, // ← CHANGED (was ADMIN_DASHBOARD)
+    [ROLES.STAFF]: ROUTES.STAFF_DASHBOARD,
     [ROLES.ADMIN]: ROUTES.ADMIN_DASHBOARD,
   };
 
@@ -68,10 +75,20 @@ export default function App() {
         {/* Public routes */}
         <Route path={ROUTES.HOME} element={<LandingPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-        <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+        {/*<Route path={ROUTES.REGISTER} element={<RegisterPage />} />*/}
 
         {/* Role-based redirect */}
         <Route path="/dashboard" element={<RoleRedirect />} />
+
+        {/* Protected: Forced password change */}
+        <Route
+          path={ROUTES.CHANGE_PASSWORD}
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Protected: Patient */}
         <Route

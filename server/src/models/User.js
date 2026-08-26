@@ -33,6 +33,14 @@ const User = {
     return rows[0] || null;
   },
 
+  findByIdWithHash: async (user_id) => {
+    const [rows] = await pool.query(
+      "SELECT user_id, phone, role, is_active, password_hash FROM users WHERE user_id = ?",
+      [user_id],
+    );
+    return rows[0] || null;
+  },
+
   create: async ({ phone, password, role }) => {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
@@ -51,16 +59,6 @@ const User = {
       pw += chars[crypto.randomInt(0, chars.length)];
     }
     return pw;
-  },
-
-  createWithTempPassword: async ({ phone, password, role = "patient" }) => {
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
-    const [result] = await pool.query(
-      "INSERT INTO users (phone, password_hash, role, must_change_password) VALUES (?, ?, ?, 1)",
-      [phone, password_hash, role],
-    );
-    return result.insertId;
   },
 
   updatePassword: async (user_id, newPassword) => {

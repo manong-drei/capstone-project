@@ -4,7 +4,6 @@
 
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const Patient = require("../models/Patient");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 
@@ -53,7 +52,8 @@ const normalizeProfile = (row) => ({
 });
 
 /** POST /api/auth/register */
-const register = async (req, res) => {
+{
+  /*const register = async (req, res) => {
   try {
     const { phone, password, role, confirmPassword, ...profileData } = req.body;
     const normalizedPhone = normalizePhilippineMobilePhone(phone);
@@ -116,6 +116,8 @@ const register = async (req, res) => {
       .json({ success: false, message: "Server error during registration." });
   }
 };
+*/
+}
 
 /** POST /api/auth/login */
 const login = async (req, res) => {
@@ -150,6 +152,7 @@ const login = async (req, res) => {
         user_id: user.user_id,
         phone: user.phone,
         role: user.role,
+        must_change_password: !!user.must_change_password,
       },
     });
   } catch (err) {
@@ -257,4 +260,55 @@ const getProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe, getProfile };
+/** PATCH /api/auth/change-password (protected) */
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Old password and new password are required.",
+      });
+    }
+
+    // Reuse basic password validation (same as register)
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
+    }
+
+    const user = await User.findByIdWithHash(req.user.user_id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found. user without password hash.",
+      });
+    }
+
+    const isMatch = await User.verifyPassword(oldPassword, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect.",
+      });
+    }
+
+    await User.updatePassword(user.user_id, newPassword);
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully.",
+    });
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error during password change.",
+    });
+  }
+};
+
+module.exports = { login, getMe, getProfile, changePassword };
