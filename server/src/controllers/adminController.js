@@ -407,7 +407,7 @@ const getPatients = async (req, res) => {
     const [rows] = await pool.query(`
       SELECT u.user_id, u.email, u.phone, u.is_active,
        p.patient_id, CONCAT(p.first_name, ' ', p.last_name) AS full_name, p.contact_number,
-       p.barangay, p.city, p.gender, p.age
+       p.barangay, p.city, p.gender, p.date_of_birth
       FROM   users u
       JOIN   patients p ON u.user_id = p.user_id
       WHERE  u.role = 'patient'
@@ -428,12 +428,19 @@ const createPatient = async (req, res) => {
       last_name,
       phone,
       address,
-      age,
+      date_of_birth,
       gender,
       priority_category,
     } = req.body;
 
-    if (!first_name || !last_name || !phone || !address || !age || !gender) {
+    if (
+      !first_name ||
+      !last_name ||
+      !phone ||
+      !address ||
+      !date_of_birth ||
+      !gender
+    ) {
       return res
         .status(400)
         .json({ success: false, message: "Required fields are missing." });
@@ -460,10 +467,11 @@ const createPatient = async (req, res) => {
       });
     }
 
-    if (isNaN(age) || age < 1 || age > 120) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Please provide a valid age." });
+    if (!date_of_birth) {
+      return res.status(400).json({
+        success: false,
+        message: "Date of birth is required.",
+      });
     }
 
     if (!["Male", "Female"].includes(gender)) {
@@ -505,14 +513,14 @@ const createPatient = async (req, res) => {
 
       const [patientResult] = await conn.query(
         `INSERT INTO patients
-           (user_id, first_name, last_name, age, gender, contact_number, barangay, city,
+           (user_id, first_name, last_name, date_of_birth, gender, contact_number, barangay, city,
             priority_category, priority_expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user_id,
           first_name,
           last_name,
-          age,
+          date_of_birth,
           gender,
           normalizedPhone,
           address,

@@ -1,15 +1,14 @@
 /**
  * GeneralQueueMonitor.jsx — Waiting-area TV/monitor display for the
- * General Consultation queue. Meant to be opened in kiosk/full-screen mode.
+ * Dental Check-up queue. Meant to be opened in kiosk/full-screen mode.
  *
  * Layout: left 70% queue info, right 30% placeholder image.
- * Polls /queue?category=general every 10 seconds (matches backend ordering:
+ * Polls /queue?category=dental every 10 seconds (matches backend ordering:
  * priority first, then arrival).
  */
 
 import { useEffect, useState } from "react";
 import { getAllQueues } from "@/services/queueService";
-import { getQueueDisplayName } from "@/utils/queueDisplay";
 
 const NAVY = "#1e2d6b";
 const INDIGO = "#2d3a8c";
@@ -53,9 +52,9 @@ export default function GeneralQueueMonitor() {
 
     const fetchQueue = async () => {
       try {
-        const data = await getAllQueues("general");
+        const data = await getAllQueues("dental");
         if (cancelled) return;
-        const list = Array.isArray(data) ? data : data?.data ?? [];
+        const list = Array.isArray(data) ? data : (data?.data ?? []);
         setQueues(list);
       } catch {
         // Silent on polling — keep last-known good state visible.
@@ -73,15 +72,11 @@ export default function GeneralQueueMonitor() {
     };
   }, []);
 
-  const currentServing =
-    queues.find((q) => q.status === "serving") ?? null;
+  const currentServing = queues.find((q) => q.status === "serving") ?? null;
   const waitingList = queues.filter((q) => q.status === "waiting");
   const nextServing = waitingList[0] ?? null;
   const upcoming = waitingList.slice(1, 1 + UPCOMING_LIMIT);
-  const remaining = Math.max(
-    waitingList.length - 1 - upcoming.length,
-    0,
-  );
+  const remaining = Math.max(waitingList.length - 1 - upcoming.length, 0);
 
   return (
     <>
@@ -93,8 +88,7 @@ export default function GeneralQueueMonitor() {
           display: "flex",
           background: NAVY,
           color: "#ffffff",
-          fontFamily:
-            "'Segoe UI', system-ui, -apple-system, sans-serif",
+          fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
           overflow: "hidden",
         }}
       >
@@ -111,10 +105,7 @@ export default function GeneralQueueMonitor() {
         >
           <Header now={now} />
 
-          <PanelPair
-            current={currentServing}
-            next={nextServing}
-          />
+          <PanelPair current={currentServing} next={nextServing} />
 
           <UpcomingList upcoming={upcoming} remaining={remaining} />
         </div>
@@ -206,7 +197,7 @@ function Header({ now }) {
             lineHeight: 1.1,
           }}
         >
-          General Consultation Queue
+          Dental Check-up Queue
         </h1>
         <p
           style={{
@@ -259,23 +250,15 @@ function PanelPair({ current, next }) {
         emptyText="No patient being served"
         primary
       />
-      <QueueCard
-        label="Next Serving"
-        entry={next}
-        emptyText="No one in line"
-      />
+      <QueueCard label="Next Serving" entry={next} emptyText="No one in line" />
     </div>
   );
 }
 
 function QueueCard({ label, entry, emptyText, primary }) {
   const background = primary ? ORANGE : "rgba(255,255,255,0.08)";
-  const border = primary
-    ? "none"
-    : "1.5px solid rgba(255,255,255,0.14)";
-  const boxShadow = primary
-    ? "0 12px 40px rgba(249,115,22,0.35)"
-    : "none";
+  const border = primary ? "none" : "1.5px solid rgba(255,255,255,0.14)";
+  const boxShadow = primary ? "0 12px 40px rgba(249,115,22,0.35)" : "none";
 
   return (
     <div
@@ -297,9 +280,7 @@ function QueueCard({ label, entry, emptyText, primary }) {
           fontWeight: 700,
           letterSpacing: "0.14em",
           textTransform: "uppercase",
-          color: primary
-            ? "rgba(255,255,255,0.85)"
-            : "rgba(255,255,255,0.55)",
+          color: primary ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.55)",
         }}
       >
         {label}
@@ -326,9 +307,7 @@ function QueueCard({ label, entry, emptyText, primary }) {
               color: "#ffffff",
               marginTop: "2px",
             }}
-          >
-            {getQueueDisplayName(entry)}
-          </span>
+          ></span>
           <span
             style={{
               display: "inline-flex",
@@ -341,18 +320,18 @@ function QueueCard({ label, entry, emptyText, primary }) {
               background: primary
                 ? "rgba(255,255,255,0.22)"
                 : entry.type === "priority"
-                ? "rgba(249,115,22,0.22)"
-                : "rgba(255,255,255,0.14)",
+                  ? "rgba(249,115,22,0.22)"
+                  : "rgba(255,255,255,0.14)",
               color: primary
                 ? "#ffffff"
                 : entry.type === "priority"
-                ? "#fdba74"
-                : "rgba(255,255,255,0.75)",
+                  ? "#fdba74"
+                  : "rgba(255,255,255,0.75)",
               letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
           >
-            {entry.type === "priority" ? "Priority" : "General"}
+            {entry.type === "priority" ? "Priority" : "Regular"}
           </span>
         </>
       ) : (
@@ -364,9 +343,7 @@ function QueueCard({ label, entry, emptyText, primary }) {
             justifyContent: "center",
             fontSize: "clamp(18px, 2vw, 26px)",
             fontWeight: 600,
-            color: primary
-              ? "rgba(255,255,255,0.85)"
-              : "rgba(255,255,255,0.5)",
+            color: primary ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)",
             textAlign: "center",
           }}
         >
@@ -446,7 +423,9 @@ function UpcomingList({ upcoming, remaining }) {
                 gap: "12px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "16px" }}
+              >
                 <span
                   style={{
                     fontSize: "20px",
@@ -457,15 +436,6 @@ function UpcomingList({ upcoming, remaining }) {
                   }}
                 >
                   {q.queue_number}
-                </span>
-                <span
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: 500,
-                    color: "rgba(255,255,255,0.85)",
-                  }}
-                >
-                  {getQueueDisplayName(q)}
                 </span>
               </div>
               <span
@@ -481,12 +451,10 @@ function UpcomingList({ upcoming, remaining }) {
                       ? "rgba(249,115,22,0.22)"
                       : "rgba(255,255,255,0.1)",
                   color:
-                    q.type === "priority"
-                      ? "#fdba74"
-                      : "rgba(255,255,255,0.7)",
+                    q.type === "priority" ? "#fdba74" : "rgba(255,255,255,0.7)",
                 }}
               >
-                {q.type === "priority" ? "Priority" : "General"}
+                {q.type === "priority" ? "Priority" : "Regular"}
               </span>
             </div>
           ))}

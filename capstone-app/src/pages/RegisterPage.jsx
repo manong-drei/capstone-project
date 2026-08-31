@@ -163,7 +163,7 @@ const RegisterPage = () => {
     fullName: "",
     address: "",
     phone: "",
-    age: "",
+    date_of_birth: "",
     gender: "",
     password: "",
     confirmPassword: "",
@@ -176,7 +176,7 @@ const RegisterPage = () => {
 
   /* -- Step 1 validation -- */
   const nextStep = () => {
-    const { username, fullName, address, phone, age, gender } = form;
+    const { username, fullName, address, phone, date_of_birth, gender } = form;
     if (!username.trim()) return setError("Username is required.");
     if (!fullName.trim()) return setError("Full name is required.");
     if (!address.trim()) return setError("Address is required.");
@@ -186,8 +186,8 @@ const RegisterPage = () => {
         "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
       );
     }
-    if (!age || isNaN(age) || +age < 1 || +age > 120)
-      return setError("Please enter a valid age.");
+    if (!date_of_birth)
+      return setError("Please enter your date of birth.");
     if (!gender) return setError("Please select a gender.");
     setError("");
     setStep(2);
@@ -432,16 +432,14 @@ const RegisterPage = () => {
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Age">
+                <Field label="Date of Birth">
                   <input
                     className={inputCls}
                     style={inputStyle}
-                    placeholder="e.g. 30"
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={form.age}
-                    onChange={set("age")}
+                    placeholder="YYYY-MM-DD"
+                    type="date"
+                    value={form.date_of_birth}
+                    onChange={set("date_of_birth")}
                   />
                 </Field>
 

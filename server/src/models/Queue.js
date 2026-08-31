@@ -82,12 +82,12 @@ const Queue = {
     category,
     services,
     walk_in_name,
-    walk_in_age,
+    walk_in_dob,
     walk_in_gender,
     walk_in_contact,
   }) => {
     const [result] = await pool.query(
-      `INSERT INTO queues (patient_id, queue_number, type, category, services, walk_in_name, walk_in_age, walk_in_gender, walk_in_contact)
+      `INSERT INTO queues (patient_id, queue_number, type, category, services, walk_in_name, walk_in_dob, walk_in_gender, walk_in_contact)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         patient_id || null,
@@ -96,7 +96,7 @@ const Queue = {
         category || "dental",
         services ? JSON.stringify(services) : null,
         walk_in_name || null,
-        walk_in_age || null,
+        walk_in_dob || null,
         walk_in_gender || null,
         walk_in_contact || null,
       ],
@@ -104,7 +104,6 @@ const Queue = {
     return Queue._fetchById(result.insertId);
   },
 
-  // Pull the next waiting patient (priority first), set to serving atomically
   callNext: async ({ category } = {}) => {
     const conn = await pool.getConnection();
     try {
@@ -116,27 +115,64 @@ const Queue = {
         categoryClause = "AND category = ?";
         params.push(category);
       }
-      const [rows] = await conn.query(
+
+      // Determine which source (scheduled vs walk-in) was called last today,
+      // so we can alternate. patient_id IS NOT NULL = scheduled/system queue.
+      const [[lastCalled]] = await conn.query(
         `
-        SELECT * FROM queues
-        WHERE  status = 'waiting'
-          AND  DATE(created_at) = CURDATE()
+        SELECT patient_id FROM queues
+        WHERE status IN ('serving', 'done')
+          AND DATE(created_at) = CURDATE()
           ${categoryClause}
-        ORDER BY
-          FIELD(type, 'priority', 'regular'),
-          created_at ASC
+        ORDER BY updated_at DESC
         LIMIT 1
-        FOR UPDATE
-      `,
+        `,
         params,
       );
 
-      if (!rows[0]) {
+      // If last called was scheduled (patient_id set), try walk-in next, and vice versa.
+      // If nothing called yet today, default to scheduled first.
+      const preferWalkInNext = lastCalled
+        ? lastCalled.patient_id !== null
+        : false;
+
+      const sourceClause = preferWalkInNext
+        ? "patient_id IS NULL"
+        : "patient_id IS NOT NULL";
+      const fallbackClause = preferWalkInNext
+        ? "patient_id IS NOT NULL"
+        : "patient_id IS NULL";
+
+      const tryFetch = async (clause) => {
+        const [rows] = await conn.query(
+          `
+          SELECT * FROM queues
+          WHERE status = 'waiting'
+            AND DATE(created_at) = CURDATE()
+            AND ${clause}
+            ${categoryClause}
+          ORDER BY
+            FIELD(type, 'priority', 'regular'),
+            created_at ASC
+          LIMIT 1
+          FOR UPDATE
+          `,
+          params,
+        );
+        return rows[0] || null;
+      };
+
+      let next = await tryFetch(sourceClause);
+      if (!next) {
+        // Preferred source has nobody waiting — fall back to the other source.
+        next = await tryFetch(fallbackClause);
+      }
+
+      if (!next) {
         await conn.rollback();
         return null;
       }
 
-      const next = rows[0];
       await conn.query(
         `UPDATE queues SET status = 'serving', updated_at = NOW() WHERE id = ?`,
         [next.id],

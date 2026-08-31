@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
+
 import { useAuth } from "@/hooks/useAuth";
 import * as authService from "@/services/authService";
 import { ROUTES } from "@/constants/routes";
@@ -13,8 +15,14 @@ const ChangePasswordPage = () => {
     newPassword: "",
     confirmPassword: "",
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Password visibility states
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (e) => {
     setError("");
@@ -28,10 +36,12 @@ const ChangePasswordPage = () => {
       setError("Please fill in all fields.");
       return;
     }
+
     if (form.newPassword.length < 6) {
       setError("New password must be at least 6 characters.");
       return;
     }
+
     if (form.newPassword !== form.confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -74,6 +84,7 @@ const ChangePasswordPage = () => {
           >
             Change Your Password
           </h2>
+
           <p className="text-xs leading-snug px-2" style={{ color: "#6b7280" }}>
             You must set a new password before continuing.
           </p>
@@ -86,6 +97,7 @@ const ChangePasswordPage = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Current Password */}
           <div>
             <label
               className="block text-xs font-semibold mb-1"
@@ -93,16 +105,37 @@ const ChangePasswordPage = () => {
             >
               Current (Temporary) Password
             </label>
-            <input
-              type="password"
-              name="oldPassword"
-              value={form.oldPassword}
-              onChange={handleChange}
-              className="w-full px-3 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-              style={{ border: "1px solid #d1d5db" }}
-            />
+
+            <div className="relative">
+              <input
+                type={showOldPassword ? "text" : "password"}
+                name="oldPassword"
+                value={form.oldPassword}
+                onChange={handleChange}
+                className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
+                style={{ border: "1px solid #d1d5db" }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowOldPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={
+                  showOldPassword
+                    ? "Hide current password"
+                    : "Show current password"
+                }
+              >
+                {showOldPassword ? (
+                  <EyeOff size={18} strokeWidth={2} />
+                ) : (
+                  <Eye size={18} strokeWidth={2} />
+                )}
+              </button>
+            </div>
           </div>
 
+          {/* New Password */}
           <div>
             <label
               className="block text-xs font-semibold mb-1"
@@ -110,16 +143,35 @@ const ChangePasswordPage = () => {
             >
               New Password
             </label>
-            <input
-              type="password"
-              name="newPassword"
-              value={form.newPassword}
-              onChange={handleChange}
-              className="w-full px-3 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-              style={{ border: "1px solid #d1d5db" }}
-            />
+
+            <div className="relative">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                name="newPassword"
+                value={form.newPassword}
+                onChange={handleChange}
+                className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
+                style={{ border: "1px solid #d1d5db" }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={
+                  showNewPassword ? "Hide new password" : "Show new password"
+                }
+              >
+                {showNewPassword ? (
+                  <EyeOff size={18} strokeWidth={2} />
+                ) : (
+                  <Eye size={18} strokeWidth={2} />
+                )}
+              </button>
+            </div>
           </div>
 
+          {/* Confirm Password */}
           <div>
             <label
               className="block text-xs font-semibold mb-1"
@@ -127,14 +179,34 @@ const ChangePasswordPage = () => {
             >
               Confirm New Password
             </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              className="w-full px-3 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-              style={{ border: "1px solid #d1d5db" }}
-            />
+
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                name="confirmPassword"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
+                style={{ border: "1px solid #d1d5db" }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirm password"
+                    : "Show confirm password"
+                }
+              >
+                {showConfirmPassword ? (
+                  <EyeOff size={18} strokeWidth={2} />
+                ) : (
+                  <Eye size={18} strokeWidth={2} />
+                )}
+              </button>
+            </div>
           </div>
 
           <button

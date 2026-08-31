@@ -24,7 +24,7 @@ const Patient = {
       last_name,
       address,
       phone,
-      age,
+      date_of_birth,
       gender,
       city,
       philhealth_id,
@@ -36,7 +36,7 @@ const Patient = {
 
     const [result] = await pool.query(
       `INSERT INTO patients
-         (user_id, first_name, last_name, age, gender, contact_number,
+         (user_id, first_name, last_name, date_of_birth, gender, contact_number,
           barangay, city, philhealth_id,
           emergency_contact, emg_contact_no, priority_category, priority_expires_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -44,7 +44,7 @@ const Patient = {
         user_id,
         first_name,
         last_name,
-        age,
+        date_of_birth,
         gender,
         phone || null,
         address,
@@ -64,7 +64,7 @@ const Patient = {
     const allowed = [
       "first_name",
       "last_name",
-      "age",
+      "date_of_birth",
       "gender",
       "contact_number",
       "barangay",

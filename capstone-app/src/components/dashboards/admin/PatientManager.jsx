@@ -34,6 +34,8 @@ const labelStyle = {
   marginBottom: "5px",
 };
 
+const PATIENTS_PER_PAGE = 10;
+
 function statusBadge(isActive) {
   return isActive
     ? { bg: "#dcfce7", color: "#166534", label: "Active" }
@@ -174,6 +176,7 @@ export default function PatientManager() {
   const [fetchError, setFetchError] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [confirm, setConfirm] = useState({
     open: false,
     userId: null,
@@ -190,7 +193,7 @@ export default function PatientManager() {
     last_name: "",
     phone: "",
     address: "",
-    age: "",
+    date_of_birth: "",
     gender: "",
     priority_category: "",
   });
@@ -219,7 +222,7 @@ export default function PatientManager() {
       !form.last_name ||
       !form.phone ||
       !form.address ||
-      !form.age ||
+      !form.date_of_birth ||
       !form.gender
     ) {
       setFormError("All fields are required.");
@@ -234,7 +237,7 @@ export default function PatientManager() {
         last_name: "",
         phone: "",
         address: "",
-        age: "",
+        date_of_birth: "",
         gender: "",
         priority_category: "",
       });
@@ -281,6 +284,20 @@ export default function PatientManager() {
     }
     return true;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, showInactive]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filtered.length / PATIENTS_PER_PAGE),
+  );
+  const safePage = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice(
+    (safePage - 1) * PATIENTS_PER_PAGE,
+    safePage * PATIENTS_PER_PAGE,
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -419,13 +436,12 @@ export default function PatientManager() {
               />
             </div>
             <div>
-              <label style={labelStyle}>Age</label>
+              <label style={labelStyle}>Date of Birth</label>
               <input
-                type="number"
+                type="date"
                 style={inputStyle}
-                value={form.age}
-                onChange={(e) => handleChange("age", e.target.value)}
-                placeholder="e.g. 30"
+                value={form.date_of_birth}
+                onChange={(e) => handleChange("date_of_birth", e.target.value)}
               />
             </div>
             <div>
@@ -649,7 +665,7 @@ export default function PatientManager() {
         ) : (
           <>
             {/* Desktop rows */}
-            {filtered.map((patient) => {
+            {paginated.map((patient) => {
               const sb = statusBadge(patient.is_active);
               const isInactive = !patient.is_active;
               return (
@@ -733,7 +749,7 @@ export default function PatientManager() {
 
             {/* Mobile cards */}
             <div className="pm-cards-mobile">
-              {filtered.map((patient) => {
+              {paginated.map((patient) => {
                 const sb = statusBadge(patient.is_active);
                 const isInactive = !patient.is_active;
                 return (
@@ -829,6 +845,69 @@ export default function PatientManager() {
               })}
             </div>
           </>
+        )}
+
+        {/* Pagination controls */}
+        {!loading && !fetchError && filtered.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "10px",
+              padding: "12px 20px",
+              borderTop: "1px solid #f3f4f6",
+              background: "#f9fafb",
+            }}
+          >
+            <span style={{ fontSize: "12px", color: "#6b7280" }}>
+              Showing {(safePage - 1) * PATIENTS_PER_PAGE + 1}–
+              {Math.min(safePage * PATIENTS_PER_PAGE, filtered.length)} of{" "}
+              {filtered.length}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "7px",
+                  border: "1px solid #e5e7eb",
+                  background: safePage <= 1 ? "#f3f4f6" : "#ffffff",
+                  color: safePage <= 1 ? "#9ca3af" : "#374151",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: safePage <= 1 ? "not-allowed" : "pointer",
+                }}
+              >
+                Previous
+              </button>
+              <span
+                style={{ fontSize: "12px", color: "#374151", padding: "0 4px" }}
+              >
+                Page {safePage} of {totalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={safePage >= totalPages}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "7px",
+                  border: "1px solid #e5e7eb",
+                  background: safePage >= totalPages ? "#f3f4f6" : "#ffffff",
+                  color: safePage >= totalPages ? "#9ca3af" : "#374151",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: safePage >= totalPages ? "not-allowed" : "pointer",
+                }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
