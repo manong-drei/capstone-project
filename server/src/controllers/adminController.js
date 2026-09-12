@@ -2,11 +2,10 @@ const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
 const Queue = require("../models/Queue");
 const Appointment = require("../models/Appointment");
-const Doctor = require("../models/Doctor");
-const Staff = require("../models/Staff");
 const User = require("../models/User");
-const Patient = require("../models/Patient");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
+const { sendSMS } = require("../utils/sms");
+
 /** GET /api/admin/overview — live stats for the admin dashboard */
 const getOverview = async (req, res) => {
   try {
@@ -535,9 +534,18 @@ const createPatient = async (req, res) => {
       // SMS delivery not yet implemented — stubbed.
       // Temp password is returned in the response for now so the admin can
       // relay it manually. Remove this once an SMS provider is integrated.
-      console.log(
-        `[STUB SMS] Would send credentials to ${normalizedPhone}: temp password = ${tempPassword}`,
-      );
+      // console.log(
+      //   `[STUB SMS] Would send credentials to ${normalizedPhone}: temp password = ${tempPassword}`,
+      // );
+
+      try {
+        await sendSMS(
+          normalizedPhone,
+          `Your E-KALUSUGAN account has been created. Temporary password: ${tempPassword}. Please log in and change your password immediately.`,
+        );
+      } catch (smsErr) {
+        console.error("createPatient SMS send error:", smsErr.message);
+      }
 
       res.status(201).json({
         success: true,
