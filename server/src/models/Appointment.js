@@ -96,8 +96,8 @@ const Appointment = {
     appointment_time,
     reason,
     notes,
-  }) => {
-    const [result] = await pool.query(
+  }, connection = pool) => {
+    const [result] = await connection.query(
       `INSERT INTO appointments
          (patient_id, doctor_id, appointment_date, appointment_time, reason, notes)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -110,7 +110,7 @@ const Appointment = {
         notes || null,
       ],
     );
-    const [rows] = await pool.query(
+    const [rows] = await connection.query(
       "SELECT * FROM appointments WHERE appointment_id = ?",
       [result.insertId],
     );

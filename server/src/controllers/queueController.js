@@ -1,6 +1,7 @@
 const { isValid, parseISO } = require("date-fns");
 const Queue = require("../models/Queue");
 const Patient = require("../models/Patient");
+const pool = require("../config/db");
 
 const ALLOWED_SERVICE_IDS = new Set([
   "CONSULTATION",
@@ -19,6 +20,7 @@ const ALLOWED_SERVICE_IDS = new Set([
 ]);
 
 const GENERAL_SERVICE_ID = "GENERAL_CONSULTATION";
+const httpError = (status, message) => Object.assign(new Error(message), { status });
 
 /** GET /api/queue/status — now-serving and next-queuing numbers (all roles) */
 const getQueueStatus = async (req, res) => {
@@ -62,7 +64,7 @@ const getMyQueue = async (req, res) => {
 };
 
 /** POST /api/queue — patient gets a queue number (dental only) */
-const createQueue = async (req, res) => {
+const createQueueLegacy = async (req, res) => {
   try {
     const { services, type } = req.body;
 
@@ -210,7 +212,89 @@ const createQueue = async (req, res) => {
 };
 
 /** POST /api/queue/walkin — staff registers a walk-in patient (no account) */
-const createWalkIn = async (req, res) => {
+const createQueue = async (req, res) => {
+  const { services, type } = req.body;
+  if (!Array.isArray(services) || services.length === 0) {
+    return res.status(400).json({ success: false, message: "Please select at least one service." });
+  }
+
+  const selectedServices = [...new Set(services)];
+  if (selectedServices.length > 2 || selectedServices.some((id) => !ALLOWED_SERVICE_IDS.has(id))) {
+    return res.status(400).json({ success: false, message: "Select up to two valid services." });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[patient]] = await connection.query(
+      "SELECT * FROM patients WHERE user_id = ? FOR UPDATE",
+      [req.user.user_id],
+    );
+    if (!patient) throw httpError(404, "Patient profile not found.");
+    if (type === "priority" && (!patient.priority_category || (patient.priority_expires_at && new Date(patient.priority_expires_at) <= new Date()))) {
+      throw httpError(403, "You are not eligible for priority queuing.");
+    }
+    if (await Queue.findByPatientId(patient.patient_id, connection)) {
+      throw httpError(409, "You already have an active queue today.");
+    }
+
+    const [[{ todayQueueCount }]] = await connection.query(
+      "SELECT COUNT(*) AS todayQueueCount FROM queues WHERE patient_id = ? AND DATE(created_at) = CURDATE()",
+      [patient.patient_id],
+    );
+    if (todayQueueCount >= 2) throw httpError(409, "You have reached your daily queue limit (2). Please try again tomorrow.");
+
+    const [[doctor]] = await connection.query(
+      "SELECT doctor_id FROM doctors ORDER BY doctor_id ASC LIMIT 1 FOR UPDATE",
+    );
+    if (!doctor) throw httpError(409, "No dentist is available today.");
+
+    const [[settings]] = await connection.query(
+      `SELECT appointment_limit, is_available FROM daily_doctor_settings
+       WHERE doctor_id = ? AND date = CURDATE()`,
+      [doctor.doctor_id],
+    );
+    if (settings?.is_available === 0) throw httpError(409, "The dentist is unavailable today.");
+
+    const [[existingAppointment]] = await connection.query(
+      `SELECT appointment_id FROM appointments
+       WHERE patient_id = ? AND appointment_date = CURDATE()
+         AND status IN ('pending', 'confirmed') LIMIT 1 FOR UPDATE`,
+      [patient.patient_id],
+    );
+    if (!existingAppointment) {
+      const [[{ booked }]] = await connection.query(
+        `SELECT COUNT(*) AS booked FROM appointments
+         WHERE doctor_id = ? AND appointment_date = CURDATE() AND status != 'cancelled'`,
+        [doctor.doctor_id],
+      );
+      if (booked >= (settings?.appointment_limit ?? 10)) throw httpError(409, "No appointment slots available for today.");
+      await connection.query(
+        `INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, reason, status)
+         VALUES (?, ?, CURDATE(), CURTIME(), ?, 'confirmed')`,
+        [patient.patient_id, doctor.doctor_id, "Same-day queue registration"],
+      );
+    }
+
+    const queueType = type === "priority" ? "priority" : "regular";
+    const queue = await Queue.create({
+      patient_id: patient.patient_id,
+      queue_number: await Queue.nextQueueNumber({ category: "dental", type: queueType }, connection),
+      type: queueType,
+      category: "dental",
+      services: selectedServices,
+    }, connection);
+    await connection.commit();
+    res.status(201).json(queue);
+  } catch (err) {
+    await connection.rollback();
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+  } finally {
+    connection.release();
+  }
+};
+
+const createWalkInLegacy = async (req, res) => {
   try {
     const {
       full_name,
@@ -329,10 +413,77 @@ const createWalkIn = async (req, res) => {
 };
 
 /** POST /api/queue/call-next — doctor/staff calls next patient (optionally scoped by category) */
+const createWalkIn = async (req, res) => {
+  const { full_name, date_of_birth, gender, contact, type, services, category } = req.body;
+  const queueCategory = category === "general" ? "general" : "dental";
+  if (!full_name?.trim()) return res.status(400).json({ success: false, message: "Full name is required." });
+  if (!date_of_birth || !isValid(parseISO(date_of_birth)) || new Date(date_of_birth) > new Date()) {
+    return res.status(400).json({ success: false, message: "A valid date of birth is required." });
+  }
+  if (!["male", "female"].includes(gender)) return res.status(400).json({ success: false, message: "Gender must be male or female." });
+
+  const selectedServices = queueCategory === "general" ? [GENERAL_SERVICE_ID] : [...new Set(services || [])];
+  if (!selectedServices.length || selectedServices.some((service) => !ALLOWED_SERVICE_IDS.has(service))) {
+    return res.status(400).json({ success: false, message: "Please select valid services." });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    if (queueCategory === "dental") {
+      const [[doctor]] = await connection.query(
+        "SELECT doctor_id FROM doctors ORDER BY doctor_id ASC LIMIT 1 FOR UPDATE",
+      );
+      if (!doctor) throw httpError(409, "No dentist is available today.");
+
+      const [[settings]] = await connection.query(
+        `SELECT walk_in_limit, is_available FROM daily_doctor_settings
+         WHERE doctor_id = ? AND date = CURDATE()`,
+        [doctor.doctor_id],
+      );
+      if (settings?.is_available === 0) throw httpError(409, "The dentist is unavailable today.");
+
+      const [[{ walkinToday }]] = await connection.query(
+        `SELECT COUNT(*) AS walkinToday FROM queues
+         WHERE patient_id IS NULL AND category = 'dental' AND DATE(created_at) = CURDATE()`,
+      );
+      if ((settings?.walk_in_limit ?? 0) > 0 && walkinToday >= settings.walk_in_limit) {
+        throw httpError(409, "Walk-in slots are full for today.");
+      }
+    }
+
+    const queueType = type === "priority" ? "priority" : "regular";
+    const queue = await Queue.create({
+      patient_id: null,
+      queue_number: await Queue.nextQueueNumber({ category: queueCategory, type: queueType }, connection),
+      type: queueType,
+      category: queueCategory,
+      services: selectedServices,
+      walk_in_name: full_name.trim(),
+      walk_in_dob: date_of_birth,
+      walk_in_gender: gender,
+      walk_in_contact: contact || null,
+    }, connection);
+    await connection.commit();
+    res.status(201).json({ success: true, queue });
+  } catch (err) {
+    await connection.rollback();
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+  } finally {
+    connection.release();
+  }
+};
+
 const callNext = async (req, res) => {
   try {
     const { category } = req.body || {};
     const next = await Queue.callNext({ category });
+    if (next?.conflict) {
+      return res.status(409).json({
+        success: false,
+        message: "A patient is already being served in this queue.",
+      });
+    }
     if (!next) {
       return res
         .status(404)

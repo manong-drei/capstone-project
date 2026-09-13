@@ -1,24 +1,10 @@
-import Icon from "@/components/common/AppIcons";
 import QueueStatus from "./QueueStatus";
 import Footer from "@/components/landing/Footer";
 
 const ORANGE = "#f97316";
 const NAVY = "#2d3a8c";
+const BLUE = "#1e4db7";
 
-/**
- * PatientHomeTab
- * Hero, Now/Next queuing banners, action buttons, info cards, and footer.
- *
- * Props:
- *   queueStatus        — { now_serving, now_serving_name, next_queuing, next_queuing_name }
- *   doctorAvailability — 1 | 0 | null
- *   hasActiveQueue     — boolean
- *   queue              — current queue object (or null)
- *   myQueueSubtitle    — formatted subtitle string
- *   onGetQueue         — open the GetQueueModal
- *   onCancelQueue      — cancel the active queue
- *   onGoAppointments   — navigate to appointments tab
- */
 export default function PatientHomeTab({
   queueStatus,
   doctorAvailability,
@@ -29,471 +15,216 @@ export default function PatientHomeTab({
   onCancelQueue,
   onGoAppointments,
 }) {
+  const doctorAvailable = doctorAvailability !== 0;
+  const availabilityLabel =
+    doctorAvailability === null
+      ? "Checking availability"
+      : doctorAvailable
+        ? "Available today"
+        : "Unavailable today";
+
+  const quickLinks = [
+    {
+      label: "Appointment history",
+      detail: "View past visits",
+      onClick: onGoAppointments,
+      accent: BLUE,
+    },
+    {
+      label: "Location",
+      detail: "City Health Office",
+      accent: "#1e1b4b",
+    },
+    {
+      label: "CHO services",
+      detail: "Explore available care",
+      accent: ORANGE,
+    },
+  ];
+
   return (
     <>
-      {/* Hero */}
       <section
-        style={{
-          position: "relative",
-          minHeight: "380px",
-          backgroundImage: "url('/assets/BGHero.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-        }}
+        className="relative isolate flex min-h-[320px] items-center overflow-hidden bg-cover bg-center px-4 py-14 text-center sm:min-h-[360px] sm:px-6"
+        style={{ backgroundImage: "url('/assets/BGHero.png')" }}
       >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(255,255,255,0.42)",
-          }}
-        />
-        <div
-          className="pd-hero-pad"
-          style={{ position: "relative", zIndex: 1 }}
-        >
-          <h1
-            style={{
-              margin: "0 0 2px",
-              fontSize: "clamp(1.8rem, 4vw, 2.5rem)",
-              fontWeight: 800,
-              color: "#111827",
-              lineHeight: 1.2,
-              letterSpacing: "-0.01em",
-            }}
-          >
+        <div className="absolute inset-0 -z-10 bg-white/45" />
+        <div className="mx-auto max-w-2xl">
+          <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1.5 text-xs font-bold tracking-wide text-[#2d3a8c] shadow-sm">
+            E-KALUSUGAN PATIENT PORTAL
+          </span>
+          <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-[#111827] sm:text-4xl">
             Your Health, Schedule.
+            <span className="block text-[#1e4db7]">No More Long Waits.</span>
           </h1>
-          <h1
-            style={{
-              margin: "0 0 20px",
-              fontSize: "clamp(1.8rem, 4vw, 2.5rem)",
-              fontWeight: 800,
-              color: "#1e4db7",
-              lineHeight: 1.2,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            No More Long Waits.
-          </h1>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "clamp(0.875rem, 2vw, 1rem)",
-              color: "#374151",
-              maxWidth: "540px",
-              lineHeight: 1.6,
-            }}
-          >
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#374151] sm:text-base">
             Get your queue number online, check doctor availability, and track
-            your wait time—all from your phone.
+            your wait time from your phone.
           </p>
         </div>
       </section>
 
-      {/* Now Queuing / Next Queuing */}
-      <div
-        style={{
-          background: ORANGE,
-          marginTop: "20px",
-          borderRadius: "16px",
-          padding: "24px 28px",
-          boxShadow: "0 4px 16px rgba(249,115,22,0.3)",
-        }}
-      >
-        <p
-          style={{
-            margin: "0 0 6px",
-            fontSize: "13px",
-            fontWeight: 700,
-            color: "rgba(255,255,255,0.8)",
-            letterSpacing: "0.06em",
-          }}
-        >
-          Now Queuing
-        </p>
-        <p
-          style={{
-            margin: 0,
-            fontSize: "clamp(2.5rem, 6vw, 4rem)",
-            fontWeight: 900,
-            color: "white",
-            lineHeight: 1,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {queueStatus.now_serving ?? "—"}
-        </p>
-      </div>
-      <div
-        style={{
-          background: NAVY,
-          borderRadius: "16px",
-          padding: "24px 28px",
-          boxShadow: "0 4px 16px rgba(45,58,140,0.25)",
-          marginTop: "20px",
-        }}
-      >
-        <p
-          style={{
-            margin: "0 0 6px",
-            fontSize: "13px",
-            fontWeight: 700,
-            color: "rgba(255,255,255,0.8)",
-            letterSpacing: "0.06em",
-          }}
-        >
-          Next Queuing
-        </p>
-        <p
-          style={{
-            margin: 0,
-            fontSize: "clamp(2.5rem, 6vw, 4rem)",
-            fontWeight: 900,
-            color: "white",
-            lineHeight: 1,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {queueStatus.next_queuing ?? "—"}
-        </p>
-      </div>
-      {/* Action Buttons */}
-      <div
-        className="pd-actions"
-        style={{
-          background: "#f3f4f6",
-          display: "flex",
-          gap: "16px",
-          justifyContent: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          onClick={onGetQueue}
-          disabled={hasActiveQueue}
-          className="pd-action-btn"
-          style={{
-            flex: "1 1 220px",
-            maxWidth: "340px",
-            padding: "22px 32px",
-            borderRadius: "16px",
-            border: "none",
-            background: ORANGE,
-            color: "white",
-            fontSize: "15px",
-            fontWeight: 800,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            cursor: hasActiveQueue ? "not-allowed" : "pointer",
-            opacity: hasActiveQueue ? 0.65 : 1,
-            boxShadow: "0 4px 14px rgba(249,115,22,0.35)",
-          }}
-        >
-          GET QUEUE NUMBER
-        </button>
-        <button
-          onClick={onGoAppointments}
-          className="pd-action-btn"
-          style={{
-            flex: "1 1 220px",
-            maxWidth: "340px",
-            padding: "22px 32px",
-            borderRadius: "16px",
-            border: "none",
-            background: "#e5e7eb",
-            color: "#374151",
-            fontSize: "15px",
-            fontWeight: 800,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            cursor: "pointer",
-          }}
-        >
-          APPOINTMENT HISTORY
-        </button>
-      </div>
+      <main className="bg-[#f3f4f6] px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-6xl space-y-6">
+          <section
+            className="grid gap-4 sm:grid-cols-2"
+            aria-label="Live queue status"
+          >
+            <QueueBanner
+              label="Now serving"
+              value={queueStatus.now_serving}
+              color={ORANGE}
+            />
+            <QueueBanner
+              label="Next in queue"
+              value={queueStatus.next_queuing}
+              color={NAVY}
+            />
+          </section>
 
-      {/* Active Queue Alert */}
-      {hasActiveQueue && (
-        <div className="pd-content-pad" style={{ paddingBottom: 8 }}>
-          <QueueStatus queue={queue} onCancel={onCancelQueue} />
-        </div>
-      )}
-
-      {/* Info Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pd-content-pad">
-        {/* My Queue Number */}
-        <div
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "20px",
-            borderLeft: "4px solid #f97316",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-            position: "relative",
-            minHeight: "130px",
-          }}
-        >
-          <p
-            style={{
-              margin: "0 0 6px",
-              fontSize: "10px",
-              fontWeight: 700,
-              color: "#9ca3af",
-              letterSpacing: "0.12em",
-            }}
+          <section
+            className="grid gap-3 sm:grid-cols-2"
+            aria-label="Quick actions"
           >
-            MY QUEUE NUMBER
-          </p>
-          <p
-            style={{
-              margin: "0 0 8px",
-              fontSize: "28px",
-              fontWeight: 800,
-              color: "#f97316",
-            }}
-          >
-            {hasActiveQueue ? queue.queue_number : "—"}
-          </p>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "12px",
-              color: "#374151",
-              fontWeight: 600,
-            }}
-          >
-            {myQueueSubtitle}
-          </p>
-          <div
-            style={{
-              position: "absolute",
-              top: "16px",
-              right: "16px",
-              width: "36px",
-              height: "36px",
-              borderRadius: "50%",
-              background: "#fff7ed",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Icon name="user" size={18} color="#f97316" />
-          </div>
-        </div>
-
-        {/* Est. Wait Time */}
-        <div
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "20px",
-            borderLeft: "4px solid #1e4db7",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-            position: "relative",
-            minHeight: "130px",
-          }}
-        >
-          <p
-            style={{
-              margin: "0 0 6px",
-              fontSize: "10px",
-              fontWeight: 700,
-              color: "#9ca3af",
-              letterSpacing: "0.12em",
-            }}
-          >
-            EST. WAIT TIME
-          </p>
-          <p
-            style={{
-              margin: "0 0 8px",
-              fontSize: "28px",
-              fontWeight: 800,
-              color: "#1e4db7",
-            }}
-          >
-            ~15 min
-          </p>
-          <p style={{ margin: 0, fontSize: "12px", color: "#9ca3af" }}>
-            Based on current queue
-          </p>
-          <div
-            style={{
-              position: "absolute",
-              top: "16px",
-              right: "16px",
-              width: "36px",
-              height: "36px",
-              borderRadius: "50%",
-              background: "#eff6ff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Icon name="clock" size={18} color="#1e4db7" />
-          </div>
-        </div>
-
-        {/* Doctor Availability */}
-        <div
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "20px",
-            borderLeft:
-              doctorAvailability === null
-                ? "4px solid #d1d5db"
-                : doctorAvailability !== 0
-                  ? "4px solid #059669"
-                  : "4px solid #dc2626",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "130px",
-            gap: "8px",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontSize: "13px",
-              fontWeight: 600,
-              color: "#6b7280",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
-            Doctor Availability
-          </p>
-          {doctorAvailability === null ? (
-            <p style={{ margin: 0, fontSize: "14px", color: "#9ca3af" }}>—</p>
-          ) : (
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "6px 16px",
-                borderRadius: "99px",
-                fontSize: "14px",
-                fontWeight: 700,
-                background: doctorAvailability !== 0 ? "#dcfce7" : "#fee2e2",
-                color: doctorAvailability !== 0 ? "#059669" : "#dc2626",
-              }}
+            <button
+              type="button"
+              onClick={onGetQueue}
+              disabled={hasActiveQueue}
+              className="flex min-h-16 items-center justify-between rounded-2xl bg-[#f97316] px-5 py-4 text-left text-white shadow-md shadow-orange-500/30 transition hover:bg-[#ea6d10] focus:outline-none focus:ring-4 focus:ring-orange-200 disabled:cursor-not-allowed disabled:opacity-65 sm:px-6"
             >
-              <span
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  background: doctorAvailability !== 0 ? "#059669" : "#dc2626",
-                  flexShrink: 0,
-                }}
-              />
-              {doctorAvailability !== 0
-                ? "Available Today"
-                : "Unavailable Today"}
-            </span>
+              <span>
+                <span className="block text-base font-extrabold">
+                  Get queue number
+                </span>
+                <span className="mt-0.5 block text-xs text-white/80">
+                  {hasActiveQueue
+                    ? "You already have an active queue"
+                    : "Join the dental queue"}
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={onGoAppointments}
+              className="flex min-h-16 items-center justify-between rounded-2xl border border-[#d1d5db] bg-white px-5 py-4 text-left text-[#374151] shadow-sm transition hover:border-[#1e4db7] hover:bg-[#eff6ff] focus:outline-none focus:ring-4 focus:ring-blue-100 sm:px-6"
+            >
+              <span>
+                <span className="block text-base font-extrabold">
+                  Appointment history
+                </span>
+                <span className="mt-0.5 block text-xs text-[#6b7280]">
+                  Review your consultations
+                </span>
+              </span>
+            </button>
+          </section>
+
+          {hasActiveQueue && (
+            <QueueStatus queue={queue} onCancel={onCancelQueue} />
           )}
-        </div>
 
-        {/* Appointment History */}
-        <div
-          onClick={onGoAppointments}
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "20px",
-            borderLeft: "4px solid #1e4db7",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "130px",
-            cursor: "pointer",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: 700,
-              color: "#111827",
-              textAlign: "center",
-            }}
+          <section
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            aria-label="Patient information"
           >
-            Appointment
-            <br />
-            History
-          </p>
+            <InfoCard
+              title="My queue number"
+              value={hasActiveQueue ? queue.queue_number : "—"}
+              detail={myQueueSubtitle}
+              accent={ORANGE}
+            />
+            <InfoCard
+              title="Estimated wait"
+              value="~15 min"
+              detail="Based on the current queue"
+              accent={BLUE}
+            />
+            <InfoCard
+              title="Doctor availability"
+              value={availabilityLabel}
+              detail={
+                doctorAvailability === null
+                  ? "Please wait a moment"
+                  : doctorAvailable
+                    ? "Ready to receive patients"
+                    : "Please check again later"
+              }
+              accent={
+                doctorAvailability === null
+                  ? "#9ca3af"
+                  : doctorAvailable
+                    ? "#059669"
+                    : "#dc2626"
+              }
+            />
+            {quickLinks.map(({ label, detail, onClick, accent }) => (
+              <InfoCard
+                key={label}
+                title={label}
+                value={detail}
+                accent={accent}
+                onClick={onClick}
+              />
+            ))}
+          </section>
         </div>
-
-        {/* Location */}
-        <div
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "20px",
-            borderLeft: "4px solid #1e1b4b",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "130px",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: 700,
-              color: "#111827",
-              textAlign: "center",
-            }}
-          >
-            Location
-          </p>
-        </div>
-
-        {/* CHO Service */}
-        <div
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "20px",
-            borderLeft: "4px solid #f97316",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "130px",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: 700,
-              color: "#111827",
-              textAlign: "center",
-            }}
-          >
-            CHO SERVICE
-          </p>
-        </div>
-      </div>
-
+      </main>
       <Footer />
     </>
+  );
+}
+
+function QueueBanner({ label, value, color }) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl px-5 py-5 text-white shadow-lg sm:px-6"
+      style={{ backgroundColor: color }}
+    >
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/75">
+        {label}
+      </p>
+      <p className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">
+        {value ?? "—"}
+      </p>
+    </div>
+  );
+}
+
+function InfoCard({ title, value, detail, accent, onClick }) {
+  const content = (
+    <span className="min-w-0 flex-1">
+      <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[#9ca3af]">
+        {title}
+      </span>
+      <span className="mt-1 block truncate text-lg font-extrabold text-[#111827]">
+        {value}
+      </span>
+      {detail && (
+        <span className="mt-0.5 block truncate text-xs text-[#6b7280]">
+          {detail}
+        </span>
+      )}
+    </span>
+  );
+
+  const classes =
+    "flex min-h-32 flex-col justify-center rounded-2xl border border-[#e5e7eb] border-l-4 bg-white p-5 text-left shadow-sm";
+
+  if (!onClick)
+    return (
+      <div className={classes} style={{ borderLeftColor: accent }}>
+        {content}
+      </div>
+    );
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${classes} cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-100`}
+      style={{ borderLeftColor: accent }}
+    >
+      {content}
+    </button>
   );
 }

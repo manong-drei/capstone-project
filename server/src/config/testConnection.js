@@ -19,12 +19,25 @@ async function testConnection() {
       SELECT table_name
       FROM   information_schema.tables
       WHERE  table_schema = ?
-      AND    table_name IN ('users','patients','doctors','staff','specializations')
+      AND    table_name IN (
+        'users', 'patients', 'doctors', 'staff', 'specializations',
+        'queues', 'appointments', 'daily_doctor_settings', 'queue_sequences'
+      )
       ORDER  BY table_name
     `, [process.env.DB_NAME]);
 
-    console.log('\n      Tables 1-5 detected:');
-    if (rows.length === 0) {
+    console.log('\n      Required tables detected:');
+    const required = new Set([
+      'users', 'patients', 'doctors', 'staff', 'specializations',
+      'queues', 'appointments', 'daily_doctor_settings', 'queue_sequences',
+    ]);
+    const found = new Set(rows.map((row) => row.table_name));
+    const missing = [...required].filter((table) => !found.has(table));
+    if (missing.length) {
+      console.log(`      Missing: ${missing.join(', ')}`);
+      console.log('      Run the schema and migrations before starting the API.');
+      process.exitCode = 1;
+    } else if (rows.length === 0) {
       console.log('      ⚠  None found. Run ekalusugan_schema.sql first.');
     } else {
       rows.forEach(r => console.log(`        ✔ ${r.table_name}`));

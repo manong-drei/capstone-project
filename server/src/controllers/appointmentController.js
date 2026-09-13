@@ -3,6 +3,8 @@ const Patient = require("../models/Patient");
 const Doctor = require("../models/Doctor");
 const pool = require("../config/db");
 
+const httpError = (status, message) => Object.assign(new Error(message), { status });
+
 /** GET /api/appointments/me — patient's own appointments */
 const getMyAppointments = async (req, res) => {
   try {
@@ -78,43 +80,52 @@ const createAppointment = async (req, res) => {
         .json({ success: false, message: "Patient profile not found." });
     }
 
-    const doctor = await Doctor.findById(doctor_id);
-    if (!doctor) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Doctor not found." });
-    }
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [[doctor]] = await connection.query(
+        "SELECT doctor_id FROM doctors WHERE doctor_id = ? FOR UPDATE",
+        [doctor_id],
+      );
+      if (!doctor) throw httpError(404, "Doctor not found.");
 
-    // Enforce doctor's daily appointment limit
-    const [[settings]] = await pool.query(
-      "SELECT appointment_limit FROM daily_doctor_settings WHERE doctor_id = ? AND date = ?",
-      [doctor_id, appointment_date],
-    );
-    const limit = settings?.appointment_limit ?? 10;
-    const [[{ booked }]] = await pool.query(
-      `SELECT COUNT(*) AS booked FROM appointments
-       WHERE doctor_id = ? AND appointment_date = ? AND status != 'cancelled'`,
-      [doctor_id, appointment_date],
-    );
-    if (booked >= limit) {
-      return res.status(409).json({
-        success: false,
-        message: "This doctor has no available appointment slots for that date.",
-      });
-    }
+      const [[settings]] = await connection.query(
+        `SELECT appointment_limit, is_available FROM daily_doctor_settings
+         WHERE doctor_id = ? AND date = ?`,
+        [doctor_id, appointment_date],
+      );
+      if (settings?.is_available === 0) {
+        throw httpError(409, "This doctor is unavailable for that date.");
+      }
 
-    const appointment = await Appointment.create({
-      patient_id: patient.patient_id,
-      doctor_id,
-      appointment_date,
-      appointment_time,
-      reason,
-      notes,
-    });
-    res.status(201).json({ success: true, data: appointment });
+      const [[{ booked }]] = await connection.query(
+        `SELECT COUNT(*) AS booked FROM appointments
+         WHERE doctor_id = ? AND appointment_date = ? AND status != 'cancelled'`,
+        [doctor_id, appointment_date],
+      );
+      if (booked >= (settings?.appointment_limit ?? 10)) {
+        throw httpError(409, "This doctor has no available appointment slots for that date.");
+      }
+
+      const appointment = await Appointment.create({
+        patient_id: patient.patient_id,
+        doctor_id,
+        appointment_date,
+        appointment_time,
+        reason,
+        notes,
+      }, connection);
+      await connection.commit();
+      res.status(201).json({ success: true, data: appointment });
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
   } catch (err) {
     console.error("createAppointment error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
   }
 };
 

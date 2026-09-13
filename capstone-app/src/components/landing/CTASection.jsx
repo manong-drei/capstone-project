@@ -1,14 +1,3 @@
-/*
- * CHANGELOG (Visual Redesign):
- * - Background gradient changed from rose (#be123c → #e11d48 → #f43f5e)
- *   to orange (#c2410c → #ea580c → #f97316) to match design reference
- * - Subtitle text color updated from text-rose-100 → text-orange-100
- * - Button hover from hover:bg-rose-50 → hover:bg-orange-50
- * - Button text color updated from #e11d48 → #ea580c
- * - All onClick handlers, navigate calls, and layout preserved exactly
- */
-
-import React from "react";
 import { useNavigate } from "react-router-dom";
 
 const CTASection = () => {

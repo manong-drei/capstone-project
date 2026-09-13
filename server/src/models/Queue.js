@@ -55,8 +55,8 @@ const Queue = {
   },
 
   // Patient's own active queue for today (dental only — patients cannot join general)
-  findByPatientId: async (patient_id) => {
-    const [rows] = await pool.query(
+  findByPatientId: async (patient_id, connection = pool) => {
+    const [rows] = await connection.query(
       `
       SELECT q.*,
              COALESCE(CONCAT(p.first_name,' ', p.last_name), q.walk_in_name) AS full_name
@@ -85,8 +85,8 @@ const Queue = {
     walk_in_dob,
     walk_in_gender,
     walk_in_contact,
-  }) => {
-    const [result] = await pool.query(
+  }, connection = pool) => {
+    const [result] = await connection.query(
       `INSERT INTO queues (patient_id, queue_number, type, category, services, walk_in_name, walk_in_dob, walk_in_gender, walk_in_contact)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -101,7 +101,26 @@ const Queue = {
         walk_in_contact || null,
       ],
     );
-    return Queue._fetchById(result.insertId);
+    return Queue._fetchById(result.insertId, connection);
+  },
+
+  nextQueueNumber: async ({ category, type }, connection) => {
+    const sequenceType = category === "general" ? "general" : type;
+    const prefix = category === "general" ? "G" : type === "priority" ? "P" : "Q";
+
+    await connection.query(
+      `INSERT INTO queue_sequences (queue_date, category, sequence_type, last_number)
+       VALUES (CURDATE(), ?, ?, 1)
+       ON DUPLICATE KEY UPDATE last_number = last_number + 1`,
+      [category, sequenceType],
+    );
+    const [[sequence]] = await connection.query(
+      `SELECT last_number FROM queue_sequences
+       WHERE queue_date = CURDATE() AND category = ? AND sequence_type = ?
+       FOR UPDATE`,
+      [category, sequenceType],
+    );
+    return `${prefix}-${String(sequence.last_number).padStart(3, "0")}`;
   },
 
   callNext: async ({ category } = {}) => {
@@ -114,6 +133,23 @@ const Queue = {
       if (category) {
         categoryClause = "AND category = ?";
         params.push(category);
+      }
+
+      await conn.query(
+        `INSERT INTO queue_sequences (queue_date, category, sequence_type, last_number)
+         VALUES (CURDATE(), ?, 'serving', 0)
+         ON DUPLICATE KEY UPDATE last_number = last_number`,
+        [category || "all"],
+      );
+      const [[serving]] = await conn.query(
+        `SELECT id FROM queues
+         WHERE status = 'serving' AND DATE(created_at) = CURDATE() ${categoryClause}
+         LIMIT 1 FOR UPDATE`,
+        params,
+      );
+      if (serving) {
+        await conn.rollback();
+        return { conflict: true };
       }
 
       // Determine which source (scheduled vs walk-in) was called last today,
