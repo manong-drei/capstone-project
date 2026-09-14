@@ -1,6 +1,6 @@
 import StatCard from "@/components/common/StatCard";
 import Icon from "@/components/common/AppIcons";
-import Footer from "@/components/landing/Footer";
+import { Footer } from "@/pages/LandingPage";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
 
 const NAVY   = "#2d3a8c";

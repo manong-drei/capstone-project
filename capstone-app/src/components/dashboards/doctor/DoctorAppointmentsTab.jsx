@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Footer from "@/components/landing/Footer";
+import { Footer } from "@/pages/LandingPage";
 
 const INDIGO = "#4f46e5";
 

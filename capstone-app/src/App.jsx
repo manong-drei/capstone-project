@@ -5,21 +5,22 @@
 //   3. Add protected /staff route
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { ROUTES } from "./constants/routes";
 import { ROLES } from "./constants/roles";
+import LandingPage from "./pages/LandingPage";
 
 // Pages
-import LandingPage from "./pages/LandingPage";
-import LoginPage from "./pages/LoginPage";
+const LoginPage = lazy(() => import("./pages/LoginPage"));
 //import RegisterPage from "./pages/RegisterPage";
-import PatientDashboard from "./pages/PatientDashboard";
-import DoctorDashboard from "./pages/DoctorDashboard";
-import StaffDashboard from "./pages/StaffDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import GeneralQueueMonitor from "./pages/GeneralQueueMonitor";
-import ChangePasswordPage from "./pages/ChangePasswordPage";
+const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
+const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
+const StaffDashboard = lazy(() => import("./pages/StaffDashboard"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const GeneralQueueMonitor = lazy(() => import("./pages/GeneralQueueMonitor"));
+const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
@@ -71,7 +72,8 @@ function RoleRedirect() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={null}>
+        <Routes>
         {/* Public routes */}
         <Route path={ROUTES.HOME} element={<LandingPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
@@ -142,7 +144,8 @@ export default function App() {
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

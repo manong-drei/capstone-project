@@ -1,5 +1,5 @@
 import StatCard from "@/components/common/StatCard";
-import Footer from "@/components/landing/Footer";
+import { Footer } from "@/pages/LandingPage";
 
 const NAVY   = "#2d3a8c";
 const INDIGO = "#4f46e5";

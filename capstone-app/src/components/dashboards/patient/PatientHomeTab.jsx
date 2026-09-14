@@ -1,5 +1,5 @@
 import QueueStatus from "./QueueStatus";
-import Footer from "@/components/landing/Footer";
+import { Footer } from "@/pages/LandingPage";
 
 const ORANGE = "#f97316";
 const NAVY = "#2d3a8c";
