@@ -10,9 +10,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { ROUTES } from "./constants/routes";
 import { ROLES } from "./constants/roles";
-import LandingPage from "./pages/LandingPage";
 
 // Pages
+const CinematicLandingPage = lazy(() => import("./components/pages/cinematic-landing-page"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 //import RegisterPage from "./pages/RegisterPage";
 const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
@@ -75,7 +75,8 @@ export default function App() {
       <Suspense fallback={null}>
         <Routes>
         {/* Public routes */}
-        <Route path={ROUTES.HOME} element={<LandingPage />} />
+        <Route path={ROUTES.HOME} element={<CinematicLandingPage />} />
+        <Route path={ROUTES.EXPERIMENTAL} element={<Navigate to={ROUTES.HOME} replace />} />
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
         {/*<Route path={ROUTES.REGISTER} element={<RegisterPage />} />*/}
 

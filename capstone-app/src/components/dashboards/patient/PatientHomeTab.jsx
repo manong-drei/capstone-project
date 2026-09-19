@@ -46,7 +46,7 @@ export default function PatientHomeTab({
     <>
       <section
         className="relative isolate flex min-h-[320px] items-center overflow-hidden bg-cover bg-center px-4 py-14 text-center sm:min-h-[360px] sm:px-6"
-        style={{ backgroundImage: "url('/assets/BGHero.png')" }}
+        style={{ backgroundImage: "url('/assets/BGHero.webp')" }}
       >
         <div className="absolute inset-0 -z-10 bg-white/45" />
         <div className="mx-auto max-w-2xl">
