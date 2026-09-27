@@ -17,8 +17,5 @@
   "bugs": {
     "url": "https://github.com/manong-drei/capstone-project/issues"
   },
-  "homepage": "https://github.com/manong-drei/capstone-project#readme",
-  "devDependencies": {
-    "@playwright/test": "^1.63.0"
-  }
+  "homepage": "https://github.com/manong-drei/capstone-project#readme"
 }
