@@ -11,7 +11,7 @@ const STAFF_RESPONSIVE_CSS = `
   @media (max-width: 640px) {
     .sm-form-grid { grid-template-columns: 1fr !important; }
     .sm-table-row, .sm-table-head { display: none !important; }
-    .sm-cards-mobile { display: flex !important; flex-direction: column; gap: 10px; padding: 14px; }
+    .sm-cards-mobile { display: flex !important; flex-direction: column; gap: 6px; padding: 10px; }
     .sm-empty-mobile { padding: 28px 16px !important; }
   }
 `;
@@ -501,7 +501,7 @@ export default function StaffManager() {
   const visibleStaff = showInactive ? staff : staff.filter((m) => m.is_active);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <style>{STAFF_RESPONSIVE_CSS}</style>
 
       <ConfirmModal
@@ -603,12 +603,12 @@ export default function StaffManager() {
             background: "#f9fafb",
             border: "1.5px solid #e5e7eb",
             borderRadius: "14px",
-            padding: "20px",
+            padding: "16px",
           }}
         >
           <h3
             style={{
-              margin: "0 0 16px",
+              margin: "0 0 12px",
               fontSize: "15px",
               fontWeight: 600,
               color: "#111827",
@@ -772,7 +772,7 @@ export default function StaffManager() {
         <div
           className="sm-table-head"
           style={{
-            padding: "12px 20px",
+            padding: "8px 12px",
             background: "#f9fafb",
             borderBottom: "1px solid #f3f4f6",
           }}
@@ -796,7 +796,7 @@ export default function StaffManager() {
         {loading ? (
           <div
             style={{
-              padding: "32px",
+              padding: "18px",
               textAlign: "center",
               color: "#9ca3af",
               fontSize: "14px",
@@ -805,7 +805,7 @@ export default function StaffManager() {
             Loading staff...
           </div>
         ) : fetchError ? (
-          <div style={{ padding: "32px", textAlign: "center" }}>
+          <div style={{ padding: "18px", textAlign: "center" }}>
             <p
               style={{ margin: "0 0 12px", fontSize: "13px", color: "#dc2626" }}
             >
@@ -829,7 +829,7 @@ export default function StaffManager() {
         ) : visibleStaff.length === 0 ? (
           <div
             style={{
-              padding: "40px",
+              padding: "20px",
               textAlign: "center",
               color: "#9ca3af",
               fontSize: "14px",
@@ -849,7 +849,7 @@ export default function StaffManager() {
                   key={member.user_id}
                   className="sm-table-row"
                   style={{
-                    padding: "14px 20px",
+                    padding: "8px 12px",
                     borderBottom: "1px solid #f9fafb",
                     alignItems: "center",
                     opacity: isInactive ? 0.6 : 1,
@@ -904,7 +904,7 @@ export default function StaffManager() {
                           setEditMember(member);
                         }}
                         style={{
-                          padding: "5px 10px",
+                          padding: "4px 9px",
                           borderRadius: "7px",
                           border: "none",
                           background: "#e0e7ff",
@@ -921,7 +921,7 @@ export default function StaffManager() {
                       <button
                         onClick={() => openConfirm(member, "reactivate")}
                         style={{
-                          padding: "5px 10px",
+                          padding: "4px 9px",
                           borderRadius: "7px",
                           border: "none",
                           background: "#dcfce7",
@@ -937,7 +937,7 @@ export default function StaffManager() {
                       <button
                         onClick={() => openConfirm(member, "deactivate")}
                         style={{
-                          padding: "5px 10px",
+                          padding: "4px 9px",
                           borderRadius: "7px",
                           border: "none",
                           background: "#fee2e2",
@@ -966,11 +966,11 @@ export default function StaffManager() {
                     style={{
                       border: "1px solid #e5e7eb",
                       borderRadius: "10px",
-                      padding: "12px",
+                      padding: "10px",
                       background: "#fafafa",
                       display: "flex",
                       flexDirection: "column",
-                      gap: "6px",
+                      gap: "4px",
                       opacity: isInactive ? 0.65 : 1,
                     }}
                   >
@@ -1015,7 +1015,7 @@ export default function StaffManager() {
                       {member.email}
                     </span>
                     <div
-                      style={{ display: "flex", gap: "6px", marginTop: "4px" }}
+                      style={{ display: "flex", gap: "6px", marginTop: "2px" }}
                     >
                       {!isInactive && (
                         <button
@@ -1023,7 +1023,7 @@ export default function StaffManager() {
                             setEditMember(member);
                           }}
                           style={{
-                            padding: "7px 10px",
+                            padding: "6px 10px",
                             borderRadius: "7px",
                             border: "none",
                             background: "#e0e7ff",
@@ -1040,7 +1040,7 @@ export default function StaffManager() {
                         <button
                           onClick={() => openConfirm(member, "reactivate")}
                           style={{
-                            padding: "7px 10px",
+                            padding: "6px 10px",
                             borderRadius: "7px",
                             border: "none",
                             background: "#dcfce7",
@@ -1056,7 +1056,7 @@ export default function StaffManager() {
                         <button
                           onClick={() => openConfirm(member, "deactivate")}
                           style={{
-                            padding: "7px 10px",
+                            padding: "6px 10px",
                             borderRadius: "7px",
                             border: "none",
                             background: "#fee2e2",

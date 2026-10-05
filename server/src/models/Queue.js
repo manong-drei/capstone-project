@@ -225,10 +225,10 @@ const Queue = {
   },
 
   // Update status of any queue entry
-  updateStatus: async (id, status) => {
+  updateStatus: async (id, status, statusReason = null) => {
     await pool.query(
-      `UPDATE queues SET status = ?, updated_at = NOW() WHERE id = ?`,
-      [status, id],
+      `UPDATE queues SET status = ?, status_reason = ?, updated_at = NOW() WHERE id = ?`,
+      [status, statusReason, id],
     );
     return Queue._fetchById(id);
   },

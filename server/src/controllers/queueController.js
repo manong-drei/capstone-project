@@ -500,7 +500,7 @@ const callNext = async (req, res) => {
 const updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, reason } = req.body;
 
     const allowed = ["waiting", "serving", "done", "cancelled", "no_show"];
     if (!allowed.includes(status)) {
@@ -509,11 +509,25 @@ const updateStatus = async (req, res) => {
         .json({ success: false, message: "Invalid status value." });
     }
 
-    const updated = await Queue.updateStatus(id, status);
+    if (["cancelled", "no_show"].includes(status) && !String(reason ?? "").trim()) {
+      return res.status(400).json({ success: false, message: "A reason is required for cancellation or no-show." });
+    }
+
+    const updated = await Queue.updateStatus(id, status, ["cancelled", "no_show"].includes(status) ? String(reason).trim() : null);
     if (!updated) {
       return res
         .status(404)
         .json({ success: false, message: "Queue entry not found." });
+    }
+
+    if (status === "cancelled" && updated.patient_id) {
+      const db = require("../config/db");
+      await db.query(
+        `UPDATE appointments
+         SET status = 'cancelled', updated_at = NOW()
+         WHERE patient_id = ? AND appointment_date = DATE(?) AND status IN ('pending', 'confirmed')`,
+        [updated.patient_id, updated.created_at],
+      );
     }
 
     // When a registered patient's queue is done, mark their appointment as completed
@@ -562,7 +576,20 @@ const cancelQueue = async (req, res) => {
       });
     }
 
-    const updated = await Queue.updateStatus(id, "cancelled");
+    const { reason } = req.body;
+    if (!String(reason ?? "").trim()) {
+      return res.status(400).json({ success: false, message: "Please select a cancellation reason." });
+    }
+
+    const updated = await Queue.updateStatus(id, "cancelled", String(reason).trim());
+    if (updated.patient_id) {
+      await db.query(
+        `UPDATE appointments
+         SET status = 'cancelled', updated_at = NOW()
+         WHERE patient_id = ? AND appointment_date = DATE(?) AND status IN ('pending', 'confirmed')`,
+        [updated.patient_id, updated.created_at],
+      );
+    }
     res.json(updated);
   } catch (err) {
     console.error("cancelQueue error:", err);

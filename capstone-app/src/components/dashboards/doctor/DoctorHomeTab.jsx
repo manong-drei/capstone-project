@@ -183,24 +183,22 @@ export default function DoctorHomeTab({
           <p style={{ margin: 0, fontSize: "clamp(2.5rem, 6vw, 4rem)", fontWeight: 900, color: "white", lineHeight: 1, letterSpacing: "-0.02em" }}>
             {nextQueue ? nextQueue.queue_number : "—"}
           </p>
-          <p style={{ margin: "8px 0 0", fontSize: "14px", fontWeight: 600, color: "rgba(255,255,255,0.92)" }}>
-            {nextQueue ? getQueueDisplayName(nextQueue) : "—"}
-          </p>
         </div>
       </div>
 
       {/* Stat Cards + Queue detail panels */}
       <div className="dd-content-pad">
+        <p style={{ margin: "0 0 10px", fontSize: "12px", color: "#6b7280" }}>Today's dental queues</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" style={{ marginBottom: "16px" }}>
-          <StatCard icon="users"       label="Waiting"   value={waiting.length}  color={NAVY} />
-          <StatCard icon="heart"       label="Serving"   value={serving.length}  color="#059669" />
-          <StatCard icon="checkCircle" label="Done"      value={done}            color="#6b7280" />
-          <StatCard icon="star"        label="Priority"  value={priority}        color="#f97316" />
+          <StatCard icon="users"       label="Waiting"   value={waiting.length} color={NAVY} />
+          <StatCard icon="heart"       label="Serving"   value={serving.length} color="#059669" />
+          <StatCard icon="checkCircle" label="Done"      value={done} color="#6b7280" />
+          <StatCard icon="star"        label="Priority"  value={priority} color="#f97316" />
         </div>
       </div>
 
       {/* Queue Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 dd-content-pad">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 dd-content-pad" style={{ paddingBottom: "32px" }}>
         {/* Currently Serving */}
         <div style={{ background: "white", borderRadius: "16px", padding: "22px", border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", gap: "14px" }}>
           <p style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "#374151", textAlign: "center", letterSpacing: "0.04em" }}>Currently Serving</p>
@@ -258,27 +256,18 @@ export default function DoctorHomeTab({
           )}
         </div>
 
-        {/* Average Time of Waiting */}
-        <div style={{ background: "white", borderRadius: "16px", padding: "22px", border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", alignItems: "flex-start" }}>
-          <p style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "#374151", textAlign: "center", width: "100%", letterSpacing: "0.04em" }}>
-            Average Time of Waiting
-          </p>
-        </div>
-      </div>
-
-      {/* Name of the Next Patient */}
-      <div className="dd-content-pad" style={{ paddingBottom: "32px" }}>
+        {/* Next Queue */}
         <div style={{ background: "white", borderRadius: "16px", padding: "22px", border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
           <p style={{ margin: "0 0 14px", fontSize: "13px", fontWeight: 700, color: "#374151", textAlign: "center", letterSpacing: "0.04em" }}>
-            Name of the Next Patient
+            Next Queue
           </p>
           {waiting.length === 0 ? (
-            <p style={{ color: "#9ca3af", fontSize: "13px", textAlign: "center" }}>No patients in queue.</p>
+            <p style={{ color: "#9ca3af", fontSize: "13px", textAlign: "center" }}>No queues waiting.</p>
           ) : (
             <ol style={{ margin: 0, padding: "0 0 0 20px", display: "flex", flexDirection: "column", gap: "6px" }}>
               {waiting.slice(0, 8).map((q) => (
                 <li key={q.id} style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
-                  {getQueueDisplayName(q)}
+                  {q.queue_number}
                 </li>
               ))}
             </ol>

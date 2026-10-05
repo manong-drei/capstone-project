@@ -5,6 +5,7 @@ import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { useQueue } from "@/hooks/useQueue";
 import { ROUTES } from "@/constants/routes";
 import { QUEUE_STATUS } from "@/constants/queue";
+import { CANCELLATION_REASONS } from "@/constants/queueReasons";
 import { DENTAL_SERVICES } from "@/constants/medicalServices";
 import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
@@ -15,6 +16,7 @@ import { getQueueDisplayName } from "@/utils/queueDisplay";
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
 import Icon from "@/components/common/AppIcons";
 import GetQueueModal from "@/components/dashboards/patient/GetQueueModal";
+import QueueReasonModal from "@/components/common/QueueReasonModal";
 import PatientHomeTab from "@/components/dashboards/patient/PatientHomeTab";
 import PatientQueueTab from "@/components/dashboards/patient/PatientQueueTab";
 import PatientAppointmentsTab from "@/components/dashboards/patient/PatientAppointmentsTab";
@@ -97,6 +99,7 @@ export default function PatientDashboard() {
 
   const [activeTab, setActiveTab] = useState("home");
   const [showQueueModal, setShowQueueModal] = useState(false);
+  const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
@@ -192,9 +195,12 @@ export default function PatientDashboard() {
   };
 
   const handleCancelQueue = async () => {
-    if (!window.confirm("Cancel your queue number?")) return;
+    setQueueReasonRequest({ title: "Why are you cancelling your queue?", reasons: CANCELLATION_REASONS });
+  };
+
+  const submitQueueCancellation = async (reason) => {
     try {
-      await queueService.cancelQueue(queue.id);
+      await queueService.cancelQueue(queue.id, reason);
       fetchMyQueue();
     } catch (err) {
       alert(err.message);
@@ -438,6 +444,7 @@ export default function PatientDashboard() {
         loading={loading}
         priorityEligible={priorityEligible}
       />
+      <QueueReasonModal request={queueReasonRequest} onClose={() => setQueueReasonRequest(null)} onSubmit={submitQueueCancellation} />
     </div>
   );
 }

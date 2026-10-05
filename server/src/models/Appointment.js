@@ -18,6 +18,14 @@ const Appointment = {
           ORDER BY q.created_at ASC
           LIMIT 1
         ) AS queue_services
+        , (
+          SELECT q.status_reason FROM queues q
+          WHERE q.patient_id = a.patient_id
+            AND DATE(q.created_at) = a.appointment_date
+            AND q.status = 'cancelled'
+          ORDER BY q.updated_at DESC
+          LIMIT 1
+        ) AS cancellation_reason
       FROM   appointments a
       JOIN   doctors d ON a.doctor_id = d.doctor_id
       LEFT   JOIN specializations s ON d.specialization_id = s.specialization_id
@@ -44,6 +52,14 @@ const Appointment = {
           ORDER BY q.created_at ASC
           LIMIT 1
         ) AS queue_services
+        , (
+          SELECT q.status_reason FROM queues q
+          WHERE q.patient_id = a.patient_id
+            AND DATE(q.created_at) = a.appointment_date
+            AND q.status = 'cancelled'
+          ORDER BY q.updated_at DESC
+          LIMIT 1
+        ) AS cancellation_reason
       FROM   appointments a
       JOIN   patients p ON a.patient_id = p.patient_id
       WHERE  a.doctor_id = ?
@@ -70,10 +86,18 @@ const Appointment = {
           ORDER BY q.created_at ASC
           LIMIT 1
         ) AS queue_services
+        , (
+          SELECT q.status_reason FROM queues q
+          WHERE q.patient_id = a.patient_id
+            AND DATE(q.created_at) = a.appointment_date
+            AND q.status = 'cancelled'
+          ORDER BY q.updated_at DESC
+          LIMIT 1
+        ) AS cancellation_reason
       FROM   appointments a
       JOIN   patients p ON a.patient_id = p.patient_id
       JOIN   doctors  d ON a.doctor_id  = d.doctor_id
-      ORDER  BY a.appointment_date DESC
+      ORDER  BY a.appointment_date DESC, a.appointment_time DESC, a.appointment_id DESC
     `);
     return rows;
   },

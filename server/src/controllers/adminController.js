@@ -1,7 +1,6 @@
 const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
 const Queue = require("../models/Queue");
-const Appointment = require("../models/Appointment");
 const User = require("../models/User");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { sendSMS } = require("../utils/sms");
@@ -9,27 +8,47 @@ const { sendSMS } = require("../utils/sms");
 /** GET /api/admin/overview — live stats for the admin dashboard */
 const getOverview = async (req, res) => {
   try {
-    const [[patientRow]] = await pool.query(
-      "SELECT COUNT(*) AS count FROM queues WHERE DATE(created_at) = CURDATE()",
-    );
-    const [[doctorRow]] = await pool.query(`
-      SELECT COUNT(*) AS count
-      FROM   doctors d
-      JOIN   users u ON d.user_id = u.user_id
-      WHERE  u.is_active = 1
-    `);
+    const [[patientRow]] = await pool.query("SELECT COUNT(*) AS count FROM queues");
+    const [[doctorRow]] = await pool.query("SELECT COUNT(*) AS count FROM doctors");
 
     const queueStats = await Queue.getTodayStats();
-    const appointmentCount = await Appointment.countToday();
+    const [[{ count: totalAppointments }]] = await pool.query("SELECT COUNT(*) AS count FROM appointments");
+    const [[{ count: completedQueues }]] = await pool.query("SELECT COUNT(*) AS count FROM queues WHERE status = 'done'");
+    const [dentalAgeGroups] = await pool.query(`
+      SELECT CASE
+        WHEN COALESCE(p.date_of_birth, q.walk_in_dob) IS NULL THEN 'Unknown'
+        WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 1 THEN '0–11 months'
+        WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 5 THEN '1–4 years'
+        WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 10 THEN '5–9 years'
+        WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 15 THEN '10–14 years'
+        WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 20 THEN '15–19 years'
+        WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 60 THEN '20–59 years'
+        ELSE '60+ years'
+      END AS age_group, COUNT(*) AS count
+      FROM queues q
+      LEFT JOIN patients p ON p.patient_id = q.patient_id
+      WHERE q.category = 'dental'
+      GROUP BY age_group
+    `);
+    const [volumeDaily] = await pool.query(`
+      SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, COUNT(*) AS count
+      FROM queues
+      WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 13 MONTH)
+      GROUP BY day
+      ORDER BY day
+    `);
 
     res.json({
       success: true,
       totalPatients: patientRow.count,
+      totalDoctors: doctorRow.count,
+      totalAppointments,
+      completedQueues,
+      dentalAgeGroups,
+      volumeDaily,
       activeQueues: queueStats.activeQueues ?? 0,
       doneToday: queueStats.doneToday ?? 0,
       priorityServed: queueStats.priorityServed ?? 0,
-      doctorsOnDuty: doctorRow.count,
-      appointments: appointmentCount,
     });
   } catch (err) {
     console.error("getOverview error:", err);

@@ -16,7 +16,7 @@ const ORANGE = "#f97316";
  *   onNoShow       — called when staff marks current patient as no-show
  *   loading        — disables the button while a request is in-flight
  */
-export default function QueuePanel({ currentServing, nextQueue, onCallNext, onNoShow, loading }) {
+export default function QueuePanel({ currentServing, nextQueue, onCallNext, onNoShow, onCancelQueue, loading }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       {/* Now Serving */}
@@ -87,6 +87,7 @@ export default function QueuePanel({ currentServing, nextQueue, onCallNext, onNo
               <span style={{ fontSize: "11px", fontWeight: 600, color: q.type === "priority" ? ORANGE : "#6b7280", background: q.type === "priority" ? "#fff7ed" : "#f3f4f6", borderRadius: "10px", padding: "2px 8px" }}>
                 {q.type === "priority" ? "Priority" : "Regular"}
               </span>
+              <button onClick={() => onCancelQueue?.(q.id)} style={{ border: "1px solid #fecaca", borderRadius: "7px", background: "#fff", color: "#b91c1c", padding: "4px 7px", fontSize: "11px", cursor: "pointer" }}>Cancel</button>
             </div>
           ))
         )}

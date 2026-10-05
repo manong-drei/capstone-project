@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
 import api from "@/services/api";
-import { createGeneralWalkIn } from "@/services/queueService";
 
 const BLUE = "#1e4db7";
 const NAVY = "#1e2d6b";
@@ -227,10 +226,8 @@ function GenderField({ value, onChange }) {
  *
  * Props:
  *   onSuccess — called after a successful submission (triggers queue refresh)
- *   category  — "dental" | "general" (controls which services are shown)
  */
-export default function WalkInForm({ onSuccess, category = "dental" }) {
-  const isGeneral = category === "general";
+export default function WalkInForm({ onSuccess }) {
 
   const [form, setForm] = useState({
     fullName: "",
@@ -278,7 +275,7 @@ export default function WalkInForm({ onSuccess, category = "dental" }) {
     if (!form.gender) return setError("Please select a gender.");
     if (!form.address.trim()) return setError("Address is required.");
     if (!form.contact.trim()) return setError("Contact number is required.");
-    if (!isGeneral && selectedServices.length === 0)
+    if (selectedServices.length === 0)
       return setError("Please select at least one service.");
     if (isPriority && !priorityCategory)
       return setError("Please select a priority category.");
@@ -293,16 +290,14 @@ export default function WalkInForm({ onSuccess, category = "dental" }) {
         contact: "+63" + form.contact.replace(/^0+/, ""),
         type: isPriority ? "priority" : "regular",
       };
-      const res = isGeneral
-        ? await createGeneralWalkIn(payload)
-        : await api.post("/queue/walkin", {
-            ...payload,
-            category: "dental",
-            services: selectedServices,
-          });
+      const res = await api.post("/queue/walkin", {
+        ...payload,
+        category: "dental",
+        services: selectedServices,
+      });
       const queueNumber = res?.queue?.queue_number ?? "assigned";
       setSuccess(
-        `${isGeneral ? "General" : "Dental"} walk-in registered — queue number ${queueNumber}.`,
+        `Dental walk-in registered — queue number ${queueNumber}.`,
       );
       setForm({
         fullName: "",
@@ -545,9 +540,8 @@ export default function WalkInForm({ onSuccess, category = "dental" }) {
       {/* Contact */}
       <ContactField value={form.contact} onChange={set("contact")} />
 
-      {/* Services (dental only) */}
-      {!isGeneral && (
-        <div style={{ position: "relative" }}>
+      {/* Services */}
+      <div style={{ position: "relative" }}>
           <p
             style={{
               margin: "0 0 6px",
@@ -776,8 +770,7 @@ export default function WalkInForm({ onSuccess, category = "dental" }) {
               )}
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Queue Type */}
       <div>
@@ -952,8 +945,6 @@ export default function WalkInForm({ onSuccess, category = "dental" }) {
             </svg>
             Registering...
           </span>
-        ) : isGeneral ? (
-          "Register General Walk-in"
         ) : (
           "Get Queue"
         )}

@@ -1,0 +1,8 @@
+age_group,actual_2025,forecast_2026,lower_95,upper_95,selected_arima_order,backtest_years,backtest_mae,backtest_rmse,backtest_mape_pct,naive_last_year_mae,synthetic_years_in_training,interpretation
+Infants 0-11 months,1742,2318,1773,2863,"(1, 1, 0)",2022-2025,435.75,608.66,80.6,435.75,6,Demonstration only: training includes synthetic historical values
+Children 1-4 years,455,444,0,1017,"(0, 1, 1)",2022-2025,384.5,550.99,79.65,385.5,6,Demonstration only: training includes synthetic historical values
+Children 5-9 years,808,808,373,1243,"(0, 1, 0)",2022-2025,515.5,635.25,87.7,313.25,6,Demonstration only: training includes synthetic historical values
+Adolescents 10-14 years,698,698,216,1180,"(0, 1, 0)",2022-2025,409.25,541.26,60.3,347.75,6,Demonstration only: training includes synthetic historical values
+Adolescents 15-19 years,921,891,616,1165,"(0, 1, 1)",2022-2025,240.0,300.64,40.45,212.25,6,Demonstration only: training includes synthetic historical values
+Adults 20-59 years,3889,3433,1930,4936,"(0, 1, 1)",2022-2025,1328.25,1558.85,39.98,1342.0,6,Demonstration only: training includes synthetic historical values
+Senior Citizens 60 years and above,626,650,527,774,"(1, 1, 1)",2022-2025,97.75,126.54,31.5,135.75,6,Demonstration only: training includes synthetic historical values

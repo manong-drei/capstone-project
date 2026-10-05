@@ -9,7 +9,7 @@ const formatServices = (appt) => {
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (Array.isArray(parsed) && parsed.length > 0) return parsed.join(", ");
   } catch { /* fall through */ }
-  return appt?.reason || "—";
+  return appt?.cancellation_reason || (appt?.reason === "Same-day queue registration" ? "—" : appt?.reason) || "—";
 };
 
 const TODAY = new Date().toISOString().split("T")[0];

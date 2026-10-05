@@ -9,7 +9,7 @@ const PM_RESPONSIVE_CSS = `
   @media (max-width: 640px) {
     .pm-form-grid { grid-template-columns: 1fr !important; }
     .pm-table-row, .pm-table-head { display: none !important; }
-    .pm-cards-mobile { display: flex !important; flex-direction: column; gap: 10px; padding: 14px; }
+    .pm-cards-mobile { display: flex !important; flex-direction: column; gap: 6px; padding: 10px; }
   }
 `;
 
@@ -300,7 +300,7 @@ export default function PatientManager() {
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <style>{PM_RESPONSIVE_CSS}</style>
 
       <ConfirmModal
@@ -392,12 +392,12 @@ export default function PatientManager() {
             background: "#f9fafb",
             border: "1.5px solid #e5e7eb",
             borderRadius: "14px",
-            padding: "20px",
+            padding: "16px",
           }}
         >
           <h3
             style={{
-              margin: "0 0 16px",
+              margin: "0 0 12px",
               fontSize: "15px",
               fontWeight: 600,
               color: "#111827",
@@ -595,7 +595,7 @@ export default function PatientManager() {
         <div
           className="pm-table-head"
           style={{
-            padding: "12px 20px",
+            padding: "8px 14px",
             background: "#f9fafb",
             borderBottom: "1px solid #f3f4f6",
           }}
@@ -619,7 +619,7 @@ export default function PatientManager() {
         {loading ? (
           <div
             style={{
-              padding: "32px",
+              padding: "20px",
               textAlign: "center",
               color: "#9ca3af",
               fontSize: "14px",
@@ -628,7 +628,7 @@ export default function PatientManager() {
             Loading patients...
           </div>
         ) : fetchError ? (
-          <div style={{ padding: "32px", textAlign: "center" }}>
+          <div style={{ padding: "20px", textAlign: "center" }}>
             <p
               style={{ margin: "0 0 12px", fontSize: "13px", color: "#dc2626" }}
             >
@@ -652,7 +652,7 @@ export default function PatientManager() {
         ) : filtered.length === 0 ? (
           <div
             style={{
-              padding: "40px",
+              padding: "24px",
               textAlign: "center",
               color: "#9ca3af",
               fontSize: "14px",
@@ -673,7 +673,7 @@ export default function PatientManager() {
                   key={patient.user_id}
                   className="pm-table-row"
                   style={{
-                    padding: "14px 20px",
+                    padding: "8px 14px",
                     borderBottom: "1px solid #f9fafb",
                     alignItems: "center",
                     opacity: isInactive ? 0.6 : 1,
@@ -856,7 +856,7 @@ export default function PatientManager() {
               justifyContent: "space-between",
               flexWrap: "wrap",
               gap: "10px",
-              padding: "12px 20px",
+              padding: "8px 14px",
               borderTop: "1px solid #f3f4f6",
               background: "#f9fafb",
             }}

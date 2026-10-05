@@ -1,6 +1,5 @@
 export const SERVICE_CATEGORIES = {
   DENTAL: { id: "dental", label: "Dental Check-up" },
-  GENERAL: { id: "general", label: "General Consultation" },
 };
 
 export const DENTAL_SERVICES = [
@@ -17,8 +16,4 @@ export const DENTAL_SERVICES = [
   { id: "ODONTECTOMY", label: "Odontectomy / Wisdom Tooth Extraction", group: "Dental Surgery" },
   { id: "SPECIAL_SURGERY", label: "Special Surgery", group: null },
   { id: "OTHERS", label: "Others", group: null },
-];
-
-export const GENERAL_SERVICES = [
-  { id: "GENERAL_CONSULTATION", label: "General Consultation", group: null },
 ];

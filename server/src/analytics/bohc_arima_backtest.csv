@@ -1,0 +1,29 @@
+age_group,validation_year,actual_recipients,forecast_recipients,lower_95,upper_95,arima_order,naive_last_year
+Infants 0-11 months,2022,0,1,0,2,"(0, 1, 0)",1
+Infants 0-11 months,2023,28,0,0,1,"(0, 0, 0)",0
+Infants 0-11 months,2024,963,28,10,46,"(0, 1, 0)",28
+Infants 0-11 months,2025,1742,963,383,1543,"(0, 1, 0)",963
+Children 1-4 years,2022,16,1,0,75,"(0, 1, 0)",1
+Children 1-4 years,2023,986,28,0,66,"(1, 1, 0)",16
+Children 1-4 years,2024,442,986,349,1623,"(0, 1, 0)",986
+Children 1-4 years,2025,455,434,0,1035,"(0, 1, 1)",442
+Children 5-9 years,2022,229,99,0,213,"(0, 1, 0)",99
+Children 5-9 years,2023,837,229,90,368,"(0, 1, 0)",229
+Children 5-9 years,2024,565,1646,1395,1898,"(1, 1, 1)",837
+Children 5-9 years,2025,808,565,134,996,"(0, 1, 0)",565
+Adolescents 10-14 years,2022,527,232,156,307,"(0, 1, 1)",211
+Adolescents 10-14 years,2023,1108,803,634,972,"(1, 1, 0)",527
+Adolescents 10-14 years,2024,656,1651,1450,1851,"(1, 1, 1)",1108
+Adolescents 10-14 years,2025,698,656,151,1161,"(0, 1, 0)",656
+Adolescents 15-19 years,2022,194,270,131,409,"(0, 1, 0)",270
+Adolescents 15-19 years,2023,606,118,114,122,"(1, 1, 0)",194
+Adolescents 15-19 years,2024,944,606,306,906,"(0, 1, 0)",606
+Adolescents 15-19 years,2025,921,979,691,1267,"(0, 1, 1)",944
+Adults 20-59 years,2022,2330,343,0,1124,"(0, 1, 0)",343
+Adults 20-59 years,2023,4604,2330,772,3888,"(0, 1, 0)",2330
+Adults 20-59 years,2024,4800,5172,3563,6780,"(0, 1, 1)",4604
+Adults 20-59 years,2025,3889,4569,3053,6085,"(0, 1, 1)",4800
+Senior Citizens 60 years and above,2022,211,39,0,136,"(0, 1, 1)",83
+Senior Citizens 60 years and above,2023,475,291,145,437,"(1, 1, 0)",211
+Senior Citizens 60 years and above,2024,593,575,418,732,"(0, 1, 1)",475
+Senior Citizens 60 years and above,2025,626,609,461,758,"(0, 1, 1)",593

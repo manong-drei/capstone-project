@@ -33,7 +33,7 @@ const formatServices = (appt) => {
   } catch {
     /* fall through */
   }
-  return appt?.reason || "—";
+  return appt?.cancellation_reason || (appt?.reason === "Same-day queue registration" ? "—" : appt?.reason) || "—";
 };
 
 export default function AdminPatientsHistoryTab({ appointments, apptLoading }) {

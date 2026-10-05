@@ -14,6 +14,8 @@ import AdminDoctorsTab from "@/components/dashboards/admin/AdminDoctorsTab";
 import AdminPatientsHistoryTab from "@/components/dashboards/admin/AdminPatientsHistoryTab";
 import AdminNotificationsTab from "@/components/dashboards/admin/AdminNotificationsTab";
 import AdminStaffTab from "@/components/dashboards/admin/AdminStaffTab";
+import { CANCELLATION_REASONS, NO_SHOW_REASON } from "@/constants/queueReasons";
+import QueueReasonModal from "@/components/common/QueueReasonModal";
 
 const BLUE  = "#1a3a8f";
 const BLUE2 = "#1e4db7";
@@ -81,12 +83,17 @@ export default function AdminDashboard() {
   const [queueMonitor, setQueueMonitor] = useState([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const [queueCategoryFilter, setQueueCategoryFilter] = useState("general");
+  const [queueReasonRequest, setQueueReasonRequest] = useState(null);
 
   useEffect(() => {
-    fetchOverview();
     fetchDoctors();
-    fetchAppointments();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "overview") return;
+    fetchOverview();
+    fetchAppointments();
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab !== "patientshistory") return;
@@ -128,11 +135,31 @@ export default function AdminDashboard() {
     finally { setQueueLoading(false); }
   };
 
+  const handleQueueStatus = async (queue, status) => {
+    setQueueReasonRequest({
+      title: status === "no_show" ? "Reason for no-show" : "Reason for cancellation",
+      reasons: status === "no_show" ? [NO_SHOW_REASON] : CANCELLATION_REASONS,
+      id: queue.id,
+      status,
+    });
+  };
+
+  const submitQueueReason = async (reason) => {
+    const { id, status } = queueReasonRequest;
+    try {
+      await api.patch(`/queue/${id}/status`, { status, reason });
+      await fetchQueueMonitor();
+    } catch (err) {
+      window.alert(err.message || "Could not update queue status.");
+    }
+  };
+
   const handleLogout = () => { logout(); navigate(ROUTES.LOGIN); };
 
   return (
     <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "Poppins, system-ui, sans-serif" }}>
       <style>{ADMIN_RESPONSIVE_CSS}</style>
+      <QueueReasonModal request={queueReasonRequest} onClose={() => setQueueReasonRequest(null)} onSubmit={submitQueueReason} />
 
       {/* ── Navbar ── */}
       <nav className="ad-nav" style={{ background: `linear-gradient(135deg, ${BLUE} 0%, ${BLUE2} 100%)`, height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(26,58,143,0.18)" }}>
@@ -202,6 +229,7 @@ export default function AdminDashboard() {
               queueLoading={queueLoading}
               queueCategoryFilter={queueCategoryFilter}
               setQueueCategoryFilter={setQueueCategoryFilter}
+              onQueueStatus={handleQueueStatus}
             />
           )}
           {activeTab === "reports" && (

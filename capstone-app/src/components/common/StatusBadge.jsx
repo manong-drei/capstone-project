@@ -6,12 +6,14 @@
  *   status — "available" | "on_leave" | "done" | "completed" | "confirmed" | "pending" | any
  */
 export default function StatusBadge({ status }) {
-  const normalized = String(status ?? "").toLowerCase();
-  const ok      = normalized === "available" || normalized === "done" || normalized === "completed" || normalized === "confirmed";
-  const warning = normalized === "pending";
+  const normalized = String(status ?? "").trim().toLowerCase().replace(/[ -]+/g, "_");
+  const ok = ["available", "done", "completed", "confirmed"].includes(normalized);
+  const warning = ["pending", "waiting", "serving"].includes(normalized);
+  const cancelled = ["cancelled", "canceled"].includes(normalized);
 
   const label =
-    normalized === "available" ? "Available"
+    cancelled ? "Cancelled"
+    : normalized === "available" ? "Available"
     : normalized === "on_leave" ? "On Leave"
     : normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1)
     : "—";

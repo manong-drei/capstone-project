@@ -3,15 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
+import { CANCELLATION_REASONS, NO_SHOW_REASON } from "@/constants/queueReasons";
 import api from "@/services/api";
 
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
+import QueueReasonModal from "@/components/common/QueueReasonModal";
 import WalkInForm from "@/components/dashboards/staff/WalkInForm";
 
 const NAVY = "#1e2d6b";
-const INDIGO = "#2d3a8c";
 const BLUE = "#1e4db7";
 
 const GLOBAL_STYLES = `
@@ -45,8 +46,8 @@ export default function StaffDashboard() {
 
   const [queues, setQueues] = useState([]);
   const [calling, setCalling] = useState(false);
+  const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [doctorAvailable, setDoctorAvailable] = useState(null);
-  const [activeTab, setActiveTab] = useState("dental");
   const intervalRef = useRef(null);
 
   const fetchQueue = useCallback(async () => {
@@ -77,10 +78,10 @@ export default function StaffDashboard() {
     return () => clearInterval(intervalRef.current);
   }, [fetchQueue, fetchDoctorAvailability]);
 
-  const handleCallNext = async (category) => {
+  const handleCallNext = async () => {
     setCalling(true);
     try {
-      await api.post("/queue/call-next", { category });
+      await api.post("/queue/call-next", { category: "dental" });
       await fetchQueue();
     } catch (err) {
       alert(err.message || "Failed to call next patient.");
@@ -90,13 +91,22 @@ export default function StaffDashboard() {
   };
 
   const handleNoShow = async (id) => {
+    setQueueReasonRequest({ title: "Reason for no-show", reasons: [NO_SHOW_REASON], id, status: "no_show" });
+  };
+
+  const submitQueueReason = async (reason) => {
+    const { id, status } = queueReasonRequest;
     try {
-      await api.patch(`/queue/${id}/status`, { status: "no_show" });
-      await api.post("/queue/call-next", { category: activeTab });
+      await api.patch(`/queue/${id}/status`, { status, reason });
+      if (status === "no_show") await api.post("/queue/call-next", { category: "dental" });
       await fetchQueue();
     } catch (err) {
-      alert(err.message || "Failed to mark no-show.");
+      alert(err.message || `Failed to update queue.`);
     }
+  };
+
+  const handleCancelQueue = async (id) => {
+    setQueueReasonRequest({ title: "Reason for cancellation", reasons: CANCELLATION_REASONS, id, status: "cancelled" });
   };
 
   const handleLogout = () => {
@@ -107,14 +117,13 @@ export default function StaffDashboard() {
   const dentalQueues = queues.filter(
     (q) => (q.category ?? "dental") === "dental",
   );
-  const generalQueues = queues.filter((q) => q.category === "general");
-  const activeList = activeTab === "general" ? generalQueues : dentalQueues;
-  const currentServing = activeList.find((q) => q.status === "serving") ?? null;
-  const nextQueue = activeList.filter((q) => q.status === "waiting");
+  const currentServing = dentalQueues.find((q) => q.status === "serving") ?? null;
+  const nextQueue = dentalQueues.filter((q) => q.status === "waiting");
 
   return (
     <>
       <style>{GLOBAL_STYLES}</style>
+      <QueueReasonModal request={queueReasonRequest} onClose={() => setQueueReasonRequest(null)} onSubmit={submitQueueReason} />
 
       <div
         style={{
@@ -139,7 +148,7 @@ export default function StaffDashboard() {
             boxSizing: "border-box",
           }}
         >
-          {/* Category tabs */}
+          {/* Dental queue controls */}
           <div
             style={{
               display: "flex",
@@ -150,51 +159,11 @@ export default function StaffDashboard() {
               flexWrap: "wrap",
             }}
           >
-            <div
-              style={{
-                display: "inline-flex",
-                padding: "4px",
-                background: "#ffffff",
-                border: "1.5px solid #e5e7eb",
-                borderRadius: "12px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}
-            >
-              {[
-                { id: "dental", label: "Dental Check-up" },
-                { id: "general", label: "General Consultation" },
-              ].map((tab) => {
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      padding: "8px 18px",
-                      borderRadius: "9px",
-                      border: "none",
-                      background: active
-                        ? `linear-gradient(90deg, ${NAVY} 0%, ${INDIGO} 100%)`
-                        : "transparent",
-                      color: active ? "#ffffff" : "#4b5563",
-                      fontWeight: active ? 700 : 500,
-                      fontSize: "13px",
-                      cursor: "pointer",
-                      transition: "background 0.15s, color 0.15s",
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
+            <h2 style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: NAVY }}>Dental Check-up</h2>
 
-            {(activeTab === "general" || activeTab === "dental") && (
-              <button
-                onClick={() =>
-                  window.open(ROUTES.GENERAL_QUEUE_MONITOR, "_blank")
-                }
-                style={{
+            <button
+              onClick={() => window.open(ROUTES.GENERAL_QUEUE_MONITOR, "_blank")}
+              style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "8px",
@@ -207,17 +176,17 @@ export default function StaffDashboard() {
                   fontWeight: 600,
                   cursor: "pointer",
                   transition: "background 0.15s, border-color 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#f8fafc";
-                  e.currentTarget.style.borderColor = BLUE;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#ffffff";
-                  e.currentTarget.style.borderColor = "#dde1ec";
-                }}
-              >
-                <svg
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#f8fafc";
+                e.currentTarget.style.borderColor = BLUE;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#ffffff";
+                e.currentTarget.style.borderColor = "#dde1ec";
+              }}
+            >
+              <svg
                   width="14"
                   height="14"
                   viewBox="0 0 24 24"
@@ -230,10 +199,9 @@ export default function StaffDashboard() {
                   <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
                   <line x1="8" y1="21" x2="16" y2="21" />
                   <line x1="12" y1="17" x2="12" y2="21" />
-                </svg>
-                Open Monitor
-              </button>
-            )}
+              </svg>
+              Open Monitor
+            </button>
           </div>
 
           {/* Two-column layout: queue panel + walk-in form */}
@@ -249,19 +217,16 @@ export default function StaffDashboard() {
             <QueuePanel
               currentServing={currentServing}
               nextQueue={nextQueue}
-              onCallNext={() => handleCallNext(activeTab)}
+              onCallNext={handleCallNext}
               onNoShow={() => currentServing && handleNoShow(currentServing.id)}
+              onCancelQueue={handleCancelQueue}
               loading={calling}
             />
-            <WalkInForm
-              key={activeTab}
-              onSuccess={fetchQueue}
-              category={activeTab}
-            />
+            <WalkInForm onSuccess={fetchQueue} />
           </div>
 
-          {/* Doctor status indicator (dental only) */}
-          {activeTab === "dental" && doctorAvailable !== null && (
+          {/* Doctor status indicator */}
+          {doctorAvailable !== null && (
             <div
               style={{
                 marginTop: "16px",

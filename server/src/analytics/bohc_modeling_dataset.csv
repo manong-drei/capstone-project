@@ -1,0 +1,85 @@
+﻿period_start,reporting_year,reporting_frequency,age_group,age_group_order,estimated_population,male_recipients,female_recipients,total_recipients,data_source,is_synthetic,synthetic_method,data_quality_note
+2014-01-01,2014,Annual,Infants 0-11 months,1,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2014-01-01,2014,Annual,Children 1-4 years,2,,,,267,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2014-01-01,2014,Annual,Children 5-9 years,3,,,,505,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2014-01-01,2014,Annual,Adolescents 10-14 years,4,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2014-01-01,2014,Annual,Adolescents 15-19 years,5,,,,767,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2014-01-01,2014,Annual,Adults 20-59 years,6,,,,3136,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2014-01-01,2014,Annual,Senior Citizens 60 years and above,7,,,,692,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2015-01-01,2015,Annual,Infants 0-11 months,1,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2015-01-01,2015,Annual,Children 1-4 years,2,,,,229,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2015-01-01,2015,Annual,Children 5-9 years,3,,,,447,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2015-01-01,2015,Annual,Adolescents 10-14 years,4,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2015-01-01,2015,Annual,Adolescents 15-19 years,5,,,,696,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2015-01-01,2015,Annual,Adults 20-59 years,6,,,,2737,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2015-01-01,2015,Annual,Senior Citizens 60 years and above,7,,,,605,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2016-01-01,2016,Annual,Infants 0-11 months,1,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2016-01-01,2016,Annual,Children 1-4 years,2,,,,191,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2016-01-01,2016,Annual,Children 5-9 years,3,,,,389,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2016-01-01,2016,Annual,Adolescents 10-14 years,4,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2016-01-01,2016,Annual,Adolescents 15-19 years,5,,,,625,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2016-01-01,2016,Annual,Adults 20-59 years,6,,,,2338,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2016-01-01,2016,Annual,Senior Citizens 60 years and above,7,,,,518,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2017-01-01,2017,Annual,Infants 0-11 months,1,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2017-01-01,2017,Annual,Children 1-4 years,2,,,,153,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2017-01-01,2017,Annual,Children 5-9 years,3,,,,331,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2017-01-01,2017,Annual,Adolescents 10-14 years,4,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2017-01-01,2017,Annual,Adolescents 15-19 years,5,,,,554,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2017-01-01,2017,Annual,Adults 20-59 years,6,,,,1939,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2017-01-01,2017,Annual,Senior Citizens 60 years and above,7,,,,431,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2018-01-01,2018,Annual,Infants 0-11 months,1,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2018-01-01,2018,Annual,Children 1-4 years,2,,,,115,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2018-01-01,2018,Annual,Children 5-9 years,3,,,,273,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2018-01-01,2018,Annual,Adolescents 10-14 years,4,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2018-01-01,2018,Annual,Adolescents 15-19 years,5,,,,483,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2018-01-01,2018,Annual,Adults 20-59 years,6,,,,1540,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2018-01-01,2018,Annual,Senior Citizens 60 years and above,7,,,,344,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2019-01-01,2019,Annual,Infants 0-11 months,1,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2019-01-01,2019,Annual,Children 1-4 years,2,,,,77,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2019-01-01,2019,Annual,Children 5-9 years,3,,,,215,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2019-01-01,2019,Annual,Adolescents 10-14 years,4,,,,0,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2019-01-01,2019,Annual,Adolescents 15-19 years,5,,,,412,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2019-01-01,2019,Annual,Adults 20-59 years,6,,,,1141,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2019-01-01,2019,Annual,Senior Citizens 60 years and above,7,,,,257,Synthetic,True,Linear backcast from 2020-2021 actual totals; rounded and clipped at 0,Synthetic placeholder; not a facility record
+2020-01-01,2020,Annual,Infants 0-11 months,1,1052.0,,,0,Actual,False,,
+2020-01-01,2020,Annual,Children 1-4 years,2,4493.0,15.0,24.0,39,Actual,False,,
+2020-01-01,2020,Annual,Children 5-9 years,3,5760.0,74.0,83.0,157,Actual,False,,
+2020-01-01,2020,Annual,Adolescents 10-14 years,4,5606.0,54.0,47.0,101,Actual,False,,
+2020-01-01,2020,Annual,Adolescents 15-19 years,5,5334.0,134.0,207.0,341,Actual,False,,
+2020-01-01,2020,Annual,Adults 20-59 years,6,26306.0,273.0,469.0,742,Actual,False,,
+2020-01-01,2020,Annual,Senior Citizens 60 years and above,7,4676.0,46.0,124.0,170,Actual,False,,
+2021-01-01,2021,Annual,Infants 0-11 months,1,1015.0,1.0,,1,Actual,False,,
+2021-01-01,2021,Annual,Children 1-4 years,2,4326.0,1.0,,1,Actual,False,,
+2021-01-01,2021,Annual,Children 5-9 years,3,5389.0,43.0,56.0,99,Actual,False,,
+2021-01-01,2021,Annual,Adolescents 10-14 years,4,5216.0,85.0,126.0,211,Actual,False,,
+2021-01-01,2021,Annual,Adolescents 15-19 years,5,5091.0,102.0,168.0,270,Actual,False,,
+2021-01-01,2021,Annual,Adults 20-59 years,6,27134.0,113.0,230.0,343,Actual,False,,
+2021-01-01,2021,Annual,Senior Citizens 60 years and above,7,5391.0,30.0,53.0,83,Actual,False,,
+2022-01-01,2022,Annual,Infants 0-11 months,1,0.0,,,0,Actual,False,,
+2022-01-01,2022,Annual,Children 1-4 years,2,4319.0,9.0,7.0,16,Actual,False,,
+2022-01-01,2022,Annual,Children 5-9 years,3,5354.0,100.0,129.0,229,Actual,False,,
+2022-01-01,2022,Annual,Adolescents 10-14 years,4,5174.0,164.0,363.0,527,Actual,False,,
+2022-01-01,2022,Annual,Adolescents 15-19 years,5,5075.0,76.0,118.0,194,Actual,False,,
+2022-01-01,2022,Annual,Adults 20-59 years,6,27407.0,529.0,1801.0,2330,Actual,False,,
+2022-01-01,2022,Annual,Senior Citizens 60 years and above,7,5538.0,57.0,154.0,211,Actual,False,,
+2023-01-01,2023,Annual,Infants 0-11 months,1,1108.0,10.0,18.0,28,Actual,False,,
+2023-01-01,2023,Annual,Children 1-4 years,2,4424.0,495.0,491.0,986,Actual,False,,
+2023-01-01,2023,Annual,Children 5-9 years,3,5747.0,405.0,432.0,837,Actual,False,,
+2023-01-01,2023,Annual,Adolescents 10-14 years,4,5798.0,402.0,706.0,1108,Actual,False,,
+2023-01-01,2023,Annual,Adolescents 15-19 years,5,5527.0,189.0,417.0,606,Actual,False,,
+2023-01-01,2023,Annual,Adults 20-59 years,6,29294.0,1091.0,3513.0,4604,Actual,False,,
+2023-01-01,2023,Annual,Senior Citizens 60 years and above,7,5507.0,168.0,307.0,475,Actual,False,,
+2024-01-01,2024,Annual,Infants 0-11 months,1,1109.0,527.0,436.0,963,Actual,False,,
+2024-01-01,2024,Annual,Children 1-4 years,2,4423.0,232.0,210.0,442,Actual,False,,
+2024-01-01,2024,Annual,Children 5-9 years,3,5747.0,256.0,309.0,565,Actual,False,,
+2024-01-01,2024,Annual,Adolescents 10-14 years,4,5795.0,323.0,333.0,656,Actual,False,,
+2024-01-01,2024,Annual,Adolescents 15-19 years,5,11318.0,258.0,686.0,944,Actual,False,,
+2024-01-01,2024,Annual,Adults 20-59 years,6,29270.0,1320.0,3480.0,4800,Actual,False,,
+2024-01-01,2024,Annual,Senior Citizens 60 years and above,7,5499.0,197.0,396.0,593,Actual,False,,
+2025-01-01,2025,Annual,Infants 0-11 months,1,,872.0,870.0,1742,Actual,False,,
+2025-01-01,2025,Annual,Children 1-4 years,2,4423.0,161.0,294.0,455,Actual,False,,
+2025-01-01,2025,Annual,Children 5-9 years,3,5745.0,370.0,438.0,808,Actual,False,,
+2025-01-01,2025,Annual,Adolescents 10-14 years,4,5795.0,318.0,380.0,698,Actual,False,,
+2025-01-01,2025,Annual,Adolescents 15-19 years,5,5524.0,347.0,574.0,921,Actual,False,,
+2025-01-01,2025,Annual,Adults 20-59 years,6,29270.0,1255.0,2634.0,3889,Actual,False,,
+2025-01-01,2025,Annual,Senior Citizens 60 years and above,7,5499.0,230.0,396.0,626,Actual,False,,
