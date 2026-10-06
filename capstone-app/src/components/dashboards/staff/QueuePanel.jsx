@@ -1,4 +1,5 @@
 import { getQueueDisplayName } from "@/utils/queueDisplay";
+import { Link } from "react-router-dom";
 
 const NAVY = "#1e2d6b";
 const INDIGO = "#2d3a8c";
@@ -37,7 +38,7 @@ export default function QueuePanel({ currentServing, nextQueue, onCallNext, onNo
         </p>
         {currentServing && (
           <p style={{ margin: "6px 0 0", fontSize: "14px", fontWeight: 600, color: "rgba(255,255,255,0.95)" }}>
-            {getQueueDisplayName(currentServing)}
+            {currentServing.patient_id ? <Link to={`/staff/patients/${currentServing.patient_id}`} style={{ color: "inherit" }}>{getQueueDisplayName(currentServing)}</Link> : getQueueDisplayName(currentServing)}
           </p>
         )}
         {currentServing && (
@@ -82,7 +83,7 @@ export default function QueuePanel({ currentServing, nextQueue, onCallNext, onNo
                 <span style={{ fontSize: "15px", fontWeight: 700, color: i === 0 ? INDIGO : "#374151" }}>
                   #{String(q.queue_number).padStart(3, "0")}
                 </span>
-                <span style={{ fontSize: "12px", color: "#6b7280" }}>{getQueueDisplayName(q)}</span>
+                {q.patient_id ? <Link to={`/staff/patients/${q.patient_id}`} style={{ fontSize: "12px", color: "#1e4db7" }}>{getQueueDisplayName(q)}</Link> : <span style={{ fontSize: "12px", color: "#6b7280" }}>{getQueueDisplayName(q)}</span>}
               </div>
               <span style={{ fontSize: "11px", fontWeight: 600, color: q.type === "priority" ? ORANGE : "#6b7280", background: q.type === "priority" ? "#fff7ed" : "#f3f4f6", borderRadius: "10px", padding: "2px 8px" }}>
                 {q.type === "priority" ? "Priority" : "Regular"}

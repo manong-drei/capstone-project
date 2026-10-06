@@ -278,8 +278,6 @@ export default function DoctorDashboard() {
       )}
       {activeTab === "analytics" && (
         <DoctorAnalyticsTab
-          waiting={waiting} serving={serving} done={done} priority={priority}
-          bookedCount={bookedCount} walkInCount={walkInCount}
           onBack={() => setActiveTab("home")}
         />
       )}

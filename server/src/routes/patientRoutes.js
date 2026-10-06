@@ -5,6 +5,9 @@ const router = express.Router();
 const {
   getMyProfile,
   updateProfile,
+  getPatientById,
+  searchPatients,
+  mergePatient,
 } = require("../controllers/patientController");
 
 // Middleware
@@ -18,5 +21,9 @@ router.get("/me", protect, authorize("patient"), getMyProfile);
 
 // Update patient profile (protected, only "patient" role)
 router.put("/me", protect, authorize("patient"), updateProfile);
+
+router.get("/search", protect, authorize("staff", "admin"), searchPatients);
+router.get("/:id", protect, authorize("staff", "admin"), getPatientById);
+router.post("/:id/merge", protect, authorize("staff", "admin"), mergePatient);
 
 module.exports = router;

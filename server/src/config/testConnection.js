@@ -21,7 +21,7 @@ async function testConnection() {
       WHERE  table_schema = ?
       AND    table_name IN (
         'users', 'patients', 'doctors', 'staff', 'specializations',
-        'queues', 'appointments', 'daily_doctor_settings', 'queue_sequences'
+        'queues', 'appointments', 'daily_doctor_settings', 'doctor_daily_reports', 'queue_sequences'
       )
       ORDER  BY table_name
     `, [process.env.DB_NAME]);
@@ -29,7 +29,7 @@ async function testConnection() {
     console.log('\n      Required tables detected:');
     const required = new Set([
       'users', 'patients', 'doctors', 'staff', 'specializations',
-      'queues', 'appointments', 'daily_doctor_settings', 'queue_sequences',
+      'queues', 'appointments', 'daily_doctor_settings', 'doctor_daily_reports', 'queue_sequences',
     ]);
     const found = new Set(rows.map((row) => row.table_name));
     const missing = [...required].filter((table) => !found.has(table));

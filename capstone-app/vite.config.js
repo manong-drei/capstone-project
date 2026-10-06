@@ -8,7 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // Use @/ instead of long relative paths like ../../../
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   server: {

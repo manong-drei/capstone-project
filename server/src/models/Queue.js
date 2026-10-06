@@ -77,6 +77,7 @@ const Queue = {
   // Insert a new queue entry (supports both patient self-queue and staff walk-in)
   create: async ({
     patient_id,
+    is_walk_in,
     queue_number,
     type,
     category,
@@ -87,10 +88,11 @@ const Queue = {
     walk_in_contact,
   }, connection = pool) => {
     const [result] = await connection.query(
-      `INSERT INTO queues (patient_id, queue_number, type, category, services, walk_in_name, walk_in_dob, walk_in_gender, walk_in_contact)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO queues (patient_id, is_walk_in, queue_number, type, category, services, walk_in_name, walk_in_dob, walk_in_gender, walk_in_contact)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         patient_id || null,
+        is_walk_in ? 1 : 0,
         queue_number,
         type || "regular",
         category || "dental",
@@ -152,11 +154,10 @@ const Queue = {
         return { conflict: true };
       }
 
-      // Determine which source (scheduled vs walk-in) was called last today,
-      // so we can alternate. patient_id IS NOT NULL = scheduled/system queue.
+      // Alternate registered and walk-in queues, even though both now have patient IDs.
       const [[lastCalled]] = await conn.query(
         `
-        SELECT patient_id FROM queues
+        SELECT is_walk_in FROM queues
         WHERE status IN ('serving', 'done')
           AND DATE(created_at) = CURDATE()
           ${categoryClause}
@@ -166,18 +167,18 @@ const Queue = {
         params,
       );
 
-      // If last called was scheduled (patient_id set), try walk-in next, and vice versa.
+      // If last called was registered, try walk-in next, and vice versa.
       // If nothing called yet today, default to scheduled first.
       const preferWalkInNext = lastCalled
-        ? lastCalled.patient_id !== null
+        ? !lastCalled.is_walk_in
         : false;
 
       const sourceClause = preferWalkInNext
-        ? "patient_id IS NULL"
-        : "patient_id IS NOT NULL";
+        ? "is_walk_in = 1"
+        : "is_walk_in = 0";
       const fallbackClause = preferWalkInNext
-        ? "patient_id IS NOT NULL"
-        : "patient_id IS NULL";
+        ? "is_walk_in = 0"
+        : "is_walk_in = 1";
 
       const tryFetch = async (clause) => {
         const [rows] = await conn.query(

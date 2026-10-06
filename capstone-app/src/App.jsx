@@ -18,6 +18,7 @@ const LoginPage = lazy(() => import("./pages/LoginPage"));
 const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
 const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
 const StaffDashboard = lazy(() => import("./pages/StaffDashboard"));
+const StaffPatientProfile = lazy(() => import("./pages/StaffPatientProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const GeneralQueueMonitor = lazy(() => import("./pages/GeneralQueueMonitor"));
 const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
@@ -122,6 +123,9 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path={ROUTES.STAFF_PATIENT_PROFILE} element={
+          <ProtectedRoute allowedRoles={[ROLES.STAFF, ROLES.ADMIN]}><StaffPatientProfile /></ProtectedRoute>
+        } />
 
         {/* Protected: Admin */}
         <Route

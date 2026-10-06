@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
 import api from "@/services/api";
 
@@ -189,6 +190,7 @@ function GenderField({ value, onChange }) {
         </option>
         <option value="male">Male</option>
         <option value="female">Female</option>
+        <option value="other">Other</option>
       </select>
       <span
         style={{
@@ -246,11 +248,62 @@ export default function WalkInForm({ onSuccess }) {
   const [addressFocused, setAddressFocused] = useState(false);
   const [showServicesDropdown, setShowServicesDropdown] = useState(false);
   const [servicesFocused, setServicesFocused] = useState(false);
+  const [lookup, setLookup] = useState("");
+  const [matches, setMatches] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [confirmNew, setConfirmNew] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (selectedPatient) return;
+    const term = lookup.trim();
+    const digits = (term || form.contact).replace(/\D/g, "");
+    const phone = digits.length === 10 && digits.startsWith("9") ? `0${digits}` : digits;
+    if (term.length < 2 && form.fullName.trim().length < 2 && phone.length < 10 && !form.dateOfBirth) { setMatches([]); return; }
+    let active = true;
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const params = new URLSearchParams();
+        if (term) {
+          if (phone.length >= 10 && /^\+?[\d\s-]+$/.test(term)) params.set("phone", phone);
+          else params.set("name", term);
+        } else {
+          if (form.fullName.trim().length >= 2) params.set("name", form.fullName.trim());
+          if (phone.length >= 10) params.set("phone", phone);
+        }
+        if (form.dateOfBirth) params.set("date_of_birth", form.dateOfBirth);
+        const res = await api.get(`/patients/search?${params}`);
+        if (active) setMatches(res.data || []);
+      } catch { if (active) setMatches([]); }
+      finally { if (active) setSearching(false); }
+    }, 300);
+    return () => { active = false; clearTimeout(timer); };
+  }, [lookup, form.fullName, form.contact, form.dateOfBirth, selectedPatient]);
+
+  const selectPatient = async (id) => {
+    setError("");
+    try {
+      const { data } = await api.get(`/patients/${id}`);
+      setSelectedPatient(data);
+      setForm({
+        fullName: `${data.first_name} ${data.last_name}`,
+        dateOfBirth: String(data.date_of_birth || "").slice(0, 10),
+        gender: String(data.gender || "").toLowerCase(),
+        address: data.barangay || "",
+        contact: String(data.contact_number || "").replace(/^0/, ""),
+      });
+      setMatches([]);
+      setLookup("");
+      setConfirmNew(false);
+    } catch (err) { setError(err.message); }
+  };
 
   const set = (field) => (e) => {
     setError("");
     setSuccess("");
     setForm((p) => ({ ...p, [field]: e.target.value }));
+    setConfirmNew(false);
   };
 
   const toggleService = (id) => {
@@ -275,6 +328,7 @@ export default function WalkInForm({ onSuccess }) {
     if (!form.gender) return setError("Please select a gender.");
     if (!form.address.trim()) return setError("Address is required.");
     if (!form.contact.trim()) return setError("Contact number is required.");
+    if (!selectedPatient && matches.length && !confirmNew) return setError("Possible patient match found. Select a record or confirm a new one below.");
     if (selectedServices.length === 0)
       return setError("Please select at least one service.");
     if (isPriority && !priorityCategory)
@@ -288,6 +342,9 @@ export default function WalkInForm({ onSuccess }) {
         gender: form.gender,
         address: form.address,
         contact: "+63" + form.contact.replace(/^0+/, ""),
+        patient_id: selectedPatient?.patient_id,
+        create_new_confirmed: confirmNew,
+        priority_category: isPriority ? priorityCategory : null,
         type: isPriority ? "priority" : "regular",
       };
       const res = await api.post("/queue/walkin", {
@@ -309,9 +366,14 @@ export default function WalkInForm({ onSuccess }) {
       setSelectedServices([]);
       setIsPriority(false);
       setPriorityCategory("");
+      setSelectedPatient(null);
+      setMatches([]);
+      setLookup("");
+      setConfirmNew(false);
       onSuccess?.();
     } catch (err) {
       setError(err.message || "Failed to register patient.");
+      if (err.message?.includes("Possible existing patient")) setLookup(form.fullName);
     } finally {
       setLoading(false);
     }
@@ -329,6 +391,24 @@ export default function WalkInForm({ onSuccess }) {
         boxShadow: "inset 0 2px 6px rgba(0,0,0,0.06)",
       }}
     >
+      <div>
+        <label htmlFor="patient-lookup" style={{ display: "block", fontSize: "12px", fontWeight: 700, color: NAVY, marginBottom: "6px" }}>Find an existing patient</label>
+        <input id="patient-lookup" value={lookup} onChange={(e) => { setLookup(e.target.value); setConfirmNew(false); }} placeholder="Search name or mobile number" autoComplete="off" style={{ width: "100%", boxSizing: "border-box", padding: "11px", border: "1.5px solid #dde1ec", borderRadius: "9px" }} />
+        {searching && <small>Searching…</small>}
+        {!selectedPatient && matches.length > 0 && (
+          <div style={{ marginTop: "7px", padding: "9px", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "9px" }}>
+            <strong style={{ fontSize: "12px", color: "#9a3412" }}>Possible existing patients</strong>
+            {matches.map((p) => <button key={p.patient_id} type="button" onClick={() => selectPatient(p.patient_id)} style={{ display: "block", width: "100%", textAlign: "left", marginTop: "5px", padding: "7px", background: "white", border: "1px solid #e5e7eb", borderRadius: "6px", cursor: "pointer" }}>{p.first_name} {p.last_name} · {String(p.date_of_birth || "").slice(0, 10)} · {p.masked_contact || "No phone"}</button>)}
+            <label style={{ display: "block", marginTop: "8px", fontSize: "12px" }}><input type="checkbox" checked={confirmNew} onChange={(e) => setConfirmNew(e.target.checked)} /> I checked these records; create a new patient</label>
+          </div>
+        )}
+        {selectedPatient && <div style={{ marginTop: "8px", padding: "9px", background: "#eff6ff", borderRadius: "8px", fontSize: "12px" }}>
+          <strong>Returning patient #{selectedPatient.patient_id}</strong> · <Link to={`/staff/patients/${selectedPatient.patient_id}`}>Open profile</Link>
+          <button type="button" onClick={() => { setSelectedPatient(null); setForm({ fullName: "", dateOfBirth: "", gender: "", address: "", contact: "" }); }} style={{ marginLeft: "8px" }}>Clear</button>
+          <div style={{ marginTop: "5px" }}>Previous queue visits: {selectedPatient.visits?.length || 0}</div>
+          {selectedPatient.visits?.slice(0, 3).map((v) => <div key={v.id}>{new Date(v.created_at).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" })} · {v.queue_number} · {v.status}</div>)}
+        </div>}
+      </div>
       {/* Full Name */}
       <FormField
         icon={
