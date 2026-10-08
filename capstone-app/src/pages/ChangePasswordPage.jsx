@@ -8,7 +8,8 @@ import { ROUTES } from "@/constants/routes";
 
 const ChangePasswordPage = () => {
   const navigate = useNavigate();
-  const { updateUser } = useAuth();
+  const { user, login } = useAuth();
+  const setup = !!user?.must_change_password;
 
   const [form, setForm] = useState({
     oldPassword: "",
@@ -32,13 +33,13 @@ const ChangePasswordPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.oldPassword.trim() || !form.newPassword.trim()) {
+    if ((!setup && !form.oldPassword.trim()) || !form.newPassword.trim()) {
       setError("Please fill in all fields.");
       return;
     }
 
-    if (form.newPassword.length < 6) {
-      setError("New password must be at least 6 characters.");
+    if (form.newPassword.length < 8 || new TextEncoder().encode(form.newPassword).length > 72 || !/[0-9]/.test(form.newPassword)) {
+      setError("Use at least 8 characters and a number. Maximum: 72 bytes (72 plain English characters; fewer for accented letters or emoji).");
       return;
     }
 
@@ -51,12 +52,12 @@ const ChangePasswordPage = () => {
     setError("");
 
     try {
-      await authService.changePassword({
-        oldPassword: form.oldPassword,
+      const result = await authService.changePassword({
+        ...(setup ? {} : { oldPassword: form.oldPassword }),
         newPassword: form.newPassword,
       });
 
-      updateUser({ must_change_password: false });
+      login(result.user, result.token);
       navigate(ROUTES.HOME + "dashboard");
     } catch (err) {
       setError(err.message || "Failed to change password. Please try again.");
@@ -98,12 +99,12 @@ const ChangePasswordPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Current Password */}
-          <div>
+          {!setup && <div>
             <label
               className="block text-xs font-semibold mb-1"
               style={{ color: "#374151" }}
             >
-              Current (Temporary) Password
+              Current Password
             </label>
 
             <div className="relative">
@@ -133,7 +134,7 @@ const ChangePasswordPage = () => {
                 )}
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* New Password */}
           <div>

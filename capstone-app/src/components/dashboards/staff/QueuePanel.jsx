@@ -1,140 +1,44 @@
-import { getQueueDisplayName } from "@/utils/queueDisplay";
+import { ArrowRight, Clock3, ListOrdered, LoaderCircle, Megaphone, ShieldCheck, UserRoundX, Users } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getQueueDisplayName } from "@/utils/queueDisplay";
 
-const NAVY = "#1e2d6b";
-const INDIGO = "#2d3a8c";
-const ORANGE = "#f97316";
-
-/**
- * QueuePanel
- * Left column of the staff dashboard. Shows the currently served patient,
- * the list of patients waiting next, and a "Next Queue" button.
- *
- * Props:
- *   currentServing — queue object currently being served, or null
- *   nextQueue      — array of waiting queue objects
- *   onCallNext     — called when staff clicks "Next Queue"
- *   onNoShow       — called when staff marks current patient as no-show
- *   loading        — disables the button while a request is in-flight
- */
 export default function QueuePanel({ currentServing, nextQueue, onCallNext, onNoShow, onCancelQueue, loading }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      {/* Now Serving */}
-      <div
-        style={{
-          background: ORANGE,
-          borderRadius: "12px",
-          padding: "28px 20px",
-          textAlign: "center",
-          boxShadow: "0 4px 20px rgba(249,115,22,0.4)",
-        }}
-      >
-        <p style={{ margin: 0, fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.8)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          Now Serving
-        </p>
-        <p style={{ margin: "8px 0 0", fontSize: "clamp(32px, 6vw, 46px)", fontWeight: 900, color: "#ffffff", lineHeight: 1, letterSpacing: "-0.01em" }}>
-          {currentServing ? `#${String(currentServing.queue_number).padStart(2, "0")}` : "—"}
-        </p>
-        {currentServing && (
-          <p style={{ margin: "6px 0 0", fontSize: "14px", fontWeight: 600, color: "rgba(255,255,255,0.95)" }}>
-            {currentServing.patient_id ? <Link to={`/staff/patients/${currentServing.patient_id}`} style={{ color: "inherit" }}>{getQueueDisplayName(currentServing)}</Link> : getQueueDisplayName(currentServing)}
-          </p>
-        )}
-        {currentServing && (
-          <span style={{ display: "inline-block", marginTop: "8px", fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.95)", background: "rgba(255,255,255,0.22)", borderRadius: "20px", padding: "3px 12px" }}>
-            {currentServing.type === "priority" ? "Priority" : "Regular"}
-          </span>
-        )}
-        {currentServing && (
-          <button
-            onClick={onNoShow}
-            style={{ display: "block", margin: "10px auto 0", padding: "6px 16px", borderRadius: "99px", border: "1.5px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
-          >
-            No Show
-          </button>
-        )}
-        {!currentServing && (
-          <p style={{ margin: "6px 0 0", fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>
-            No patient being served
-          </p>
-        )}
-      </div>
-
-      {/* Next Serving list */}
-      <div style={{ background: "#ffffff", border: "1.5px solid #e5e7eb", borderRadius: "12px", overflow: "hidden" }}>
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #f3f4f6", background: "#f9fafb" }}>
-          <p style={{ margin: 0, fontSize: "13px", fontWeight: 600, color: "#374151" }}>Next Serving</p>
+    <section id="dental-queue" aria-labelledby="dental-queue-title" className="scroll-mt-24 space-y-4">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <h3 id="dental-queue-title" className="flex items-center gap-2 text-sm font-semibold text-slate-900"><ListOrdered size={18} className="text-blue-700" aria-hidden="true" />Dental queue</h3>
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{nextQueue.length} waiting</span>
         </div>
-
-        {nextQueue.length === 0 ? (
-          <p style={{ margin: 0, padding: "18px 16px", fontSize: "13px", color: "#9ca3af", textAlign: "center" }}>
-            No patients waiting
-          </p>
-        ) : (
-          nextQueue.slice(0, 5).map((q, i) => (
-            <div
-              key={q.id ?? i}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: i < Math.min(nextQueue.length, 5) - 1 ? "1px solid #f9fafb" : "none", transition: "background 0.12s" }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                <span style={{ fontSize: "15px", fontWeight: 700, color: i === 0 ? INDIGO : "#374151" }}>
-                  #{String(q.queue_number).padStart(3, "0")}
-                </span>
-                {q.patient_id ? <Link to={`/staff/patients/${q.patient_id}`} style={{ fontSize: "12px", color: "#1e4db7" }}>{getQueueDisplayName(q)}</Link> : <span style={{ fontSize: "12px", color: "#6b7280" }}>{getQueueDisplayName(q)}</span>}
-              </div>
-              <span style={{ fontSize: "11px", fontWeight: 600, color: q.type === "priority" ? ORANGE : "#6b7280", background: q.type === "priority" ? "#fff7ed" : "#f3f4f6", borderRadius: "10px", padding: "2px 8px" }}>
-                {q.type === "priority" ? "Priority" : "Regular"}
-              </span>
-              <button onClick={() => onCancelQueue?.(q.id)} style={{ border: "1px solid #fecaca", borderRadius: "7px", background: "#fff", color: "#b91c1c", padding: "4px 7px", fontSize: "11px", cursor: "pointer" }}>Cancel</button>
-            </div>
-          ))
-        )}
+        <div className="m-5 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 p-6 text-center text-white">
+          <p className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-100"><Megaphone size={16} aria-hidden="true" />Now serving</p>
+          <p className="my-3 break-words text-5xl font-bold tracking-tight">{currentServing?.queue_number || "—"}</p>
+          {currentServing ? <>
+            <p className="text-sm font-medium">{currentServing.patient_id ? <Link to={`/staff/patients/${currentServing.patient_id}`} className="underline decoration-white/40 underline-offset-4 hover:decoration-white">{getQueueDisplayName(currentServing)}</Link> : getQueueDisplayName(currentServing)}</p>
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">{currentServing.type === "priority" && <ShieldCheck size={13} aria-hidden="true" />}{currentServing.type === "priority" ? "Priority" : "Regular"}</span>
+            <button type="button" onClick={onNoShow} disabled={loading} className="mx-auto mt-4 flex items-center gap-2 rounded-lg border border-white/50 px-3 py-2 text-xs font-semibold transition hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-50"><UserRoundX size={14} aria-hidden="true" />Mark no-show</button>
+          </> : <p className="text-sm text-orange-100">{loading ? "Loading the dental queue…" : "No patient is currently being served."}</p>}
+        </div>
+        <div className="px-5 pb-5">
+          <button type="button" onClick={onCallNext} disabled={loading || !nextQueue.length || !!currentServing} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1e4db7] px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
+            {loading ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}{loading ? "Updating queue…" : "Call next patient"}
+          </button>
+          {currentServing && <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">Wait for the dentist to complete this visit, or record a no-show before calling the next patient.</p>}
+        </div>
       </div>
-
-      {/* Next Queue button */}
-      <button
-        onClick={onCallNext}
-        disabled={loading || nextQueue.length === 0}
-        style={{
-          width: "100%",
-          padding: "16px",
-          borderRadius: "12px",
-          border: "none",
-          background: nextQueue.length === 0 ? "#d1d5db" : `linear-gradient(135deg, ${NAVY} 0%, ${INDIGO} 100%)`,
-          color: "#ffffff",
-          fontSize: "16px",
-          fontWeight: 700,
-          cursor: loading || nextQueue.length === 0 ? "not-allowed" : "pointer",
-          opacity: nextQueue.length === 0 ? 0.6 : 1,
-          boxShadow: nextQueue.length > 0 ? "0 4px 16px rgba(45,58,140,0.35)" : "none",
-          transition: "transform 0.15s, box-shadow 0.15s",
-          letterSpacing: "0.01em",
-        }}
-        onMouseEnter={(e) => {
-          if (nextQueue.length > 0 && !loading) {
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 6px 20px rgba(45,58,140,0.45)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = nextQueue.length > 0 ? "0 4px 16px rgba(45,58,140,0.35)" : "none";
-        }}
-      >
-        {loading ? (
-          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-            <svg className="ek-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 2a10 10 0 0110 10" />
-            </svg>
-            Processing...
-          </span>
-        ) : (
-          "Next Queue"
-        )}
-      </button>
-    </div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4"><Clock3 size={18} className="text-blue-700" aria-hidden="true" /><h3 className="text-sm font-semibold text-slate-900">Up next</h3><span className="ml-auto text-xs text-slate-500">Serving order</span></div>
+        {!nextQueue.length ? <div className="flex flex-col items-center gap-2 px-5 py-8 text-sm text-slate-500"><Users size={28} className="text-slate-300" aria-hidden="true" />{loading ? "Loading patients…" : "No patients waiting"}</div> :
+          <ol className="divide-y divide-slate-100">{nextQueue.slice(0, 5).map((queue, index) => (
+            <li key={queue.id} className="flex items-center gap-3 px-5 py-4 transition hover:bg-slate-50">
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${index === 0 ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{index + 1}</span>
+              <div className="min-w-0 flex-1"><p className="text-sm font-bold text-[#1a3a8f]">{queue.queue_number}</p>{queue.patient_id ? <Link to={`/staff/patients/${queue.patient_id}`} className="block truncate text-xs text-slate-600 underline-offset-2 hover:text-blue-700 hover:underline">{getQueueDisplayName(queue)}</Link> : <p className="truncate text-xs text-slate-600">{getQueueDisplayName(queue)}</p>}<p className="mt-1 text-[10px] text-slate-400">{queue.is_walk_in ? "Walk-in" : "Registered patient"}</p></div>
+              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${queue.type === "priority" ? "bg-orange-50 text-orange-700" : "bg-slate-100 text-slate-600"}`}>{queue.type === "priority" ? "Priority" : "Regular"}</span>
+              <button type="button" onClick={() => onCancelQueue(queue.id)} disabled={loading} aria-label={`Cancel queue ${queue.queue_number}`} className="rounded-lg px-2 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50">Cancel</button>
+            </li>
+          ))}</ol>}
+        {nextQueue.length > 5 && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">{nextQueue.length - 5} more patients waiting</p>}
+      </div>
+    </section>
   );
 }

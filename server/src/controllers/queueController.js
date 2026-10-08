@@ -3,6 +3,7 @@ const Queue = require("../models/Queue");
 const Patient = require("../models/Patient");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
+const { wakeWorker } = require('../services/smsNotifications');
 
 const ALLOWED_SERVICE_IDS = new Set([
   "CONSULTATION",
@@ -83,6 +84,7 @@ const createQueue = async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    await Queue.lockCategory('dental', connection);
     const [[patient]] = await connection.query(
       "SELECT * FROM patients WHERE user_id = ? FOR UPDATE",
       [req.user.user_id],
@@ -142,6 +144,7 @@ const createQueue = async (req, res) => {
       services: selectedServices,
     }, connection);
     await connection.commit();
+    wakeWorker();
     res.status(201).json(queue);
   } catch (err) {
     await connection.rollback();
@@ -184,6 +187,7 @@ const createWalkIn = async (req, res) => {
     lockAcquired = acquired === 1;
     if (!lockAcquired) throw httpError(503, "Registration is busy. Please try again.");
     await connection.beginTransaction();
+    await Queue.lockCategory(queueCategory, connection);
     if (queueCategory === "dental") {
       const [[doctor]] = await connection.query(
         "SELECT doctor_id FROM doctors ORDER BY doctor_id ASC LIMIT 1 FOR UPDATE",
@@ -257,6 +261,7 @@ const createWalkIn = async (req, res) => {
     }, connection);
     await Patient.audit(patientId, req.user.user_id, "queue", { queue_id: queue.id }, connection);
     await connection.commit();
+    wakeWorker();
     res.status(201).json({ success: true, queue });
   } catch (err) {
     if (connection) await connection.rollback();
@@ -272,6 +277,9 @@ const createWalkIn = async (req, res) => {
 const callNext = async (req, res) => {
   try {
     const { category } = req.body || {};
+    if (category !== undefined && !['dental', 'general'].includes(category)) {
+      return res.status(400).json({ success: false, message: 'Invalid queue category.' });
+    }
     const next = await Queue.callNext({ category });
     if (next?.conflict) {
       return res.status(409).json({
@@ -285,6 +293,7 @@ const callNext = async (req, res) => {
         .json({ success: false, message: "No patients waiting." });
     }
     res.json(next);
+    wakeWorker();
   } catch (err) {
     console.error("callNext error:", err);
     res.status(500).json({ success: false, message: "Server error." });
@@ -337,6 +346,7 @@ const updateStatus = async (req, res) => {
     }
 
     res.json(updated);
+    wakeWorker();
   } catch (err) {
     console.error("updateStatus error:", err);
     res.status(500).json({ success: false, message: "Server error." });
@@ -386,6 +396,7 @@ const cancelQueue = async (req, res) => {
       );
     }
     res.json(updated);
+    wakeWorker();
   } catch (err) {
     console.error("cancelQueue error:", err);
     res.status(500).json({ success: false, message: "Server error." });

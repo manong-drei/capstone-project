@@ -320,10 +320,8 @@ const createConsultation = async (req, res) => {
     }
 
     // Mark the queue entry as done now that consultation is saved
-    await pool.query(
-      "UPDATE queues SET status = 'done', updated_at = NOW() WHERE id = ?",
-      [queue_id],
-    );
+    await require('../models/Queue').updateStatus(queue_id, 'done');
+    require('../services/smsNotifications').wakeWorker();
 
     // Completing consultation should also complete today's linked appointment.
     if (queueRow.patient_id) {

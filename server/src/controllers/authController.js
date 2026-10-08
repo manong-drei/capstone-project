@@ -2,10 +2,10 @@
  * authController.js – Register, Login, and GetMe
  */
 
-const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
+const { sessionResponse } = require("../utils/authSession");
 
 const ROLE_LABELS = {
   patient: "Patient",
@@ -124,39 +124,24 @@ const login = async (req, res) => {
   try {
     const { phone, password } = req.body;
 
-    const user = await User.findByPhone(phone);
-    if (!user) {
+    const normalizedPhone = normalizePhilippineMobilePhone(phone);
+    if (!normalizedPhone || typeof password !== 'string' || !password || password.length > 128) {
+      return res.status(401).json({ success: false, message: "Invalid phone or password." });
+    }
+    const session = await User.authenticate(normalizedPhone, password);
+    if (!session) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid phone or password." });
     }
-
-    const isMatch = await User.verifyPassword(password, user.password_hash);
-    if (!isMatch) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid phone or password." });
-    }
-
-    const token = jwt.sign(
-      { user_id: user.user_id, phone: user.phone, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN },
-    );
 
     res.status(200).json({
       success: true,
       message: "Login successful.",
-      token,
-      user: {
-        user_id: user.user_id,
-        phone: user.phone,
-        role: user.role,
-        must_change_password: !!user.must_change_password,
-      },
+      ...session,
     });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Login failed internally.");
     res
       .status(500)
       .json({ success: false, message: "Server error during login." });
@@ -265,7 +250,8 @@ const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    if (!oldPassword || !newPassword) {
+    const setup = req.user.purpose === 'password_setup';
+    if ((!setup && typeof oldPassword !== 'string') || typeof newPassword !== 'string') {
       return res.status(400).json({
         success: false,
         message: "Old password and new password are required.",
@@ -273,37 +259,43 @@ const changePassword = async (req, res) => {
     }
 
     // Reuse basic password validation (same as register)
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8 || Buffer.byteLength(newPassword, 'utf8') > 72 || !/[0-9]/.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters.",
+        message: "Password must contain at least 8 characters and a number, and fit within 72 UTF-8 bytes.",
       });
     }
 
     const user = await User.findByIdWithHash(req.user.user_id);
-    if (!user) {
+    if (!user || !user.is_active || user.credential_version !== req.user.credential_version) {
       return res.status(404).json({
         success: false,
         message: "User not found. user without password hash.",
       });
     }
 
-    const isMatch = await User.verifyPassword(oldPassword, user.password_hash);
-    if (!isMatch) {
+    if (!setup && !await User.verifyPassword(oldPassword, user.password_hash)) {
       return res.status(401).json({
         success: false,
         message: "Current password is incorrect.",
       });
     }
 
-    await User.updatePassword(user.user_id, newPassword);
+    if (await User.verifyPassword(newPassword, user.password_hash)) {
+      return res.status(400).json({ success: false, message: 'Choose a different password.' });
+    }
+    const session = sessionResponse({ ...user, must_change_password: 0, credential_version: user.credential_version + 1 });
+    if (!await User.updatePassword(user.user_id, newPassword, user.credential_version)) {
+      return res.status(401).json({ success: false, message: 'Session has changed. Please log in again.' });
+    }
 
     res.status(200).json({
       success: true,
       message: "Password changed successfully.",
+      ...session,
     });
   } catch (err) {
-    console.error("Change password error:", err);
+    console.error("Password change failed internally.");
     res.status(500).json({
       success: false,
       message: "Server error during password change.",

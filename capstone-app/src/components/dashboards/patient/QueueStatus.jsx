@@ -56,6 +56,14 @@ export default function QueueStatus({ queue, onCancel }) {
       }}
     >
       {/* Queue Number */}
+      {queue.status === QUEUE_STATUS.WAITING && (
+        <p role="status" style={{ color: '#475569', fontSize: '13px', textAlign: 'center' }}>
+          {queue.sms_alert_state === 'suppressed'
+            ? 'Please stay nearby; no queue SMS will be sent.'
+            : 'You will receive one SMS when your turn approaches. Follow the queue display; delivery may be delayed.'}
+          {queue.sms_initial_position ? ` Initial position: ${queue.sms_initial_position}. Order may change.` : ''}
+        </p>
+      )}
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <p style={{ margin: "0 0 6px", fontSize: "13px", color: "#6b7280" }}>
           Your Queue Number

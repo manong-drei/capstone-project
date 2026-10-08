@@ -36,6 +36,15 @@ const labelStyle = {
 
 const PATIENTS_PER_PAGE = 10;
 
+function ActivationSMS({ patient, onReplace, busy }) {
+  if (!patient.must_change_password) return null;
+  return <span style={{ display: 'block', fontSize: '12px', color: '#475569', marginTop: '5px' }}>
+    Activation SMS: {patient.sms_provider_status || patient.sms_state || 'Replacement required'}
+    {patient.is_active ? <button type="button" disabled={busy} onClick={() => onReplace(patient)}
+      style={{ display: 'block', marginTop: '4px', cursor: 'pointer' }}>Issue replacement password</button> : null}
+  </span>;
+}
+
 function statusBadge(isActive) {
   return isActive
     ? { bg: "#dcfce7", color: "#166534", label: "Active" }
@@ -175,6 +184,20 @@ export default function PatientManager() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  const [smsBusy, setSmsBusy] = useState(false);
+  const [smsMessage, setSmsMessage] = useState('');
+
+  const replacePassword = async (patient) => {
+    if (!window.confirm(`Confirm you have verified ${patient.full_name}'s identity and registered mobile number. Issue a new temporary password? The old password and setup session will be invalidated.`)) return;
+    setSmsBusy(true);
+    setSmsMessage('');
+    try {
+      const result = await api.post(`/admin/patients/${patient.user_id}/temporary-password`, { identity_confirmed: true });
+      setSmsMessage(result.message);
+      await fetchPatients();
+    } catch (err) { setSmsMessage(err.message); }
+    finally { setSmsBusy(false); }
+  };
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [confirm, setConfirm] = useState({
@@ -302,6 +325,7 @@ export default function PatientManager() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <style>{PM_RESPONSIVE_CSS}</style>
+      {smsMessage && <p role="status">{smsMessage}</p>}
 
       <ConfirmModal
         open={confirm.open}
@@ -687,6 +711,7 @@ export default function PatientManager() {
                     }}
                   >
                     {patient.full_name || "—"}
+                    <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
                   </span>
                   <span style={{ fontSize: "13px", color: "#6b7280" }}>
                     {patient.contact_number || patient.phone || "—"}
@@ -782,6 +807,7 @@ export default function PatientManager() {
                         }}
                       >
                         {patient.full_name || "—"}
+                        <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
                       </span>
                       <span
                         style={{

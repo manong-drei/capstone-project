@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
+import { createTestToken } from "./helpers/auth";
 
 test("doctor's daily barangay entries survive reload and total into a monthly form", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((token) => {
     localStorage.setItem("ek_user", JSON.stringify({ user_id: 4, role: "doctor", display_name: "Dr. Test" }));
-    localStorage.setItem("ek_token", "test-token");
-  });
+    localStorage.setItem("ek_token", token);
+  }, createTestToken({ user_id: 4, role: "doctor" }));
   const saved = new Map();
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());

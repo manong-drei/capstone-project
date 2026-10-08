@@ -213,9 +213,7 @@ export default function PatientDashboard() {
   };
 
   const hasActiveQueue =
-    queue &&
-    queue.status !== QUEUE_STATUS.DONE &&
-    queue.status !== QUEUE_STATUS.CANCELLED;
+    queue && [QUEUE_STATUS.WAITING, QUEUE_STATUS.SERVING].includes(queue.status);
   const queueDisplayName = hasActiveQueue ? getQueueDisplayName(queue) : "";
   const queuedServices = hasActiveQueue ? formatQueuedServices(queue) : "";
   const myQueueSubtitle = hasActiveQueue

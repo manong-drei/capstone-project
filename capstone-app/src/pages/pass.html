@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Change Password — Secure Verification</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <style>
+      /* ---------- base input focus ring ---------- */
+      .field-input:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+      input:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 1000px #fff inset;
+      }
+
+      /* ---------- OTP boxes ---------- */
+      .otp-input {
+        border: 1px solid #d1d5db;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease,
+          background 0.15s ease;
+      }
+      .otp-input:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+      .otp-input.filled {
+        border-color: #93c5fd;
+        background: #f8fbff;
+      }
+      .otp-input.error {
+        border-color: #fca5a5;
+        background: #fef2f2;
+      }
+      .otp-input.success {
+        border-color: #6ee7b7;
+        background: #ecfdf5;
+        color: #047857;
+      }
+
+      /* ---------- animations ---------- */
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .animate-fade-up {
+        animation: fadeUp 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+      }
+
+      @keyframes shake {
+        10%,
+        90% {
+          transform: translateX(-1px);
+        }
+        20%,
+        80% {
+          transform: translateX(2px);
+        }
+        30%,
+        50%,
+        70% {
+          transform: translateX(-4px);
+        }
+        40%,
+        60% {
+          transform: translateX(4px);
+        }
+      }
+      .animate-shake {
+        animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+      }
+
+      @keyframes pop {
+        0% {
+          transform: scale(0.6);
+          opacity: 0;
+        }
+        60% {
+          transform: scale(1.08);
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .animate-pop {
+        animation: pop 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+      }
+    </style>
+  </head>
+
+  <body class="antialiased">
+    <!-- ================= PAGE SHELL ================= -->
+    <div
+      class="min-h-screen flex items-center justify-center px-4 py-8"
+      style="
+        background: linear-gradient(
+          160deg,
+          #dbeafe 0%,
+          #bfdbfe 60%,
+          #dbeafe 100%
+        );
+      "
+    >
+      <!-- ================= CARD ================= -->
+      <div
+        class="w-full max-w-sm bg-white rounded-2xl px-6 py-8 sm:px-8 sm:py-9"
+        style="box-shadow: 0 8px 40px rgba(0, 0, 0, 0.13)"
+      >
+        <!-- ---------- Stepper ---------- -->
+        <div id="stepper" class="flex items-center justify-center gap-2 mb-6">
+          <!-- step 1 -->
+          <div class="flex items-center gap-1.5">
+            <span
+              id="dot-1"
+              class="grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold bg-blue-600 text-white transition-colors"
+              >1</span
+            >
+            <span
+              id="label-1"
+              class="text-[11px] font-semibold text-blue-700 transition-colors"
+              >Verify</span
+            >
+          </div>
+
+          <span id="bar" class="h-px w-8 bg-gray-200 transition-colors"></span>
+
+          <!-- step 2 -->
+          <div class="flex items-center gap-1.5">
+            <span
+              id="dot-2"
+              class="grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold bg-gray-100 text-gray-400 transition-colors"
+              >2</span
+            >
+            <span
+              id="label-2"
+              class="text-[11px] font-semibold text-gray-400 transition-colors"
+              >New password</span
+            >
+          </div>
+        </div>
+
+        <!-- ================================================================
+           STEP 1 — OTP VERIFICATION
+      ================================================================= -->
+        <section id="step-otp" class="animate-fade-up">
+          <!-- header -->
+          <div class="text-center mb-6">
+            <div
+              class="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full"
+              style="
+                background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+              "
+            >
+              <i data-lucide="shield-check" class="h-5 w-5 text-blue-700"></i>
+            </div>
+
+            <h2 class="font-bold mb-1 text-xl text-gray-900">
+              Verify it's you
+            </h2>
+            <p class="text-xs leading-snug px-2 text-gray-500">
+              Enter the 6-digit code sent to your registered email address.
+            </p>
+          </div>
+
+          <!-- error alert -->
+          <div
+            id="otp-error"
+            class="hidden mb-4 flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs"
+          >
+            <i
+              data-lucide="alert-circle"
+              class="h-3.5 w-3.5 mt-px shrink-0"
+            ></i>
+            <span id="otp-error-text">That code doesn't match. Try again.</span>
+          </div>
+
+          <!-- success alert -->
+          <div
+            id="otp-success"
+            class="hidden mb-4 flex items-start gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs"
+          >
+            <i
+              data-lucide="check-circle-2"
+              class="h-3.5 w-3.5 mt-px shrink-0"
+            ></i>
+            <span>Code verified. Setting up your new password…</span>
+          </div>
+
+          <!-- OTP boxes -->
+          <div id="otp-row" class="grid grid-cols-6 gap-1.5 sm:gap-2">
+            <input
+              class="otp-input w-full aspect-[5/6] rounded-xl text-center text-base font-semibold text-gray-800 outline-none"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              autocomplete="one-time-code"
+              aria-label="Digit 1"
+            />
+            <input
+              class="otp-input w-full aspect-[5/6] rounded-xl text-center text-base font-semibold text-gray-800 outline-none"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Digit 2"
+            />
+            <input
+              class="otp-input w-full aspect-[5/6] rounded-xl text-center text-base font-semibold text-gray-800 outline-none"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Digit 3"
+            />
+            <input
+              class="otp-input w-full aspect-[5/6] rounded-xl text-center text-base font-semibold text-gray-800 outline-none"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Digit 4"
+            />
+            <input
+              class="otp-input w-full aspect-[5/6] rounded-xl text-center text-base font-semibold text-gray-800 outline-none"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Digit 5"
+            />
+            <input
+              class="otp-input w-full aspect-[5/6] rounded-xl text-center text-base font-semibold text-gray-800 outline-none"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Digit 6"
+            />
+          </div>
+
+          <!-- verify button -->
+          <button
+            id="verify-btn"
+            type="button"
+            disabled
+            class="mt-5 w-full py-2.5 rounded-full text-white font-semibold text-sm transition active:scale-[0.99] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
+            style="background: linear-gradient(90deg, #1e4db7 0%, #2563eb 100%)"
+          >
+            Verify Code
+          </button>
+
+          <!-- resend -->
+          <div class="mt-5 text-center text-[11px] text-gray-400">
+            Didn't receive it?
+            <button
+              id="resend-btn"
+              type="button"
+              disabled
+              class="font-semibold text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              Resend code
+            </button>
+            <span id="resend-timer" class="tabular-nums">(30s)</span>
+          </div>
+
+          <!-- demo hint -->
+          <p
+            class="mt-4 flex items-start justify-center gap-1.5 text-[10px] text-gray-400"
+          >
+            <i data-lucide="info" class="h-3 w-3 mt-px shrink-0"></i>
+            <span
+              >Demo code:
+              <span class="font-semibold text-gray-500">123456</span></span
+            >
+          </p>
+        </section>
+
+        <!-- ================================================================
+           STEP 2 — NEW PASSWORD
+      ================================================================= -->
+        <section id="step-password" class="hidden">
+          <!-- header -->
+          <div class="text-center mb-6">
+            <div
+              class="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full"
+              style="
+                background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+              "
+            >
+              <i data-lucide="key-round" class="h-5 w-5 text-blue-700"></i>
+            </div>
+
+            <h2 class="font-bold mb-1 text-xl text-gray-900">
+              Set a new password
+            </h2>
+            <p class="text-xs leading-snug px-2 text-gray-500">
+              Choose a strong password you haven't used before.
+            </p>
+          </div>
+
+          <!-- error alert -->
+          <div
+            id="pwd-error"
+            class="hidden mb-4 flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs"
+          >
+            <i
+              data-lucide="alert-circle"
+              class="h-3.5 w-3.5 mt-px shrink-0"
+            ></i>
+            <span id="pwd-error-text">Please fill in all fields.</span>
+          </div>
+
+          <form id="pwd-form" class="space-y-4" onsubmit="return false;">
+            <!-- New password -->
+            <div>
+              <label
+                for="newPassword"
+                class="block text-xs font-semibold mb-1 text-gray-700"
+              >
+                New Password
+              </label>
+
+              <div class="relative">
+                <input
+                  id="newPassword"
+                  type="password"
+                  name="newPassword"
+                  placeholder="At least 8 characters + a number"
+                  class="field-input w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none transition placeholder:text-gray-300"
+                  style="border: 1px solid #d1d5db"
+                />
+                <button
+                  type="button"
+                  data-toggle="newPassword"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Show new password"
+                >
+                  <i data-lucide="eye" class="h-[18px] w-[18px]"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirm password -->
+            <div>
+              <label
+                for="confirmPassword"
+                class="block text-xs font-semibold mb-1 text-gray-700"
+              >
+                Confirm New Password
+              </label>
+
+              <div class="relative">
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Re-enter new password"
+                  class="field-input w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none transition placeholder:text-gray-300"
+                  style="border: 1px solid #d1d5db"
+                />
+                <button
+                  type="button"
+                  data-toggle="confirmPassword"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Show confirm password"
+                >
+                  <i data-lucide="eye" class="h-[18px] w-[18px]"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Live requirements -->
+            <ul class="space-y-1.5 pt-1">
+              <li
+                id="req-length"
+                class="flex items-center gap-2 text-[11px] text-gray-400 transition-colors"
+              >
+                <span class="shrink-0 grid place-items-center h-3.5 w-3.5">
+                  <i data-lucide="circle-dashed" class="h-3.5 w-3.5"></i>
+                </span>
+                <span>At least 8 characters</span>
+              </li>
+              <li
+                id="req-number"
+                class="flex items-center gap-2 text-[11px] text-gray-400 transition-colors"
+              >
+                <span class="shrink-0 grid place-items-center h-3.5 w-3.5">
+                  <i data-lucide="circle-dashed" class="h-3.5 w-3.5"></i>
+                </span>
+                <span>Contains a number</span>
+              </li>
+              <li
+                id="req-match"
+                class="flex items-center gap-2 text-[11px] text-gray-400 transition-colors"
+              >
+                <span class="shrink-0 grid place-items-center h-3.5 w-3.5">
+                  <i data-lucide="circle-dashed" class="h-3.5 w-3.5"></i>
+                </span>
+                <span>Both passwords match</span>
+              </li>
+            </ul>
+
+            <!-- Submit -->
+            <button
+              id="submit-btn"
+              type="submit"
+              disabled
+              class="w-full py-2.5 rounded-full text-white font-semibold text-sm transition active:scale-[0.99] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
+              style="
+                background: linear-gradient(90deg, #1e4db7 0%, #2563eb 100%);
+              "
+            >
+              Update Password
+            </button>
+          </form>
+
+          <!-- back -->
+          <div class="mt-5 text-center">
+            <button
+              id="back-btn"
+              type="button"
+              class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 hover:text-blue-600 transition-colors"
+            >
+              <i data-lucide="arrow-left" class="h-3 w-3"></i>
+              Use a different code
+            </button>
+          </div>
+        </section>
+
+        <!-- ================================================================
+           STEP 3 — DONE
+      ================================================================= -->
+        <section id="step-done" class="hidden text-center">
+          <div
+            class="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-emerald-50 ring-1 ring-emerald-200 animate-pop"
+          >
+            <i data-lucide="check" class="h-6 w-6 text-emerald-600"></i>
+          </div>
+
+          <h2 class="font-bold mb-1 text-xl text-gray-900">Password updated</h2>
+          <p class="text-xs leading-snug px-2 text-gray-500">
+            Your new password is active. You can now continue to your dashboard.
+          </p>
+
+          <button
+            type="button"
+            class="mt-6 w-full py-2.5 rounded-full text-white font-semibold text-sm transition active:scale-[0.99] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            style="background: linear-gradient(90deg, #1e4db7 0%, #2563eb 100%)"
+          >
+            Continue to Dashboard
+          </button>
+        </section>
+      </div>
+    </div>
+
+    <!-- ================= SCRIPT ================= -->
+    <script>
+      lucide.createIcons();
+
+      /* ---------------------------------------------------------------
+       Icon helper — safely swap a lucide icon inside a wrapper
+    ----------------------------------------------------------------*/
+      function setIcon(wrapper, name, cls) {
+        wrapper.innerHTML = `<i data-lucide="${name}" class="${cls}"></i>`;
+        lucide.createIcons();
+      }
+
+      /* ---------------------------------------------------------------
+       Elements
+    ----------------------------------------------------------------*/
+      const stepOtp = document.getElementById("step-otp");
+      const stepPwd = document.getElementById("step-password");
+      const stepDone = document.getElementById("step-done");
+
+      const dot1 = document.getElementById("dot-1");
+      const dot2 = document.getElementById("dot-2");
+      const label1 = document.getElementById("label-1");
+      const label2 = document.getElementById("label-2");
+      const bar = document.getElementById("bar");
+
+      const otpInputs = Array.from(document.querySelectorAll(".otp-input"));
+      const verifyBtn = document.getElementById("verify-btn");
+      const otpError = document.getElementById("otp-error");
+      const otpErrorTx = document.getElementById("otp-error-text");
+      const otpSuccess = document.getElementById("otp-success");
+      const otpRow = document.getElementById("otp-row");
+
+      const resendBtn = document.getElementById("resend-btn");
+      const resendTimer = document.getElementById("resend-timer");
+
+      const VALID_OTP = "123456";
+
+      /* ---------------------------------------------------------------
+       Stepper
+    ----------------------------------------------------------------*/
+      function setStepper(active) {
+        const on = ["bg-blue-600", "text-white"];
+        const off = ["bg-gray-100", "text-gray-400"];
+
+        const paint = (dot, label, isActive) => {
+          dot.classList.remove(...on, ...off);
+          dot.classList.add(...(isActive ? on : off));
+          label.classList.toggle("text-blue-700", isActive);
+          label.classList.toggle("text-gray-400", !isActive);
+        };
+
+        paint(dot1, label1, active === 1);
+        paint(dot2, label2, active === 2);
+        bar.classList.toggle("bg-blue-300", active === 2);
+        bar.classList.toggle("bg-gray-200", active !== 2);
+      }
+
+      /* ---------------------------------------------------------------
+       Step navigation
+    ----------------------------------------------------------------*/
+      function showStep(step) {
+        [stepOtp, stepPwd, stepDone].forEach((el) =>
+          el.classList.add("hidden"),
+        );
+
+        const target = step === 1 ? stepOtp : step === 2 ? stepPwd : stepDone;
+        target.classList.remove("hidden");
+        target.classList.remove("animate-fade-up");
+        void target.offsetWidth; // force reflow to replay animation
+        target.classList.add("animate-fade-up");
+
+        if (step === 1) setStepper(1);
+        if (step === 2) {
+          setStepper(2);
+          setTimeout(() => document.getElementById("newPassword").focus(), 250);
+        }
+        if (step === 3) {
+          document.getElementById("stepper").style.opacity = "0";
+          document.getElementById("stepper").style.transition =
+            "opacity .3s ease";
+        }
+      }
+
+      /* ---------------------------------------------------------------
+       OTP input behaviour
+    ----------------------------------------------------------------*/
+      function otpValue() {
+        return otpInputs.map((i) => i.value).join("");
+      }
+
+      function refreshVerifyState() {
+        verifyBtn.disabled = otpValue().length !== otpInputs.length;
+      }
+
+      function clearOtpState() {
+        otpInputs.forEach((i) => i.classList.remove("error", "success"));
+        otpError.classList.add("hidden");
+      }
+
+      otpInputs.forEach((input, index) => {
+        input.addEventListener("input", (e) => {
+          const digits = e.target.value.replace(/\D/g, "");
+          e.target.value = digits.slice(-1);
+
+          input.classList.toggle("filled", !!input.value);
+          clearOtpState();
+          refreshVerifyState();
+
+          if (input.value && index < otpInputs.length - 1) {
+            otpInputs[index + 1].focus();
+          }
+          if (otpValue().length === otpInputs.length) {
+            setTimeout(verifyOtp, 180);
+          }
+        });
+
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Backspace" && !e.target.value && index > 0) {
+            otpInputs[index - 1].focus();
+            otpInputs[index - 1].value = "";
+            otpInputs[index - 1].classList.remove("filled");
+            refreshVerifyState();
+          }
+          if (e.key === "ArrowLeft" && index > 0) otpInputs[index - 1].focus();
+          if (e.key === "ArrowRight" && index < otpInputs.length - 1)
+            otpInputs[index + 1].focus();
+          if (e.key === "Enter") verifyOtp();
+        });
+
+        input.addEventListener("paste", (e) => {
+          e.preventDefault();
+          const digits = (e.clipboardData.getData("text") || "")
+            .replace(/\D/g, "")
+            .slice(0, 6);
+          if (!digits) return;
+
+          digits.split("").forEach((d, i) => {
+            if (otpInputs[i]) {
+              otpInputs[i].value = d;
+              otpInputs[i].classList.add("filled");
+            }
+          });
+
+          clearOtpState();
+          refreshVerifyState();
+
+          const next = Math.min(digits.length, otpInputs.length - 1);
+          otpInputs[next].focus();
+
+          if (otpValue().length === otpInputs.length)
+            setTimeout(verifyOtp, 180);
+        });
+
+        input.addEventListener("focus", () => input.select());
+      });
+
+      /* ---------------------------------------------------------------
+       Verify
+    ----------------------------------------------------------------*/
+      let verifying = false;
+
+      function verifyOtp() {
+        if (verifying) return;
+        const code = otpValue();
+        if (code.length !== otpInputs.length) return;
+
+        verifying = true;
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = "Verifying…";
+
+        setTimeout(() => {
+          if (code === VALID_OTP) {
+            otpInputs.forEach((i) => {
+              i.classList.remove("error");
+              i.classList.add("success");
+            });
+            otpSuccess.classList.remove("hidden");
+            otpError.classList.add("hidden");
+
+            setTimeout(() => showStep(2), 700);
+          } else {
+            otpRow.classList.add("animate-shake");
+            otpInputs.forEach((i) => i.classList.add("error"));
+            otpErrorTx.textContent = "That code doesn't match. Try again.";
+            otpError.classList.remove("hidden");
+            otpSuccess.classList.add("hidden");
+
+            setTimeout(() => {
+              otpRow.classList.remove("animate-shake");
+              otpInputs.forEach((i) => {
+                i.value = "";
+                i.classList.remove("filled", "error");
+              });
+              otpInputs[0].focus();
+              refreshVerifyState();
+            }, 520);
+          }
+
+          verifyBtn.textContent = "Verify Code";
+          verifying = false;
+        }, 550);
+      }
+
+      verifyBtn.addEventListener("click", verifyOtp);
+
+      /* ---------------------------------------------------------------
+       Resend countdown
+    ----------------------------------------------------------------*/
+      let seconds = 30;
+      let timerId = null;
+
+      function startCountdown() {
+        seconds = 30;
+        resendBtn.disabled = true;
+        resendTimer.textContent = `(${seconds}s)`;
+
+        clearInterval(timerId);
+        timerId = setInterval(() => {
+          seconds -= 1;
+          resendTimer.textContent = `(${seconds}s)`;
+          if (seconds <= 0) {
+            clearInterval(timerId);
+            resendTimer.textContent = "";
+            resendBtn.disabled = false;
+          }
+        }, 1000);
+      }
+
+      resendBtn.addEventListener("click", () => {
+        otpInputs.forEach((i) => {
+          i.value = "";
+          i.classList.remove("filled", "error", "success");
+        });
+        otpSuccess.classList.add("hidden");
+        otpError.classList.add("hidden");
+        refreshVerifyState();
+        otpInputs[0].focus();
+        startCountdown();
+      });
+
+      startCountdown();
+
+      /* ---------------------------------------------------------------
+       Show / hide password toggles
+    ----------------------------------------------------------------*/
+      document.querySelectorAll("[data-toggle]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const input = document.getElementById(button.dataset.toggle);
+          if (!input) return;
+
+          const isHidden = input.type === "password";
+          input.type = isHidden ? "text" : "password";
+
+          setIcon(
+            button.querySelector("span") || button,
+            isHidden ? "eye-off" : "eye",
+            "h-[18px] w-[18px]",
+          );
+          button.setAttribute(
+            "aria-label",
+            (isHidden ? "Hide" : "Show") + " password",
+          );
+        });
+      });
+
+      /* ---------------------------------------------------------------
+       Password validation
+    ----------------------------------------------------------------*/
+      const newPwd = document.getElementById("newPassword");
+      const confirmPwd = document.getElementById("confirmPassword");
+      const submitBtn = document.getElementById("submit-btn");
+      const pwdError = document.getElementById("pwd-error");
+      const pwdErrorTx = document.getElementById("pwd-error-text");
+
+      const reqLength = document.getElementById("req-length");
+      const reqNumber = document.getElementById("req-number");
+      const reqMatch = document.getElementById("req-match");
+
+      function paintReq(el, ok) {
+        const wrapper = el.querySelector("span");
+        el.classList.toggle("text-emerald-600", ok);
+        el.classList.toggle("text-gray-400", !ok);
+        setIcon(
+          wrapper,
+          ok ? "check-circle-2" : "circle-dashed",
+          "h-3.5 w-3.5",
+        );
+      }
+
+      function validatePassword() {
+        const value = newPwd.value;
+        const bytes = new TextEncoder().encode(value).length;
+
+        const okLength = value.length >= 8 && bytes <= 72;
+        const okNumber = /[0-9]/.test(value);
+        const okMatch = value.length > 0 && value === confirmPwd.value;
+
+        paintReq(reqLength, okLength);
+        paintReq(reqNumber, okNumber);
+        paintReq(reqMatch, okMatch);
+
+        submitBtn.disabled = !(okLength && okNumber && okMatch);
+        pwdError.classList.add("hidden");
+      }
+
+      newPwd.addEventListener("input", validatePassword);
+      confirmPwd.addEventListener("input", validatePassword);
+
+      /* ---------------------------------------------------------------
+       Submit
+    ----------------------------------------------------------------*/
+      document.getElementById("pwd-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        if (submitBtn.disabled) {
+          pwdErrorTx.textContent = "Please satisfy all password requirements.";
+          pwdError.classList.remove("hidden");
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Updating…";
+
+        setTimeout(() => {
+          submitBtn.textContent = "Update Password";
+          showStep(3);
+        }, 700);
+      });
+
+      /* ---------------------------------------------------------------
+       Back to OTP
+    ----------------------------------------------------------------*/
+      document.getElementById("back-btn").addEventListener("click", () => {
+        otpInputs.forEach((i) => {
+          i.value = "";
+          i.classList.remove("filled", "error", "success");
+        });
+        otpSuccess.classList.add("hidden");
+        otpError.classList.add("hidden");
+        refreshVerifyState();
+        showStep(1);
+        setTimeout(() => otpInputs[0].focus(), 200);
+      });
+
+      /* ---------------------------------------------------------------
+       Boot
+    ----------------------------------------------------------------*/
+      showStep(1);
+      setTimeout(() => otpInputs[0].focus(), 350);
+    </script>
+  </body>
+</html>

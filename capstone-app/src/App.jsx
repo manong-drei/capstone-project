@@ -12,7 +12,9 @@ import { ROUTES } from "./constants/routes";
 import { ROLES } from "./constants/roles";
 
 // Pages
-const CinematicLandingPage = lazy(() => import("./components/pages/cinematic-landing-page"));
+const CinematicLandingPage = lazy(
+  () => import("./components/pages/cinematic-landing-page"),
+);
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 //import RegisterPage from "./pages/RegisterPage";
 const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
@@ -67,7 +69,7 @@ function RoleRedirect() {
     [ROLES.ADMIN]: ROUTES.ADMIN_DASHBOARD,
   };
 
-  return <Navigate to={destinations[user.role] ?? ROUTES.HOME} replace />;
+  return <Navigate to={destinations[user.role] ?? ROUTES.LOGIN} replace />;
 }
 
 export default function App() {
@@ -75,80 +77,95 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
-        {/* Public routes */}
-        <Route path={ROUTES.HOME} element={<CinematicLandingPage />} />
-        <Route path={ROUTES.EXPERIMENTAL} element={<Navigate to={ROUTES.HOME} replace />} />
-        <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-        {/*<Route path={ROUTES.REGISTER} element={<RegisterPage />} />*/}
+          {/* Public routes */}
+          <Route path={ROUTES.HOME} element={<CinematicLandingPage />} />
+          <Route
+            path={ROUTES.EXPERIMENTAL}
+            element={<Navigate to={ROUTES.HOME} replace />}
+          />
+          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+          {/*<Route path={ROUTES.REGISTER} element={<RegisterPage />} />*/}
 
-        {/* Role-based redirect */}
-        <Route path="/dashboard" element={<RoleRedirect />} />
+          {/* Role-based redirect */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <RoleRedirect />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Protected: Forced password change */}
-        <Route
-          path={ROUTES.CHANGE_PASSWORD}
-          element={
-            <ProtectedRoute>
-              <ChangePasswordPage />
-            </ProtectedRoute>
-          }
-        />
+          {/* Protected: Forced password change */}
+          <Route
+            path={ROUTES.CHANGE_PASSWORD}
+            element={
+              <ProtectedRoute>
+                <ChangePasswordPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Protected: Patient */}
-        <Route
-          path={ROUTES.PATIENT_DASHBOARD}
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.PATIENT]}>
-              <PatientDashboard />
-            </ProtectedRoute>
-          }
-        />
+          {/* Protected: Patient */}
+          <Route
+            path={ROUTES.PATIENT_DASHBOARD}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.PATIENT]}>
+                <PatientDashboard />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Protected: Doctor */}
-        <Route
-          path={ROUTES.DOCTOR_DASHBOARD}
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.DOCTOR]}>
-              <DoctorDashboard />
-            </ProtectedRoute>
-          }
-        />
+          {/* Protected: Doctor */}
+          <Route
+            path={ROUTES.DOCTOR_DASHBOARD}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.DOCTOR]}>
+                <DoctorDashboard />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Protected: Staff  ← NEW */}
-        <Route
-          path={ROUTES.STAFF_DASHBOARD}
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.STAFF]}>
-              <StaffDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route path={ROUTES.STAFF_PATIENT_PROFILE} element={
-          <ProtectedRoute allowedRoles={[ROLES.STAFF, ROLES.ADMIN]}><StaffPatientProfile /></ProtectedRoute>
-        } />
+          {/* Protected: Staff  ← NEW */}
+          <Route
+            path={ROUTES.STAFF_DASHBOARD}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STAFF]}>
+                <StaffDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={ROUTES.STAFF_PATIENT_PROFILE}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STAFF, ROLES.ADMIN]}>
+                <StaffPatientProfile />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Protected: Admin */}
-        <Route
-          path={ROUTES.ADMIN_DASHBOARD}
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
+          {/* Protected: Admin */}
+          <Route
+            path={ROUTES.ADMIN_DASHBOARD}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* General Queue Monitor — staff/admin only kiosk display */}
-        <Route
-          path={ROUTES.GENERAL_QUEUE_MONITOR}
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.STAFF, ROLES.ADMIN]}>
-              <GeneralQueueMonitor />
-            </ProtectedRoute>
-          }
-        />
+          {/* General Queue Monitor — staff/admin only kiosk display */}
+          <Route
+            path={ROUTES.GENERAL_QUEUE_MONITOR}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STAFF, ROLES.ADMIN]}>
+                <GeneralQueueMonitor />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

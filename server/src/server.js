@@ -9,6 +9,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const db = require("./config/db");
+const { startWorker } = require('./services/smsNotifications');
 // Middleware imports
 const devBypass = require("./middleware/devBypass");
 
@@ -91,6 +92,7 @@ const startServer = async () => {
     const connection = await db.getConnection();
     console.log(`\n✅ MySQL Database connected successfully!`);
     connection.release(); // Release the connection back to the pool
+    await startWorker();
 
     // Start the Express server only after DB is verified
     app.listen(PORT, () => {

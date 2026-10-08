@@ -1,72 +1,24 @@
-export default function StaffHeroBanner() {
+import { CalendarDays, Stethoscope } from "lucide-react";
+
+export default function StaffHeroBanner({ identity, doctorAvailable }) {
   return (
-    <div
-      className="ek-hero"
-      style={{
-        position: "relative",
-        width: "100%",
-        height: "210px",
-        overflow: "hidden",
-        flexShrink: 0,
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: "url('/assets/login_bg.jpg')",
-          backgroundSize: "cover",
-          backgroundPosition: "center 30%",
-          filter: "brightness(0.52)",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(to bottom, rgba(30,45,107,0.55) 0%, rgba(30,45,107,0.15) 100%)",
-        }}
-      />
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: "0 24px",
-        }}
-      >
-        <h1
-          style={{
-            margin: 0,
-            fontWeight: 800,
-            lineHeight: 1.2,
-            fontSize: "clamp(20px, 4vw, 28px)",
-            color: "#ffffff",
-            textShadow: "0 2px 8px rgba(0,0,0,0.4)",
-          }}
-        >
-          Your Health, Schedule.
-          <br />
-          <span style={{ color: "#93c5fd" }}>No More Long Waits.</span>
-        </h1>
-        <p
-          style={{
-            margin: "10px 0 0",
-            lineHeight: 1.55,
-            fontSize: "clamp(12px, 2vw, 14px)",
-            color: "rgba(255,255,255,0.85)",
-            maxWidth: "520px",
-            textShadow: "0 1px 4px rgba(0,0,0,0.3)",
-          }}
-        >
-          Get your queue number online, check doctor availability, and track your wait time—all from your phone
-        </p>
+    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a3a8f] via-[#1e4db7] to-blue-600 p-6 text-white shadow-sm sm:p-8">
+      <div className="pointer-events-none absolute -right-10 -top-24 h-72 w-72 rounded-full border-[40px] border-white/5" aria-hidden="true" />
+      <div className="relative flex flex-wrap items-center justify-between gap-6">
+        <div>
+          <p className="mb-2 text-xs font-semibold tracking-widest text-blue-200">STAFF DASHBOARD · DENTAL SERVICES</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Welcome, {identity.displayName}.</h1>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-blue-100">Keep the dental queue moving. Help every patient get ready for their turn.</p>
+        </div>
+        <div className="space-y-3 text-xs">
+          <p className="flex items-center gap-2 text-blue-100"><CalendarDays size={16} aria-hidden="true" />{new Date().toLocaleDateString("en-PH", { timeZone: "Asia/Manila", weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
+          <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 font-medium">
+            <Stethoscope size={16} aria-hidden="true" />
+            <span className={`h-2 w-2 rounded-full ${doctorAvailable === null ? "bg-slate-300" : doctorAvailable ? "bg-emerald-300" : "bg-amber-300"}`} aria-hidden="true" />
+            {doctorAvailable === null ? "Dentist availability unknown" : doctorAvailable ? "Dentist available today" : "Dentist unavailable today"}
+          </p>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

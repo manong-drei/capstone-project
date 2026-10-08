@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const Queue = require("../models/Queue");
 const User = require("../models/User");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
-const { sendSMS } = require("../utils/sms");
+const { enqueuePassword, wakeWorker } = require('../services/smsNotifications');
 
 /** GET /api/admin/overview — live stats for the admin dashboard */
 const getOverview = async (req, res) => {
@@ -423,7 +423,9 @@ const updateStaff = async (req, res) => {
 const getPatients = async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT u.user_id, u.email, u.phone, u.is_active,
+      SELECT u.user_id, u.email, u.phone, u.is_active, u.must_change_password,
+       (SELECT j.state FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_state,
+       (SELECT j.provider_status FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_provider_status,
        p.patient_id, CONCAT(p.first_name, ' ', p.last_name) AS full_name, p.contact_number,
        p.barangay, p.city, p.gender, p.date_of_birth
       FROM   users u
@@ -548,23 +550,9 @@ const createPatient = async (req, res) => {
         ],
       );
 
+      const sms_job_id = await enqueuePassword(conn, user_id, patientResult.insertId, normalizedPhone, tempPassword);
       await conn.commit();
-
-      // SMS delivery not yet implemented — stubbed.
-      // Temp password is returned in the response for now so the admin can
-      // relay it manually. Remove this once an SMS provider is integrated.
-      // console.log(
-      //   `[STUB SMS] Would send credentials to ${normalizedPhone}: temp password = ${tempPassword}`,
-      // );
-
-      try {
-        await sendSMS(
-          normalizedPhone,
-          `Your E-KALUSUGAN account has been created. Temporary password: ${tempPassword}. Please log in and change your password immediately.`,
-        );
-      } catch (smsErr) {
-        console.error("createPatient SMS send error:", smsErr.message);
-      }
+      wakeWorker();
 
       res.status(201).json({
         success: true,
@@ -572,7 +560,8 @@ const createPatient = async (req, res) => {
         user_id,
         patient_id: patientResult.insertId,
         phone: normalizedPhone,
-        temp_password: tempPassword,
+        sms_job_id,
+        sms_status: 'queued',
       });
     } catch (innerErr) {
       await conn.rollback();
@@ -581,7 +570,7 @@ const createPatient = async (req, res) => {
       conn.release();
     }
   } catch (err) {
-    console.error("createPatient error:", err);
+    console.error("Patient account creation failed internally.");
     if (err.code === "ER_DUP_ENTRY") {
       return res
         .status(409)

@@ -22,13 +22,17 @@ test("queue sequences use the category/type counter and preserve prefixes", asyn
 test("call-next alternates using is_walk_in after every queue has a patient ID", async () => {
   const originalConnection = pool.getConnection;
   const originalFetch = Queue._fetchById;
-  let waitingQuery = "";
+  let calledId;
   const connection = {
     async beginTransaction() {}, async commit() {}, release() {},
     async query(sql) {
       if (sql.includes("SELECT id FROM queues") && sql.includes("status = 'serving'")) return [[]];
       if (sql.includes("SELECT is_walk_in FROM queues")) return [[{ is_walk_in: 0 }]];
-      if (sql.includes("status = 'waiting'")) { waitingQuery = sql; return [[{ id: 9, patient_id: 42, is_walk_in: 1 }]]; }
+      if (sql.includes("status = 'waiting'")) return [[
+        { id: 8, patient_id: 41, is_walk_in: 0, type: 'priority', created_at: new Date(0) },
+        { id: 9, patient_id: 42, is_walk_in: 1, type: 'regular', created_at: new Date(1) },
+      ]];
+      if (sql.includes("UPDATE queues SET status = 'serving'")) calledId = arguments[1][0];
       return [{}];
     },
   };
@@ -36,7 +40,7 @@ test("call-next alternates using is_walk_in after every queue has a patient ID",
   Queue._fetchById = async () => ({ id: 9 });
   try {
     assert.deepEqual(await Queue.callNext({ category: "dental" }), { id: 9 });
-    assert.match(waitingQuery, /is_walk_in = 1/);
+    assert.equal(calledId, 9);
   } finally {
     pool.getConnection = originalConnection;
     Queue._fetchById = originalFetch;

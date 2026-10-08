@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { AlertCircle, CheckCircle2, LoaderCircle, Phone, Search, UserPlus, UserRound, X } from "lucide-react";
 import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
 import api from "@/services/api";
 
-const BLUE = "#1e4db7";
-const NAVY = "#1e2d6b";
-
+const inputClass = "w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 const BAGO_BARANGAYS = [
   "Abuanan",
   "Alianza",
@@ -33,202 +32,6 @@ const BAGO_BARANGAYS = [
   "Taloc",
 ];
 
-/* ── Small form field primitives ── */
-
-function FormField({ icon, placeholder, value, onChange, type = "text" }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <div
-      style={{ position: "relative", display: "flex", alignItems: "center" }}
-    >
-      <span
-        style={{
-          position: "absolute",
-          left: "13px",
-          pointerEvents: "none",
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        {icon}
-      </span>
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={{
-          width: "100%",
-          padding: "12px 14px 12px 40px",
-          borderRadius: "10px",
-          border: `1.5px solid ${focused ? BLUE : "#dde1ec"}`,
-          fontSize: "14px",
-          color: "#111827",
-          background: "#ffffff",
-          outline: "none",
-          fontFamily: "inherit",
-          boxSizing: "border-box",
-          boxShadow: focused ? `0 0 0 3px rgba(30,77,183,0.12)` : "none",
-          transition: "border-color 0.15s, box-shadow 0.15s",
-        }}
-      />
-    </div>
-  );
-}
-
-function ContactField({ value, onChange }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        border: `1.5px solid ${focused ? BLUE : "#dde1ec"}`,
-        borderRadius: "10px",
-        background: "#ffffff",
-        overflow: "hidden",
-        boxShadow: focused ? `0 0 0 3px rgba(30,77,183,0.12)` : "none",
-        transition: "border-color 0.15s, box-shadow 0.15s",
-      }}
-    >
-      <span
-        style={{
-          padding: "12px 10px 12px 14px",
-          fontSize: "14px",
-          fontWeight: 600,
-          color: "#374151",
-          background: "#f4f5f9",
-          borderRight: "1.5px solid #dde1ec",
-          flexShrink: 0,
-          userSelect: "none",
-        }}
-      >
-        +63
-      </span>
-      <input
-        type="tel"
-        placeholder="9XX XXX XXXX"
-        value={value}
-        onChange={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={{
-          flex: 1,
-          padding: "12px 14px",
-          border: "none",
-          outline: "none",
-          fontSize: "14px",
-          color: "#111827",
-          fontFamily: "inherit",
-          background: "transparent",
-        }}
-      />
-    </div>
-  );
-}
-
-function GenderField({ value, onChange }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <div
-      style={{
-        position: "relative",
-        flex: 1,
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
-      <span
-        style={{
-          position: "absolute",
-          left: "13px",
-          pointerEvents: "none",
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#9ca3af"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="8" r="4" />
-          <path d="M12 12v8M8 20h8" />
-        </svg>
-      </span>
-      <select
-        value={value}
-        onChange={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={{
-          width: "100%",
-          padding: "12px 14px 12px 40px",
-          borderRadius: "10px",
-          border: `1.5px solid ${focused ? BLUE : "#dde1ec"}`,
-          fontSize: "14px",
-          color: value ? "#111827" : "#9ca3af",
-          background: "#ffffff",
-          outline: "none",
-          fontFamily: "inherit",
-          boxSizing: "border-box",
-          boxShadow: focused ? `0 0 0 3px rgba(30,77,183,0.12)` : "none",
-          transition: "border-color 0.15s, box-shadow 0.15s",
-          appearance: "none",
-          cursor: "pointer",
-        }}
-      >
-        <option value="" disabled>
-          Gender
-        </option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
-        <option value="other">Other</option>
-      </select>
-      <span
-        style={{
-          position: "absolute",
-          right: "13px",
-          pointerEvents: "none",
-          display: "flex",
-          alignItems: "center",
-          color: "#9ca3af",
-        }}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M19 9l-7 7-7-7" />
-        </svg>
-      </span>
-    </div>
-  );
-}
-
-/* ── Main WalkInForm ── */
-
-/**
- * WalkInForm
- * Right column of the staff dashboard. Staff fill this out to register a
- * walk-in patient and assign them a queue number.
- *
- * Props:
- *   onSuccess — called after a successful submission (triggers queue refresh)
- */
 export default function WalkInForm({ onSuccess }) {
 
   const [form, setForm] = useState({
@@ -244,10 +47,6 @@ export default function WalkInForm({ onSuccess }) {
   const [success, setSuccess] = useState("");
   const [isPriority, setIsPriority] = useState(false);
   const [priorityCategory, setPriorityCategory] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [addressFocused, setAddressFocused] = useState(false);
-  const [showServicesDropdown, setShowServicesDropdown] = useState(false);
-  const [servicesFocused, setServicesFocused] = useState(false);
   const [lookup, setLookup] = useState("");
   const [matches, setMatches] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -259,7 +58,10 @@ export default function WalkInForm({ onSuccess }) {
     const term = lookup.trim();
     const digits = (term || form.contact).replace(/\D/g, "");
     const phone = digits.length === 10 && digits.startsWith("9") ? `0${digits}` : digits;
-    if (term.length < 2 && form.fullName.trim().length < 2 && phone.length < 10 && !form.dateOfBirth) { setMatches([]); return; }
+    if (term.length < 2 && form.fullName.trim().length < 2 && phone.length < 10 && !form.dateOfBirth) {
+      const reset = setTimeout(() => { setMatches([]); setSearching(false); }, 0);
+      return () => clearTimeout(reset);
+    }
     let active = true;
     const timer = setTimeout(async () => {
       setSearching(true);
@@ -291,78 +93,61 @@ export default function WalkInForm({ onSuccess }) {
         dateOfBirth: String(data.date_of_birth || "").slice(0, 10),
         gender: String(data.gender || "").toLowerCase(),
         address: data.barangay || "",
-        contact: String(data.contact_number || "").replace(/^0/, ""),
+        contact: String(data.contact_number || "").replace(/^(\+?63|0)/, ""),
       });
       setMatches([]);
       setLookup("");
+      setSearching(false);
       setConfirmNew(false);
     } catch (err) { setError(err.message); }
   };
 
-  const set = (field) => (e) => {
+  const set = (field) => (event) => {
     setError("");
     setSuccess("");
-    setForm((p) => ({ ...p, [field]: e.target.value }));
+    setForm((previous) => ({ ...previous, [field]: event.target.value }));
     setConfirmNew(false);
   };
 
   const toggleService = (id) => {
     setError("");
     setSuccess("");
-    setSelectedServices((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
+    setSelectedServices((previous) => previous.includes(id) ? previous.filter((service) => service !== id) : [...previous, id]);
   };
 
-  const selectedServiceLabels = SERVICES.filter((s) =>
-    selectedServices.includes(s.id),
-  ).map((s) => s.label);
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
     setSuccess("");
     if (!form.fullName.trim()) return setError("Full name is required.");
     if (!form.dateOfBirth) return setError("Date of birth is required.");
-    if (new Date(form.dateOfBirth) > new Date())
-      return setError("Date of birth cannot be in the future.");
+    if (new Date(form.dateOfBirth) > new Date()) return setError("Date of birth cannot be in the future.");
     if (!form.gender) return setError("Please select a gender.");
     if (!form.address.trim()) return setError("Address is required.");
-    if (!form.contact.trim()) return setError("Contact number is required.");
+    if (!/^9\d{9}$/.test(form.contact)) return setError("Enter a valid 10-digit mobile number starting with 9.");
     if (!selectedPatient && matches.length && !confirmNew) return setError("Possible patient match found. Select a record or confirm a new one below.");
-    if (selectedServices.length === 0)
-      return setError("Please select at least one service.");
-    if (isPriority && !priorityCategory)
-      return setError("Please select a priority category.");
-
+    if (!selectedServices.length || selectedServices.length > 2) return setError("Select one or two dental services.");
+    if (isPriority && !priorityCategory) return setError("Please select a priority category.");
     setLoading(true);
     try {
-      const payload = {
+      const res = await api.post("/queue/walkin", {
         full_name: form.fullName,
         date_of_birth: form.dateOfBirth,
         gender: form.gender,
         address: form.address,
-        contact: "+63" + form.contact.replace(/^0+/, ""),
+        contact: "+63" + form.contact,
         patient_id: selectedPatient?.patient_id,
         create_new_confirmed: confirmNew,
         priority_category: isPriority ? priorityCategory : null,
         type: isPriority ? "priority" : "regular",
-      };
-      const res = await api.post("/queue/walkin", {
-        ...payload,
         category: "dental",
         services: selectedServices,
       });
-      const queueNumber = res?.queue?.queue_number ?? "assigned";
-      setSuccess(
-        `Dental walk-in registered — queue number ${queueNumber}.`,
-      );
-      setForm({
-        fullName: "",
-        dateOfBirth: "",
-        gender: "",
-        address: "",
-        contact: "",
-      });
+      setSuccess(`Dental walk-in registered — queue number ${res.queue.queue_number}. Initial position: ${res.queue.sms_initial_position}. ` +
+        (res.queue.sms_alert_state === "suppressed"
+          ? "Tell the patient: Please stay nearby; no queue SMS will be sent."
+          : "Tell the patient: One SMS will be sent as your turn approaches. Order may change."));
+      setForm({ fullName: "", dateOfBirth: "", gender: "", address: "", contact: "" });
       setSelectedServices([]);
       setIsPriority(false);
       setPriorityCategory("");
@@ -379,656 +164,60 @@ export default function WalkInForm({ onSuccess }) {
     }
   };
 
+  const dentalVisits = selectedPatient?.visits?.filter((visit) => visit.category === "dental") ?? [];
+
   return (
-    <div
-      style={{
-        background: "#eef0f7",
-        borderRadius: "16px",
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "14px",
-        boxShadow: "inset 0 2px 6px rgba(0,0,0,0.06)",
-      }}
-    >
-      <div>
-        <label htmlFor="patient-lookup" style={{ display: "block", fontSize: "12px", fontWeight: 700, color: NAVY, marginBottom: "6px" }}>Find an existing patient</label>
-        <input id="patient-lookup" value={lookup} onChange={(e) => { setLookup(e.target.value); setConfirmNew(false); }} placeholder="Search name or mobile number" autoComplete="off" style={{ width: "100%", boxSizing: "border-box", padding: "11px", border: "1.5px solid #dde1ec", borderRadius: "9px" }} />
-        {searching && <small>Searching…</small>}
-        {!selectedPatient && matches.length > 0 && (
-          <div style={{ marginTop: "7px", padding: "9px", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "9px" }}>
-            <strong style={{ fontSize: "12px", color: "#9a3412" }}>Possible existing patients</strong>
-            {matches.map((p) => <button key={p.patient_id} type="button" onClick={() => selectPatient(p.patient_id)} style={{ display: "block", width: "100%", textAlign: "left", marginTop: "5px", padding: "7px", background: "white", border: "1px solid #e5e7eb", borderRadius: "6px", cursor: "pointer" }}>{p.first_name} {p.last_name} · {String(p.date_of_birth || "").slice(0, 10)} · {p.masked_contact || "No phone"}</button>)}
-            <label style={{ display: "block", marginTop: "8px", fontSize: "12px" }}><input type="checkbox" checked={confirmNew} onChange={(e) => setConfirmNew(e.target.checked)} /> I checked these records; create a new patient</label>
-          </div>
-        )}
-        {selectedPatient && <div style={{ marginTop: "8px", padding: "9px", background: "#eff6ff", borderRadius: "8px", fontSize: "12px" }}>
-          <strong>Returning patient #{selectedPatient.patient_id}</strong> · <Link to={`/staff/patients/${selectedPatient.patient_id}`}>Open profile</Link>
-          <button type="button" onClick={() => { setSelectedPatient(null); setForm({ fullName: "", dateOfBirth: "", gender: "", address: "", contact: "" }); }} style={{ marginLeft: "8px" }}>Clear</button>
-          <div style={{ marginTop: "5px" }}>Previous queue visits: {selectedPatient.visits?.length || 0}</div>
-          {selectedPatient.visits?.slice(0, 3).map((v) => <div key={v.id}>{new Date(v.created_at).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" })} · {v.queue_number} · {v.status}</div>)}
-        </div>}
+    <section id="walk-in-registration" aria-labelledby="walk-in-title" className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+        <span className="rounded-lg bg-blue-50 p-2 text-blue-700"><UserPlus size={20} aria-hidden="true" /></span>
+        <div><h3 id="walk-in-title" className="text-sm font-semibold text-slate-900">Register dental walk-in</h3><p className="mt-1 text-xs text-slate-500">Find an existing record before creating a new patient.</p></div>
       </div>
-      {/* Full Name */}
-      <FormField
-        icon={
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#9ca3af"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-        }
-        placeholder="Full name"
-        value={form.fullName}
-        onChange={set("fullName")}
-      />
-
-      {/* Age + Gender */}
-      <div style={{ display: "flex", gap: "10px" }}>
-        <div style={{ flex: "0 0 160px" }}>
-          <FormField
-            icon={
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#9ca3af"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-            }
-            placeholder="Date of Birth"
-            type="date"
-            value={form.dateOfBirth}
-            onChange={set("dateOfBirth")}
-          />
-        </div>
-        <GenderField value={form.gender} onChange={set("gender")} />
-      </div>
-
-      {/* Address dropdown */}
-      <div style={{ position: "relative" }}>
-        <div
-          style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <span
-            style={{
-              position: "absolute",
-              left: "13px",
-              pointerEvents: "none",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#9ca3af"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowDropdown(!showDropdown)}
-            onFocus={() => setAddressFocused(true)}
-            onBlur={() => setTimeout(() => setAddressFocused(false), 200)}
-            style={{
-              width: "100%",
-              padding: "12px 14px 12px 40px",
-              borderRadius: "10px",
-              border: `1.5px solid ${showDropdown || addressFocused ? BLUE : "#dde1ec"}`,
-              fontSize: "14px",
-              color: form.address ? "#111827" : "#9ca3af",
-              background: "#ffffff",
-              outline: "none",
-              fontFamily: "inherit",
-              boxSizing: "border-box",
-              boxShadow:
-                showDropdown || addressFocused
-                  ? `0 0 0 3px rgba(30,77,183,0.12)`
-                  : "none",
-              transition: "border-color 0.15s, box-shadow 0.15s",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              cursor: "pointer",
-            }}
-          >
-            <span
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {form.address || "Address"}
-            </span>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              style={{
-                transition: "transform 0.2s",
-                transform: showDropdown ? "rotate(180deg)" : "rotate(0deg)",
-              }}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-        </div>
-        {showDropdown && (
-          <div
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              width: "100%",
-              marginTop: "4px",
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: "10px",
-              boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-              zIndex: 50,
-              overflow: "hidden",
-            }}
-          >
-            <ul
-              style={{
-                margin: 0,
-                padding: "4px 0",
-                listStyle: "none",
-                maxHeight: "240px",
-                overflowY: "auto",
-              }}
-            >
-              {BAGO_BARANGAYS.map((brgy) => {
-                const fullAddress = `Barangay ${brgy}, Bago City`;
-                const isSelected = form.address === fullAddress;
-                return (
-                  <li key={brgy}>
-                    <button
-                      type="button"
-                      style={{
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "10px 14px",
-                        fontSize: "14px",
-                        background: isSelected ? "#eff6ff" : "transparent",
-                        color: isSelected ? "#1d4ed8" : "#374151",
-                        fontWeight: isSelected ? "600" : "400",
-                        border: "none",
-                        cursor: "pointer",
-                        outline: "none",
-                        transition: "background 0.15s",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected)
-                          e.currentTarget.style.background = "#eff6ff";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected)
-                          e.currentTarget.style.background = "transparent";
-                      }}
-                      onClick={() => {
-                        set("address")({ target: { value: fullAddress } });
-                        setShowDropdown(false);
-                      }}
-                    >
-                      Barangay {brgy}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* Contact */}
-      <ContactField value={form.contact} onChange={set("contact")} />
-
-      {/* Services */}
-      <div style={{ position: "relative" }}>
-          <p
-            style={{
-              margin: "0 0 6px",
-              fontSize: "12px",
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Services{" "}
-            <span style={{ color: "#9ca3af", fontWeight: 400 }}>
-              (select all that apply)
-            </span>
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowServicesDropdown(!showServicesDropdown)}
-            onFocus={() => setServicesFocused(true)}
-            onBlur={() => setTimeout(() => setServicesFocused(false), 200)}
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              borderRadius: "10px",
-              border: `1.5px solid ${showServicesDropdown || servicesFocused ? BLUE : "#dde1ec"}`,
-              fontSize: "14px",
-              color: selectedServices.length > 0 ? "#111827" : "#9ca3af",
-              background: "#ffffff",
-              outline: "none",
-              fontFamily: "inherit",
-              boxSizing: "border-box",
-              boxShadow:
-                showServicesDropdown || servicesFocused
-                  ? `0 0 0 3px rgba(30,77,183,0.12)`
-                  : "none",
-              transition: "border-color 0.15s, box-shadow 0.15s",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              cursor: "pointer",
-            }}
-          >
-            <span
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {selectedServices.length > 0
-                ? selectedServiceLabels.join(", ")
-                : "Select services"}
-            </span>
-            <span
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                flexShrink: 0,
-              }}
-            >
-              {selectedServices.length > 0 && (
-                <span
-                  style={{
-                    background: "#eff6ff",
-                    color: BLUE,
-                    borderRadius: "999px",
-                    padding: "2px 8px",
-                    fontSize: "11px",
-                    fontWeight: 700,
-                  }}
-                >
-                  {selectedServices.length}
-                </span>
-              )}
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                style={{
-                  transition: "transform 0.2s",
-                  transform: showServicesDropdown
-                    ? "rotate(180deg)"
-                    : "rotate(0deg)",
-                }}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </span>
-          </button>
-          {showServicesDropdown && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                width: "100%",
-                marginTop: "4px",
-                background: "#ffffff",
-                border: "1px solid #e5e7eb",
-                borderRadius: "10px",
-                boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-                zIndex: 50,
-                overflow: "hidden",
-              }}
-            >
-              <ul
-                style={{
-                  margin: 0,
-                  padding: "4px 0",
-                  listStyle: "none",
-                  maxHeight: "260px",
-                  overflowY: "auto",
-                }}
-              >
-                {SERVICES.map(({ id, label, group }) => {
-                  const active = selectedServices.includes(id);
-                  return (
-                    <li key={id}>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => toggleService(id)}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "10px 14px",
-                          border: "none",
-                          background: active ? "#eff6ff" : "#ffffff",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          transition: "background 0.15s",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: "18px",
-                            height: "18px",
-                            borderRadius: "5px",
-                            border: `2px solid ${active ? BLUE : "#cbd5e1"}`,
-                            background: active ? BLUE : "transparent",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {active && (
-                            <svg
-                              width="10"
-                              height="8"
-                              viewBox="0 0 10 8"
-                              fill="none"
-                            >
-                              <path
-                                d="M1 4L3.5 6.5L9 1"
-                                stroke="white"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </span>
-                        <span
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "1px",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontSize: "13px",
-                              color: active ? BLUE : "#374151",
-                              fontWeight: active ? 600 : 500,
-                            }}
-                          >
-                            {label}
-                          </span>
-                          {group && (
-                            <span
-                              style={{ fontSize: "11px", color: "#9ca3af" }}
-                            >
-                              {group}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              {selectedServices.length > 0 && (
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    setSelectedServices([]);
-                    setError("");
-                    setSuccess("");
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "9px 14px",
-                    border: "none",
-                    borderTop: "1px solid #f3f4f6",
-                    background: "#f9fafb",
-                    color: "#dc2626",
-                    cursor: "pointer",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    textAlign: "left",
-                  }}
-                >
-                  Clear selected services
-                </button>
-              )}
+      <form onSubmit={handleSubmit} className="space-y-5 p-5" aria-label="Dental walk-in registration">
+        <fieldset disabled={loading} className="min-w-0 space-y-5">
+          <div>
+            <label htmlFor="patient-lookup" className="mb-1.5 block text-xs font-semibold text-slate-700">Find an existing patient</label>
+            <div className="relative"><Search size={17} className="pointer-events-none absolute left-3 top-3 text-slate-400" aria-hidden="true" />
+              <input id="patient-lookup" value={lookup} onChange={(event) => { setLookup(event.target.value); setConfirmNew(false); }} disabled={!!selectedPatient} placeholder="Search name or mobile number" autoComplete="off" className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50" />
             </div>
-          )}
-      </div>
-
-      {/* Queue Type */}
-      <div>
-        <p
-          style={{
-            margin: "0 0 6px",
-            fontSize: "12px",
-            fontWeight: 600,
-            color: "#374151",
-          }}
-        >
-          Queue Type
-        </p>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "8px",
-          }}
-        >
-          {[
-            { value: false, label: "Regular", color: NAVY },
-            { value: true, label: "Priority", color: "#f97316" },
-          ].map(({ value, label, color }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => {
-                setIsPriority(value);
-                setPriorityCategory("");
-                setError("");
-              }}
-              style={{
-                padding: "9px",
-                borderRadius: "10px",
-                border: `2px solid ${isPriority === value ? color : "#dde1ec"}`,
-                background: isPriority === value ? `${color}12` : "#ffffff",
-                cursor: "pointer",
-                fontWeight: isPriority === value ? 600 : 400,
-                fontSize: "13px",
-                color: isPriority === value ? color : "#6b7280",
-                transition: "all 0.15s",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {isPriority && (
-          <div
-            style={{
-              marginTop: "8px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "5px",
-            }}
-          >
-            {[
-              { value: "senior", label: "Senior Citizen (60+)" },
-              { value: "pwd", label: "PWD (Person with Disability)" },
-              { value: "pregnant", label: "Pregnant" },
-            ].map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => {
-                  setPriorityCategory(value);
-                  setError("");
-                }}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: "8px",
-                  border: `1.5px solid ${priorityCategory === value ? "#f97316" : "#dde1ec"}`,
-                  background:
-                    priorityCategory === value ? "#fff7ed" : "#ffffff",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  color: priorityCategory === value ? "#f97316" : "#374151",
-                  fontWeight: priorityCategory === value ? 600 : 400,
-                  textAlign: "left",
-                  transition: "all 0.12s",
-                }}
-              >
-                {label}
-              </button>
-            ))}
+            {searching && <p role="status" className="mt-2 flex items-center gap-2 text-xs text-slate-500"><LoaderCircle size={14} className="animate-spin" aria-hidden="true" />Searching patient records…</p>}
+            {!selectedPatient && matches.length > 0 && (
+              <div className="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-semibold text-amber-900">Possible existing patients</p>
+                {matches.map((patient) => <button key={patient.patient_id} type="button" onClick={() => selectPatient(patient.patient_id)} className="block w-full rounded-lg border border-amber-100 bg-white px-3 py-2 text-left text-xs leading-relaxed text-slate-700 hover:border-blue-400 focus-visible:outline-2 focus-visible:outline-blue-600">{patient.first_name} {patient.last_name} · {String(patient.date_of_birth || "").slice(0, 10)} · {patient.masked_contact || "No phone"}</button>)}
+                <label className="flex items-start gap-2 pt-1 text-xs leading-relaxed text-amber-900"><input type="checkbox" checked={confirmNew} onChange={(event) => setConfirmNew(event.target.checked)} className="mt-0.5 accent-blue-700" />I checked these records; create a new patient.</label>
+              </div>
+            )}
+            {selectedPatient && <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">
+              <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">Returning patient #{selectedPatient.patient_id}</p><button type="button" onClick={() => { setSelectedPatient(null); setForm({ fullName: "", dateOfBirth: "", gender: "", address: "", contact: "" }); }} className="flex items-center gap-1 rounded-md p-1 hover:bg-blue-100"><X size={14} aria-hidden="true" />Clear selection</button></div>
+              <Link to={`/staff/patients/${selectedPatient.patient_id}`} className="mt-2 inline-block font-medium underline underline-offset-2">Open patient profile</Link>
+              <p className="mt-2 font-medium">Previous dental visits: {dentalVisits.length}</p>
+              {dentalVisits.slice(0, 3).map((visit) => <p key={visit.id} className="mt-1 text-blue-700">{new Date(visit.created_at).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" })} · {visit.queue_number} · {visit.status}</p>)}
+            </div>}
           </div>
-        )}
-      </div>
-
-      {/* Error / Success */}
-      {error && (
-        <div
-          style={{
-            background: "#fef2f2",
-            border: "1px solid #fecaca",
-            borderRadius: "8px",
-            padding: "9px 12px",
-            fontSize: "12px",
-            color: "#dc2626",
-          }}
-        >
-          {error}
-        </div>
-      )}
-      {success && (
-        <div
-          style={{
-            background: "#f0fdf4",
-            border: "1px solid #bbf7d0",
-            borderRadius: "8px",
-            padding: "9px 12px",
-            fontSize: "12px",
-            color: "#15803d",
-            fontWeight: 500,
-          }}
-        >
-          ✓ {success}
-        </div>
-      )}
-
-      {/* Submit */}
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        style={{
-          width: "100%",
-          padding: "13px",
-          borderRadius: "10px",
-          border: "none",
-          background: `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)`,
-          color: "#ffffff",
-          fontSize: "14px",
-          fontWeight: 700,
-          cursor: loading ? "not-allowed" : "pointer",
-          opacity: loading ? 0.75 : 1,
-          boxShadow: "0 3px 12px rgba(30,45,107,0.3)",
-          transition: "transform 0.15s, box-shadow 0.15s",
-          letterSpacing: "0.01em",
-        }}
-        onMouseEnter={(e) => {
-          if (!loading) {
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 5px 18px rgba(30,45,107,0.42)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = "0 3px 12px rgba(30,45,107,0.3)";
-        }}
-      >
-        {loading ? (
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-            }}
-          >
-            <svg
-              className="ek-spin"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            >
-              <path d="M12 2a10 10 0 0110 10" />
-            </svg>
-            Registering...
-          </span>
-        ) : (
-          "Get Queue"
-        )}
-      </button>
-    </div>
+          <div className="border-t border-slate-100 pt-4">
+            <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-slate-900"><UserRound size={16} className="text-blue-700" aria-hidden="true" />Patient details</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2"><label htmlFor="walkin-name" className="mb-1.5 block text-xs font-medium text-slate-600">Full name</label><input id="walkin-name" required autoComplete="name" value={form.fullName} onChange={set("fullName")} placeholder="First and last name" className={inputClass} /></div>
+              <div><label htmlFor="walkin-dob" className="mb-1.5 block text-xs font-medium text-slate-600">Date of birth</label><input id="walkin-dob" type="date" required value={form.dateOfBirth} onChange={set("dateOfBirth")} className={inputClass} /></div>
+              <div><label htmlFor="walkin-gender" className="mb-1.5 block text-xs font-medium text-slate-600">Gender</label><select id="walkin-gender" required value={form.gender} onChange={set("gender")} className={inputClass}><option value="">Select gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
+              <div className="sm:col-span-2"><label htmlFor="walkin-address" className="mb-1.5 block text-xs font-medium text-slate-600">Barangay, Bago City</label><select id="walkin-address" required value={form.address} onChange={set("address")} className={inputClass}><option value="">Select barangay</option>{form.address && !BAGO_BARANGAYS.some((name) => form.address === `Barangay ${name}, Bago City`) && <option value={form.address}>{form.address}</option>}{BAGO_BARANGAYS.map((name) => <option key={name} value={`Barangay ${name}, Bago City`}>{name}</option>)}</select></div>
+              <div className="sm:col-span-2"><label htmlFor="walkin-contact" className="mb-1.5 block text-xs font-medium text-slate-600">Confirmed mobile number</label><div className="flex overflow-hidden rounded-xl border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100"><span className="flex items-center gap-2 border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-600"><Phone size={14} aria-hidden="true" />+63</span><input id="walkin-contact" type="tel" required inputMode="numeric" pattern="9[0-9]{9}" maxLength={10} value={form.contact} onChange={set("contact")} placeholder="9XXXXXXXXX" aria-describedby="walkin-contact-help" className="min-w-0 flex-1 px-3 py-2.5 text-sm outline-none" /></div><p id="walkin-contact-help" className="mt-1.5 text-[11px] text-slate-500">Confirm this number with the patient before registration.</p></div>
+            </div>
+          </div>
+          <fieldset className="rounded-xl border border-slate-200 p-3">
+            <legend className="px-1 text-xs font-semibold text-slate-700">Dental services <span className="font-normal text-slate-400">· Select up to 2</span></legend>
+            <div className="grid max-h-48 gap-1 overflow-y-auto pr-1 sm:grid-cols-2">{SERVICES.map(({ id, label, group }) => <label key={id} className={`flex items-start gap-2 rounded-lg p-2 text-xs leading-relaxed transition ${selectedServices.includes(id) ? "bg-blue-50 text-blue-800" : "text-slate-600 hover:bg-slate-50"}`}><input type="checkbox" checked={selectedServices.includes(id)} onChange={() => toggleService(id)} disabled={!selectedServices.includes(id) && selectedServices.length >= 2} className="mt-0.5 shrink-0 accent-blue-700" /><span>{label}{group && <span className="block text-[10px] text-slate-400">{group}</span>}</span></label>)}</div>
+          </fieldset>
+          <fieldset>
+            <legend className="mb-2 text-xs font-semibold text-slate-700">Queue type</legend>
+            <div className="grid grid-cols-2 gap-2">{[{ value: false, label: "Regular" }, { value: true, label: "Priority" }].map(({ value, label }) => <label key={label} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium ${isPriority === value ? "border-blue-300 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600"}`}><input type="radio" name="walkin-queue-type" checked={isPriority === value} onChange={() => { setIsPriority(value); setPriorityCategory(""); setError(""); }} className="accent-blue-700" />{label}</label>)}</div>
+            {isPriority && <div className="mt-3"><label htmlFor="walkin-priority" className="mb-1.5 block text-xs font-medium text-slate-600">Priority category</label><select id="walkin-priority" required value={priorityCategory} onChange={(event) => { setPriorityCategory(event.target.value); setError(""); }} className={inputClass}><option value="">Select priority category</option><option value="senior">Senior citizen (60+)</option><option value="pwd">PWD (Person with Disability)</option><option value="pregnant">Pregnant</option></select></div>}
+          </fieldset>
+        </fieldset>
+        {error && <p role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-relaxed text-red-700"><AlertCircle size={16} className="shrink-0" aria-hidden="true" />{error}</p>}
+        {success && <p role="status" className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-800"><CheckCircle2 size={16} className="mt-0.5 shrink-0" aria-hidden="true" />{success}</p>}
+        <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1e4db7] px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50">{loading ? <LoaderCircle size={17} className="animate-spin" aria-hidden="true" /> : <UserPlus size={17} aria-hidden="true" />}{loading ? "Registering patient…" : "Register and assign dental queue"}</button>
+      </form>
+    </section>
   );
 }

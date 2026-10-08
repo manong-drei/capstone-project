@@ -18,6 +18,11 @@ const {
 } = require("../controllers/adminController");
 
 const adminOnly = [authenticate, authorize("admin")];
+const smsController = require('../controllers/smsController');
+router.get('/sms-settings', ...adminOnly, smsController.getSettings);
+router.put('/sms-settings', ...adminOnly, smsController.updateSettings);
+router.get('/sms-jobs', ...adminOnly, smsController.listJobs);
+router.post('/patients/:user_id/temporary-password', ...adminOnly, smsController.replacePassword);
 
 router.get("/overview", ...adminOnly, getOverview);
 router.get("/bohc-forecast", ...adminOnly, getBohcForecast);
