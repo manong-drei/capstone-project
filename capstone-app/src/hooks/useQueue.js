@@ -66,9 +66,9 @@ return data;
     setLoading(true);
     setError(null);
     try {
-      await queueService.updateQueueStatus(id, status);
+      const updated = await queueService.updateQueueStatus(id, status);
       setQueues((prev) =>
-        prev.map((q) => (q.id === id ? { ...q, status } : q)),
+        prev.map((q) => (q.id === id ? updated : q)),
       );
     } catch (err) {
       setError(err.message);

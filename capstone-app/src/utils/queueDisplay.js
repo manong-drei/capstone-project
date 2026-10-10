@@ -14,3 +14,7 @@ export const getQueueDisplayName = (queue) =>
     queue?.walk_in_name,
     queue?.name,
   ) || "—";
+
+export const formatQueueTime = value => new Date(value).toLocaleTimeString('en-PH', {
+  timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true,
+});

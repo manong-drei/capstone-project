@@ -9,7 +9,7 @@ test('rollout suppresses first five; crossings, threshold jumps and restart crea
   const saved = { getConnection: pool.getConnection, project: Queue.projectWaiting, lock: Queue.lockCategory, key: process.env.SMS_ENCRYPTION_KEY };
   process.env.SMS_ENCRYPTION_KEY = 'cd'.repeat(32);
   let threshold = 5;
-  let rows = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, patient_id: i + 1, is_walk_in: 0, queue_number: `Q-00${i + 1}`, category: 'dental' }));
+  let rows = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, patient_id: i + 1, is_walk_in: 0, queue_number: `AQ0${i + 1}`, category: 'dental' }));
   const jobs = new Map();
   let held = Promise.resolve();
   Queue.lockCategory = async (category, conn) => {
@@ -111,7 +111,7 @@ test('job claim precedes sending, password TTL is preserved, and uncertainty pur
 
 test('stale queue jobs never submit; fresh jobs use the current position instead of an old encrypted message', async () => {
   const saved = { send: sms.sendSMS, project: Queue.projectWaiting, lock: Queue.lockCategory };
-  const ticket = { id: 6, patient_id: 42, category: 'dental', is_walk_in: 0, queue_number: 'Q-010', sms_alert_state: 'enqueued' };
+  const ticket = { id: 6, patient_id: 42, category: 'dental', is_walk_in: 0, queue_number: 'AQ10', sms_alert_state: 'enqueued' };
   const job = { id: 10, purpose: 'queue_alert', queue_id: 6, patient_id: 42, recipient: '09123456789', attempts: 0 };
   let waiting = [{ ...ticket }];
   let contact = job.recipient;

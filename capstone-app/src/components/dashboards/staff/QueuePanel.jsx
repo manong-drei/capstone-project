@@ -1,8 +1,8 @@
-import { ArrowRight, Clock3, ListOrdered, LoaderCircle, Megaphone, ShieldCheck, UserRoundX, Users } from "lucide-react";
+import { ArrowRight, Clock3, ListOrdered, LoaderCircle, Megaphone, ShieldCheck, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
 
-export default function QueuePanel({ currentServing, nextQueue, onCallNext, onNoShow, onCancelQueue, loading }) {
+export default function QueuePanel({ currentServing, nextQueue, onCallNext, onCancelQueue, loading }) {
   return (
     <section id="dental-queue" aria-labelledby="dental-queue-title" className="scroll-mt-24 space-y-4">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -11,19 +11,18 @@ export default function QueuePanel({ currentServing, nextQueue, onCallNext, onNo
           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{nextQueue.length} waiting</span>
         </div>
         <div className="m-5 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 p-6 text-center text-white">
-          <p className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-100"><Megaphone size={16} aria-hidden="true" />Now serving</p>
+          <p className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-100"><Megaphone size={16} aria-hidden="true" />{currentServing?.status === 'called' ? 'Called' : 'Now serving'}</p>
           <p className="my-3 break-words text-5xl font-bold tracking-tight">{currentServing?.queue_number || "—"}</p>
           {currentServing ? <>
             <p className="text-sm font-medium">{currentServing.patient_id ? <Link to={`/staff/patients/${currentServing.patient_id}`} className="underline decoration-white/40 underline-offset-4 hover:decoration-white">{getQueueDisplayName(currentServing)}</Link> : getQueueDisplayName(currentServing)}</p>
             <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">{currentServing.type === "priority" && <ShieldCheck size={13} aria-hidden="true" />}{currentServing.type === "priority" ? "Priority" : "Regular"}</span>
-            <button type="button" onClick={onNoShow} disabled={loading} className="mx-auto mt-4 flex items-center gap-2 rounded-lg border border-white/50 px-3 py-2 text-xs font-semibold transition hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-50"><UserRoundX size={14} aria-hidden="true" />Mark no-show</button>
           </> : <p className="text-sm text-orange-100">{loading ? "Loading the dental queue…" : "No patient is currently being served."}</p>}
         </div>
         <div className="px-5 pb-5">
           <button type="button" onClick={onCallNext} disabled={loading || !nextQueue.length || !!currentServing} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1e4db7] px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
             {loading ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}{loading ? "Updating queue…" : "Call next patient"}
           </button>
-          {currentServing && <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">Wait for the dentist to complete this visit, or record a no-show before calling the next patient.</p>}
+          {currentServing && <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">{currentServing.status === 'called' ? 'Confirm the patient is here, or call again before skipping.' : 'Wait for the dentist to complete this visit before calling the next patient.'}</p>}
         </div>
       </div>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

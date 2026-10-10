@@ -60,6 +60,7 @@ export default function DoctorDashboard() {
   const [showConsultModal, setShowConsultModal] = useState(false);
   const [servingPatient, setServingPatient] = useState(null);
   const [consultLoading, setConsultLoading] = useState(false);
+  const [queueActionLoading, setQueueActionLoading] = useState(false);
   const [capacityCollapsed, setCapacityCollapsed] = useState(false);
   const [showLimitWarning, setShowLimitWarning]   = useState(false);
   const [pendingSettings, setPendingSettings]     = useState(null);
@@ -168,17 +169,30 @@ export default function DoctorDashboard() {
 
   const handleCallNext = async () => {
     if (servingQueue) { setServingPatient(servingQueue); setShowConsultModal(true); return; }
+    setQueueActionLoading(true);
     try {
-      const next = await api.post("/queue/call-next", { category: "dental" });
-      setServingPatient(next);
-      setShowConsultModal(true);
-      fetchAllQueues();
+      await api.post("/queue/call-next", { category: "dental" });
+      await fetchAllQueues();
     } catch (err) { alert(err.message); }
+    finally { setQueueActionLoading(false); }
   };
 
   const handleMarkDone = async (id) => {
     await updateStatus(id, QUEUE_STATUS.DONE);
     fetchAllQueues();
+  };
+
+  const handleQueueAction = async (id, action) => {
+    setQueueActionLoading(true);
+    try {
+      if (action === 'present') {
+        const patient = await api.patch(`/queue/${id}/status`, { status: 'serving' });
+        setServingPatient(patient);
+        setShowConsultModal(true);
+      } else await api.post(`/queue/${id}/${action}`);
+      await fetchAllQueues();
+    } catch (err) { await fetchAllQueues(); alert(err.message); }
+    finally { setQueueActionLoading(false); }
   };
 
   const handleSaveConsultation = async (notes) => {
@@ -203,6 +217,8 @@ export default function DoctorDashboard() {
   const serving       = dentalQueues.filter((q) => q.status === QUEUE_STATUS.SERVING);
   const doneQueues    = dentalQueues.filter((q) => q.status === QUEUE_STATUS.DONE);
   const servingQueue  = serving[0] ?? null;
+  const calledQueue = dentalQueues.find(q => q.status === QUEUE_STATUS.CALLED) ?? null;
+  const missedQueues = dentalQueues.filter(q => q.status === QUEUE_STATUS.MISSED);
   const nextQueue     = waiting[0] ?? null;
   const done          = doneQueues.length;
   const priority      = dentalQueues.filter((q) => q.type === "priority").length;
@@ -271,8 +287,9 @@ export default function DoctorDashboard() {
           settingsLoading={settingsLoading} settingsSaved={settingsSaved} onApplySettings={handleApplySettings}
           waiting={waiting} serving={serving} doneQueues={doneQueues}
           servingQueue={servingQueue} nextQueue={nextQueue} done={done} priority={priority}
-          queueLoading={loading}
+          queueLoading={loading || queueActionLoading}
           onCallNext={handleCallNext} onMarkDone={handleMarkDone}
+          calledQueue={calledQueue} missedQueues={missedQueues} onQueueAction={handleQueueAction}
           error={error}
         />
       )}

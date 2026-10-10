@@ -61,7 +61,7 @@ const getMyQueue = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Patient profile not found." });
     }
-    const queue = await Queue.findByPatientId(patient.patient_id);
+    const queue = await Queue.findByPatientId(patient.patient_id) || await Queue.findLatestNoShow(patient.patient_id);
     res.json(queue);
   } catch (err) {
     console.error("getMyQueue error:", err);
@@ -138,7 +138,7 @@ const createQueue = async (req, res) => {
     const queueType = type === "priority" ? "priority" : "regular";
     const queue = await Queue.create({
       patient_id: patient.patient_id,
-      queue_number: await Queue.nextQueueNumber({ category: "dental", type: queueType }, connection),
+      queue_number: await Queue.nextQueueNumber({ category: "dental", type: queueType, is_walk_in: false }, connection),
       type: queueType,
       category: "dental",
       services: selectedServices,
@@ -241,7 +241,7 @@ const createWalkIn = async (req, res) => {
       await Patient.audit(patientId, req.user.user_id, "create", likely.length ? { duplicate_override: true, possible_patient_ids: likely.map((p) => p.patient_id) } : null, connection);
     }
     const [[active]] = await connection.query(
-      "SELECT id FROM queues WHERE patient_id = ? AND DATE(created_at) = CURDATE() AND status IN ('waiting', 'serving') LIMIT 1",
+      "SELECT id FROM queues WHERE patient_id = ? AND DATE(created_at) = CURDATE() AND status IN ('waiting', 'called', 'serving', 'missed') LIMIT 1",
       [patientId],
     );
     if (active) throw httpError(409, "This patient already has an active queue today.");
@@ -250,7 +250,7 @@ const createWalkIn = async (req, res) => {
     const queue = await Queue.create({
       patient_id: patientId,
       is_walk_in: true,
-      queue_number: await Queue.nextQueueNumber({ category: queueCategory, type: queueType }, connection),
+      queue_number: await Queue.nextQueueNumber({ category: queueCategory, type: queueType, is_walk_in: true }, connection),
       type: queueType,
       category: queueCategory,
       services: selectedServices,
@@ -284,7 +284,7 @@ const callNext = async (req, res) => {
     if (next?.conflict) {
       return res.status(409).json({
         success: false,
-        message: "A patient is already being served in this queue.",
+        message: "A patient is already called or being served in this queue.",
       });
     }
     if (!next) {
@@ -306,18 +306,22 @@ const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status, reason } = req.body;
 
-    const allowed = ["waiting", "serving", "done", "cancelled", "no_show"];
+    const allowed = ["serving", "done", "cancelled"];
     if (!allowed.includes(status)) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid status value." });
     }
-
-    if (["cancelled", "no_show"].includes(status) && !String(reason ?? "").trim()) {
-      return res.status(400).json({ success: false, message: "A reason is required for cancellation or no-show." });
+    if (status === 'serving' && req.user.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'Only staff or doctors can confirm patient presence.' });
     }
 
-    const updated = await Queue.updateStatus(id, status, ["cancelled", "no_show"].includes(status) ? String(reason).trim() : null);
+    if (status === 'cancelled' && !String(reason ?? "").trim()) {
+      return res.status(400).json({ success: false, message: "A reason is required for cancellation." });
+    }
+
+    const updated = await Queue.updateStatus(id, status, status === 'cancelled' ? String(reason).trim() : null);
+    if (updated?.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
     if (!updated) {
       return res
         .status(404)
@@ -349,7 +353,7 @@ const updateStatus = async (req, res) => {
     wakeWorker();
   } catch (err) {
     console.error("updateStatus error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
   }
 };
 
@@ -386,7 +390,8 @@ const cancelQueue = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please select a cancellation reason." });
     }
 
-    const updated = await Queue.updateStatus(id, "cancelled", String(reason).trim());
+    const updated = await Queue.updateStatus(id, "cancelled", String(reason).trim(), { patientOnly: true });
+    if (updated?.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
     if (updated.patient_id && !updated.is_walk_in) {
       await db.query(
         `UPDATE appointments
@@ -399,7 +404,22 @@ const cancelQueue = async (req, res) => {
     wakeWorker();
   } catch (err) {
     console.error("cancelQueue error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+  }
+};
+
+const ticketAction = action => async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ success: false, message: 'Invalid ticket ID.' });
+  try {
+    const result = await Queue[action](id);
+    if (!result) return res.status(404).json({ success: false, message: 'Queue entry not found.' });
+    if (result.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
+    wakeWorker();
+    res.json(result);
+  } catch (err) {
+    if (!err.status) console.error('Queue action failed:', err);
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : 'Server error.' });
   }
 };
 
@@ -412,4 +432,7 @@ module.exports = {
   callNext,
   updateStatus,
   cancelQueue,
+  recallQueue: ticketAction('recall'),
+  skipQueue: ticketAction('skip'),
+  returnQueue: ticketAction('returnPatient'),
 };

@@ -1,5 +1,5 @@
 import { QUEUE_STATUS } from "@/constants/queue";
-import { getQueueDisplayName } from "@/utils/queueDisplay";
+import { formatQueueTime, getQueueDisplayName } from "@/utils/queueDisplay";
 
 /**
  * AdminQueueMonitorTab
@@ -48,7 +48,8 @@ export default function AdminQueueMonitorTab({ queueMonitor, queueLoading, onQue
             const statusColor =
               status === QUEUE_STATUS.SERVING
                 ? "#059669"
-                : status === QUEUE_STATUS.WAITING
+                : status === QUEUE_STATUS.MISSED ? '#92400e'
+                : [QUEUE_STATUS.WAITING, QUEUE_STATUS.CALLED].includes(status)
                   ? "#2d3a8c"
                   : status === QUEUE_STATUS.DONE
                     ? "#0891b2"
@@ -56,13 +57,14 @@ export default function AdminQueueMonitorTab({ queueMonitor, queueLoading, onQue
             const statusBg =
               status === QUEUE_STATUS.SERVING
                 ? "#d1fae5"
-                : status === QUEUE_STATUS.WAITING
+                : status === QUEUE_STATUS.MISSED ? '#fef3c7'
+                : [QUEUE_STATUS.WAITING, QUEUE_STATUS.CALLED].includes(status)
                   ? "#eef2ff"
                   : status === QUEUE_STATUS.DONE
                     ? "#e0f2fe"
                     : "#fee2e2";
             const statusLabel = status
-              ? `${status.charAt(0).toUpperCase()}${status.slice(1)}`
+              ? `${status.charAt(0).toUpperCase()}${status.slice(1).replaceAll('_', '-')}`
               : "Unknown";
 
             return (
@@ -105,10 +107,10 @@ export default function AdminQueueMonitorTab({ queueMonitor, queueLoading, onQue
                     Reason: {q.status_reason}
                   </small>
                 )}
-                {onQueueStatus && [QUEUE_STATUS.WAITING, QUEUE_STATUS.SERVING].includes(status) && (
+                {status === QUEUE_STATUS.MISSED && <small className="text-amber-800">Missed call · Return before {formatQueueTime(q.grace_expires_at)}</small>}
+                {onQueueStatus && [QUEUE_STATUS.WAITING, QUEUE_STATUS.CALLED, QUEUE_STATUS.SERVING, QUEUE_STATUS.MISSED].includes(status) && (
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button onClick={() => onQueueStatus(q, "cancelled")} style={{ border: "1px solid #fecaca", borderRadius: "8px", background: "#fff", color: "#b91c1c", padding: "6px 10px", cursor: "pointer" }}>Cancel</button>
-                    <button onClick={() => onQueueStatus(q, "no_show")} style={{ border: "1px solid #fed7aa", borderRadius: "8px", background: "#fff", color: "#c2410c", padding: "6px 10px", cursor: "pointer" }}>No-show</button>
                   </div>
                 )}
                 <div

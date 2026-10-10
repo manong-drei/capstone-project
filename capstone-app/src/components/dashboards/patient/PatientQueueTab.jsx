@@ -40,7 +40,7 @@ export default function PatientQueueTab({ hasActiveQueue, queue, loading, error,
             </button>
           </div>
         )}
-        {hasActiveQueue && <QueueStatus queue={queue} onCancel={onCancelQueue} />}
+        {(hasActiveQueue || queue?.status === 'no_show') && <QueueStatus queue={queue} onCancel={hasActiveQueue ? onCancelQueue : undefined} />}
       </div>
     </div>
   );

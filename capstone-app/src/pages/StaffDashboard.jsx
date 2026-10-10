@@ -4,13 +4,14 @@ import { AlertCircle, CheckCircle2, Clock3, Monitor, RefreshCw, ShieldCheck, Use
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
-import { CANCELLATION_REASONS, NO_SHOW_REASON } from "@/constants/queueReasons";
+import { CANCELLATION_REASONS } from "@/constants/queueReasons";
 import api from "@/services/api";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import WalkInForm from "@/components/dashboards/staff/WalkInForm";
+import QueueRecovery from '@/components/common/QueueRecovery';
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
@@ -73,7 +74,6 @@ export default function StaffDashboard() {
     setCalling(true);
     try {
       await api.patch(`/queue/${id}/status`, { status, reason });
-      if (status === "no_show") await api.post("/queue/call-next", { category: "dental" });
       await fetchQueue();
     } catch (err) {
       await fetchQueue();
@@ -83,7 +83,19 @@ export default function StaffDashboard() {
     }
   };
 
-  const currentServing = queues.find((queue) => queue.status === "serving") ?? null;
+  const handleQueueAction = async (id, action) => {
+    setCalling(true);
+    try {
+      if (action === 'present') await api.patch(`/queue/${id}/status`, { status: 'serving' });
+      else await api.post(`/queue/${id}/${action}`);
+      await fetchQueue();
+    } catch (err) {
+      await fetchQueue();
+      setError(err.message || 'Unable to update this ticket.');
+    } finally { setCalling(false); }
+  };
+
+  const currentServing = queues.find((queue) => ['called', 'serving'].includes(queue.status)) ?? null;
   const waiting = queues.filter((queue) => queue.status === "waiting");
   const stats = [
     { label: "Waiting patients", value: waiting.length, icon: Users, color: "bg-blue-50 text-blue-700" },
@@ -115,10 +127,11 @@ export default function StaffDashboard() {
         </div>
         {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><p>{error} Displayed queue information may be outdated.</p></div>}
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-          <QueuePanel currentServing={currentServing} nextQueue={waiting} onCallNext={handleCallNext}
-            onNoShow={() => currentServing && setQueueReasonRequest({ title: "Reason for no-show", reasons: [NO_SHOW_REASON], id: currentServing.id, status: "no_show" })}
+          <div className="space-y-4"><QueuePanel currentServing={currentServing} nextQueue={waiting} onCallNext={handleCallNext}
             onCancelQueue={(id) => setQueueReasonRequest({ title: "Reason for cancellation", reasons: CANCELLATION_REASONS, id, status: "cancelled" })}
             loading={loading || calling} />
+            <QueueRecovery called={currentServing?.status === 'called' ? currentServing : null} missed={queues.filter(queue => queue.status === 'missed')} onAction={handleQueueAction} loading={loading || calling} />
+          </div>
           <WalkInForm onSuccess={fetchQueue} />
         </div>
         <p className="flex flex-wrap items-center justify-center gap-2 pb-2 text-xs text-slate-500">

@@ -35,7 +35,8 @@ test('retry policy stops at three, honors cooldowns, and never resends uncertain
   assert.equal(failureDisposition(new Error('Secret password 012345'), 1).code, 'sms_processing_failed');
   assert.equal(sms.retryAfterMs('40'), 40000);
   assert.equal(sms.retryAfterMs('Wed, 01 Jan 2025 00:00:40 GMT', Date.UTC(2025, 0, 1)), 40000);
-  const message = queueMessage({ queue_number: 'P-999999' }, 100);
+  const message = queueMessage({ queue_number: 'AP999999' }, 100);
+  assert.ok(message.includes('AP999999'));
   assert.ok(message.length <= 160 && !/[^\x20-\x7e]/.test(message));
 });
 

@@ -1,6 +1,6 @@
 import { QUEUE_STATUS } from "@/constants/queue";
 import Icon from "@/components/common/AppIcons";
-import { getQueueDisplayName } from "@/utils/queueDisplay";
+import { formatQueueTime, getQueueDisplayName } from "@/utils/queueDisplay";
 
 const STATUS_CONFIG = {
   [QUEUE_STATUS.WAITING]: {
@@ -9,12 +9,15 @@ const STATUS_CONFIG = {
     bg: "#eef2ff",
     icon: "clock",
   },
-  [QUEUE_STATUS.SERVING]: {
+  [QUEUE_STATUS.CALLED]: {
     label: "It's your turn!",
     color: "#059669",
     bg: "#d1fae5",
     icon: "checkCircle",
   },
+  [QUEUE_STATUS.SERVING]: { label: 'Receiving care', color: '#059669', bg: '#d1fae5', icon: 'checkCircle' },
+  [QUEUE_STATUS.MISSED]: { label: 'Missed call', color: '#92400e', bg: '#fef3c7', icon: 'clock' },
+  [QUEUE_STATUS.NO_SHOW]: { label: 'No-show', color: '#b91c1c', bg: '#fee2e2', icon: 'xCircle' },
   [QUEUE_STATUS.DONE]: {
     label: "Completed",
     color: "#6b7280",
@@ -56,6 +59,10 @@ export default function QueueStatus({ queue, onCancel }) {
       }}
     >
       {/* Queue Number */}
+      {queue.status === QUEUE_STATUS.MISSED && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">You missed your call. Report to staff before {formatQueueTime(queue.grace_expires_at)} to keep this ticket. The queue is continuing while you return.</p>}
+      {queue.status === QUEUE_STATUS.CALLED && <p role="status" className="mb-4 text-center text-sm text-green-800">Please report to staff now so they can confirm you are here.</p>}
+      {queue.returned_at && queue.status === QUEUE_STATUS.WAITING && <p role="status" className="mb-4 text-center text-sm text-blue-800">Your return is confirmed. You will be called at the next opening; please stay nearby.</p>}
+      {queue.status === QUEUE_STATUS.NO_SHOW && <p role="status" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">This ticket ended as a no-show. {queue.status_reason} You may request a new ticket subject to today's availability and daily limit.</p>}
       {queue.status === QUEUE_STATUS.WAITING && (
         <p role="status" style={{ color: '#475569', fontSize: '13px', textAlign: 'center' }}>
           {queue.sms_alert_state === 'suppressed'
@@ -183,7 +190,7 @@ export default function QueueStatus({ queue, onCancel }) {
       )}
 
       {/* Cancel button — only when waiting */}
-      {queue.status === QUEUE_STATUS.WAITING && onCancel && (
+      {[QUEUE_STATUS.WAITING, QUEUE_STATUS.MISSED].includes(queue.status) && onCancel && (
         <button
           onClick={onCancel}
           style={{

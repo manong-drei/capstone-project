@@ -78,7 +78,7 @@ export default function PatientHomeTab({
             aria-label="Live queue status"
           >
             <QueueBanner
-              label="Now serving"
+              label={queueStatus.current_status === 'called' ? 'Called — report to staff' : 'Now serving'}
               value={queueStatus.now_serving}
               color={ORANGE}
             />
@@ -126,7 +126,7 @@ export default function PatientHomeTab({
             </button>
           </section>
 
-          {hasActiveQueue && (
+          {(hasActiveQueue || queue?.status === 'no_show') && (
             <QueueStatus queue={queue} onCancel={onCancelQueue} />
           )}
 

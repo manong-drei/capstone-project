@@ -17,7 +17,7 @@ export default function StaffNavbar({ identity, onLogout }) {
             <div className="absolute right-0 top-12 w-64 rounded-xl border border-slate-200 bg-white p-4 text-xs leading-relaxed text-slate-600 shadow-xl">
               <p className="mb-2 font-semibold text-slate-900">Dental staff guide</p>
               <p>Find or register a patient, confirm their contact number, and select up to two dental services.</p>
-              <p className="mt-2">Call the next patient when the chair is free. Record a reason for cancellations or no-shows, and relay the SMS instructions shown after registration.</p>
+              <p className="mt-2">Call the next patient when the chair is free. Confirm presence, or call again after 30 seconds and wait another 30 seconds before skipping. Missed patients have 10 minutes to report to staff and keep their ticket. Record cancellation reasons and relay the SMS instructions shown after registration.</p>
             </div>
           </details>
           <DashboardProfileMenu identity={identity} onLogout={onLogout} accentColor="#f97316" chipBg="rgba(255,255,255,0.12)" chipBorder="rgba(255,255,255,0.2)" chipTextColor="#ffffff" subtitleColor="rgba(255,255,255,0.75)" />

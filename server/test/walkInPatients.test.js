@@ -42,8 +42,8 @@ test("new, returning, and duplicate walk-ins use the correct patient record", as
   pool.getConnection = async () => connection;
   Patient.createWalkIn = async () => { created++; return 42; };
   Patient.audit = async () => {};
-  Queue.nextQueueNumber = async () => "Q-001";
-  Queue.create = async (input) => { queueInput = input; return { id: 99, patient_id: input.patient_id, queue_number: "Q-001" }; };
+  Queue.nextQueueNumber = async ({ is_walk_in }) => { assert.equal(is_walk_in, true); return "Q01"; };
+  Queue.create = async (input) => { queueInput = input; return { id: 99, patient_id: input.patient_id, queue_number: "Q01" }; };
   try {
     let res = response();
     await createWalkIn({ body, user: { user_id: 3 } }, res);

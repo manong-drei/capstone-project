@@ -8,11 +8,13 @@
 export default function StatusBadge({ status }) {
   const normalized = String(status ?? "").trim().toLowerCase().replace(/[ -]+/g, "_");
   const ok = ["available", "done", "completed", "confirmed"].includes(normalized);
-  const warning = ["pending", "waiting", "serving"].includes(normalized);
+  const warning = ["pending", "waiting", "called", "serving", "missed"].includes(normalized);
   const cancelled = ["cancelled", "canceled"].includes(normalized);
 
   const label =
     cancelled ? "Cancelled"
+    : normalized === 'no_show' ? 'No-show'
+    : normalized === 'missed' ? 'Missed call'
     : normalized === "available" ? "Available"
     : normalized === "on_leave" ? "On Leave"
     : normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1)

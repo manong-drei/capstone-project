@@ -3,7 +3,7 @@ const pool = require("./db");
 async function migrate() {
   try {
     await pool.query(`ALTER TABLE queues
-      MODIFY COLUMN status ENUM('waiting', 'serving', 'done', 'cancelled', 'no_show') NULL DEFAULT 'waiting'`);
+      MODIFY COLUMN status ENUM('waiting', 'called', 'serving', 'missed', 'done', 'cancelled', 'no_show') NULL DEFAULT 'waiting'`);
     const [result] = await pool.query(
       `UPDATE queues SET status = 'no_show'
        WHERE status = '' AND status_reason = ?`,

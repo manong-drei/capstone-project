@@ -2,6 +2,7 @@ import StatCard from "@/components/common/StatCard";
 import Icon from "@/components/common/AppIcons";
 import { Footer } from "@/pages/LandingPage";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
+import QueueRecovery from '@/components/common/QueueRecovery';
 
 const NAVY   = "#2d3a8c";
 const INDIGO = "#4f46e5";
@@ -37,8 +38,10 @@ export default function DoctorHomeTab({
   waiting, serving, doneQueues, servingQueue, nextQueue, done, priority,
   queueLoading,
   onCallNext, onMarkDone,
+  calledQueue, missedQueues, onQueueAction,
   error,
 }) {
+  const currentQueue = servingQueue || calledQueue;
   return (
     <>
       {/* Hero */}
@@ -172,10 +175,10 @@ export default function DoctorHomeTab({
         <div style={{ background: "#f97316", borderRadius: "16px", padding: "24px 28px", boxShadow: "0 4px 16px rgba(249,115,22,0.3)" }}>
           <p style={{ margin: "0 0 6px", fontSize: "13px", fontWeight: 700, color: "rgba(255,255,255,0.8)", letterSpacing: "0.06em" }}>Now Queuing</p>
           <p style={{ margin: 0, fontSize: "clamp(2.5rem, 6vw, 4rem)", fontWeight: 900, color: "white", lineHeight: 1, letterSpacing: "-0.02em" }}>
-            {servingQueue ? servingQueue.queue_number : "—"}
+            {currentQueue ? currentQueue.queue_number : "—"}
           </p>
           <p style={{ margin: "8px 0 0", fontSize: "14px", fontWeight: 600, color: "rgba(255,255,255,0.92)" }}>
-            {servingQueue ? getQueueDisplayName(servingQueue) : "—"}
+            {currentQueue ? getQueueDisplayName(currentQueue) : "—"}
           </p>
         </div>
         <div style={{ background: NAVY, borderRadius: "16px", padding: "24px 28px", boxShadow: "0 4px 16px rgba(45,58,140,0.25)" }}>
@@ -201,10 +204,10 @@ export default function DoctorHomeTab({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 dd-content-pad" style={{ paddingBottom: "32px" }}>
         {/* Currently Serving */}
         <div style={{ background: "white", borderRadius: "16px", padding: "22px", border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", gap: "14px" }}>
-          <p style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "#374151", textAlign: "center", letterSpacing: "0.04em" }}>Currently Serving</p>
+          <p style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "#374151", textAlign: "center", letterSpacing: "0.04em" }}>{calledQueue ? 'Called — awaiting patient' : 'Currently Serving'}</p>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", justifyContent: "center" }}>
-            <span style={{ fontSize: "28px", fontWeight: 900, color: "#111827" }}>{servingQueue ? servingQueue.queue_number : "—"}</span>
-            {servingQueue && <span style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>{getQueueDisplayName(servingQueue)}</span>}
+            <span style={{ fontSize: "28px", fontWeight: 900, color: "#111827" }}>{currentQueue ? currentQueue.queue_number : "—"}</span>
+            {currentQueue && <span style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>{getQueueDisplayName(currentQueue)}</span>}
           </div>
           <div>
             <p style={{ margin: "0 0 6px", fontSize: "12px", fontWeight: 700, color: "#374151" }}>Reason Consultation</p>
@@ -220,10 +223,10 @@ export default function DoctorHomeTab({
             </button>
             <button
               onClick={onCallNext}
-              disabled={(waiting.length === 0 && !servingQueue) || queueLoading}
+              disabled={!!calledQueue || (waiting.length === 0 && !servingQueue) || queueLoading}
               style={{ flex: 1, padding: "10px 8px", borderRadius: "10px", border: "none", background: servingQueue ? "#059669" : waiting.length > 0 ? NAVY : "#e5e7eb", color: servingQueue || waiting.length > 0 ? "white" : "#9ca3af", fontSize: "12px", fontWeight: 700, cursor: (waiting.length > 0 || servingQueue) && !queueLoading ? "pointer" : "not-allowed" }}
             >
-              {servingQueue ? "Consult" : "Next"}
+              {calledQueue ? 'Awaiting patient' : servingQueue ? "Consult" : "Next"}
             </button>
           </div>
         </div>
@@ -275,6 +278,7 @@ export default function DoctorHomeTab({
         </div>
       </div>
 
+      <div className="dd-content-pad" style={{ paddingBottom: '24px' }}><QueueRecovery called={calledQueue} missed={missedQueues} onAction={onQueueAction} loading={queueLoading} presentLabel="Start consultation" /></div>
       {error && <p style={{ textAlign: "center", color: "#dc2626", fontSize: "14px", padding: "0 24px 16px" }}>{error}</p>}
       <Footer />
     </>

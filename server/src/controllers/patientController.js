@@ -128,7 +128,7 @@ const mergePatient = async (req, res) => {
     }
     const [[{ active_count }]] = await connection.query(
       `SELECT COUNT(*) AS active_count FROM queues WHERE patient_id IN (?, ?)
-       AND DATE(created_at) = CURDATE() AND status IN ('waiting', 'serving')`,
+       AND DATE(created_at) = CURDATE() AND status IN ('waiting', 'called', 'serving', 'missed')`,
       [sourceId, targetId],
     );
     if (active_count > 1) throw Object.assign(new Error("Resolve the patients' active queues before merging."), { status: 409 });
