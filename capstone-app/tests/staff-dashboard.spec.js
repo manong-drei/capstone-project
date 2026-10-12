@@ -2,16 +2,17 @@ import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
 async function mockStaff(page) {
+  await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
   await page.addInitScript((token) => {
     localStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role: "staff", display_name: "Alex Staff" }));
     localStorage.setItem("ek_token", token);
   }, createTestToken({ user_id: 8, role: "staff" }));
   await page.clock.install();
-  const state = { calls: [], actions: [], registrations: [], searches: [], queues: [
+  const state = { calls: [], actions: [], updates: [], registrations: [], searches: [], queues: [
     { id: 1, category: "dental", queue_number: "AP02", status: "waiting", type: "priority", patient_id: 11, full_name: "Priority Patient", is_walk_in: 0 },
     { id: 2, category: "dental", queue_number: "Q10", status: "waiting", type: "regular", patient_id: 12, full_name: "Walk-in Patient", is_walk_in: 1 },
     { id: 3, category: "general", queue_number: "G-001", status: "waiting", type: "regular", full_name: "Excluded General Patient" },
-    { id: 4, category: "dental", queue_number: "AQ09", status: "done", type: "regular", full_name: "Completed Patient", is_walk_in: 0 },
+    { id: 4, category: "dental", queue_number: "AQ09", status: "done", type: "regular", full_name: "Completed Patient", is_walk_in: 0, has_consultation: 1 },
   ] };
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -24,6 +25,10 @@ async function mockStaff(page) {
       body = state.queues.filter((queue) => ["waiting", "called", "serving", "missed", "done", "no_show"].includes(queue.status));
     } else if (url.pathname === "/api/queue/call-next") {
       state.calls.push(request.postDataJSON());
+      if (state.queues.some(queue => queue.category === 'dental' && ['called', 'serving'].includes(queue.status))) {
+        await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: 'A patient is already called or being served in this queue.' }) });
+        return;
+      }
       const next = state.queues.find((queue) => queue.category === "dental" && queue.status === "waiting");
       if (next) Object.assign(next, { status: 'called', call_count: 1, last_called_at: await page.evaluate(() => new Date().toISOString()) });
       body = next;
@@ -45,8 +50,14 @@ async function mockStaff(page) {
       const id = Number(url.pathname.split("/")[3]);
       const data = request.postDataJSON();
       if (data.status === 'cancelled') expect(data.reason).toBeTruthy();
-      state.queues.find((queue) => queue.id === id).status = data.status;
-      body = { success: true };
+      const queue = state.queues.find((queue) => queue.id === id);
+      if (data.status === 'done' && !['serving', 'done'].includes(queue.status)) {
+        await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: 'This queue status change is not allowed.' }) });
+        return;
+      }
+      state.updates.push({ id, ...data });
+      queue.status = data.status;
+      body = queue;
     } else if (url.pathname === "/api/queue/walkin") {
       state.registrations.push(request.postDataJSON());
       body = { queue: { queue_number: "P03", sms_initial_position: 2, sms_alert_state: "suppressed" } };
@@ -71,9 +82,16 @@ test("staff keeps serving order, handles reasons, and calls only the dental queu
   await expect(page.locator("#dental-queue ol li").first()).toContainText("AP02");
   await expect(page.getByText("Dentist available today")).toBeVisible();
   await page.screenshot({ path: "test-results/staff-desktop.png", fullPage: true });
+  await expect(page.locator('#dental-queue').getByRole('button', { name: 'Call next patient', exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Call next patient" }).click();
   await expect(page.getByRole("button", { name: "Patient present", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Call next patient" })).toBeDisabled();
+  const calledControls = await page.getByRole('region', { name: 'Called patient controls' }).boundingBox();
+  const queueHeading = await page.getByRole('heading', { name: 'Dental queue', exact: true }).boundingBox();
+  const upNext = await page.getByRole('heading', { name: 'Up next', exact: true }).boundingBox();
+  expect(calledControls.y).toBeGreaterThan(queueHeading.y);
+  expect(calledControls.y + calledControls.height).toBeLessThan(upNext.y);
+  await page.screenshot({ path: 'test-results/staff-called-desktop.png', fullPage: true });
   const recall = page.getByRole('button', { name: 'Call again', exact: true });
   await expect(recall).toBeDisabled();
   await page.clock.fastForward(30_000);
@@ -126,4 +144,151 @@ test("mobile walk-in registration preserves patient lookup, priority, service li
   await expect(page.getByRole("status")).toContainText("Please stay nearby; no queue SMS will be sent.");
   expect(state.registrations[0]).toMatchObject({ category: "dental", patient_id: 20, services: ["CONSULTATION", "ORAL_PROPHYLAXIS"], type: "priority", priority_category: "senior", contact: "+639123456789" });
   await expect(page.getByLabel("Full name")).toHaveValue("");
+});
+
+test('staff advances the queue while the doctor finishes the previous consultation notes', async ({ page, browser }) => {
+  const state = await mockStaff(page);
+  await page.goto('/staff');
+  const call = page.getByRole('button', { name: 'Call next patient', exact: true });
+  await expect(call).toBeEnabled();
+  const doctor = await browser.newPage({ baseURL: new URL(page.url()).origin });
+  const doctorCalls = [];
+  const consultations = [];
+  try {
+    await doctor.clock.install();
+    await doctor.addInitScript(token => {
+      localStorage.setItem('ek_user', JSON.stringify({ user_id: 4, role: 'doctor' }));
+      localStorage.setItem('ek_token', token);
+    }, createTestToken({ user_id: 4, role: 'doctor' }));
+    await doctor.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+    await doctor.route('**/api/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      let body = {};
+      if (path === '/api/auth/profile') body = { data: { user_id: 4, role: 'doctor' } };
+      else if (path === '/api/doctor/daily-settings') body = { appointment_limit: 10, walk_in_limit: 5, booked_count: 0, walkin_count: 0, is_available: 1 };
+      else if (path === '/api/queue') body = state.queues;
+      else if (path === '/api/queue/call-next') doctorCalls.push(route.request().postDataJSON());
+      else if (path === '/api/doctor/consultations') {
+        consultations.push(route.request().postDataJSON());
+        state.queues.find(queue => queue.id === route.request().postDataJSON().queue_id).has_consultation = 1;
+        body = { success: true, consultation_id: 1 };
+      }
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
+    });
+    await doctor.goto('/doctor');
+    await expect(doctor.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
+    await call.click();
+    await expect(page.getByRole('button', { name: 'Patient present', exact: true })).toBeEnabled();
+    await doctor.clock.fastForward(30_000);
+    await expect(doctor.getByText('Called — awaiting patient', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Patient present', exact: true }).click();
+    await expect(page.locator('#staff-call-next-hint')).toContainText('calling next will mark AP02 complete');
+    await expect(call).toBeEnabled();
+    await doctor.clock.fastForward(30_000);
+    await doctor.getByRole('button', { name: 'Consult', exact: true }).click();
+    await expect(doctor.getByRole('heading', { name: 'Consultation Notes' })).toBeVisible();
+    await expect(doctor.getByText('Priority Patient', { exact: true }).last()).toBeVisible();
+    await call.click();
+    await expect(page.locator('#staff-call-next-hint')).toContainText('Called Q10');
+    await expect(call).toBeDisabled();
+    expect(state.queues[0].status).toBe('done');
+    expect(state.queues[1].status).toBe('called');
+    await doctor.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await doctor.clock.fastForward(30_000);
+    await expect(doctor.getByRole('button', { name: 'Add notes for AQ09', exact: true })).toHaveCount(0);
+    await doctor.getByRole('button', { name: 'Add notes for AP02', exact: true }).click();
+    await expect(doctor.getByRole('heading', { name: 'Consultation Notes' })).toBeVisible();
+    await doctor.getByPlaceholder('Chief complaint, history, physical examination findings...').fill('Finished check-up notes');
+    await doctor.getByRole('button', { name: 'Save Consultation', exact: true }).click();
+    await expect(doctor.getByRole('heading', { name: 'Consultation Notes' })).toHaveCount(0);
+    await expect(doctor.getByRole('button', { name: 'Add notes for AP02', exact: true })).toHaveCount(0);
+    expect(consultations).toEqual([{ queue_id: 1, notes: 'Finished check-up notes', diagnosis: '', prescription: '' }]);
+    expect(doctorCalls).toEqual([]);
+    expect(state.calls).toEqual([{ category: 'dental' }, { category: 'dental' }]);
+    expect(state.updates).toEqual([{ id: 1, status: 'serving' }, { id: 1, status: 'done' }]);
+    expect(state.queues[1].status).toBe('called');
+  } finally {
+    await doctor.close();
+  }
+});
+
+for (const width of [1440, 375]) {
+  test(`staff completes a check-up and calls next from the dental queue at ${width}px`, async ({ page }) => {
+    const state = await mockStaff(page);
+    state.queues[0].status = 'serving';
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/staff');
+    const queue = page.locator('#dental-queue');
+    await queue.getByRole('button', { name: 'Call next patient', exact: true }).click();
+    await expect(queue.getByRole('region', { name: 'Called patient controls' })).toContainText('Called Q10');
+    expect(state.updates).toEqual([{ id: 1, status: 'done' }]);
+    expect(state.calls).toEqual([{ category: 'dental' }]);
+    expect(state.queues[0].status).toBe('done');
+    expect(state.queues[1].status).toBe('called');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    if (width === 375) await page.screenshot({ path: 'test-results/staff-called-mobile.png', fullPage: true });
+    await queue.getByRole('button', { name: 'Patient present', exact: true }).click();
+    await queue.getByRole('button', { name: 'Finish check-up', exact: true }).click();
+    await expect(queue.getByRole('button', { name: 'Call next patient', exact: true })).toBeDisabled();
+    await expect(page.locator('#staff-call-next-hint')).toHaveText('No patients are waiting to be called.');
+    expect(state.queues[1].status).toBe('done');
+    expect(state.calls).toHaveLength(1);
+  });
+}
+
+test('staff does not call another patient if completing the current check-up fails', async ({ page }) => {
+  const state = await mockStaff(page);
+  state.queues[0].status = 'serving';
+  await page.route('**/api/queue/1/status', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Unable to finish this visit.' }) }));
+  await page.goto('/staff');
+  await page.getByRole('button', { name: 'Call next patient', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Unable to finish this visit.');
+  expect(state.queues[0].status).toBe('serving');
+  expect(state.calls).toEqual([]);
+});
+
+test('staff can retry calling next after the previous check-up was completed successfully', async ({ page }) => {
+  const state = await mockStaff(page);
+  state.queues[0].status = 'serving';
+  let failCall = true;
+  await page.route('**/api/queue/call-next', route => failCall
+    ? route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Unable to call next.' }) })
+    : route.fallback());
+  await page.goto('/staff');
+  await page.getByRole('button', { name: 'Call next patient', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Unable to call next.');
+  expect(state.queues[0].status).toBe('done');
+  expect(state.queues[1].status).toBe('waiting');
+  failCall = false;
+  await page.getByRole('button', { name: 'Call next patient', exact: true }).click();
+  await expect(page.locator('#staff-call-next-hint')).toContainText('Called Q10');
+  expect(state.updates).toEqual([{ id: 1, status: 'done' }]);
+  expect(state.calls).toEqual([{ category: 'dental' }]);
+});
+
+test('staff refreshes a stale queue when another user has already called the next patient', async ({ page }) => {
+  const state = await mockStaff(page);
+  await page.route('**/api/queue/call-next', async route => {
+    Object.assign(state.queues[0], { status: 'called', call_count: 1, last_called_at: new Date().toISOString() });
+    await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: 'A patient is already called or being served in this queue.' }) });
+  });
+  await page.goto('/staff');
+  await page.getByRole('button', { name: 'Call next patient', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('A patient is already called or being served');
+  await expect(page.getByRole('button', { name: 'Call next patient', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Patient present', exact: true })).toBeVisible();
+  await expect(page.locator('#staff-call-next-hint')).toContainText('Called AP02');
+});
+
+test('staff retains the called patient when the subsequent queue refresh fails', async ({ page }) => {
+  const state = await mockStaff(page);
+  await page.goto('/staff');
+  const call = page.getByRole('button', { name: 'Call next patient', exact: true });
+  await expect(call).toBeEnabled();
+  await page.route('**/api/queue?category=dental', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Queue refresh unavailable.' }) }));
+  await call.click();
+  await expect(page.getByRole('alert')).toContainText('Queue refresh unavailable.');
+  await expect(call).toBeDisabled();
+  await expect(page.locator('#staff-call-next-hint')).toContainText('Called AP02');
+  expect(state.calls).toEqual([{ category: 'dental' }]);
 });

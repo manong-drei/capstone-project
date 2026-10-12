@@ -29,7 +29,7 @@
 .da-age-track { height: 9px; border-radius: 99px; overflow: hidden; background: #edf0f7; }
 .da-age-fill { height: 100%; border-radius: inherit; background: #6478d4; }
 .da-note { display: flex; gap: 8px; align-items: flex-start; margin: 17px 0 0; color: #66758a; font-size: 12px; line-height: 1.5; }
-.da-sample { display: flex; gap: 9px; align-items: center; margin: 15px 0 0; padding: 11px 13px; border: 1px solid #c7d4f5; border-radius: 9px; background: #eef3ff; color: #304477; font-size: 13px; font-weight: 600; }
+.da-period:disabled { opacity: .55; cursor: not-allowed; }
 .da-button { padding: 0 15px; border: 1px solid transparent; }
 .da-button:disabled { opacity: .55; cursor: not-allowed; }
 .da-button-primary { background: #2d3a8c; color: white; }
@@ -53,7 +53,7 @@
 .da-entry-group .da-field { width: 100px; }
 .da-entry-total { align-self: center; color: #25377f; font-size: 13px; font-weight: 700; }
 .da-entry-pregnant { margin-top: 12px; }
-.da-month-section { margin-top: 25px; padding-top: 18px; border-top: 1px solid #e6ebf2; }
+#da-manual-entries { margin-top: 20px; }
 .da-month-picker { width: 190px; margin: 14px 0; }
 .da-month-wrap { max-height: 420px; overflow: auto; border: 1px solid #dfe5ee; border-radius: 8px; }
 .da-month-table { width: 100%; min-width: 1400px; border-collapse: collapse; font-size: 11px; }
@@ -61,6 +61,7 @@
 .da-month-table thead th, .da-month-table .da-grand-total { background: #f3f6fb; font-weight: 700; }
 .da-month-table tbody th { text-align: left; white-space: nowrap; }
 .da-month-table tbody tr:nth-child(even) { background: #fbfcff; }
+.da-completed-table { min-width: 1100px; }
 .da-legacy { margin-top: 16px; color: #344054; font-size: 12px; }
 .da-legacy summary { cursor: pointer; font-weight: 700; }
 .da-legacy .da-month-wrap { margin-top: 10px; }

@@ -1,5 +1,6 @@
 const { isValid, parseISO } = require("date-fns");
 const Queue = require("../models/Queue");
+const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
@@ -33,6 +34,14 @@ const getQueueStatus = async (req, res) => {
   try {
     const { category } = req.query;
     const status = await Queue.getPublicStatus({ category });
+    if (req.user.role === 'patient') {
+      status.registration_message = null;
+      if (await Queue.hasDentalQueueStarted()) {
+        const patient = await Patient.findByUserId(req.user.user_id);
+        const appointment = patient && await Appointment.findActiveToday(patient.patient_id);
+        if (!appointment) status.registration_message = Queue.REGISTRATION_CLOSED_MESSAGE;
+      }
+    }
     res.json(status);
   } catch (err) {
     console.error("getQueueStatus error:", err);
@@ -115,13 +124,11 @@ const createQueue = async (req, res) => {
     );
     if (settings?.is_available === 0) throw httpError(409, "The dentist is unavailable today.");
 
-    const [[existingAppointment]] = await connection.query(
-      `SELECT appointment_id FROM appointments
-       WHERE patient_id = ? AND appointment_date = CURDATE()
-         AND status IN ('pending', 'confirmed') LIMIT 1 FOR UPDATE`,
-      [patient.patient_id],
-    );
+    const existingAppointment = await Appointment.findActiveToday(patient.patient_id, connection);
     if (!existingAppointment) {
+      if (await Queue.hasDentalQueueStarted(null, connection)) {
+        throw httpError(409, Queue.REGISTRATION_CLOSED_MESSAGE);
+      }
       const [[{ booked }]] = await connection.query(
         `SELECT COUNT(*) AS booked FROM appointments
          WHERE doctor_id = ? AND appointment_date = CURDATE() AND status != 'cancelled'`,

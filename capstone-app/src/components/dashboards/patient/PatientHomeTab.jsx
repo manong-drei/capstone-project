@@ -13,6 +13,7 @@ export default function PatientHomeTab({
   queueStatus,
   doctorAvailability,
   hasActiveQueue,
+  registrationMessage,
   queue,
   myQueueSubtitle,
   onGetQueue,
@@ -78,7 +79,11 @@ export default function PatientHomeTab({
             aria-label="Live queue status"
           >
             <QueueBanner
-              label={queueStatus.current_status === 'called' ? 'Called — report to staff' : 'Now serving'}
+              label={
+                queueStatus.current_status === "called"
+                  ? "Called — report to staff"
+                  : "Now serving"
+              }
               value={queueStatus.now_serving}
               color={ORANGE}
             />
@@ -96,17 +101,19 @@ export default function PatientHomeTab({
             <button
               type="button"
               onClick={onGetQueue}
-              disabled={hasActiveQueue}
+              disabled={hasActiveQueue || !!registrationMessage}
               className="flex min-h-20 min-w-0 items-center rounded-2xl bg-[#f97316] px-3 py-4 text-left text-white shadow-md shadow-orange-500/30 transition hover:bg-[#ea6d10] focus:outline-none focus:ring-4 focus:ring-orange-200 disabled:cursor-not-allowed disabled:opacity-65 sm:min-h-16 sm:px-6"
             >
               <span className="min-w-0">
                 <span className="block text-sm font-extrabold leading-snug sm:text-base">
-                  Get queue number
+                  Get queue ticket
                 </span>
                 <span className="mt-1 block text-[11px] leading-snug text-white/80 sm:text-xs">
                   {hasActiveQueue
                     ? "You already have an active queue"
-                    : "Join the dental queue"}
+                    : registrationMessage
+                      ? "Registration closed"
+                      : "Join the dental queue"}
                 </span>
               </span>
             </button>
@@ -126,7 +133,16 @@ export default function PatientHomeTab({
             </button>
           </section>
 
-          {(hasActiveQueue || queue?.status === 'no_show') && (
+          {!hasActiveQueue && registrationMessage && (
+            <p
+              role="status"
+              className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+            >
+              {registrationMessage}
+            </p>
+          )}
+
+          {(hasActiveQueue || queue?.status === "no_show") && (
             <QueueStatus queue={queue} onCancel={onCancelQueue} />
           )}
 

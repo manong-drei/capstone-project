@@ -116,6 +116,9 @@ const ADMIN_RESPONSIVE_CSS = `
     padding: 24px;
     overflow-x: hidden;
   }
+  .ad-tab-pad, .ad-section-pad { padding: 20px; }
+  .ad-hero-pad { padding: 24px; }
+  .ad-show-on-mobile { display: none; }
 
   /* ───────── Tablet / Mobile ───────── */
   @media (max-width: 900px) {
@@ -123,6 +126,9 @@ const ADMIN_RESPONSIVE_CSS = `
     .ad-brand-text { font-size: 14px !important; letter-spacing: .3px !important; }
     .ad-hamburger { display: flex !important; }
     .ad-hide-on-mobile { display: none !important; }
+    .ad-tab-pad, .ad-section-pad { padding: 16px; }
+    .ad-hero-pad { padding: 20px; }
+    .ad-show-on-mobile { display: flex !important; flex-direction: column; gap: 10px; }
 
     .ad-sidebar {
       position: fixed !important;

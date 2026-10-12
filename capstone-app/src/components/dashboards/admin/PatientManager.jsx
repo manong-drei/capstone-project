@@ -4,12 +4,15 @@ import api from "@/services/api";
 
 const PM_RESPONSIVE_CSS = `
   .pm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .pm-table-row, .pm-table-head { display: grid; grid-template-columns: 1.5fr 1fr 1fr 80px 110px; }
+  .pm-table-row, .pm-table-head { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) 80px 110px; gap: 12px; }
+  .pm-table-row > span { min-width: 0; overflow-wrap: anywhere; }
   .pm-cards-mobile { display: none; }
-  @media (max-width: 640px) {
-    .pm-form-grid { grid-template-columns: 1fr !important; }
+  @media (max-width: 900px) {
     .pm-table-row, .pm-table-head { display: none !important; }
     .pm-cards-mobile { display: flex !important; flex-direction: column; gap: 6px; padding: 10px; }
+  }
+  @media (max-width: 640px) {
+    .pm-form-grid { grid-template-columns: 1fr !important; }
   }
 `;
 

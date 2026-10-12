@@ -10,6 +10,7 @@ const {
   getDailyReport,
   saveDailyReport,
   getMonthlyReport,
+  getReport,
 } = require("../controllers/doctorController");
 const authenticate = require("../middleware/authenticate");
 const authorize = require("../middleware/authorize");
@@ -28,6 +29,7 @@ router.put(
   upsertDailySettings,
 );
 router.get("/analytics", authenticate, authorize("doctor"), getAnalytics);
+router.get("/report", authenticate, authorize("doctor"), getReport);
 router.get("/daily-report", authenticate, authorize("doctor"), getDailyReport);
 router.put("/daily-report", authenticate, authorize("doctor"), saveDailyReport);
 router.get("/monthly-report", authenticate, authorize("doctor"), getMonthlyReport);

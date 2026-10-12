@@ -58,14 +58,15 @@ test("registration assigns source from the endpoint and shares daily counters ac
   }
 });
 
-test('queue routes deny patient/admin recovery actions and reject direct lifecycle bypasses', async () => {
-  const saved = { find: User.findById, recall: Queue.recall, update: Queue.updateStatus, secret: process.env.JWT_SECRET };
+test('queue routes allow staff/doctor calling, deny patient/admin recovery actions, and reject direct lifecycle bypasses', async () => {
+  const saved = { find: User.findById, call: Queue.callNext, recall: Queue.recall, update: Queue.updateStatus, secret: process.env.JWT_SECRET };
   process.env.JWT_SECRET = 'queue-route-test-secret';
   let role = 'patient';
   let writes = 0;
   User.findById = async () => ({ user_id: 4, role, is_active: 1, credential_version: 1, must_change_password: 0 });
+  Queue.callNext = async ({ category }) => { assert.equal(category, 'dental'); writes++; return { id: 1, status: 'called', call_count: 1 }; };
   Queue.recall = async () => { writes++; return { id: 1, status: 'called', call_count: 2 }; };
-  Queue.updateStatus = async () => { writes++; return { id: 1, status: 'serving' }; };
+  Queue.updateStatus = async (id, status) => { writes++; return { id: 1, status }; };
   const dispatch = async (path, method, body = {}, id = '1') => {
     const route = router.stack.find(layer => layer.route?.path === path && layer.route.methods[method.toLowerCase()]).route;
     const token = jwt.sign({ user_id: 4, role, credential_version: 1, purpose: 'session' }, process.env.JWT_SECRET);
@@ -80,6 +81,7 @@ test('queue routes deny patient/admin recovery actions and reject direct lifecyc
   };
   try {
     for (role of ['patient', 'admin']) {
+      assert.equal((await dispatch('/call-next', 'POST', { category: 'dental' })).statusCode, 403);
       for (const action of ['recall', 'skip', 'return']) assert.equal((await dispatch(`/:id/${action}`, 'POST')).statusCode, 403);
     }
     role = 'staff';
@@ -88,11 +90,13 @@ test('queue routes deny patient/admin recovery actions and reject direct lifecyc
     assert.equal((await dispatch('/:id/recall', 'POST', {}, 'bad')).statusCode, 400);
     assert.equal((await dispatch('/:id/recall', 'POST')).statusCode, 200);
     assert.equal((await dispatch('/:id/status', 'PATCH', { status: 'serving' })).statusCode, 200);
+    assert.equal((await dispatch('/:id/status', 'PATCH', { status: 'done' })).statusCode, 200);
+    for (role of ['staff', 'doctor']) assert.equal((await dispatch('/call-next', 'POST', { category: 'dental' })).statusCode, 200);
     role = 'admin';
     assert.equal((await dispatch('/:id/status', 'PATCH', { status: 'serving' })).statusCode, 403);
-    assert.equal(writes, 2);
+    assert.equal(writes, 5);
   } finally {
-    User.findById = saved.find; Queue.recall = saved.recall; Queue.updateStatus = saved.update;
+    User.findById = saved.find; Queue.callNext = saved.call; Queue.recall = saved.recall; Queue.updateStatus = saved.update;
     if (saved.secret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = saved.secret;
   }
 });

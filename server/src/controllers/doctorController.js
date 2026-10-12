@@ -6,34 +6,60 @@ const Doctor = require("../models/Doctor");
 const Queue = require("../models/Queue");
 const pool = require("../config/db");
 
-/** GET /api/doctor/analytics?period=today|weekly|monthly */
+const validReportDate = (date) => typeof date === "string" && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date) &&
+  !Number.isNaN(Date.parse(`${date}T00:00:00Z`)) && new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date;
+const reportWindow = (query) => {
+  const period = query.period ?? "today";
+  const report_date = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const date = query.date ?? report_date;
+  if (!["today", "weekly", "monthly"].includes(period) || !validReportDate(date)) return null;
+  const from = new Date(`${date}T00:00:00Z`);
+  if (period === "weekly") from.setUTCDate(from.getUTCDate() - (from.getUTCDay() + 6) % 7);
+  if (period === "monthly") from.setUTCDate(1);
+  const until = new Date(from);
+  if (period === "monthly") until.setUTCMonth(until.getUTCMonth() + 1);
+  else until.setUTCDate(until.getUTCDate() + (period === "weekly" ? 7 : 1));
+  return { period, report_date, from: from.toISOString().slice(0, 10), until: until.toISOString().slice(0, 10) };
+};
+
+// Scalar lookups keep each queue visit counted once, even with duplicate legacy records.
+// shortcut: Unlinked visits use the current default dentist and demographics use current profiles; snapshot at completion for immutable history.
+const queueDoctor = `COALESCE(
+  (SELECT c.doctor_id FROM consultations c WHERE c.queue_id = q.id ORDER BY c.consultation_id ASC LIMIT 1),
+  (SELECT a.doctor_id FROM appointments a
+   WHERE a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at) AND a.status != 'cancelled'
+   ORDER BY a.appointment_id ASC LIMIT 1),
+  (SELECT d.doctor_id FROM doctors d ORDER BY d.doctor_id ASC LIMIT 1)
+)`;
+
+/** GET /api/doctor/analytics?period=today|weekly|monthly&date=YYYY-MM-DD */
 const getAnalytics = async (req, res) => {
-  const windows = {
-    today: ["CURDATE()", "DATE_ADD(CURDATE(), INTERVAL 1 DAY)"],
-    weekly: ["DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)", "DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)"],
-    monthly: ["DATE_FORMAT(CURDATE(), '%Y-%m-01')", "DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)"],
-  };
-  const period = req.query.period || "today";
-  if (!Object.hasOwn(windows, period)) return res.status(400).json({ success: false, message: "Invalid analytics period." });
-  const [from, until] = windows[period];
+  const window = reportWindow(req.query);
+  if (!window) return res.status(400).json({ success: false, message: "A valid analytics period and date are required." });
+  const { from, until } = window;
   try {
+    const doctor = await Doctor.findByUserId(req.user.user_id);
+    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
     const [[queue]] = await pool.query(`
-      SELECT DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS report_date,
-             COUNT(DISTINCT patient_id) AS patients,
+      SELECT COUNT(DISTINCT q.patient_id) AS patients,
              COALESCE(SUM(status = 'waiting'), 0) AS waiting,
              COALESCE(SUM(status = 'serving'), 0) AS serving,
              COALESCE(SUM(status = 'done'), 0) AS completed,
              COALESCE(SUM(type = 'priority'), 0) AS priority,
              COALESCE(SUM(is_walk_in = 1), 0) AS walk_ins
-      FROM queues WHERE category = 'dental' AND created_at >= ${from} AND created_at < ${until}
-    `);
+      FROM queues q WHERE q.category = 'dental' AND q.created_at >= ? AND q.created_at < ? AND ${queueDoctor} = ?
+    `, [from, until, doctor.doctor_id]);
     const [[{ appointments }]] = await pool.query(`
       SELECT COUNT(*) AS appointments FROM appointments
-      WHERE appointment_date >= ${from} AND appointment_date < ${until} AND status != 'cancelled'
-    `);
-    const [age_groups] = await pool.query(`
-      SELECT CASE
-        WHEN COALESCE(p.date_of_birth, q.walk_in_dob) IS NULL THEN 'Unknown'
+      WHERE appointment_date >= ? AND appointment_date < ? AND status != 'cancelled' AND doctor_id = ?
+    `, [from, until, doctor.doctor_id]);
+    const [completed_demographics] = await pool.query(`
+      SELECT COALESCE(NULLIF(TRIM(p.barangay), ''), 'Unknown') AS barangay,
+      CASE LOWER(TRIM(COALESCE(NULLIF(TRIM(p.gender), ''), q.walk_in_gender, '')))
+        WHEN 'male' THEN 'Male' WHEN 'female' THEN 'Female' WHEN 'other' THEN 'Other' ELSE 'Unknown'
+      END AS sex,
+      CASE
+        WHEN COALESCE(p.date_of_birth, q.walk_in_dob) IS NULL OR COALESCE(p.date_of_birth, q.walk_in_dob) > DATE(q.created_at) THEN 'Unknown'
         WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 1 THEN '0–11 months'
         WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 5 THEN '1–4 years'
         WHEN TIMESTAMPDIFF(YEAR, COALESCE(p.date_of_birth, q.walk_in_dob), q.created_at) < 10 THEN '5–9 years'
@@ -43,16 +69,17 @@ const getAnalytics = async (req, res) => {
         ELSE '60+ years'
       END AS age_group, COUNT(*) AS count
       FROM queues q LEFT JOIN patients p ON p.patient_id = q.patient_id
-      WHERE q.category = 'dental' AND q.created_at >= ${from} AND q.created_at < ${until}
-      GROUP BY age_group
-    `);
-    const { report_date, ...queueCounts } = queue;
+      WHERE q.category = 'dental' AND q.status = 'done' AND q.created_at >= ? AND q.created_at < ? AND ${queueDoctor} = ?
+      GROUP BY barangay, sex, age_group ORDER BY barangay, age_group, sex
+    `, [from, until, doctor.doctor_id]);
+    const ages = new Map();
+    for (const row of completed_demographics) ages.set(row.age_group, (ages.get(row.age_group) || 0) + Number(row.count));
     res.json({
-      period,
-      report_date,
-      ...Object.fromEntries(Object.entries(queueCounts).map(([key, value]) => [key, Number(value)])),
+      ...window,
+      ...Object.fromEntries(Object.entries(queue).map(([key, value]) => [key, Number(value)])),
       appointments: Number(appointments),
-      age_groups: age_groups.map((row) => ({ ...row, count: Number(row.count) })),
+      age_groups: Array.from(ages, ([age_group, count]) => ({ age_group, count })),
+      completed_demographics: completed_demographics.map((row) => ({ ...row, count: Number(row.count) })),
     });
   } catch (err) {
     console.error("getAnalytics error:", err);
@@ -60,8 +87,6 @@ const getAnalytics = async (req, res) => {
   }
 };
 
-const validReportDate = (date) => /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date) &&
-  !Number.isNaN(Date.parse(`${date}T00:00:00Z`)) && new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date;
 const reportValue = (data) => typeof data === "string" ? JSON.parse(data) : data;
 const validReportData = (data, length = 24) => {
   const validCount = (value) => value === null ||
@@ -132,6 +157,25 @@ const getMonthlyReport = async (req, res) => {
     res.json({ reports: rows.map((row) => reportRows(reportValue(row.data))).filter(Boolean) });
   } catch (err) {
     console.error("getMonthlyReport error:", err);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
+/** GET /api/doctor/report?period=today|weekly|monthly&date=YYYY-MM-DD */
+const getReport = async (req, res) => {
+  const window = reportWindow(req.query);
+  if (!window) return res.status(400).json({ success: false, message: "A valid report period and date are required." });
+  try {
+    const doctor = await Doctor.findByUserId(req.user.user_id);
+    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    const [rows] = await pool.query(
+      "SELECT data FROM doctor_daily_reports WHERE doctor_id = ? AND report_date >= ? AND report_date < ? ORDER BY report_date",
+      [doctor.doctor_id, window.from, window.until],
+    );
+    const { period, from, until } = window;
+    res.json({ period, from, until, reports: rows.map((row) => reportRows(reportValue(row.data))).filter(Boolean) });
+  } catch (err) {
+    console.error("getReport error:", err);
     res.status(500).json({ success: false, message: "Server error." });
   }
 };
@@ -263,8 +307,9 @@ const getDoctorById = async (req, res) => {
 const createConsultation = async (req, res) => {
   try {
     const { queue_id, notes, diagnosis, prescription } = req.body;
+    const id = Number(queue_id);
 
-    if (!queue_id || !notes) {
+    if (!Number.isSafeInteger(id) || id <= 0 || typeof notes !== 'string' || !notes.trim()) {
       return res
         .status(400)
         .json({ success: false, message: "queue_id and notes are required." });
@@ -278,67 +323,48 @@ const createConsultation = async (req, res) => {
         .json({ success: false, message: "Dentist profile not found." });
     }
 
-    // Get the queue entry to retrieve patient_id
-    const [[queueRow]] = await pool.query("SELECT * FROM queues WHERE id = ?", [
-      queue_id,
-    ]);
-    if (!queueRow) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Queue entry not found." });
-    }
+    const result = await Queue._withTicket(id, async (queueRow, connection) => {
+      // Staff may finish the queue before the dentist saves notes.
+      if (!['serving', 'done'].includes(queueRow.status)) {
+        throw Object.assign(new Error('The patient must be serving or finished before saving a consultation.'), { status: 400 });
+      }
+      const [[existing]] = await connection.query('SELECT consultation_id FROM consultations WHERE queue_id = ? LIMIT 1', [id]);
+      if (existing) throw Object.assign(new Error('A consultation has already been saved for this patient visit.'), { status: 409 });
 
-    // Only allow consultation on an actively serving queue entry
-    if (queueRow.status !== "serving") {
-      return res
-        .status(400)
-        .json({ success: false, message: "Queue entry is not currently being served." });
-    }
-
-    // Insert consultation record
-    const [consultResult] = await pool.query(
-      `INSERT INTO consultations (queue_id, doctor_id, patient_id, chief_complaint, diagnosis, notes)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        queue_id,
-        doctor.doctor_id,
-        queueRow.patient_id,
-        notes,
-        diagnosis || null,
-        null,
-      ],
-    );
-    const consultation_id = consultResult.insertId;
-
-    // Insert prescription if provided
-    if (prescription && prescription.trim()) {
-      await pool.query(
-        `INSERT INTO prescriptions (consultation_id, medication_name)
-         VALUES (?, ?)`,
-        [consultation_id, prescription.trim()],
+      const [consultResult] = await connection.query(
+        `INSERT INTO consultations (queue_id, doctor_id, patient_id, chief_complaint, diagnosis, notes)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [id, doctor.doctor_id, queueRow.patient_id, notes, diagnosis || null, null],
       );
-    }
-
-    // Mark the queue entry as done now that consultation is saved
-    await require('../models/Queue').updateStatus(queue_id, 'done');
+      const consultation_id = consultResult.insertId;
+      if (prescription && prescription.trim()) {
+        await connection.query(
+          `INSERT INTO prescriptions (consultation_id, medication_name) VALUES (?, ?)`,
+          [consultation_id, prescription.trim()],
+        );
+      }
+      if (queueRow.status === 'serving') {
+        await connection.query(`UPDATE queues SET status = ?, status_reason = ?, updated_at = NOW() WHERE id = ?`, ['done', null, id]);
+      }
+      if (queueRow.patient_id) {
+        await connection.query(
+          `UPDATE appointments SET status = 'completed', updated_at = NOW()
+           WHERE patient_id = ? AND appointment_date = CURDATE() AND status IN ('pending', 'confirmed')`,
+          [queueRow.patient_id],
+        );
+      }
+      return { consultation_id };
+    });
+    if (!result) return res.status(404).json({ success: false, message: 'Queue entry not found.' });
+    if (result.expired) return res.status(409).json({ success: false, message: 'This ticket has expired and cannot receive a consultation.' });
     require('../services/smsNotifications').wakeWorker();
-
-    // Completing consultation should also complete today's linked appointment.
-    if (queueRow.patient_id) {
-      await pool.query(
-        `UPDATE appointments
-         SET status = 'completed', updated_at = NOW()
-         WHERE patient_id = ? AND appointment_date = CURDATE() AND status IN ('pending', 'confirmed')`,
-        [queueRow.patient_id],
-      );
-    }
 
     res
       .status(201)
-      .json({ success: true, message: "Consultation saved.", consultation_id });
+      .json({ success: true, message: "Consultation saved.", consultation_id: result.consultation_id });
   } catch (err) {
-    console.error("createConsultation error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    if (!err.status) console.error("createConsultation error:", err);
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
   }
 };
 
@@ -352,4 +378,5 @@ module.exports = {
   getDailyReport,
   saveDailyReport,
   getMonthlyReport,
+  getReport,
 };

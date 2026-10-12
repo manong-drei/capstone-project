@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const Queue = require('../src/models/Queue');
 const pool = require('../src/config/db');
 const { projectQueue } = require('../src/utils/queueOrder');
+const Doctor = require('../src/models/Doctor');
+const { createConsultation } = require('../src/controllers/doctorController');
 
 // A transactional fixture exercises the real model and serializes its category locks.
 function fixture() {
@@ -13,13 +15,21 @@ function fixture() {
     services: '[]', created_at: new Date(now - 1000), last_called_at: null, returned_at: null }));
   let tail = Promise.resolve();
   let failCall = false;
+  let failPrescription = false;
+  let consultations = [];
+  let prescriptions = [];
   const statements = [];
   pool.getConnection = async () => {
     let working;
+    let workingConsultations;
+    let workingPrescriptions;
     let unlock;
     return {
       async beginTransaction() {},
-      async commit() { if (working) rows = working; unlock?.(); unlock = null; },
+      async commit() {
+        if (working) { rows = working; consultations = workingConsultations; prescriptions = workingPrescriptions; }
+        unlock?.(); unlock = null;
+      },
       async rollback() { working = null; unlock?.(); unlock = null; },
       release() {},
       async query(raw, values = []) {
@@ -31,10 +41,24 @@ function fixture() {
           tail = new Promise(resolve => { unlock = resolve; });
           await previous;
           working = structuredClone(rows);
+          workingConsultations = structuredClone(consultations);
+          workingPrescriptions = structuredClone(prescriptions);
           return [[{ last_number: 0 }]];
         }
         const data = working || rows;
         const row = data.find(q => q.id === Number(values[0]));
+        if (sql.startsWith('SELECT consultation_id')) return [workingConsultations.filter(consultation => consultation.queue_id === values[0])];
+        if (sql.startsWith('INSERT INTO consultations')) {
+          const id = workingConsultations.length + 1;
+          workingConsultations.push({ consultation_id: id, queue_id: values[0], doctor_id: values[1], patient_id: values[2], notes: values[3], diagnosis: values[4] });
+          return [{ insertId: id }];
+        }
+        if (sql.startsWith('INSERT INTO prescriptions')) {
+          if (failPrescription) throw Object.assign(new Error('Prescription save failed.'), { status: 503 });
+          workingPrescriptions.push({ consultation_id: values[0], medication_name: values[1] });
+          return [{ affectedRows: 1 }];
+        }
+        if (sql.startsWith('UPDATE appointments')) return [{ affectedRows: 1 }];
         if (sql.startsWith('SELECT category')) return [[...row ? [{ category: row.category }] : []]];
         if (sql.startsWith('SELECT *, TIMESTAMPDIFF')) return [[{ ...row,
           call_ready: now - new Date(row.last_called_at) >= 30_000,
@@ -69,6 +93,8 @@ function fixture() {
   };
   return {
     advance: ms => { now += ms; }, rows: () => rows, statements,
+    consultations: () => consultations, prescriptions: () => prescriptions,
+    failPrescription: () => { failPrescription = true; },
     failCall: () => { failCall = true; }, close: () => { pool.getConnection = original; },
   };
 }
@@ -94,6 +120,70 @@ test('two calls enforce both 30-second waits; skip starts one grace window and c
     await assert.rejects(Queue.updateStatus(2, 'done'), { status: 409 });
     assert.equal((await Queue.updateStatus(2, 'serving')).status, 'serving');
   } finally { f.close(); }
+});
+
+test('staff finishes and calls next while the dentist can still save the previous notes once', async () => {
+  const f = fixture();
+  const originalDoctor = Doctor.findByUserId;
+  Doctor.findByUserId = async () => ({ doctor_id: 7 });
+  const save = async () => {
+    const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await createConsultation({ user: { user_id: 4 }, body: { queue_id: 1, notes: 'Check-up complete', diagnosis: 'Healthy', prescription: ' Follow-up ' } }, res);
+    return res;
+  };
+  try {
+    await Queue.callNext();
+    assert.equal((await save()).statusCode, 400);
+    assert.equal(f.consultations().length, 0);
+    await Queue.updateStatus(1, 'serving');
+    await Queue.updateStatus(1, 'done');
+    assert.equal((await Queue.callNext()).id, 2);
+    assert.equal((await Queue.updateStatus(1, 'done')).status, 'done');
+    const response = await save();
+    assert.equal(response.statusCode, 201);
+    assert.deepEqual(f.consultations(), [{ consultation_id: 1, queue_id: 1, doctor_id: 7, patient_id: 1, notes: 'Check-up complete', diagnosis: 'Healthy' }]);
+    assert.deepEqual(f.prescriptions(), [{ consultation_id: 1, medication_name: 'Follow-up' }]);
+    assert.equal(f.rows()[0].status, 'done');
+    assert.equal(f.rows()[1].status, 'called');
+    assert.equal((await save()).statusCode, 409);
+    assert.equal(f.consultations().length, 1);
+  } finally { Doctor.findByUserId = originalDoctor; f.close(); }
+});
+
+test('simultaneous staff completion and dentist saving serialize without losing notes', async () => {
+  const f = fixture();
+  const originalDoctor = Doctor.findByUserId;
+  Doctor.findByUserId = async () => ({ doctor_id: 7 });
+  try {
+    await Queue.callNext();
+    await Queue.updateStatus(1, 'serving');
+    const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await Promise.all([
+      createConsultation({ user: { user_id: 4 }, body: { queue_id: 1, notes: 'Completed notes' } }, res),
+      Queue.updateStatus(1, 'done'),
+    ]);
+    assert.equal(res.statusCode, 201);
+    assert.equal(f.rows()[0].status, 'done');
+    assert.equal(f.consultations().length, 1);
+    assert.equal((await Queue.callNext()).id, 2);
+  } finally { Doctor.findByUserId = originalDoctor; f.close(); }
+});
+
+test('a failed prescription rolls back the consultation and leaves the patient serving', async () => {
+  const f = fixture();
+  const originalDoctor = Doctor.findByUserId;
+  Doctor.findByUserId = async () => ({ doctor_id: 7 });
+  try {
+    await Queue.callNext();
+    await Queue.updateStatus(1, 'serving');
+    f.failPrescription();
+    const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await createConsultation({ user: { user_id: 4 }, body: { queue_id: 1, notes: 'Completed notes', prescription: 'Follow-up' } }, res);
+    assert.equal(res.statusCode, 503);
+    assert.equal(f.consultations().length, 0);
+    assert.equal(f.prescriptions().length, 0);
+    assert.equal(f.rows()[0].status, 'serving');
+  } finally { Doctor.findByUserId = originalDoctor; f.close(); }
 });
 
 test('timely return keeps the original ticket beyond expiry and a second miss is final', async () => {

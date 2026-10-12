@@ -1,31 +1,33 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
 import Icon from "@/components/common/AppIcons";
 import { getSessionItem } from "@analytics/session-storage-utils";
 
 const MAX_SELECTED_SERVICES = 2;
 
-/**
- * GetQueueModal
- * Allows a patient to select services and choose Regular or Priority queue.
- *
- * Props:
- *   isOpen   — controls visibility
- *   onClose  — close handler
- *   onSubmit — called with { services: [...], type: 'regular'|'priority' }
- *   loading  — disables submit while request is in-flight
- *  priorityEligible — if true, allows the user to select "priority" queue
- */
 export default function GetQueueModal({
   isOpen,
   onClose,
   onSubmit,
   loading = false,
   priorityEligible = false,
+  registrationMessage,
 }) {
   const [selected, setSelected] = useState([]);
+  const dialogRef = useRef(null);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const dialog = dialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   const toggleService = (id) => {
     const alreadySelected = selected.includes(id);
@@ -39,7 +41,7 @@ export default function GetQueueModal({
   };
 
   const handleSubmit = () => {
-    if (selected.length === 0) return;
+    if (selected.length === 0 || loading || registrationMessage) return;
     const value = getSessionItem("user");
     onSubmit({
       services: selected,
@@ -48,203 +50,127 @@ export default function GetQueueModal({
     });
   };
 
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  const accentColor = "#2d3a8c";
   const limitReached = selected.length >= MAX_SELECTED_SERVICES;
+  const isDisabled = selected.length === 0 || loading || !!registrationMessage;
 
   return (
-    <div
-      onClick={handleBackdropClick}
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: "16px",
-      }}
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="get-queue-title"
+      aria-describedby="get-queue-description"
+      onCancel={onClose}
+      onClick={(event) => event.target === event.currentTarget && onClose()}
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl overflow-hidden rounded-3xl border border-[#e5e7eb] bg-white p-0 text-[#111827] shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm"
     >
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: "20px",
-          padding: "28px",
-          width: "100%",
-          maxWidth: "480px",
-          maxHeight: "85vh",
-          overflowY: "auto",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "20px",
-          }}
-        >
-          <div>
+      <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
+        <header className="flex shrink-0 items-start gap-3 border-b border-[#e5e7eb] p-5 sm:p-6">
+          <span
+            aria-hidden="true"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[#c2410c]"
+          >
+            <Icon name="queue" size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
             <h2
-              style={{
-                margin: 0,
-                fontSize: "20px",
-                fontWeight: 700,
-                color: "#111827",
-              }}
+              id="get-queue-title"
+              className="text-xl font-bold tracking-tight text-[#2d3a8c]"
             >
-              Get Queue Number
+              Get Queue Ticket
             </h2>
             <p
-              style={{ margin: "2px 0 0", fontSize: "13px", color: "#6b7280" }}
+              id="get-queue-description"
+              className="mt-1 text-sm leading-5 text-[#6b7280]"
             >
-              Select services you need today
+              Choose dental services for today's visit.
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            style={{
-              background: "#f3f4f6",
-              border: "none",
-              borderRadius: "8px",
-              width: "32px",
-              height: "32px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            aria-label="Close queue ticket"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#111827] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
           >
-            <Icon name="close" size={16} color="#6b7280" />
+            <span aria-hidden="true"><Icon name="close" size={20} /></span>
           </button>
-        </div>
+        </header>
 
-        {/* Services */}
-        <div style={{ marginBottom: "24px" }}>
-          <p
-            style={{
-              margin: "0 0 10px",
-              fontSize: "13px",
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Services{" "}
-            <span style={{ color: "#9ca3af", fontWeight: 400 }}>
-              (select all that apply)
-            </span>
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            {SERVICES.map(({ id, label }) => {
-              const active = selected.includes(id);
-              const blocked = limitReached && !active;
-              return (
-                <button
-                  key={id}
-                  onClick={() => {
-                    if (blocked) return;
-                    toggleService(id);
-                  }}
-                  disabled={blocked}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    padding: "10px 14px",
-                    borderRadius: "10px",
-                    border: `1.5px solid ${active ? accentColor : blocked ? "#d1d5db" : "#e5e7eb"}`,
-                    background: active ? `${accentColor}0d` : "#fafafa",
-                    cursor: blocked ? "not-allowed" : "pointer",
-                    opacity: blocked ? 0.62 : 1,
-                    textAlign: "left",
-                    transition: "all 0.12s",
-                  }}
-                >
-                  {/* Checkbox */}
-                  <div
-                    style={{
-                      width: "18px",
-                      height: "18px",
-                      borderRadius: "5px",
-                      border: `2px solid ${active ? accentColor : "#d1d5db"}`,
-                      background: active ? accentColor : "transparent",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      transition: "all 0.12s",
-                    }}
-                  >
-                    {active && (
-                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                        <path
-                          d="M1 4L3.5 6.5L9 1"
-                          stroke="white"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      color: active ? accentColor : "#374151",
-                      fontWeight: active ? 500 : 400,
-                    }}
-                  >
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <p
-            style={{
-              margin: "8px 0 0",
-              fontSize: "12px",
-              color: limitReached ? "#b45309" : "#9ca3af",
-              fontWeight: limitReached ? 600 : 400,
-            }}
-          >
-            {limitReached
-              ? "You can select up to 2 services only."
-              : "Select up to 2 services."}
-          </p>
-        </div>
-
-        {/* Submit */}
-        {(() => {
-          const isDisabled = selected.length === 0 || loading;
-          return (
-            <button
-              onClick={handleSubmit}
-              disabled={isDisabled}
-              style={{
-                width: "100%",
-                padding: "13px",
-                borderRadius: "12px",
-                border: "none",
-                background: isDisabled ? "#e5e7eb" : accentColor,
-                color: isDisabled ? "#9ca3af" : "#ffffff",
-                fontSize: "15px",
-                fontWeight: 600,
-                cursor: isDisabled ? "not-allowed" : "pointer",
-                transition: "background 0.15s",
-              }}
+        <div className="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6">
+          {registrationMessage && (
+            <p
+              role="alert"
+              className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900"
             >
-              {loading ? "Getting your number..." : "Get Queue Number"}
-            </button>
-          );
-        })()}
+              {registrationMessage}
+            </p>
+          )}
+
+          <fieldset aria-describedby="queue-services-hint" className="min-w-0">
+            <legend className="sr-only">Dental services</legend>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p aria-hidden="true" className="text-sm font-semibold text-[#374151]">
+                  Dental services
+                </p>
+                <p id="queue-services-hint" className="mt-1 text-xs text-[#6b7280]">
+                  Select up to {MAX_SELECTED_SERVICES} services.
+                </p>
+              </div>
+              <span
+                role="status"
+                className="shrink-0 rounded-full bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold tabular-nums text-[#2d3a8c]"
+              >
+                {selected.length} / {MAX_SELECTED_SERVICES} selected
+              </span>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {SERVICES.map(({ id, label }) => {
+                const active = selected.includes(id);
+                const blocked = limitReached && !active;
+                return (
+                  <label
+                    key={id}
+                    className={`flex min-h-14 items-center gap-3 rounded-xl border p-3 text-sm leading-5 transition-colors focus-within:ring-4 focus-within:ring-blue-100 ${
+                      active
+                        ? "cursor-pointer border-[#2d3a8c] bg-[#eff6ff] font-semibold text-[#2d3a8c]"
+                        : blocked
+                          ? "cursor-not-allowed border-[#e5e7eb] bg-[#f9fafb] text-[#6b7280]"
+                          : "cursor-pointer border-[#e5e7eb] bg-white text-[#374151] hover:border-[#2d3a8c] hover:bg-[#f9fafb]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      disabled={blocked}
+                      onChange={() => toggleService(id)}
+                      className="h-5 w-5 shrink-0 cursor-[inherit] accent-[#2d3a8c]"
+                    />
+                    <span>{label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        </div>
+
+        <footer className="shrink-0 border-t border-[#e5e7eb] bg-[#f9fafb] p-5 sm:p-6">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isDisabled}
+            aria-busy={loading}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#c2410c] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#9a3412] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-200 disabled:cursor-not-allowed disabled:bg-[#e5e7eb] disabled:text-[#6b7280]"
+          >
+            {loading && (
+              <span
+                aria-hidden="true"
+                className="h-4 w-4 rounded-full border-2 border-current border-r-transparent motion-safe:animate-spin"
+              />
+            )}
+            {loading ? "Getting your ticket..." : "Get Queue Ticket"}
+          </button>
+        </footer>
       </div>
-    </div>
+    </dialog>
   );
 }

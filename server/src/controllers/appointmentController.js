@@ -1,6 +1,7 @@
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
 const Doctor = require("../models/Doctor");
+const Queue = require("../models/Queue");
 const pool = require("../config/db");
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -83,6 +84,11 @@ const createAppointment = async (req, res) => {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
+      // Use the call-next lock so booking and the first call have one cutoff.
+      await Queue.lockCategory('dental', connection);
+      if (await Queue.hasDentalQueueStarted(appointment_date, connection)) {
+        throw httpError(409, Queue.REGISTRATION_CLOSED_MESSAGE);
+      }
       const [[doctor]] = await connection.query(
         "SELECT doctor_id FROM doctors WHERE doctor_id = ? FOR UPDATE",
         [doctor_id],

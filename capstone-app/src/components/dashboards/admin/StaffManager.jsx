@@ -6,13 +6,15 @@ const ROLES = ["doctor", "staff", "admin"];
 
 const STAFF_RESPONSIVE_CSS = `
   .sm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .sm-table-row, .sm-table-head { display: grid; grid-template-columns: 1fr 1fr 80px 80px 120px; }
+  .sm-table-row, .sm-table-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 72px 72px 150px; gap: 12px; }
+  .sm-table-row > span { min-width: 0; overflow-wrap: anywhere; }
   .sm-cards-mobile { display: none; }
-  @media (max-width: 640px) {
-    .sm-form-grid { grid-template-columns: 1fr !important; }
+  @media (max-width: 900px) {
     .sm-table-row, .sm-table-head { display: none !important; }
     .sm-cards-mobile { display: flex !important; flex-direction: column; gap: 6px; padding: 10px; }
-    .sm-empty-mobile { padding: 28px 16px !important; }
+  }
+  @media (max-width: 640px) {
+    .sm-form-grid { grid-template-columns: 1fr !important; }
   }
 `;
 

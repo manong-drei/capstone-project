@@ -1,6 +1,13 @@
 const pool = require("../config/db");
 
 const Appointment = {
+  findActiveToday: async (patient_id, connection = pool) => {
+    const [[appointment]] = await connection.query(`SELECT appointment_id FROM appointments
+      WHERE patient_id = ? AND appointment_date = CURDATE()
+        AND status IN ('pending', 'confirmed') LIMIT 1 FOR UPDATE`, [patient_id]);
+    return appointment || null;
+  },
+
   // Patient's own appointments
   findByPatientId: async (patient_id) => {
     const [rows] = await pool.query(

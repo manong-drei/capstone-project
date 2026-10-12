@@ -3,12 +3,12 @@ import {
   ArrowLeft, BarChart3, CalendarDays, CalendarRange, CheckCircle2,
   CircleAlert, ClipboardPenLine, Clock3, Download, Footprints,
   HeartPulse, Info, Printer, RefreshCw, Save, Star,
-  UserRoundCheck, UsersRound,
+  UsersRound,
 } from "lucide-react";
 import { Footer } from "@/pages/LandingPage";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/services/api";
-import { AGE_GROUPS, BARANGAYS, PREGNANT_AGES, REPORT_GROUPS, createDoctorReport, emptyReport, groupOffset, sumReports } from "./doctorReport";
+import { AGE_GROUPS, BARANGAYS, PREGNANT_AGES, REPORT_GROUPS, createDoctorReport, emptyReport, groupOffset, normalizeReportBarangay, summarizeCompletedVisits, sumReports } from "./doctorReport";
 import "./DoctorAnalyticsTab.css";
 
 const PERIODS = [
@@ -25,16 +25,6 @@ const METRICS = [
   { key: "appointments", label: "Appointments", icon: CalendarDays, color: "#5946ab", bg: "#f1edff" },
   { key: "walk_ins", label: "Walk-ins", icon: Footprints, color: "#4f6586", bg: "#eef3f9" },
 ];
-const SAMPLE_STATS = {
-  weekly: {
-    patients: 22, completed: 19, priority: 5, appointments: 16, walk_ins: 10,
-    age_groups: [1, 3, 4, 2, 3, 9, 1, 1].map((count, index) => ({ age_group: AGE_GROUPS[index], count })),
-  },
-  monthly: {
-    patients: 94, completed: 101, priority: 17, appointments: 80, walk_ins: 39,
-    age_groups: [4, 10, 16, 12, 13, 37, 14, 4].map((count, index) => ({ age_group: AGE_GROUPS[index], count })),
-  },
-};
 const total = (values) => values.some((value) => value !== null)
   ? values.reduce((sum, value) => sum + (value ?? 0), 0)
   : "—";
@@ -57,7 +47,7 @@ function CountInput({ label, value, onChange, disabled }) {
   />;
 }
 
-function MonthlyTable({ data, page }) {
+function ReportTable({ data, page }) {
   const groups = page === 1 ? REPORT_GROUPS.slice(0, 4) : REPORT_GROUPS.slice(4);
   const firstGroup = page === 1 ? 0 : 4;
   const columnTotal = (index) => total(data.map((row) => row[index]));
@@ -81,14 +71,34 @@ function MonthlyTable({ data, page }) {
   </tr></tbody></table>;
 }
 
+function CompletedTable({ rows }) {
+  const barangays = [...BARANGAYS, ...new Set(rows.map((row) => normalizeReportBarangay(row.barangay)).filter((barangay) => !BARANGAYS.includes(barangay)))];
+  const cells = (entries) => {
+    const counts = summarizeCompletedVisits(entries);
+    return [counts.completed, counts.male, counts.female, counts.other, counts.unknown,
+      ...[...AGE_GROUPS, "Unknown"].map((age) => entries.filter((row) => row.age_group === age).reduce((sum, row) => sum + Number(row.count), 0))];
+  };
+  return <table className="da-month-table da-completed-table"><thead><tr>
+    {["Barangay", "Completed", "Male", "Female", "Other", "Unknown sex", ...AGE_GROUPS, "Unknown age"].map((label) => <th scope="col" key={label}>{label}</th>)}
+  </tr></thead><tbody>
+    {barangays.map((barangay) => <tr key={barangay}><th scope="row">{barangay}</th>
+      {cells(rows.filter((row) => normalizeReportBarangay(row.barangay) === barangay)).map((count, index) => <td key={index}>{count}</td>)}
+    </tr>)}
+    <tr className="da-grand-total"><th scope="row">TOTAL</th>{cells(rows).map((count, index) => <td key={index}>{count}</td>)}</tr>
+  </tbody></table>;
+}
+
 export default function DoctorAnalyticsTab({ onBack }) {
   const { user } = useAuth();
   const [period, setPeriod] = useState("today");
+  const [anchorDate, setAnchorDate] = useState("");
+  const [today, setToday] = useState("");
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [manualData, setManualData] = useState(emptyReport);
+  const [manualOpen, setManualOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [entryBarangay, setEntryBarangay] = useState(0);
   const [manualDate, setManualDate] = useState("");
@@ -99,19 +109,24 @@ export default function DoctorAnalyticsTab({ onBack }) {
   const [legacyRecord, setLegacyRecord] = useState(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [monthlyData, setMonthlyData] = useState(emptyReport);
-  const [monthLoading, setMonthLoading] = useState(false);
-  const [monthError, setMonthError] = useState("");
-  const [monthRetry, setMonthRetry] = useState(0);
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(true);
+  const [reportError, setReportError] = useState("");
+  const [reportRetry, setReportRetry] = useState(0);
+  const [reportPage, setReportPage] = useState(1);
+  const query = new URLSearchParams({ period, ...(anchorDate ? { date: anchorDate } : {}) }).toString();
 
   useEffect(() => {
-    if (period !== "today") return;
     let active = true;
     const load = async () => {
       try {
-        const data = await api.get(`/doctor/analytics?period=${period}`);
-        if (active) { setStats(data); setError(""); }
+        const data = await api.get(`/doctor/analytics?${query}`);
+        if (active) {
+          setStats(data);
+          setToday(data.report_date);
+          setSelectedDate((date) => date || data.report_date);
+          setError("");
+        }
       } catch (err) {
         if (active) { setStats(null); setError(err.message || "Could not load analytics."); }
       } finally {
@@ -121,18 +136,14 @@ export default function DoctorAnalyticsTab({ onBack }) {
     load();
     const timer = setInterval(load, 30_000);
     return () => { active = false; clearInterval(timer); };
-  }, [period, retry]);
+  }, [query, retry]);
 
-  const reportDate = stats?.report_date;
   useEffect(() => {
-    if (reportDate && !selectedDate) setSelectedDate(reportDate);
-    if (reportDate && !selectedMonth) setSelectedMonth(reportDate.slice(0, 7));
-  }, [reportDate, selectedDate, selectedMonth]);
-  useEffect(() => {
-    if (!selectedDate || manualDate === selectedDate) return;
+    if (!manualOpen || !selectedDate) return;
     let active = true;
     setManualLoading(true);
     setManualError("");
+    setManualDate("");
     api.get(`/doctor/daily-report?date=${selectedDate}`)
       .then((response) => {
         if (active) {
@@ -146,26 +157,54 @@ export default function DoctorAnalyticsTab({ onBack }) {
       .catch((err) => { if (active) setManualError(err.message || "Could not load your report."); })
       .finally(() => { if (active) setManualLoading(false); });
     return () => { active = false; };
-  }, [selectedDate, manualDate, manualRetry]);
+  }, [selectedDate, manualOpen, manualRetry]);
 
   useEffect(() => {
-    if (!selectedMonth) return;
     let active = true;
-    setMonthLoading(true);
-    setMonthError("");
-    api.get(`/doctor/monthly-report?month=${selectedMonth}`)
-      .then((response) => { if (active) setMonthlyData(sumReports(response.reports)); })
-      .catch((err) => { if (active) setMonthError(err.message || "Could not load monthly report."); })
-      .finally(() => { if (active) setMonthLoading(false); });
-    return () => { active = false; };
-  }, [selectedMonth, monthRetry]);
+    const load = async () => {
+      try {
+        const response = await api.get(`/doctor/report?${query}`);
+        if (active) { setReport({ ...response, data: sumReports(response.reports) }); setReportError(""); }
+      } catch (err) {
+        if (active) { setReport(null); setReportError(err.message || "Could not load report."); }
+      } finally {
+        if (active) setReportLoading(false);
+      }
+    };
+    load();
+    const timer = setInterval(load, 30_000);
+    return () => { active = false; clearInterval(timer); };
+  }, [query, reportRetry]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   const selectPeriod = (value) => {
     if (value === period) return;
     setPeriod(value);
+    if (value === "today") setSelectedDate(anchorDate || today);
     setStats(null);
-    setLoading(value === "today");
+    setReport(null);
+    setLoading(true);
+    setReportLoading(true);
+    setReportPage(1);
     setError("");
+    setReportError("");
+  };
+  const changeRange = (date) => {
+    setAnchorDate(date);
+    if (period === "today") setSelectedDate(date || today);
+    setStats(null);
+    setReport(null);
+    setLoading(true);
+    setReportLoading(true);
+    setReportPage(1);
+    setError("");
+    setReportError("");
   };
   const changeCount = (barangayIndex, fieldIndex, value) => {
     setManualData((current) => current.map((row, index) => index === barangayIndex
@@ -182,7 +221,8 @@ export default function DoctorAnalyticsTab({ onBack }) {
       await api.put("/doctor/daily-report", { date: selectedDate, data: manualData });
       setHasSavedRecord(true);
       setDirty(false);
-      if (selectedDate.startsWith(selectedMonth)) setMonthRetry((value) => value + 1);
+      setReportLoading(true);
+      setReportRetry((value) => value + 1);
     } catch (err) {
       setManualError(err.message || "Could not save your report.");
     } finally {
@@ -190,25 +230,31 @@ export default function DoctorAnalyticsTab({ onBack }) {
     }
   };
   const downloadReport = () => {
-    if (monthLoading || monthError || dirty) return;
-    const blob = new Blob([createDoctorReport(selectedMonth, doctorName, monthlyData)], {
+    if (!exportReady) return;
+    const blob = new Blob([createDoctorReport(report.from, doctorName, report.data, { period, from: report.from, until: report.until, completed_demographics: completedRows })], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `dental-report-${selectedMonth}.xlsx`;
+    link.download = `dental-report-${period}-${report.from}.xlsx`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const doctorName = user?.display_name || "Doctor";
   const reportReady = Boolean(selectedDate) && manualDate === selectedDate && !manualLoading;
-  const hasMonthlyEntries = monthlyData.some((row) => row.some((value) => value !== null));
-  const displayedStats = period === "today" ? stats : SAMPLE_STATS[period];
-  const ages = new Map(displayedStats?.age_groups?.map((row) => [row.age_group, Number(row.count)]) || []);
+  const hasManualEntries = report?.data.some((row) => row.some((value) => value !== null));
+  const completedRows = stats?.completed_demographics || [];
+  const completed = summarizeCompletedVisits(completedRows);
+  const exportReady = Boolean(stats && report && stats.from === report.from && stats.until === report.until && !loading && !reportLoading && !error && !reportError && !dirty && (completed.completed || hasManualEntries));
+  const ages = new Map(stats?.age_groups?.map((row) => [row.age_group, Number(row.count)]) || []);
   const maxAge = Math.max(1, ...ages.values());
   const periodInfo = PERIODS.find((item) => item.value === period);
+  const reportTitle = `${period === "today" ? "Daily" : period === "weekly" ? "Weekly" : "Monthly"} dental service report`;
+  const range = stats || report;
+  const lastDate = range?.until ? new Date(Date.parse(`${range.until}T00:00:00Z`) - 86400000).toISOString().slice(0, 10) : "";
+  const rangeLabel = range?.from ? range.from === lastDate ? range.from : `${range.from} – ${lastDate}` : "";
 
   return <>
     <main className="da-page">
@@ -216,47 +262,53 @@ export default function DoctorAnalyticsTab({ onBack }) {
         <div className="da-title"><span className="da-title-icon"><BarChart3 size={23} /></span><div>
           <p className="da-eyebrow">Dental service</p><h1>Doctor Analytics</h1>
         </div></div>
-        <button className="da-back" type="button" onClick={onBack}><ArrowLeft size={17} /> Back to dashboard</button>
+        <button className="da-back" type="button" onClick={() => { if (!dirty || window.confirm("Discard unsaved barangay entries?")) onBack(); }}><ArrowLeft size={17} /> Back to dashboard</button>
       </div>
 
       <div className="da-periods" role="group" aria-label="Analytics period">
         {PERIODS.map(({ value, label, icon }) => <button
           key={value} className="da-period" type="button" aria-pressed={period === value}
-          onClick={() => selectPeriod(value)}>{createElement(icon, { size: 16 })} {label}</button>)}
+          disabled={dirty || saving} onClick={() => selectPeriod(value)}>{createElement(icon, { size: 16 })} {label}</button>)}
       </div>
-      <p className="da-muted">{periodInfo.description} · {period === "today" ? "Recorded dental queue activity" : "Example dental queue activity"}</p>
-      {period !== "today" && <p className="da-sample" role="note"><Info size={17} /> Sample data for preview only. These figures are not patient records.</p>}
+      <label className="da-field da-month-picker">{period === "monthly" ? "Report month" : period === "weekly" ? "Week containing" : "Report date"}
+        <input className="da-input" type={period === "monthly" ? "month" : "date"} value={period === "monthly" ? (anchorDate || today).slice(0, 7) : anchorDate || today} max={period === "monthly" ? today.slice(0, 7) : today} disabled={!today || dirty || saving} onChange={(event) => changeRange(period === "monthly" && event.target.value ? `${event.target.value}-01` : event.target.value)} />
+      </label>
+      <p className="da-muted">{rangeLabel || periodInfo.description} · Your recorded dental activity · Philippine time</p>
       {loading && <p role="status" className="da-muted">Loading analytics…</p>}
       {error && <div className="da-alert" role="alert"><CircleAlert size={17} /> {error}
         <button type="button" onClick={() => { setLoading(true); setRetry((value) => value + 1); }}>Retry</button></div>}
 
-      {displayedStats && <>
+      {stats && <>
         <div className="da-metrics">
           {METRICS.filter(({ key }) => period === "today" || (key !== "waiting" && key !== "serving")).map(({ key, label, icon, color, bg }) => <div className="da-metric" key={key}>
             <span className="da-metric-icon" style={{ "--metric-color": color, "--metric-bg": bg }}>{createElement(icon, { size: 19 })}</span>
-            <div><span className="da-metric-label">{label}</span><strong>{displayedStats[key] ?? 0}</strong></div>
+            <div><span className="da-metric-label">{label}</span><strong>{stats[key] ?? 0}</strong></div>
           </div>)}
         </div>
 
         <section className="da-card" aria-labelledby="da-age-title">
           <div className="da-section-heading"><span className="da-section-icon"><UsersRound size={21} /></span><div>
-            <h2 id="da-age-title">Patients by age group</h2>
-            <p className="da-muted">{periodInfo.description} · {period === "today" ? "Counts from dental queue visits" : "Illustrative visit counts"}</p>
+            <h2 id="da-age-title">Completed visits by age group</h2>
+            <p className="da-muted">{rangeLabel} · Age at the time of the visit</p>
           </div></div>
-          <div className="da-age-grid">{AGE_GROUPS.map((group) => {
+          <div className="da-age-grid">{[...AGE_GROUPS, "Unknown"].map((group) => {
             const count = ages.get(group) || 0;
             return <div className="da-age-row" key={group}>
               <span>{group}</span><div className="da-age-track" aria-hidden="true"><div className="da-age-fill" style={{ width: `${count / maxAge * 100}%` }} /></div><strong>{count}</strong>
             </div>;
           })}</div>
-          <p className="da-note"><Info size={15} /> {period === "today" ? "These are queue visits, so a patient may appear more than once. BOHC service figures are entered separately below." : "Sample visit counts may exceed unique patients because one person can visit more than once."}</p>
+          <p className="da-note"><Info size={15} /> Each completed visit is counted once, including visits without consultation notes. One patient may have several visits.</p>
         </section>
+      </>}
 
-        {period === "today" && <section className="da-card" aria-labelledby="da-report-title">
+        <section className="da-card">
+          <button className="da-button da-button-secondary" type="button" aria-expanded={manualOpen} aria-controls="da-manual-entries" disabled={!selectedDate || dirty || saving} onClick={() => setManualOpen((open) => !open)}><ClipboardPenLine size={17} /> Daily barangay entries</button>
+          <p className="da-muted">Open when you need to add manual clinical counts for cases missing from the system. Automatic completed-visit counts remain separate.</p>
+          {manualOpen && <div id="da-manual-entries">
           <div className="da-section-head da-report-head">
             <div className="da-section-heading"><span className="da-section-icon"><ClipboardPenLine size={21} /></span><div>
-              <h2 id="da-report-title">Daily barangay entries</h2>
-              <p className="da-muted">Enter the health office form's counts each day. Saved days remain available for the monthly report.</p>
+              <h2 id="da-report-title">Manual clinical entries</h2>
+              <p className="da-muted">BOHC, orally fit children, new DMFT cases, and pregnant BOHC are entered manually. Saved days feed daily, weekly, and monthly reports.</p>
               {reportReady && <span className={`da-status ${dirty ? "da-status-unsaved" : !hasSavedRecord ? "da-status-ready" : ""}`}>
                 {dirty ? <CircleAlert size={14} /> : hasSavedRecord ? <CheckCircle2 size={14} /> : <Info size={14} />}{dirty ? "Unsaved changes" : hasSavedRecord ? "Saved for this date" : "Ready for entries"}
               </span>}
@@ -274,7 +326,7 @@ export default function DoctorAnalyticsTab({ onBack }) {
           </details>}
           <form onSubmit={saveReport}>
             <div className="da-entry-controls">
-              <label className="da-field">Entry date<input className="da-input" type="date" value={selectedDate} max={reportDate} disabled={dirty || saving} onChange={(event) => { setSelectedDate(event.target.value); setManualDate(""); }} /></label>
+              <label className="da-field">Entry date<input className="da-input" type="date" value={selectedDate} max={today} disabled={dirty || saving} onChange={(event) => { setSelectedDate(event.target.value); setManualDate(""); }} /></label>
               <label className="da-field">Barangay<select className="da-input" value={entryBarangay} onChange={(event) => setEntryBarangay(Number(event.target.value))}>{BARANGAYS.map((barangay, index) => <option key={barangay} value={index}>{barangay}</option>)}</select></label>
             </div>
             <h3 className="da-subhead">{BARANGAYS[entryBarangay]} · {selectedDate}</h3>
@@ -285,39 +337,50 @@ export default function DoctorAnalyticsTab({ onBack }) {
             </fieldset>)}</div>
             <fieldset className="da-entry-group da-entry-pregnant"><legend>Pregnant women who received BOHC</legend>
               {PREGNANT_AGES.map((age, index) => <label className="da-field" key={age}>{age} years<CountInput label={`${BARANGAYS[entryBarangay]}, pregnant women, ${age} years`} value={manualData[entryBarangay][8 + index]} onChange={(value) => changeCount(entryBarangay, 8 + index, value)} disabled={!reportReady || saving} /></label>)}
-              <span className="da-entry-total">Total: {total(manualData[entryBarangay].slice(8))}</span>
+              <span className="da-entry-total">Total: {total(manualData[entryBarangay].slice(8, 12))}</span>
             </fieldset>
             <p className="da-note"><Info size={15} /> Blank means no entry; enter 0 for a confirmed zero. Save before changing the date.</p>
             <div className="da-actions">
               <button className="da-button da-button-primary" type="submit" disabled={!reportReady || !dirty || saving}><Save size={17} /> {saving ? "Saving…" : "Save entries"}</button>
             </div>
           </form>
-          <div className="da-month-section">
-            <h3 className="da-subhead">Monthly report</h3>
-            <p className="da-muted">Saved daily entries are added by barangay for the selected month.</p>
-            <label className="da-field da-month-picker">Report month<input className="da-input" type="month" value={selectedMonth} max={reportDate?.slice(0, 7)} onChange={(event) => setSelectedMonth(event.target.value)} /></label>
-            {monthLoading && <p role="status" className="da-muted">Loading monthly report…</p>}
-            {monthError && <div className="da-alert" role="alert"><CircleAlert size={17} /> {monthError}<button type="button" onClick={() => setMonthRetry((value) => value + 1)}>Retry</button></div>}
-            {!monthLoading && !monthError && <>
-              {!hasMonthlyEntries && <p className="da-muted">No saved entries for this month yet.</p>}
-              <p className="da-subhead">Page 1 · Dental measures 1–4 and pregnant BOHC</p>
-              <div className="da-month-wrap"><MonthlyTable data={monthlyData} page={1} /></div>
-              <p className="da-subhead">Page 2 · BOHC age groups 5–10</p>
-              <div className="da-month-wrap"><MonthlyTable data={monthlyData} page={2} /></div>
+          </div>}
+        </section>
+
+        <section className="da-card" aria-labelledby="da-period-report-title">
+            <h2 id="da-period-report-title">{reportTitle}</h2>
+            <p className="da-muted">{rangeLabel} · {doctorName}</p>
+            <h3 className="da-subhead">Automatic completed visits</h3>
+            {stats && <>
+              <p className="da-muted">{completed.completed} completed visits · Male {completed.male} · Female {completed.female} · Other {completed.other} · Unknown sex {completed.unknown}</p>
+              {completed.missing > 0 && <p className="da-alert" role="note"><Info size={17} /> {completed.missing} completed visits have missing demographics or a barangay outside the report list. They remain included below.</p>}
+              <div className="da-month-wrap"><CompletedTable rows={completedRows} /></div>
+            </>}
+            <h3 className="da-subhead">Manual clinical counts</h3>
+            <p className="da-muted">Saved daily entries are added for this period. Completed visits do not automatically establish BOHC or other clinical outcomes.</p>
+            {reportLoading && <p role="status" className="da-muted">Loading report…</p>}
+            {reportError && <div className="da-alert" role="alert"><CircleAlert size={17} /> {reportError}<button type="button" onClick={() => { setReportLoading(true); setReportRetry((value) => value + 1); }}>Retry</button></div>}
+            {report && !reportLoading && !reportError && <>
+              {!hasManualEntries && <p className="da-muted">No saved manual clinical entries for this period yet.</p>}
+              <div className="da-periods" role="group" aria-label="Report pages">{[1, 2].map((page) => <button type="button" className="da-period" key={page} aria-pressed={reportPage === page} onClick={() => setReportPage(page)}>Page {page}</button>)}</div>
+              <p className="da-subhead">{reportPage === 1 ? "Page 1 · Dental measures 1–4 and pregnant BOHC" : "Page 2 · BOHC age groups 5–10"}</p>
+              <div className="da-month-wrap"><ReportTable data={report.data} page={reportPage} /></div>
             </>}
             <div className="da-actions">
-              <button className="da-button da-button-secondary" type="button" disabled={monthLoading || Boolean(monthError) || dirty || !hasMonthlyEntries} onClick={() => window.print()}><Printer size={17} /> Print monthly report</button>
-              <button className="da-button da-button-secondary" type="button" disabled={monthLoading || Boolean(monthError) || dirty || !hasMonthlyEntries} onClick={downloadReport}><Download size={17} /> Download Excel</button>
+              <button className="da-button da-button-secondary" type="button" disabled={!exportReady} onClick={() => window.print()}><Printer size={17} /> Print report</button>
+              <button className="da-button da-button-secondary" type="button" disabled={!exportReady} onClick={downloadReport}><Download size={17} /> Download Excel</button>
             </div>
-          </div>
-        </section>}
-      </>}
+        </section>
     </main>
 
-    {selectedMonth && !monthLoading && !monthError && <section id="doctor-report-print" aria-label="Printable dental report">
-      <h1>Monthly dental service report</h1><p>{selectedMonth} · {doctorName}</p>
-      <MonthlyTable data={monthlyData} page={1} />
-      <div className="da-print-page"><h1>Monthly dental service report · page 2</h1><p>{selectedMonth} · {doctorName}</p><MonthlyTable data={monthlyData} page={2} /></div>
+    {exportReady && <section id="doctor-report-print" aria-label="Printable dental report">
+      <h1>{reportTitle}</h1><p>{rangeLabel} · {doctorName} · Philippine time</p>
+      <h2>Automatic completed visits · {completed.completed} visits</h2>
+      <CompletedTable rows={completedRows} />
+      <p>{completed.missing} visits need demographic review. Automatic visit totals are separate from manual clinical counts.</p>
+      <h2>Manual clinical counts · page 1</h2>
+      <ReportTable data={report.data} page={1} />
+      <div className="da-print-page"><h1>{reportTitle} · page 2</h1><p>{rangeLabel} · {doctorName}</p><h2>Manual clinical counts</h2><ReportTable data={report.data} page={2} /></div>
     </section>}
     <Footer />
   </>;

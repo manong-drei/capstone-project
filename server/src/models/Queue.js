@@ -4,6 +4,17 @@ const conflict = message => Object.assign(new Error(message), { status: 409 });
 const NO_SHOW_EXPIRED = 'No-show — did not return within 10 minutes';
 
 const Queue = {
+  REGISTRATION_CLOSED_MESSAGE: "Today's dental queue has started. New same-day appointment registration is closed. Please approach staff for walk-in registration.",
+
+  hasDentalQueueStarted: async (date = null, connection = pool) => {
+    const [[called]] = await connection.query(`SELECT id FROM queues
+      WHERE category = 'dental'
+        AND created_at >= COALESCE(?, CURDATE())
+        AND created_at < COALESCE(?, CURDATE()) + INTERVAL 1 DAY
+        AND last_called_at IS NOT NULL LIMIT 1`, [date, date]);
+    return Boolean(called);
+  },
+
   lockCategory: async (category, connection) => {
     if (!['dental', 'general'].includes(category)) throw new Error('Invalid queue category.');
     await connection.query(`INSERT INTO queue_sequences (queue_date, category, sequence_type, last_number)
@@ -57,7 +68,8 @@ const Queue = {
     const [rows] = await pool.query(
       `
       SELECT q.*,
-             COALESCE(CONCAT(p.first_name, ' ', p.last_name), q.walk_in_name) AS full_name
+             COALESCE(CONCAT(p.first_name, ' ', p.last_name), q.walk_in_name) AS full_name,
+             EXISTS(SELECT 1 FROM consultations c WHERE c.queue_id = q.id) AS has_consultation
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  DATE(q.created_at) = CURDATE()
@@ -223,6 +235,7 @@ const Queue = {
   },
 
   updateStatus: (id, status, statusReason = null, { patientOnly = false } = {}) => Queue._withTicket(id, async (ticket, conn) => {
+      if (status === 'done' && ticket.status === 'done' && !patientOnly) return Queue._fetchById(id, conn);
       const allowed = status === 'serving' ? ticket.status === 'called' && !patientOnly
         : status === 'done' ? ticket.status === 'serving' && !patientOnly
         : status === 'cancelled' && (patientOnly ? ['waiting', 'missed'] : ['waiting', 'called', 'serving', 'missed']).includes(ticket.status);

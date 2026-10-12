@@ -289,6 +289,7 @@ export default function DoctorDashboard() {
           servingQueue={servingQueue} nextQueue={nextQueue} done={done} priority={priority}
           queueLoading={loading || queueActionLoading}
           onCallNext={handleCallNext} onMarkDone={handleMarkDone}
+          onConsult={(patient) => { setServingPatient(patient); setShowConsultModal(true); }}
           calledQueue={calledQueue} missedQueues={missedQueues} onQueueAction={handleQueueAction}
           error={error}
         />

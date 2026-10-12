@@ -6,12 +6,12 @@ import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
 import { CANCELLATION_REASONS } from "@/constants/queueReasons";
 import api from "@/services/api";
+import { callNextQueue, updateQueueStatus } from "@/services/queueService";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import WalkInForm from "@/components/dashboards/staff/WalkInForm";
-import QueueRecovery from '@/components/common/QueueRecovery';
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
@@ -58,11 +58,21 @@ export default function StaffDashboard() {
   }, [refresh]);
 
   const handleCallNext = async () => {
+    if (loading || calling || currentServing?.status === 'called' || (!currentServing && !waiting.length)) return;
     setCalling(true);
+    setError("");
     try {
-      await api.post("/queue/call-next", { category: "dental" });
+      if (currentServing?.status === 'serving') {
+        const completed = await updateQueueStatus(currentServing.id, 'done');
+        setQueues((previous) => previous.map(queue => queue.id === completed.id ? completed : queue));
+      }
+      if (waiting.length) {
+        const patient = await callNextQueue("dental");
+        setQueues((previous) => [patient, ...previous.filter((queue) => queue.id !== patient.id)]);
+      }
       await fetchQueue();
     } catch (err) {
+      await fetchQueue();
       setError(err.message || "Failed to call the next patient.");
     } finally {
       setCalling(false);
@@ -110,6 +120,13 @@ export default function StaffDashboard() {
       <QueueReasonModal request={queueReasonRequest} onClose={() => setQueueReasonRequest(null)} onSubmit={submitQueueReason} />
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <StaffHeroBanner identity={identity} doctorAvailable={doctorAvailable} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-[#1a3a8f]">Dental queue management</h2>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={refresh} disabled={loading || calling} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50"><RefreshCw size={16} aria-hidden="true" />Refresh</button>
+            <a href={ROUTES.GENERAL_QUEUE_MONITOR} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><Monitor size={16} aria-hidden="true" />Open dental monitor<span className="sr-only"> (new tab)</span></a>
+          </div>
+        </div>
         <section aria-label="Today's dental queue summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.label} className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -118,20 +135,12 @@ export default function StaffDashboard() {
             </div>
           ))}
         </section>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-lg font-bold text-[#1a3a8f]">Dental queue management</h2><p className="mt-1 text-xs text-slate-500">Coordinate today's queue and register returning or new walk-in patients.</p></div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={refresh} disabled={loading || calling} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50"><RefreshCw size={16} aria-hidden="true" />Refresh</button>
-            <a href={ROUTES.GENERAL_QUEUE_MONITOR} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[#1e4db7] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><Monitor size={16} aria-hidden="true" />Open dental monitor<span className="sr-only"> (new tab)</span></a>
-          </div>
-        </div>
         {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><p>{error} Displayed queue information may be outdated.</p></div>}
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-          <div className="space-y-4"><QueuePanel currentServing={currentServing} nextQueue={waiting} onCallNext={handleCallNext}
+          <QueuePanel currentServing={currentServing} nextQueue={waiting} onCallNext={handleCallNext}
+            missedQueues={queues.filter(queue => queue.status === 'missed')} onQueueAction={handleQueueAction}
             onCancelQueue={(id) => setQueueReasonRequest({ title: "Reason for cancellation", reasons: CANCELLATION_REASONS, id, status: "cancelled" })}
             loading={loading || calling} />
-            <QueueRecovery called={currentServing?.status === 'called' ? currentServing : null} missed={queues.filter(queue => queue.status === 'missed')} onAction={handleQueueAction} loading={loading || calling} />
-          </div>
           <WalkInForm onSuccess={fetchQueue} />
         </div>
         <p className="flex flex-wrap items-center justify-center gap-2 pb-2 text-xs text-slate-500">

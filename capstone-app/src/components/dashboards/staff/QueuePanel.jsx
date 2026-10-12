@@ -1,8 +1,10 @@
-import { ArrowRight, Clock3, ListOrdered, LoaderCircle, Megaphone, ShieldCheck, Users } from "lucide-react";
+import { CheckCircle2, Clock3, ListOrdered, LoaderCircle, Megaphone, ShieldCheck, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
+import QueueRecovery from "@/components/common/QueueRecovery";
 
-export default function QueuePanel({ currentServing, nextQueue, onCallNext, onCancelQueue, loading }) {
+export default function QueuePanel({ currentServing, nextQueue, onCallNext, missedQueues, onQueueAction, onCancelQueue, loading }) {
+  const finishOnly = currentServing?.status === 'serving' && !nextQueue.length;
   return (
     <section id="dental-queue" aria-labelledby="dental-queue-title" className="scroll-mt-24 space-y-4">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -19,12 +21,13 @@ export default function QueuePanel({ currentServing, nextQueue, onCallNext, onCa
           </> : <p className="text-sm text-orange-100">{loading ? "Loading the dental queue…" : "No patient is currently being served."}</p>}
         </div>
         <div className="px-5 pb-5">
-          <button type="button" onClick={onCallNext} disabled={loading || !nextQueue.length || !!currentServing} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1e4db7] px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
-            {loading ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}{loading ? "Updating queue…" : "Call next patient"}
+          <button type="button" onClick={onCallNext} disabled={loading || currentServing?.status === 'called' || (!currentServing && !nextQueue.length)} aria-describedby="staff-call-next-hint" aria-busy={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1e4db7] px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
+            {loading ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : finishOnly ? <CheckCircle2 size={18} aria-hidden="true" /> : <Megaphone size={18} aria-hidden="true" />}{loading ? 'Updating queue…' : finishOnly ? 'Finish check-up' : 'Call next patient'}
           </button>
-          {currentServing && <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">{currentServing.status === 'called' ? 'Confirm the patient is here, or call again before skipping.' : 'Wait for the dentist to complete this visit before calling the next patient.'}</p>}
+          <p id="staff-call-next-hint" aria-live="polite" className="mt-2 text-center text-xs leading-relaxed text-slate-500">{currentServing ? currentServing.status === 'called' ? `Called ${currentServing.queue_number}. Confirm the patient is here, or call again before skipping.` : finishOnly ? 'When the check-up is finished, mark this last visit complete.' : `When the check-up is finished, calling next will mark ${currentServing.queue_number} complete.` : nextQueue.length ? `Ready to call ${nextQueue[0].queue_number}.` : 'No patients are waiting to be called.'}</p>
         </div>
       </div>
+      <QueueRecovery called={currentServing?.status === 'called' ? currentServing : null} missed={missedQueues} onAction={onQueueAction} loading={loading} />
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4"><Clock3 size={18} className="text-blue-700" aria-hidden="true" /><h3 className="text-sm font-semibold text-slate-900">Up next</h3><span className="ml-auto text-xs text-slate-500">Serving order</span></div>
         {!nextQueue.length ? <div className="flex flex-col items-center gap-2 px-5 py-8 text-sm text-slate-500"><Users size={28} className="text-slate-300" aria-hidden="true" />{loading ? "Loading patients…" : "No patients waiting"}</div> :

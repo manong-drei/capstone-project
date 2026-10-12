@@ -37,7 +37,7 @@ export default function DoctorHomeTab({
   settingsLoading, settingsSaved, onApplySettings,
   waiting, serving, doneQueues, servingQueue, nextQueue, done, priority,
   queueLoading,
-  onCallNext, onMarkDone,
+  onCallNext, onMarkDone, onConsult,
   calledQueue, missedQueues, onQueueAction,
   error,
 }) {
@@ -252,6 +252,7 @@ export default function DoctorHomeTab({
                       {completedAt && <span style={{ fontSize: "11px", color: "#6b7280" }}>✓ {completedAt}</span>}
                       <span style={{ fontSize: "11px", color: "#374151" }}>{services}</span>
                     </div>
+                    {!q.has_consultation && <button type="button" onClick={() => onConsult(q)} disabled={queueLoading} aria-label={`Add notes for ${q.queue_number}`} className="mt-2 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-50">Add notes</button>}
                   </li>
                 );
               })}

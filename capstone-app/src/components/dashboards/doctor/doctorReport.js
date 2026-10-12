@@ -44,6 +44,27 @@ export function sumReports(reports) {
   return result;
 }
 
+export function normalizeReportBarangay(value) {
+  const original = String(value ?? "").trim();
+  const name = original.replace(/^barangay\s+/i, "").replace(/\s*,?\s*bago city$/i, "").trim();
+  return BARANGAYS.find((barangay) => barangay.toLowerCase() === name.toLowerCase()) || original || "Unknown";
+}
+
+export function summarizeCompletedVisits(rows) {
+  const totals = { completed: 0, male: 0, female: 0, other: 0, unknown: 0, missing: 0 };
+  for (const entry of rows) {
+    const count = Number(entry.count);
+    if (!Number.isFinite(count) || count <= 0) continue;
+    const sex = String(entry.sex ?? "").trim().toLowerCase();
+    const category = ["male", "female", "other"].includes(sex) ? sex : "unknown";
+    totals.completed += count;
+    totals[category] += count;
+    if (category === "unknown" || !AGE_GROUPS.includes(entry.age_group) || !BARANGAYS.includes(normalizeReportBarangay(entry.barangay)))
+      totals.missing += count;
+  }
+  return totals;
+}
+
 const xml = (value) =>
   String(value).replace(
     /[&<>"']/g,
@@ -134,12 +155,16 @@ function zip(files) {
   return result;
 }
 
-export function createDoctorReport(month, doctorName, data) {
+export function createDoctorReport(month, doctorName, data, options) {
+  const title = `${{ today: "DAILY", weekly: "WEEKLY", monthly: "MONTHLY" }[options?.period] || "MONTHLY"} DENTAL SERVICE REPORT`;
+  const end = options?.until ? new Date(new Date(`${options.until}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10) : options?.from;
+  const periodLabel = options?.from ? options.from === end ? options.from : `${options.from} – ${end}` : month;
+  const periodCells = [textCell("A2", options ? "Period" : "Month"), textCell("B2", periodLabel), textCell("H2", "Doctor"), textCell("I2", doctorName)];
   const columns = "ABCDEFGHIJKLMNOPQR";
   const groups = ["B:D", "E:G", "H:J", "K:M", "N:R"];
   const rows = [
-    row(1, [textCell("A1", "MONTHLY DENTAL SERVICE REPORT", 1)]),
-    row(2, [textCell("A2", "Month"), textCell("B2", month), textCell("H2", "Doctor"), textCell("I2", doctorName)]),
+    row(1, [textCell("A1", title, 1)]),
+    row(2, periodCells),
     row(3, [textCell("A3", "Barangay", 1), ...REPORT_GROUPS.slice(0, 4).map((label, i) => textCell(`${groups[i][0]}3`, `${i + 1}. ${label}`, 1)), textCell("N3", "Pregnant women who received BOHC", 1)], 54),
     row(4, [textCell("A4", ""), ...[...Array(4)].flatMap((_, i) => ["M", "F", "Total"].map((label, j) => textCell(`${columns[1 + i * 3 + j]}4`, label, 1))), ...[...PREGNANT_AGES, "Total"].map((label, i) => textCell(`${columns[13 + i]}4`, label, 1))], 26),
     ...BARANGAYS.map((barangay, index) => {
@@ -162,8 +187,8 @@ export function createDoctorReport(month, doctorName, data) {
 
   const columns2 = "ABCDEFGHIJKLMNOPQRS";
   const rows2 = [
-    row(1, [textCell("A1", "MONTHLY DENTAL SERVICE REPORT · PAGE 2", 1)]),
-    row(2, [textCell("A2", "Month"), textCell("B2", month), textCell("H2", "Doctor"), textCell("I2", doctorName)]),
+    row(1, [textCell("A1", `${title} · PAGE 2`, 1)]),
+    row(2, periodCells),
     row(3, [textCell("A3", "Barangay", 1), ...REPORT_GROUPS.slice(4).map((label, i) => textCell(`${columns2[1 + i * 3]}3`, `${i + 5}. ${label}`, 1))], 54),
     row(4, [textCell("A4", ""), ...REPORT_GROUPS.slice(4).flatMap((_, i) => ["M", "F", "Total"].map((label, j) => textCell(`${columns2[1 + i * 3 + j]}4`, label, 1)))], 26),
     ...BARANGAYS.map((barangay, index) => {
@@ -186,7 +211,7 @@ export function createDoctorReport(month, doctorName, data) {
   const sheet = makeSheet(rows, "R", groups.map((range) => `${range.replace(":", "3:")}3`));
   const sheet2 = makeSheet(rows2, "S", REPORT_GROUPS.slice(4).map((_, i) => `${columns2[1 + i * 3]}3:${columns2[3 + i * 3]}3`));
 
-  return zip({
+  const files = {
     "[Content_Types].xml":
       '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
     "_rels/.rels":
@@ -199,5 +224,28 @@ export function createDoctorReport(month, doctorName, data) {
       '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="8"/><name val="Arial"/></font><font><b/><sz val="8"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>',
     "xl/worksheets/sheet1.xml": sheet,
     "xl/worksheets/sheet2.xml": sheet2,
-  });
+  };
+  if (options) {
+    const demographics = options.completed_demographics || [];
+    const totals = summarizeCompletedVisits(demographics);
+    const completedRows = [
+      row(1, [textCell("A1", `${title} · COMPLETED VISITS`, 1)]),
+      row(2, [textCell("A2", "Period"), textCell("B2", periodLabel)]),
+      row(3, [textCell("A3", "Doctor"), textCell("B3", doctorName)]),
+      row(4, [textCell("A4", "Automatic counts; clinical outcomes are entered separately.")]),
+      ...[["Completed visits", totals.completed], ["Male", totals.male], ["Female", totals.female], ["Other", totals.other], ["Unknown sex", totals.unknown], ["Missing demographics", totals.missing]].map(([label, count], index) => row(index + 6, [textCell(`A${index + 6}`, label), `<c r="B${index + 6}" s="2"><v>${count}</v></c>`])),
+      row(14, ["Barangay", "Age group", "Sex", "Completed visits"].map((label, index) => textCell(`${"ABCD"[index]}14`, label, 1))),
+      ...demographics.map((entry, index) => row(index + 15, [
+        textCell(`A${index + 15}`, normalizeReportBarangay(entry.barangay)),
+        textCell(`B${index + 15}`, entry.age_group || "Unknown"),
+        textCell(`C${index + 15}`, entry.sex || "Unknown"),
+        `<c r="D${index + 15}" s="2"><v>${Number(entry.count) || 0}</v></c>`,
+      ])),
+    ];
+    files["xl/worksheets/sheet3.xml"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="3" width="24" customWidth="1"/><col min="4" max="4" width="18" customWidth="1"/></cols><sheetData>${completedRows.join("")}</sheetData><mergeCells count="2"><mergeCell ref="A1:D1"/><mergeCell ref="A4:D4"/></mergeCells></worksheet>`;
+    files["[Content_Types].xml"] = files["[Content_Types].xml"].replace("</Types>", '<Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
+    files["xl/workbook.xml"] = files["xl/workbook.xml"].replace("</sheets>", '<sheet name="Completed visits" sheetId="3" r:id="rId4"/></sheets>');
+    files["xl/_rels/workbook.xml.rels"] = files["xl/_rels/workbook.xml.rels"].replace("</Relationships>", '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/></Relationships>');
+  }
+  return zip(files);
 }

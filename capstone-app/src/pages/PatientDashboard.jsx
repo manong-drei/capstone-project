@@ -128,7 +128,7 @@ export default function PatientDashboard() {
   const fetchQueueStatus = async () => {
     try {
       setQueueStatus(
-        (await queueService.getQueueStatus()) ?? {
+        (await queueService.getQueueStatus('dental')) ?? {
           now_serving: null,
           now_serving_name: null,
           next_queuing: null,
@@ -191,6 +191,7 @@ export default function PatientDashboard() {
       setShowQueueModal(false);
     } catch (err) {
       alert(err.message || "Failed to get queue number.");
+      await fetchQueueStatus();
     }
   };
 
@@ -408,6 +409,7 @@ export default function PatientDashboard() {
           queueStatus={queueStatus}
           doctorAvailability={doctorAvailability}
           hasActiveQueue={hasActiveQueue}
+          registrationMessage={queueStatus.registration_message}
           queue={queue}
           myQueueSubtitle={myQueueSubtitle}
           onGetQueue={() => setShowQueueModal(true)}
@@ -418,6 +420,7 @@ export default function PatientDashboard() {
       {activeTab === "queue" && (
         <PatientQueueTab
           hasActiveQueue={hasActiveQueue}
+          registrationMessage={queueStatus.registration_message}
           queue={queue}
           loading={loading}
           error={error}
@@ -441,6 +444,7 @@ export default function PatientDashboard() {
         onSubmit={handleGetQueue}
         loading={loading}
         priorityEligible={priorityEligible}
+        registrationMessage={queueStatus.registration_message}
       />
       <QueueReasonModal request={queueReasonRequest} onClose={() => setQueueReasonRequest(null)} onSubmit={submitQueueCancellation} />
     </div>

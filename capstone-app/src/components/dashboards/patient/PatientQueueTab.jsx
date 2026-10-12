@@ -15,32 +15,86 @@ const NAVY = "#2d3a8c";
  *   onCancelQueue  — cancel the active queue
  *   onBack         — navigate back to home tab
  */
-export default function PatientQueueTab({ hasActiveQueue, queue, loading, error, onGetQueue, onCancelQueue, onBack }) {
+export default function PatientQueueTab({
+  hasActiveQueue,
+  registrationMessage,
+  queue,
+  loading,
+  error,
+  onGetQueue,
+  onCancelQueue,
+  onBack,
+}) {
   return (
-    <div className="pd-tab-pad" style={{ flex: 1, maxWidth: "860px", margin: "0 auto", width: "100%" }}>
+    <div
+      className="pd-tab-pad"
+      style={{ flex: 1, maxWidth: "860px", margin: "0 auto", width: "100%" }}
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: "14px", fontWeight: 500 }}>
+          <button
+            onClick={onBack}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#6b7280",
+              fontSize: "14px",
+              fontWeight: 500,
+            }}
+          >
             ← Back
           </button>
-          <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#111827" }}>My Queue</h2>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "18px",
+              fontWeight: 700,
+              color: "#111827",
+            }}
+          >
+            My Queue
+          </h2>
         </div>
         {loading && <p style={{ color: "#9ca3af" }}>Loading...</p>}
         {error && <p style={{ color: "#dc2626" }}>{error}</p>}
         {!loading && !hasActiveQueue && (
           <div style={{ textAlign: "center", padding: "48px 0" }}>
-            <p style={{ color: "#9ca3af", fontSize: "14px", marginBottom: "16px" }}>
-              You don't have an active queue number.
+            <p
+              role="status"
+              style={{
+                color: "#6b7280",
+                fontSize: "14px",
+                marginBottom: "16px",
+              }}
+            >
+              {registrationMessage || "You don't have an active queue number."}
             </p>
             <button
               onClick={onGetQueue}
-              style={{ padding: "12px 24px", borderRadius: "12px", border: "none", background: NAVY, color: "#ffffff", fontSize: "14px", fontWeight: 600, cursor: "pointer" }}
+              disabled={!!registrationMessage}
+              className="disabled:opacity-60"
+              style={{
+                padding: "12px 24px",
+                borderRadius: "12px",
+                border: "none",
+                background: NAVY,
+                color: "#ffffff",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: registrationMessage ? "not-allowed" : "pointer",
+              }}
             >
-              Get Queue Number
+              Get Queue Ticket
             </button>
           </div>
         )}
-        {(hasActiveQueue || queue?.status === 'no_show') && <QueueStatus queue={queue} onCancel={hasActiveQueue ? onCancelQueue : undefined} />}
+        {(hasActiveQueue || queue?.status === "no_show") && (
+          <QueueStatus
+            queue={queue}
+            onCancel={hasActiveQueue ? onCancelQueue : undefined}
+          />
+        )}
       </div>
     </div>
   );
