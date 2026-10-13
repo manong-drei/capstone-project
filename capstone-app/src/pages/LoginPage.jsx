@@ -87,6 +87,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTerms, setShowTerms] = useState(false);
+  const [showRecoveryHelp, setShowRecoveryHelp] = useState(false);
 
   const handleChange = (e) => {
     setError("");
@@ -214,6 +215,37 @@ const LoginPage = () => {
                   {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
+            </div>
+
+            <div className="text-sm">
+              <button
+                type="button"
+                onClick={() => setShowRecoveryHelp((visible) => !visible)}
+                aria-expanded={showRecoveryHelp}
+                aria-controls="recovery-help"
+                className="font-semibold text-blue-700 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600"
+              >
+                Forgot password?
+              </button>
+              {showRecoveryHelp && (
+                <div
+                  id="recovery-help"
+                  className="mt-3 rounded-lg bg-blue-50 p-4 text-sm leading-relaxed text-slate-700"
+                >
+                  <h3 className="mb-3 text-sm font-semibold text-blue-900">
+                    Password Recovery Steps
+                  </h3>
+                  <ul className="list-disc space-y-1 pl-3">
+                    <li>Visit the clinic reception.</li>
+                    <li>
+                      Verify your name, phone number, address, and birthday.
+                    </li>
+                    <li>Receive a temporary password.</li>
+                    <li>Valid for 30 minutes and one login only.</li>
+                    <li>Set a new password after logging in.</li>
+                  </ul>
+                </div>
+              )}
             </div>
 
             <p

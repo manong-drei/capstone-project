@@ -63,7 +63,8 @@ async function mockStaff(page) {
       body = { queue: { queue_number: "P03", sms_initial_position: 2, sms_alert_state: "suppressed" } };
     } else if (url.pathname === "/api/patients/search") {
       state.searches.push(url.search);
-      body = { data: url.searchParams.get("name") === "Returning" ? [{ patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1960-01-01", masked_contact: "*******6789" }] : [] };
+      const phone = url.searchParams.get("phone");
+      body = { data: url.searchParams.get("name") === "Returning" || (phone && "09123456789".includes(phone)) ? [{ patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1960-01-01", masked_contact: "*******6789" }] : [] };
     } else if (url.pathname === "/api/patients/20") body = { data: { patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1960-01-01", gender: "Female", barangay: "Abuanan", contact_number: "09123456789", visits: [
       { id: 30, category: "dental", queue_number: "Q-030", status: "done", created_at: "2026-10-07T09:00:00+08:00" },
       { id: 31, category: "general", queue_number: "G-031", status: "done", created_at: "2026-10-07T09:00:00+08:00" },
@@ -144,6 +145,49 @@ test("mobile walk-in registration preserves patient lookup, priority, service li
   await expect(page.getByRole("status")).toContainText("Please stay nearby; no queue SMS will be sent.");
   expect(state.registrations[0]).toMatchObject({ category: "dental", patient_id: 20, services: ["CONSULTATION", "ORAL_PROPHYLAXIS"], type: "priority", priority_category: "senior", contact: "+639123456789" });
   await expect(page.getByLabel("Full name")).toHaveValue("");
+});
+
+test('partial phone lookup starts at four digits and clears matches below that threshold', async ({ page }) => {
+  const state = await mockStaff(page);
+  await page.goto('/staff');
+  const lookup = page.getByLabel('Find an existing patient');
+  const match = page.getByRole('button', { name: /Returning Patient · 1960-01-01/ });
+  await lookup.fill('456');
+  await page.clock.runFor(400);
+  expect(state.searches).toEqual([]);
+  for (const fragment of ['4567', '6789', '0912']) {
+    await lookup.fill(fragment);
+    await page.clock.runFor(400);
+    await expect(match).toBeVisible();
+    await expect.poll(() => new URLSearchParams(state.searches.at(-1)).get('phone')).toBe(fragment);
+    expect(new URLSearchParams(state.searches.at(-1)).has('name')).toBe(false);
+  }
+  const searchCount = state.searches.length;
+  await lookup.fill('456');
+  await page.clock.runFor(400);
+  await expect(match).toHaveCount(0);
+  expect(state.searches).toHaveLength(searchCount);
+  await lookup.fill('4567');
+  await page.clock.runFor(400);
+  await match.click();
+  await expect(page.getByLabel('Full name')).toHaveValue('Returning Patient');
+  await expect(page.getByLabel('Confirmed mobile number')).toHaveValue('9123456789');
+});
+
+test('partial phone lookup also uses the registration contact field and still requires a complete number', async ({ page }) => {
+  const state = await mockStaff(page);
+  await page.goto('/staff');
+  const contact = page.getByLabel('Confirmed mobile number');
+  await contact.fill('912');
+  await page.clock.runFor(400);
+  expect(state.searches).toEqual([]);
+  await contact.fill('9123');
+  await page.clock.runFor(400);
+  await expect(page.getByRole('button', { name: /Returning Patient · 1960-01-01/ })).toBeVisible();
+  expect(new URLSearchParams(state.searches.at(-1)).get('phone')).toBe('9123');
+  expect(await contact.evaluate(input => input.checkValidity())).toBe(false);
+  await page.getByRole('button', { name: /Returning Patient · 1960-01-01/ }).click();
+  expect(await contact.evaluate(input => input.checkValidity())).toBe(true);
 });
 
 test('staff advances the queue while the doctor finishes the previous consultation notes', async ({ page, browser }) => {

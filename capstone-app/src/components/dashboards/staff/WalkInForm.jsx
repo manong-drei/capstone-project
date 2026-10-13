@@ -56,9 +56,19 @@ export default function WalkInForm({ onSuccess }) {
   useEffect(() => {
     if (selectedPatient) return;
     const term = lookup.trim();
-    const digits = (term || form.contact).replace(/\D/g, "");
+    const isPhoneLookup = /^\+?[\d\s-]+$/.test(term);
+    const digits = (term ? (isPhoneLookup ? term : "") : form.contact).replace(/\D/g, "");
     const phone = digits.length === 10 && digits.startsWith("9") ? `0${digits}` : digits;
-    if (term.length < 2 && form.fullName.trim().length < 2 && phone.length < 10 && !form.dateOfBirth) {
+    const params = new URLSearchParams();
+    if (term) {
+      if (isPhoneLookup && phone.length >= 4) params.set("phone", phone);
+      else if (!isPhoneLookup && term.length >= 2) params.set("name", term);
+    } else {
+      if (form.fullName.trim().length >= 2) params.set("name", form.fullName.trim());
+      if (phone.length >= 4) params.set("phone", phone);
+    }
+    if (form.dateOfBirth) params.set("date_of_birth", form.dateOfBirth);
+    if (!params.size) {
       const reset = setTimeout(() => { setMatches([]); setSearching(false); }, 0);
       return () => clearTimeout(reset);
     }
@@ -66,15 +76,6 @@ export default function WalkInForm({ onSuccess }) {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const params = new URLSearchParams();
-        if (term) {
-          if (phone.length >= 10 && /^\+?[\d\s-]+$/.test(term)) params.set("phone", phone);
-          else params.set("name", term);
-        } else {
-          if (form.fullName.trim().length >= 2) params.set("name", form.fullName.trim());
-          if (phone.length >= 10) params.set("phone", phone);
-        }
-        if (form.dateOfBirth) params.set("date_of_birth", form.dateOfBirth);
         const res = await api.get(`/patients/search?${params}`);
         if (active) setMatches(res.data || []);
       } catch { if (active) setMatches([]); }
@@ -177,8 +178,9 @@ export default function WalkInForm({ onSuccess }) {
           <div>
             <label htmlFor="patient-lookup" className="mb-1.5 block text-xs font-semibold text-slate-700">Find an existing patient</label>
             <div className="relative"><Search size={17} className="pointer-events-none absolute left-3 top-3 text-slate-400" aria-hidden="true" />
-              <input id="patient-lookup" value={lookup} onChange={(event) => { setLookup(event.target.value); setConfirmNew(false); }} disabled={!!selectedPatient} placeholder="Search name or mobile number" autoComplete="off" className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50" />
+              <input id="patient-lookup" value={lookup} onChange={(event) => { setLookup(event.target.value); setConfirmNew(false); }} disabled={!!selectedPatient} placeholder="Search name or mobile number" aria-describedby="patient-lookup-help" autoComplete="off" className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50" />
             </div>
+            <p id="patient-lookup-help" className="mt-1.5 text-xs text-slate-500">Search by name or any 4 or more digits of a mobile number.</p>
             {searching && <p role="status" className="mt-2 flex items-center gap-2 text-xs text-slate-500"><LoaderCircle size={14} className="animate-spin" aria-hidden="true" />Searching patient records…</p>}
             {!selectedPatient && matches.length > 0 && (
               <div className="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">

@@ -11,7 +11,7 @@ The implementation uses regular outbound messages (one recipient per request), a
 5. Set `SMS_ENABLED=true` and restart. The worker initializes today's existing waiting tickets by their current projected position. Tickets within the threshold are suppressed; those farther back are armed. Older tickets are never sent alerts.
 6. Check the admin Notifications tab, set the threshold, and perform a controlled real SMS test using your own confirmed mobile number. Confirm the sender cannot receive replies and the clinic has sufficient credits.
 
-All existing JWT sessions must log in again because the new middleware requires credential versions. Permanent password hashes are preserved. Existing temporary passwords with unknown issuance times expire during migration; admins must verify the patient's identity and issue a replacement. A redeemed password cannot be reused; losing/expiring the 15-minute setup session requires admin replacement.
+All existing JWT sessions must log in again because the new middleware requires credential versions. Permanent password hashes are preserved. Existing temporary passwords with unknown issuance times expire during migration; admins must verify the patient's identity and issue a replacement. A redeemed password cannot be reused; losing/expiring the 15-minute setup session requires a replacement through admin SMS or the [in-person account recovery flow](ACCOUNT_RECOVERY.md).
 
 ## Behavior
 
@@ -28,6 +28,8 @@ The worker wakes after queue/account/settings changes and checks every five seco
 Claims are committed before the network request. Submissions interrupted for more than 60 seconds become `unknown`, clear their payload, and are never automatically resent. Certain connection failures and HTTP 429 rejections retry at most three times, honoring `Retry-After`; ambiguous timeouts, malformed success responses and HTTP 5xx responses become `unknown`. Other rejections become `failed`. Provider delivery failures do not automatically create a second paid SMS. Polling failures only retry the status lookup, never the submission.
 
 Review `unknown` entries in the admin Notifications tab against Semaphore's message history before issuing a replacement password. Queue alerts cannot be manually resent in this version. Admin patient management exposes the latest activation delivery status and an identity-confirmed, audited replacement action. Messages accepted earlier may still arrive after replacement, but their old credential cannot log in.
+
+Staff-assisted recovery also supports patients who already chose a permanent password. Staff/admins verify the patient's presence and all five identity details, then hand over a generated password valid for 30 minutes and one login. This issues no SMS and cancels pending password jobs; existing activation SMS retains its 72-hour lifetime. The recovery password appears once in the authorized response/UI and is stored only as a bcrypt hash. See [ACCOUNT_RECOVERY.md](ACCOUNT_RECOVERY.md).
 
 Pending bodies are AES-GCM encrypted; bodies are deleted on submission, failure, cancellation or uncertainty. Logs contain only job IDs, statuses and fixed error codes. UI history masks recipient numbers. Restrict database access because recipient snapshots remain stored. SMS transport is not end-to-end encrypted; phones and Semaphore can retain delivered messages. `sent` means delivered to the network, not read by the patient.
 

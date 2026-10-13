@@ -161,14 +161,17 @@ const Queue = {
   },
 
   nextQueueNumber: async ({ category, type, is_walk_in = false }, connection) => {
-    const sequenceType = category === "general" ? "general" : type;
-    const prefix = type === "priority" ? "P" : "Q";
+    const sequenceType = category === "general" ? "general" : `${is_walk_in ? "walk_in" : "appointment"}_${type}`;
+    const prefix = category === "general" ? "G-" : `${is_walk_in ? "" : "A"}${type === "priority" ? "P" : "Q"}`;
 
+    // Seed new source counters from issued tickets so an update cannot reuse today's numbers.
     await connection.query(
       `INSERT INTO queue_sequences (queue_date, category, sequence_type, last_number)
-       VALUES (CURDATE(), ?, ?, 1)
+       SELECT CURDATE(), ?, ?, COALESCE(MAX(CAST(SUBSTRING(queue_number, ?) AS UNSIGNED)), 0) + 1
+       FROM queues WHERE category = ? AND queue_number LIKE ?
+         AND created_at >= CURDATE() AND created_at < CURDATE() + INTERVAL 1 DAY
        ON DUPLICATE KEY UPDATE last_number = last_number + 1`,
-      [category, sequenceType],
+      [category, sequenceType, prefix.length + 1, category, `${prefix}%`],
     );
     const [[sequence]] = await connection.query(
       `SELECT last_number FROM queue_sequences
@@ -176,9 +179,7 @@ const Queue = {
        FOR UPDATE`,
       [category, sequenceType],
     );
-    return category === "general"
-      ? `G-${String(sequence.last_number).padStart(3, "0")}`
-      : `${is_walk_in ? "" : "A"}${prefix}${String(sequence.last_number).padStart(2, "0")}`;
+    return `${prefix}${String(sequence.last_number).padStart(category === "general" ? 3 : 2, "0")}`;
   },
 
   _callNext: async (category, conn) => {

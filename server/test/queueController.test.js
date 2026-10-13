@@ -8,9 +8,9 @@ const jwt = require('jsonwebtoken');
 const User = require('../src/models/User');
 const router = require('../src/routes/queueRoutes');
 
-test("registration assigns source from the endpoint and shares daily counters across prefixes", async () => {
+test("registration assigns source from the endpoint and counts appointment and walk-in tickets independently", async () => {
   const saved = { connection: pool.getConnection, create: Queue.create, find: Queue.findByPatientId, audit: Patient.audit };
-  const counters = { regular: 0, priority: 0 };
+  const counters = {};
   const connection = {
     async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
     async query(sql, values = []) {
@@ -22,7 +22,7 @@ test("registration assigns source from the endpoint and shares daily counters ac
       if (sql.includes("SELECT appointment_id")) return [[{ appointment_id: 1 }]];
       if (sql.includes("walkinToday")) return [[{ walkinToday: 0 }]];
       if (sql.includes("FROM queues WHERE patient_id")) return [[]];
-      if (sql.includes("INSERT INTO queue_sequences") && values.length === 2) counters[values[1]]++;
+      if (sql.includes("INSERT INTO queue_sequences") && values.length >= 2) counters[values[1]] = (counters[values[1]] || 0) + 1;
       if (sql.includes("SELECT last_number") && values.length === 2) return [[{ last_number: counters[values[1]] }]];
       return [{}];
     },
@@ -33,10 +33,20 @@ test("registration assigns source from the endpoint and shares daily counters ac
   Patient.audit = async () => {};
   try {
     for (const [handler, type, is_walk_in, ticket] of [
-      [createQueue, "regular", false, "AQ01"],
+      [createWalkIn, "regular", true, "Q01"],
       [createWalkIn, "regular", true, "Q02"],
-      [createQueue, "priority", false, "AP01"],
+      [createWalkIn, "regular", true, "Q03"],
+      [createWalkIn, "regular", true, "Q04"],
+      [createWalkIn, "priority", true, "P01"],
       [createWalkIn, "priority", true, "P02"],
+      [createWalkIn, "priority", true, "P03"],
+      [createWalkIn, "priority", true, "P04"],
+      [createQueue, "regular", false, "AQ01"],
+      [createQueue, "priority", false, "AP01"],
+      [createWalkIn, "regular", true, "Q05"],
+      [createWalkIn, "priority", true, "P05"],
+      [createQueue, "regular", false, "AQ02"],
+      [createQueue, "priority", false, "AP02"],
     ]) {
       const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; } };
       await handler({ user: { user_id: 11 }, body: {
@@ -49,7 +59,7 @@ test("registration assigns source from the endpoint and shares daily counters ac
       assert.equal(queue.queue_number, ticket);
       assert.equal(Boolean(queue.is_walk_in), is_walk_in);
     }
-    assert.deepEqual(counters, { regular: 2, priority: 2 });
+    assert.deepEqual(counters, { walk_in_regular: 5, walk_in_priority: 5, appointment_regular: 2, appointment_priority: 2 });
   } finally {
     pool.getConnection = saved.connection;
     Queue.create = saved.create;

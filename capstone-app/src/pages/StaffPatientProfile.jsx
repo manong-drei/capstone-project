@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "@/services/api";
+import AccountRecovery from "@/components/dashboards/staff/AccountRecovery";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function StaffPatientProfile() {
   const { id } = useParams();
+  return <PatientProfile key={id} id={id} />;
+}
+
+function PatientProfile({ id }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [patient, setPatient] = useState(null);
   const [error, setError] = useState("");
   const [mergeSearch, setMergeSearch] = useState("");
@@ -38,7 +45,7 @@ export default function StaffPatientProfile() {
   };
 
   return <main style={{ maxWidth: "800px", margin: "32px auto", padding: "0 18px", fontFamily: "system-ui", color: "#1e2d6b" }}>
-    <Link to="/staff">← Staff dashboard</Link>
+    <Link to={user?.role === "admin" ? "/admin" : "/staff"}>← {user?.role === "admin" ? "Admin" : "Staff"} dashboard</Link>
     <h1>Patient profile</h1>
     {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
     {!patient && !error && <p>Loading…</p>}
@@ -46,10 +53,11 @@ export default function StaffPatientProfile() {
       <section style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "20px" }}>
         <h2>{patient.first_name} {patient.last_name} <small>#{patient.patient_id}</small></h2>
         {patient.archived_into_patient_id && <p>This record was merged into <Link to={`/staff/patients/${patient.archived_into_patient_id}`}>patient #{patient.archived_into_patient_id}</Link>.</p>}
-        <p>Date of birth: {String(patient.date_of_birth || "").slice(0, 10) || "Unknown"}</p>
+        <p>Date of birth: {patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" }) : "Unknown"}</p>
         <p>Gender: {patient.gender} · Mobile: {patient.contact_number || "Not recorded"}</p>
         <p>Address: {patient.barangay}, {patient.city}</p>
       </section>
+      <AccountRecovery patient={patient} onRecovered={(version) => setPatient((previous) => ({ ...previous, account: { ...previous.account, credential_version: version } }))} />
       <h2>Queue history ({patient.visits?.length || 0})</h2>
       {!patient.visits?.length && <p>No queue visits yet.</p>}
       {patient.visits?.map((visit) => <article key={visit.id} style={{ padding: "12px 16px", marginBottom: "8px", background: "white", border: "1px solid #e5e7eb", borderRadius: "9px" }}>

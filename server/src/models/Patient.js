@@ -21,7 +21,7 @@ const Patient = {
   search: async ({ name, date_of_birth, phone }, connection = pool) => {
     const filters = [];
     const values = [];
-    if (phone) { filters.push("COALESCE(p.contact_number, u.phone) = ?"); values.push(phone); }
+    if (phone) { filters.push("COALESCE(p.contact_number, u.phone) LIKE ?"); values.push(`%${phone}%`); }
     if (name) { filters.push("CONCAT(p.first_name, ' ', p.last_name) LIKE ?"); values.push(`%${name}%`); }
     if (name && date_of_birth) {
       filters.push("LOWER(CONCAT(p.first_name, ' ', p.last_name)) = LOWER(?) AND p.date_of_birth = ?");

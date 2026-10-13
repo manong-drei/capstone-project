@@ -12,6 +12,7 @@ import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import WalkInForm from "@/components/dashboards/staff/WalkInForm";
+import AccountRecoverySearch from "@/components/dashboards/staff/AccountRecoverySearch";
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function StaffDashboard() {
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [doctorAvailable, setDoctorAvailable] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [showRecoverySearch, setShowRecoverySearch] = useState(false);
 
   const fetchQueue = useCallback(async () => {
     try {
@@ -123,6 +125,7 @@ export default function StaffDashboard() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-[#1a3a8f]">Dental queue management</h2>
           <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setShowRecoverySearch((visible) => !visible)} aria-expanded={showRecoverySearch} aria-controls="account-recovery-search" className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-xs font-semibold text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600"><ShieldCheck size={16} aria-hidden="true" />Account recovery</button>
             <button type="button" onClick={refresh} disabled={loading || calling} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50"><RefreshCw size={16} aria-hidden="true" />Refresh</button>
             <a href={ROUTES.GENERAL_QUEUE_MONITOR} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><Monitor size={16} aria-hidden="true" />Open dental monitor<span className="sr-only"> (new tab)</span></a>
           </div>
@@ -136,6 +139,7 @@ export default function StaffDashboard() {
           ))}
         </section>
         {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><p>{error} Displayed queue information may be outdated.</p></div>}
+        {showRecoverySearch && <AccountRecoverySearch />}
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           <QueuePanel currentServing={currentServing} nextQueue={waiting} onCallNext={handleCallNext}
             missedQueues={queues.filter(queue => queue.status === 'missed')} onQueueAction={handleQueueAction}

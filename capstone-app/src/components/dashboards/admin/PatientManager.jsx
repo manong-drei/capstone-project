@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Icon from "@/components/common/AppIcons";
 import api from "@/services/api";
 
@@ -715,6 +716,7 @@ export default function PatientManager() {
                   >
                     {patient.full_name || "—"}
                     <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
+                    {!!patient.patient_id && <Link to={`/staff/patients/${patient.patient_id}`} aria-label={`Recover account for ${patient.full_name}`} style={{ display: "block", marginTop: "5px", fontSize: "12px", color: "#1d4ed8" }}>Account recovery</Link>}
                   </span>
                   <span style={{ fontSize: "13px", color: "#6b7280" }}>
                     {patient.contact_number || patient.phone || "—"}
@@ -811,6 +813,7 @@ export default function PatientManager() {
                       >
                         {patient.full_name || "—"}
                         <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
+                        {!!patient.patient_id && <Link to={`/staff/patients/${patient.patient_id}`} aria-label={`Recover account for ${patient.full_name}`} style={{ display: "block", marginTop: "5px", fontSize: "12px", color: "#1d4ed8" }}>Account recovery</Link>}
                       </span>
                       <span
                         style={{

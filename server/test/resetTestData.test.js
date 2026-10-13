@@ -94,6 +94,8 @@ test('MySQL reset preserves other days and manual records, rolls back failure, a
         (4294967290, 4294967290, CURDATE() - INTERVAL 1 DAY, '08:00:00', 'Same-day queue registration')`);
       await connection.query(`INSERT INTO queue_sequences (queue_date, category, sequence_type, last_number) VALUES
         (CURDATE(), 'dental', 'regular', 8), (CURDATE(), 'dental', 'priority', 4),
+        (CURDATE(), 'dental', 'appointment_regular', 8), (CURDATE(), 'dental', 'appointment_priority', 4),
+        (CURDATE(), 'dental', 'walk_in_regular', 8), (CURDATE(), 'dental', 'walk_in_priority', 4),
         (CURDATE(), 'general', 'general', 5), (CURDATE() - INTERVAL 1 DAY, 'dental', 'regular', 9)`);
 
       let fail = true;
@@ -124,7 +126,8 @@ test('MySQL reset preserves other days and manual records, rolls back failure, a
       const [[old]] = await connection.query('SELECT last_number FROM queue_sequences WHERE queue_date = CURDATE() - INTERVAL 1 DAY');
       assert.equal(old.last_number, 9);
       for (const [category, type, is_walk_in, expected] of [
-        ['dental', 'regular', false, 'AQ01'], ['dental', 'priority', true, 'P01'], ['general', 'regular', true, 'G-001'],
+        ['dental', 'regular', false, 'AQ01'], ['dental', 'priority', false, 'AP01'],
+        ['dental', 'regular', true, 'Q01'], ['dental', 'priority', true, 'P01'], ['general', 'regular', true, 'G-001'],
       ]) {
         assert.equal(await Queue.nextQueueNumber({ category, type, is_walk_in }, connection), expected);
       }
