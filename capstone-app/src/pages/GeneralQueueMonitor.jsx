@@ -81,6 +81,8 @@ export default function GeneralQueueMonitor() {
     typeof window.SpeechSynthesisUtterance === "function";
 
   useEffect(() => {
+    // The browser copied the opening tab's session; disconnect the monitor from its dashboard.
+    window.opener = null;
     let cancelled = false;
 
     const fetchQueue = async () => {

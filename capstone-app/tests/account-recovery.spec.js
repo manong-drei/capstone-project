@@ -3,8 +3,8 @@ import { createTestToken } from "./helpers/auth";
 
 async function mockApp(page, { role = "staff", signedIn = true, patientPatch = {} } = {}) {
   if (signedIn) await page.addInitScript(({ role, token }) => {
-    localStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role }));
-    localStorage.setItem("ek_token", token);
+    sessionStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role }));
+    sessionStorage.setItem("ek_token", token);
   }, { role, token: createTestToken({ user_id: 8, role, credential_version: 1 }) });
   await page.route("https://fonts.googleapis.com/**", route => route.fulfill({ contentType: "text/css", body: "" }));
   const state = {
@@ -203,5 +203,5 @@ test("patient temporary login requires password setup and saves the replacement 
   await expect(page).toHaveURL(/\/patient$/);
   expect(state.logins).toEqual([{ phone: "09123456789", password: "012345" }]);
   expect(state.passwordChanges).toEqual([{ newPassword: "PatientPassword2" }]);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("ek_user")).must_change_password)).toBe(false);
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("ek_user")).must_change_password)).toBe(false);
 });

@@ -4,8 +4,8 @@ import { createTestToken } from "./helpers/auth";
 async function mockAdmin(page) {
   await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
   await page.addInitScript(token => {
-    localStorage.setItem('ek_user', JSON.stringify({ user_id: 8, role: 'admin' }));
-    localStorage.setItem('ek_token', token);
+    sessionStorage.setItem('ek_user', JSON.stringify({ user_id: 8, role: 'admin' }));
+    sessionStorage.setItem('ek_token', token);
   }, createTestToken({ user_id: 8, role: 'admin' }));
   await page.route('**/api/**', route => {
     const path = new URL(route.request().url()).pathname;

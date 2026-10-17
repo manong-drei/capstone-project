@@ -268,6 +268,32 @@ export default function AdminOverviewTab({
         ))}
       </div>
 
+      <section
+        className="ad-section-pad"
+        aria-labelledby="today-queue-heading"
+        style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
+      >
+        <h3 id="today-queue-heading" style={{ margin: "0 0 16px", fontSize: "15px", fontWeight: 700, color: "#1e293b" }}>
+          Queue Statistics · Today
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-busy={ovLoading}>
+          {[
+            { label: "Waiting", value: overview?.waiting, color: "#2d3a8c", bg: "#eef2ff" },
+            { label: "Serving", value: overview?.serving, color: "#059669", bg: "#d1fae5" },
+            { label: "Done", value: overview?.doneToday, color: "#0891b2", bg: "#e0f2fe" },
+            { label: "Cancelled", value: overview?.cancelled, color: "#dc2626", bg: "#fee2e2" },
+          ].map(({ label, value, color, bg }) => (
+            <div key={label} style={{ background: bg, borderRadius: "14px", padding: "16px 18px", display: "flex", flexDirection: "column", gap: "6px" }}>
+              <span style={{ fontSize: "24px", fontWeight: 800, color }}>{ovLoading ? "—" : (value ?? 0)}</span>
+              <span style={{ fontSize: "12px", color }}>{label}</span>
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: "12px 0 0", fontSize: "12px", color: "#64748b" }}>
+          Queues registered today. Serving includes patients who have been called.
+        </p>
+      </section>
+
       {/* Dental age distribution + Patient Volume */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div

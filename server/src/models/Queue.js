@@ -314,6 +314,9 @@ const Queue = {
     const [rows] = await pool.query(`
       SELECT
         SUM(status IN ('waiting', 'called', 'serving', 'missed')) AS activeQueues,
+        SUM(status = 'waiting')                     AS waiting,
+        SUM(status IN ('called', 'serving'))         AS serving,
+        SUM(status = 'cancelled')                   AS cancelled,
         SUM(status = 'done')                        AS doneToday,
         SUM(type = 'priority' AND status = 'done')  AS priorityServed
       FROM queues

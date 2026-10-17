@@ -6,8 +6,8 @@ const CLOSED_MESSAGE = "Today's dental queue has started. New same-day appointme
 async function mockPatient(page) {
   await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
   await page.addInitScript((token) => {
-    localStorage.setItem("ek_user", JSON.stringify({ user_id: 11, role: "patient" }));
-    localStorage.setItem("ek_token", token);
+    sessionStorage.setItem("ek_user", JSON.stringify({ user_id: 11, role: "patient" }));
+    sessionStorage.setItem("ek_token", token);
   }, createTestToken({ user_id: 11, role: "patient" }));
   const state = { registrationMessage: null, started: false, rejectRegistration: false, posts: 0, queue: { id: 1, queue_number: "AQ11", category: "dental", status: "waiting", type: "regular", services: ["CONSULTATION"] } };
   await page.route("**/api/**", async (route) => {

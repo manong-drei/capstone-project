@@ -3,8 +3,8 @@ import { createTestToken } from "./helpers/auth";
 
 async function openAnalytics(page, saved = new Map()) {
   await page.addInitScript((token) => {
-    localStorage.setItem("ek_user", JSON.stringify({ user_id: 4, role: "doctor", display_name: "Dr. Test" }));
-    localStorage.setItem("ek_token", token);
+    sessionStorage.setItem("ek_user", JSON.stringify({ user_id: 4, role: "doctor", display_name: "Dr. Test" }));
+    sessionStorage.setItem("ek_token", token);
   }, createTestToken({ user_id: 4, role: "doctor" }));
   const fixture = { saved, requests: [], failSave: false, failReport: "", failAnalytics: "" };
   const completed = [

@@ -5,9 +5,9 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Attach JWT token to every request automatically
+// Use this tab's credentials so another tab's login cannot change its requests.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('ek_token')
+  const token = sessionStorage.getItem('ek_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })

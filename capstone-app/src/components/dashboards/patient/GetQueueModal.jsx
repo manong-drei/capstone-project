@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
 import Icon from "@/components/common/AppIcons";
-import { getSessionItem } from "@analytics/session-storage-utils";
 
 const MAX_SELECTED_SERVICES = 2;
 
@@ -42,11 +41,9 @@ export default function GetQueueModal({
 
   const handleSubmit = () => {
     if (selected.length === 0 || loading || registrationMessage) return;
-    const value = getSessionItem("user");
     onSubmit({
       services: selected,
       type: priorityEligible ? "priority" : "regular",
-      patient_id: value,
     });
   };
 

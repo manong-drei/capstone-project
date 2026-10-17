@@ -3,8 +3,8 @@ import { createTestToken } from "./helpers/auth";
 
 async function mockMonitor(page, supported = true) {
   await page.addInitScript(({ token, supported }) => {
-    localStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role: "staff" }));
-    localStorage.setItem("ek_token", token);
+    sessionStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role: "staff" }));
+    sessionStorage.setItem("ek_token", token);
     window.announcements = [];
     window.speechCancellations = 0;
     window.speechVoices = [

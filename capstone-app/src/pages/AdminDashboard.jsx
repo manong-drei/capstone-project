@@ -498,7 +498,7 @@ export default function AdminDashboard() {
             />
           )}
           {activeTab === "reports" && (
-            <AdminReportsTab overview={overview} ovLoading={ovLoading} />
+            <AdminReportsTab />
           )}
           {activeTab === "doctors" && <AdminDoctorsTab doctors={doctors} />}
           {activeTab === "patientshistory" && (

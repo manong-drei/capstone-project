@@ -4,8 +4,8 @@ import { createTestToken } from "./helpers/auth";
 async function mockStaff(page) {
   await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
   await page.addInitScript((token) => {
-    localStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role: "staff", display_name: "Alex Staff" }));
-    localStorage.setItem("ek_token", token);
+    sessionStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role: "staff", display_name: "Alex Staff" }));
+    sessionStorage.setItem("ek_token", token);
   }, createTestToken({ user_id: 8, role: "staff" }));
   await page.clock.install();
   const state = { calls: [], actions: [], updates: [], registrations: [], searches: [], queues: [
@@ -201,8 +201,8 @@ test('staff advances the queue while the doctor finishes the previous consultati
   try {
     await doctor.clock.install();
     await doctor.addInitScript(token => {
-      localStorage.setItem('ek_user', JSON.stringify({ user_id: 4, role: 'doctor' }));
-      localStorage.setItem('ek_token', token);
+      sessionStorage.setItem('ek_user', JSON.stringify({ user_id: 4, role: 'doctor' }));
+      sessionStorage.setItem('ek_token', token);
     }, createTestToken({ user_id: 4, role: 'doctor' }));
     await doctor.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
     await doctor.route('**/api/**', async route => {

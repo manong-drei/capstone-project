@@ -47,6 +47,9 @@ const getOverview = async (req, res) => {
       dentalAgeGroups,
       volumeDaily,
       activeQueues: queueStats.activeQueues ?? 0,
+      waiting: queueStats.waiting ?? 0,
+      serving: queueStats.serving ?? 0,
+      cancelled: queueStats.cancelled ?? 0,
       doneToday: queueStats.doneToday ?? 0,
       priorityServed: queueStats.priorityServed ?? 0,
     });

@@ -4,8 +4,8 @@ import { createTestToken } from './helpers/auth';
 test('doctor calls first and opens treatment only after confirming presence', async ({ page }) => {
   await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
   await page.addInitScript(token => {
-    localStorage.setItem('ek_user', JSON.stringify({ user_id: 4, role: 'doctor' }));
-    localStorage.setItem('ek_token', token);
+    sessionStorage.setItem('ek_user', JSON.stringify({ user_id: 4, role: 'doctor' }));
+    sessionStorage.setItem('ek_token', token);
   }, createTestToken({ user_id: 4, role: 'doctor' }));
   const queue = { id: 1, queue_number: 'AQ01', status: 'waiting', category: 'dental', type: 'regular', services: ['CONSULTATION'], full_name: 'Test Patient' };
   const changes = [];

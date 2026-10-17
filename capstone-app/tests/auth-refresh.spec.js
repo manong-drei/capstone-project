@@ -4,10 +4,10 @@ import { createTestToken } from "./helpers/auth";
 async function mockSession(page, claims, cachedUser) {
   const token = createTestToken({ user_id: 8, role: "staff", ...claims });
   await page.addInitScript(({ token, cachedUser }) => {
-    if (!localStorage.getItem("auth-test-initialized")) {
-      localStorage.setItem("ek_token", token);
-      if (cachedUser !== undefined) localStorage.setItem("ek_user", cachedUser);
-      localStorage.setItem("auth-test-initialized", "true");
+    if (!sessionStorage.getItem("auth-test-initialized")) {
+      sessionStorage.setItem("ek_token", token);
+      if (cachedUser !== undefined) sessionStorage.setItem("ek_user", cachedUser);
+      sessionStorage.setItem("auth-test-initialized", "true");
     }
   }, { token, cachedUser });
   await page.route("**/api/**", async (route) => {
@@ -21,6 +21,38 @@ async function mockSession(page, claims, cachedUser) {
   return token;
 }
 
+test("shared legacy credentials are discarded instead of restored or sent", async ({ page }) => {
+  await mockSession(page, {}, undefined);
+  await page.goto("/staff");
+  await page.evaluate((token) => {
+    sessionStorage.removeItem("ek_user");
+    sessionStorage.removeItem("ek_token");
+    localStorage.setItem("ek_token", token);
+    localStorage.setItem("ek_user", JSON.stringify({ user_id: 99, role: "admin" }));
+    localStorage.setItem("unrelated-preference", "saved");
+  }, createTestToken({ user_id: 99, role: "admin" }));
+  await page.reload();
+  await expect(page).toHaveURL(/\/login$/);
+  expect(await page.evaluate(() => localStorage.getItem("ek_token"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("ek_user"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("unrelated-preference"))).toBe("saved");
+  const loginRequest = page.waitForRequest("**/api/auth/login");
+  await page.locator('input[name="phone"]').fill("09123456789");
+  await page.locator('input[name="password"]').fill("Password123");
+  await page.getByRole("button", { name: "Login", exact: true }).click();
+  expect((await loginRequest).headers().authorization).toBeUndefined();
+});
+
+test("unavailable legacy storage does not block a valid tab session", async ({ page }) => {
+  await mockSession(page, {}, undefined);
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", { get() { throw new DOMException("Storage blocked", "SecurityError"); } });
+  });
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/staff$/);
+  await expect(page.getByRole("heading", { name: "Dental queue", exact: true })).toBeVisible();
+});
+
 test("a fresh /dashboard load waits for the saved session", async ({ page }) => {
   const token = await mockSession(page, {}, JSON.stringify({ user_id: 8, role: "staff" }));
   await page.goto("/dashboard");
@@ -30,7 +62,7 @@ test("a fresh /dashboard load waits for the saved session", async ({ page }) => 
     await page.reload();
     await expect(page.getByRole("heading", { name: "Dental queue", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\/staff$/);
-    expect(await page.evaluate(() => localStorage.getItem("ek_token"))).toBe(token);
+    expect(await page.evaluate(() => sessionStorage.getItem("ek_token"))).toBe(token);
   }
 });
 
@@ -44,7 +76,7 @@ for (const cachedUser of [undefined, "{broken-json", JSON.stringify({ user_id: 8
     await page.reload();
     await expect(page).toHaveURL(/\/staff$/);
     await expect(page.getByRole("heading", { name: "Dental queue", exact: true })).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem("ek_token"))).toBe(token);
+    expect(await page.evaluate(() => sessionStorage.getItem("ek_token"))).toBe(token);
   });
 }
 
@@ -64,7 +96,7 @@ test("a malformed token returns to login", async ({ page }) => {
   await mockSession(page, {}, JSON.stringify({ user_id: 8, role: "staff" }));
   await page.goto("/staff");
   await expect(page.getByRole("heading", { name: "Dental queue", exact: true })).toBeVisible();
-  await page.evaluate(() => localStorage.setItem("ek_token", "broken-token"));
+  await page.evaluate(() => sessionStorage.setItem("ek_token", "broken-token"));
   await page.reload();
   await expect(page).toHaveURL(/\/login$/);
 });
@@ -77,7 +109,7 @@ for (const [role, marker] of [["patient", /Your Health, Schedule/], ["doctor", /
     await page.reload();
     await expect(page.getByRole("heading", { name: marker })).toBeVisible();
     await expect(page).toHaveURL(`/${role}?tab=home#saved`);
-    expect(await page.evaluate(() => localStorage.getItem("ek_token"))).toBe(token);
+    expect(await page.evaluate(() => sessionStorage.getItem("ek_token"))).toBe(token);
   });
 }
 
@@ -90,7 +122,7 @@ test("login persists a session and logout prevents restoration", async ({ page }
     }) });
   });
   await page.goto("/login");
-  await page.evaluate(() => { localStorage.removeItem("ek_user"); localStorage.removeItem("ek_token"); });
+  await page.evaluate(() => { sessionStorage.removeItem("ek_user"); sessionStorage.removeItem("ek_token"); });
   await page.locator('input[name="phone"]').fill("09123456789");
   await page.locator('input[name="password"]').fill("Password123");
   await page.getByRole("button", { name: "Login", exact: true }).click();
@@ -100,7 +132,7 @@ test("login persists a session and logout prevents restoration", async ({ page }
   await page.getByRole("button", { name: "Refresh Test Staff" }).click();
   await page.getByRole("button", { name: "Log Out" }).click();
   await expect(page).toHaveURL(/\/login$/);
-  expect(await page.evaluate(() => localStorage.getItem("ek_token"))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem("ek_token"))).toBeNull();
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "Welcome!" })).toBeVisible();
   await expect(page).toHaveURL(/\/login$/);
@@ -117,7 +149,7 @@ for (const [role, marker] of [["patient", /Your Health, Schedule/], ["doctor", /
     });
     await page.clock.install();
     await page.goto("/login");
-    await page.evaluate(() => { localStorage.removeItem("ek_user"); localStorage.removeItem("ek_token"); });
+    await page.evaluate(() => { sessionStorage.removeItem("ek_user"); sessionStorage.removeItem("ek_token"); });
     await page.locator('input[name="phone"]').fill("09123456789");
     await page.locator('input[name="password"]').fill("Password123");
     await page.getByRole("button", { name: "Login", exact: true }).click();
@@ -127,7 +159,7 @@ for (const [role, marker] of [["patient", /Your Health, Schedule/], ["doctor", /
     await page.reload();
     await expect(page).toHaveURL(`/${role}`);
     await expect(page.getByRole("heading", { name: marker, exact: role === "staff" })).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem("ek_token"))).toBe(token);
+    expect(await page.evaluate(() => sessionStorage.getItem("ek_token"))).toBe(token);
     for (const path of ["/", `/dashboard/${role}`, role === "admin" ? "/patient" : "/admin"]) {
       await page.goto(path);
       await expect(page).toHaveURL(`/${role}`);
