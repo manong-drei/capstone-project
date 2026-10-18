@@ -1,0 +1,18 @@
+{
+  "id": "admin_queue",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Queue Monitor — open the live queue list."
+    },
+    {
+      "number": 2,
+      "text": "Live queue — view ticket numbers, patient names, priority and status; the list refreshes automatically."
+    },
+    {
+      "number": 3,
+      "text": "Empty queue — this message appears when today has no tickets."
+    }
+  ],
+  "profile_anonymized": true
+}

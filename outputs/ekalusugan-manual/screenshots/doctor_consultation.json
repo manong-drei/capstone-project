@@ -1,0 +1,40 @@
+{
+  "id": "doctor_consultation",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Consultation Notes — verify the patient and queue number"
+    },
+    {
+      "number": 2,
+      "text": "Consultation Notes — required clinical findings"
+    },
+    {
+      "number": 3,
+      "text": "Diagnosis — enter the clinical assessment"
+    },
+    {
+      "number": 4,
+      "text": "Prescription / Recommendations — treatment and follow-up"
+    },
+    {
+      "number": 5,
+      "text": "Save Consultation — save documentation and finish the serving visit"
+    },
+    {
+      "number": 6,
+      "text": "Cancel — close without saving"
+    }
+  ],
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed.",
+  "crop": {
+    "left": 610,
+    "top": 370,
+    "width": 820,
+    "height": 920,
+    "unit": "source pixels",
+    "original_width": 2040,
+    "original_height": 1650
+  }
+}

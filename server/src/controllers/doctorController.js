@@ -303,6 +303,23 @@ const getDoctorById = async (req, res) => {
   }
 };
 
+/** GET /api/doctor/:id/records (admin only) */
+const getDoctorRecords = async (req, res) => {
+  const id = Number(req.params.id);
+  if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({ success: false, message: "A valid doctor ID is required." });
+  }
+  try {
+    const doctor = await Doctor.findAdminProfile(id);
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found." });
+    const availability = await Doctor.findAvailabilityRecords(id);
+    res.status(200).json({ success: true, data: { doctor, availability } });
+  } catch (err) {
+    console.error("getDoctorRecords error:", err);
+    res.status(500).json({ success: false, message: "Unable to load doctor records." });
+  }
+};
+
 /** POST /api/doctor/consultations */
 const createConsultation = async (req, res) => {
   try {
@@ -371,6 +388,7 @@ const createConsultation = async (req, res) => {
 module.exports = {
   getAllDoctors,
   getDoctorById,
+  getDoctorRecords,
   createConsultation,
   getDailySettings,
   upsertDailySettings,

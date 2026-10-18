@@ -1,0 +1,25 @@
+{
+  "id": "admin_doctors",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Doctors — view registered doctors and their availability"
+    },
+    {
+      "number": 2,
+      "text": "Doctor Availability — read each doctor’s name and service"
+    },
+    {
+      "number": 3,
+      "text": "Availability badges — identify available and on-leave doctors"
+    }
+  ],
+  "profile_anonymized": true,
+  "anonymized": true,
+  "clip": {
+    "x": 0,
+    "y": 0,
+    "width": 1360,
+    "height": 403
+  }
+}

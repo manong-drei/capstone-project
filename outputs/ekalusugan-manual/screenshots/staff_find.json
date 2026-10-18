@@ -1,0 +1,23 @@
+{
+  "id": "staff_find",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Find an existing patient search before creating a new record"
+    },
+    {
+      "number": 2,
+      "text": "Full name enter or confirm the patient name"
+    },
+    {
+      "number": 3,
+      "text": "Confirmed mobile number verify the number with the patient"
+    }
+  ],
+  "clip": {
+    "x": 651.609375,
+    "y": 439.75,
+    "width": 648.390625,
+    "height": 650
+  }
+}

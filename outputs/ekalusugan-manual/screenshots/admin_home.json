@@ -1,0 +1,22 @@
+{
+  "id": "admin_home",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Dashboard — return to the administrator overview."
+    },
+    {
+      "number": 2,
+      "text": "Overview cards — review recorded visits, doctors, appointments and completed queues."
+    },
+    {
+      "number": 3,
+      "text": "Queue Statistics — check today’s waiting, serving, done and cancelled totals."
+    },
+    {
+      "number": 4,
+      "text": "Monthly / Weekly / Daily — change the patient-volume chart period."
+    }
+  ],
+  "profile_anonymized": true
+}

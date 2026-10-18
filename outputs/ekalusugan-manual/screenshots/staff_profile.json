@@ -1,0 +1,28 @@
+{
+  "id": "staff_profile",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Staff dashboard returns to dental queue management"
+    },
+    {
+      "number": 2,
+      "text": "Patient identity verify the record before acting"
+    },
+    {
+      "number": 3,
+      "text": "Account recovery requires an active eligible login"
+    },
+    {
+      "number": 4,
+      "text": "Queue history lists recorded visits and statuses"
+    }
+  ],
+  "scenario": true,
+  "clip": {
+    "x": 168,
+    "y": 16,
+    "width": 824,
+    "height": 498
+  }
+}

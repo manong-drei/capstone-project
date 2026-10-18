@@ -427,6 +427,7 @@ const getPatients = async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT u.user_id, u.email, u.phone, u.is_active, u.must_change_password,
+       (SELECT j.id FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_job_id,
        (SELECT j.state FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_state,
        (SELECT j.provider_status FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_provider_status,
        p.patient_id, CONCAT(p.first_name, ' ', p.last_name) AS full_name, p.contact_number,

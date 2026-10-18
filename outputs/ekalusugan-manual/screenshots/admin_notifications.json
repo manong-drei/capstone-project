@@ -1,0 +1,30 @@
+{
+  "id": "admin_notifications",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Notifications — manage queue SMS settings and review SMS activity"
+    },
+    {
+      "number": 2,
+      "text": "Notify within the next — enter a whole-number queue threshold from 1 to 100"
+    },
+    {
+      "number": 3,
+      "text": "Save — apply the notification threshold"
+    },
+    {
+      "number": 4,
+      "text": "Refresh — reload SMS delivery activity immediately"
+    }
+  ],
+  "anonymized": true,
+  "profile_anonymized": true,
+  "source": "Anonymized live GET response in the current local application; actual empty SMS activity state. No messages sent and no settings saved.",
+  "clip": {
+    "x": 0,
+    "y": 0,
+    "width": 1360,
+    "height": 633
+  }
+}

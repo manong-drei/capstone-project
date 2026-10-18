@@ -30,6 +30,33 @@ const Doctor = {
     return rows[0] || null;
   },
 
+  findAdminProfile: async (doctor_id) => {
+    const [rows] = await pool.query(`
+      SELECT d.doctor_id, d.first_name, d.last_name, d.license_number,
+        COALESCE(NULLIF(d.contact_number, ''), u.phone) AS contact_number,
+        s.specialization_name, u.created_at AS date_added,
+        COALESCE(dds.is_available, 1) AS is_available
+      FROM doctors d
+      LEFT JOIN users u ON u.user_id = d.user_id
+      LEFT JOIN specializations s ON s.specialization_id = d.specialization_id
+      LEFT JOIN daily_doctor_settings dds
+        ON dds.doctor_id = d.doctor_id AND dds.date = CURDATE()
+      WHERE d.doctor_id = ?
+    `, [doctor_id]);
+    return rows[0] || null;
+  },
+
+  findAvailabilityRecords: async (doctor_id) => {
+    const [rows] = await pool.query(`
+      SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date, is_available,
+        appointment_limit, walk_in_limit
+      FROM daily_doctor_settings
+      WHERE doctor_id = ?
+      ORDER BY date DESC
+    `, [doctor_id]);
+    return rows;
+  },
+
   findByUserId: async (user_id) => {
     const [rows] = await pool.query(
       'SELECT * FROM doctors WHERE user_id = ?',

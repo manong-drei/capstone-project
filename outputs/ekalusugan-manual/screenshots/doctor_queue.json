@@ -1,0 +1,41 @@
+{
+  "id": "doctor_queue",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Now Queuing — the current called or serving ticket"
+    },
+    {
+      "number": 2,
+      "text": "Next Queuing — the next waiting ticket"
+    },
+    {
+      "number": 3,
+      "text": "Mark as Complete — finish a serving ticket"
+    },
+    {
+      "number": 4,
+      "text": "Next / Consult — call a waiting ticket or open clinical notes"
+    },
+    {
+      "number": 5,
+      "text": "Completed List — finished visits and Add notes when available"
+    },
+    {
+      "number": 6,
+      "text": "Next Queue — upcoming dental ticket numbers"
+    }
+  ],
+  "scrollY": 720,
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed.",
+  "crop": {
+    "left": 20,
+    "top": 235,
+    "width": 2000,
+    "height": 965,
+    "unit": "source pixels",
+    "original_width": 2040,
+    "original_height": 1650
+  }
+}

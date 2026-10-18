@@ -1,0 +1,20 @@
+{
+  "id": "public_recovery",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Reception recovery steps verify your identity in person"
+    },
+    {
+      "number": 2,
+      "text": "Forgot password expands or collapses these instructions"
+    }
+  ],
+  "clip": {
+    "x": 356,
+    "y": 485,
+    "width": 388,
+    "height": 317
+  },
+  "cropped": true
+}

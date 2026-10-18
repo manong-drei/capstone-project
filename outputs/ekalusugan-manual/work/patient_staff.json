@@ -1,0 +1,458 @@
+{
+  "title": "Patient and staff user instructions",
+  "verified_against": [
+    "capstone-app/src/pages/PatientDashboard.jsx",
+    "capstone-app/src/components/dashboards/patient/PatientHomeTab.jsx",
+    "capstone-app/src/components/dashboards/patient/GetQueueModal.jsx",
+    "capstone-app/src/components/dashboards/patient/QueueStatus.jsx",
+    "capstone-app/src/components/dashboards/patient/PatientAppointmentsTab.jsx",
+    "capstone-app/src/pages/StaffDashboard.jsx",
+    "capstone-app/src/components/dashboards/staff/StaffNavbar.jsx",
+    "capstone-app/src/components/dashboards/staff/WalkInForm.jsx",
+    "capstone-app/src/components/dashboards/staff/QueuePanel.jsx",
+    "capstone-app/src/components/common/QueueRecovery.jsx",
+    "capstone-app/src/pages/StaffPatientProfile.jsx",
+    "capstone-app/src/components/dashboards/staff/AccountRecoverySearch.jsx",
+    "capstone-app/src/components/dashboards/staff/AccountRecovery.jsx",
+    "capstone-app/src/pages/ChangePasswordPage.jsx",
+    "capstone-app/src/pages/LoginPage.jsx",
+    "capstone-app/src/constants/medicalServices.js",
+    "capstone-app/src/constants/queueReasons.js",
+    "capstone-app/src/App.jsx",
+    "server/src/controllers/queueController.js",
+    "server/src/controllers/patientController.js",
+    "server/src/models/Queue.js",
+    "server/src/utils/queueOrder.js",
+    "server/src/routes/patientRoutes.js"
+  ],
+  "role_boundaries": [
+    {
+      "role": "Patient",
+      "purpose": "Request a same-day dental queue ticket, follow the live queue, and review your own appointment history.",
+      "available_tasks": ["View the current and next dental queue numbers", "Request one active ticket for today with one or two dental services", "Cancel your own waiting or missed ticket with a reason", "Read appointment history", "View the clinic location", "Set a permanent password after temporary-password login"],
+      "boundaries": ["Your account opens the patient portal only.", "The current portal does not offer future-date appointment booking or an online self-registration page.", "Priority status is taken from your patient record when it remains valid. The ticket form does not provide a priority switch.", "Only staff or a doctor can confirm that you are physically present or restore a missed ticket."]
+    },
+    {
+      "role": "Staff",
+      "purpose": "Register dental walk-ins, keep the serving queue moving, confirm patient arrival, and help patients recover account access after in-person verification.",
+      "available_tasks": ["Find and reuse existing patient records", "Register new dental walk-ins", "Select regular or eligible priority queue type", "Call, recall, confirm presence, finish and cancel queue visits", "Restore a missed patient within the return window", "Review patient identity and queue history", "Merge a duplicate walk-in record into the correct patient record", "Issue a temporary password after all identity checks", "Open the dental monitor"],
+      "boundaries": ["The staff dashboard manages the dental queue. It does not provide administrator account-management screens or the doctor's consultation-entry screen.", "A walk-in record is a patient record; registering a walk-in does not itself create a login account.", "Patient profile and account-recovery pages are available to staff and administrators.", "Account recovery requires a signed-in staff or administrator account, a complete identity record, and an active patient account."]
+    }
+  ],
+  "sections": [
+    {
+      "id": "patient-dashboard",
+      "title": "Patient: understand your dashboard",
+      "intro": "After signing in with a patient account, E-KALUSUGAN opens the patient portal. The home screen brings together today's dental queue, your own ticket, dentist availability, and appointment history.",
+      "steps": [
+        "Read the large Now serving and Next in queue cards. When a patient has been called and is awaiting arrival confirmation, the first card reads Called — report to staff.",
+        "Check My queue number for your active ticket number and selected dental sub-services. A dash means there is no active ticket to show.",
+        "Read Doctor availability. The card may show Checking availability, Available today, or Unavailable today. Availability alone does not guarantee that registration or daily slots remain open.",
+        "Use Get queue ticket to join today's dental queue when the button is enabled. Use Appointment history to review your visits.",
+        "On a narrow phone screen, use the Toggle menu button at the top to show the navigation controls. Tap your name to reveal Log Out when you finish using the portal."
+      ],
+      "notes": [
+        "The queue and dentist availability refresh automatically every 15 seconds while the portal remains open.",
+        "The Estimated wait card displays ~15 min. Treat this as an indicative display; keep watching the queue and respond when called.",
+        "An existing waiting, called, serving, or missed ticket counts as an active queue. You cannot request another active ticket.",
+        "Help, Notification, and CHO services are visible on the current home screen. There is no additional help, notification list, or services action to complete from those controls in this version."
+      ],
+      "screenshot": {
+        "screen": "Patient home screen at /patient, with clean demonstration data",
+        "suggested_name": "patient-dashboard.png",
+        "callouts": [
+          {"label": "1", "target": "section[aria-label='Live queue status']", "text": "Read the current and next queue numbers."},
+          {"label": "2", "target": "button:has-text('Get queue ticket')", "text": "Request today's dental ticket."},
+          {"label": "3", "target": "button:has-text('Appointment history')", "text": "Review your appointments and consultations."},
+          {"label": "4", "target": "section[aria-label='Patient information']", "text": "Check your ticket, displayed wait, availability, and location."},
+          {"label": "5", "target": "button[aria-haspopup='menu']", "text": "Open your profile menu and Log Out."}
+        ]
+      }
+    },
+    {
+      "id": "patient-get-ticket",
+      "title": "Patient: get a dental queue ticket",
+      "intro": "Use this process for a dental visit on the current day. Choose the services you need, then let the system assign the ticket number.",
+      "steps": [
+        "From the patient home screen, select Get queue ticket.",
+        "In Get Queue Ticket, read any registration message shown above the service list.",
+        "Select one or two checkboxes under Dental services. The counter shows how many services you have selected. Once two are checked, the other checkboxes are disabled; uncheck one before choosing a replacement.",
+        "Select Get Queue Ticket at the bottom. The button reads Getting your ticket... while the request is being processed.",
+        "When the request succeeds, the window closes and your ticket appears on the dashboard. Check the queue number, your name, selected services, and current status.",
+        "Keep the portal open or check it again while waiting. Follow the displayed queue and report to staff when your status says It's your turn!"
+      ],
+      "notes": [
+        "At least one service is required. No more than two services can be selected.",
+        "Close queue ticket (the X icon), the Escape key, or clicking outside the dialog closes it without issuing a ticket.",
+        "A valid priority category on your patient record is applied automatically. Ask clinic staff if your recorded priority details need review.",
+        "The system refuses a new request when you already have an active queue today. Patient self-service is limited to two queue registrations per day, including earlier registrations that ended.",
+        "Registration can be refused if there is no dentist, the dentist is unavailable, or today's appointment slots are full.",
+        "After today's dental queue has started, new same-day appointment registration closes. The displayed message directs patients to approach staff for walk-in registration. A patient who already has an active appointment for today may still be eligible to request a ticket."
+      ],
+      "screenshot": {
+        "screen": "Get Queue Ticket dialog opened from the patient home screen; one service selected",
+        "suggested_name": "patient-ticket-dialog.png",
+        "callouts": [
+          {"label": "1", "target": "#get-queue-title", "text": "Confirm that this is the ticket form for today's visit."},
+          {"label": "2", "target": "fieldset[aria-describedby='queue-services-hint']", "text": "Choose one or two dental services."},
+          {"label": "3", "target": "dialog [role='status']", "text": "Check the selected-service counter."},
+          {"label": "4", "target": "dialog footer button", "text": "Issue the queue ticket after checking your choices."},
+          {"label": "5", "target": "button[aria-label='Close queue ticket']", "text": "Close the form without submitting."}
+        ]
+      }
+    },
+    {
+      "id": "dental-service-list",
+      "title": "Dental services shown in the ticket forms",
+      "intro": "Patient ticket requests and staff walk-in registration use the following service choices. Select up to two services for one visit.",
+      "items": ["Dental Check-up", "Oral Prophylaxis", "Permanent Filling", "Temporary Filling", "Fluoride", "Silver Diamine", "Removable Partial Denture – Upper", "Removable Partial Denture – Lower", "Closed Extraction", "Open Extraction", "Odontectomy / Wisdom Tooth Extraction", "Special Surgery", "Others"],
+      "notes": ["The staff form groups Permanent Filling and Temporary Filling under Restoration (Tooth Filling), the two denture options under Removable Partial Denture (Vitaflex), and extraction options under Dental Surgery."]
+    },
+    {
+      "id": "patient-status",
+      "title": "Patient: follow the ticket status and SMS instructions",
+      "intro": "Your ticket status tells you what to do next. Keep your queue number available when speaking with staff.",
+      "status_table": [
+        {"status": "Waiting", "meaning": "Your ticket is in the waiting queue.", "action": "Stay nearby, watch the current queue number, and follow the SMS instruction shown on your ticket."},
+        {"status": "It's your turn!", "meaning": "Your number has been called; staff have not yet confirmed your arrival.", "action": "Report to staff now so they can confirm you are here."},
+        {"status": "Receiving care", "meaning": "Your presence has been confirmed and your visit is in service.", "action": "Follow the dental team's instructions."},
+        {"status": "Missed call", "meaning": "You did not respond to the calls. The ticket is temporarily recoverable.", "action": "Report to staff before the exact deadline displayed on the ticket. Other patients continue to be called while you return."},
+        {"status": "Waiting after return", "meaning": "Staff have confirmed your return within the allowed time.", "action": "Stay nearby. The ticket says that you will be called at the next opening."},
+        {"status": "No-show", "meaning": "The ticket has ended because the return period expired or the returning patient missed the next turn.", "action": "Read the reason. A new ticket is subject to today's availability and the daily queue limit."},
+        {"status": "Completed", "meaning": "The visit has finished.", "action": "Review your appointment history for the visit record."},
+        {"status": "Cancelled", "meaning": "The queue visit was cancelled with a recorded reason.", "action": "Check with staff if you still need care; another request is subject to the current registration rules."}
+      ],
+      "notes": [
+        "For some waiting tickets, the portal says: Please stay nearby; no queue SMS will be sent. Follow that instruction.",
+        "For tickets eligible for an approach alert, the portal says that one SMS will be sent when your turn approaches. Delivery may be delayed, so follow the queue display as well.",
+        "An initial position is a starting position, not a fixed place. Order may change because the queue combines online registrations, walk-ins, priority patients, and patients whose return has been confirmed.",
+        "A missed ticket has a 10-minute return window. Staff must confirm the return before the displayed deadline; merely refreshing your patient portal does not restore the ticket.",
+        "Your home screen shows the active ticket or the latest no-show ticket. A finished or cancelled ticket may no longer be displayed as your current ticket."
+      ],
+      "screenshot": {
+        "screen": "Patient home showing a demonstration active ticket; optionally capture a second screenshot of missed-call state",
+        "suggested_name": "patient-active-ticket.png",
+        "callouts": [
+          {"label": "1", "target": "text=Your Queue Number", "text": "Use this number when reporting to staff."},
+          {"label": "2", "target": "text=Waiting", "text": "Read the status before taking action."},
+          {"label": "3", "target": "text=Services", "text": "Check the services attached to this ticket."},
+          {"label": "4", "target": "button:has-text('Cancel Queue')", "text": "Cancel only if you no longer need this waiting or missed ticket."}
+        ]
+      }
+    },
+    {
+      "id": "patient-cancel",
+      "title": "Patient: cancel a waiting or missed ticket",
+      "intro": "Use cancellation when you no longer need the current queue ticket. A reason is required.",
+      "steps": [
+        "On your active ticket, select Cancel Queue. This button is available only while your ticket is Waiting or Missed call.",
+        "In Why are you cancelling your queue?, select the reason that best describes the cancellation.",
+        "Select Continue to submit the cancellation. The dialog closes and the portal refreshes your ticket information.",
+        "To keep the ticket, select Cancel in the reason window or click outside it before continuing."
+      ],
+      "items": ["Schedule conflict / no longer available", "No longer needs the service", "Found care elsewhere", "Transportation or access issue", "Wait time too long", "Booked by mistake / duplicate queue", "Other"],
+      "notes": ["Continue remains disabled until a reason is selected.", "If your ticket has already been called or is receiving care, speak to staff because the patient cancellation button is no longer available.", "Cancelling does not undo the fact that a queue registration was made today. Any later ticket request remains subject to the daily limit and registration rules."],
+      "screenshot": {
+        "screen": "Patient cancellation-reason dialog without confirming a real cancellation",
+        "suggested_name": "patient-cancel-dialog.png",
+        "callouts": [
+          {"label": "1", "target": "input[name='queue-reason']", "text": "Select one cancellation reason."},
+          {"label": "2", "target": "button:has-text('Continue')", "text": "Submit the selected reason and cancel the queue."},
+          {"label": "3", "target": "[role='dialog'] button:has-text('Cancel')", "text": "Close the window and keep the current ticket."}
+        ]
+      }
+    },
+    {
+      "id": "patient-history-location",
+      "title": "Patient: review appointment history and find the clinic",
+      "steps": [
+        "Select Appointment history from the home screen. The Appointment History page loads your own appointment records.",
+        "Read the dentist name, appointment date, time when recorded, service or reason, and status on each card. Status may be confirmed, completed, or cancelled.",
+        "If the page says No appointments found., there are no appointment entries to show for your account. Use ← Back to return home.",
+        "From home, select Location. The City Health Office of Bago map window opens.",
+        "Select Open in Google Maps to open a separate map tab. Use Close map (X), Escape, or click outside the map window to close the portal's map."
+      ],
+      "notes": ["Appointment History is a viewing page. It has no date picker, booking button, or editing action in the current patient portal."],
+      "screenshot": {
+        "screen": "Patient Appointment History page using demonstration records",
+        "suggested_name": "patient-appointment-history.png",
+        "callouts": [
+          {"label": "1", "target": "button:has-text('← Back')", "text": "Return to the patient home screen."},
+          {"label": "2", "target": "text=Appointment History", "text": "Review your records and their statuses."}
+        ]
+      }
+    },
+    {
+      "id": "staff-dashboard",
+      "title": "Staff: understand the dental dashboard",
+      "intro": "After a staff member signs in, the Staff Dashboard · Dental Services screen opens. It combines queue operations and walk-in registration on one page.",
+      "steps": [
+        "Read the welcome panel for today's date and dentist availability. The display may show Dentist available today, Dentist unavailable today, or Dentist availability unknown.",
+        "Read the summary cards: Waiting patients, Priority waiting, Walk-ins today, and Completed today.",
+        "Use Dental queue in the top navigation to move to the queue panel, or Register walk-in to move to the registration form.",
+        "Use Refresh to load the latest queue and dentist availability immediately. The page also refreshes automatically every 15 seconds, and the bottom of the page shows the last update time.",
+        "Select Staff guide in the top navigation for the built-in dental queue reminders.",
+        "Select Open dental monitor to open the queue monitor in a new tab. Keep the staff dashboard available for operational actions.",
+        "Select your name and then Log Out at the end of your session."
+      ],
+      "notes": ["If a red warning says the displayed queue information may be outdated, refresh again before relying on it.", "The Up next list shows the first five waiting tickets and a count of additional waiting patients. Its displayed serving order should guide operations; queue numbers alone do not define the order."],
+      "screenshot": {
+        "screen": "Staff dashboard at /staff showing top summary and queue/walk-in columns",
+        "suggested_name": "staff-dashboard.png",
+        "callouts": [
+          {"label": "1", "target": "nav[aria-label='Staff navigation']", "text": "Jump to Dental queue, Register walk-in, or the Staff guide."},
+          {"label": "2", "target": "section[aria-label=\"Today's dental queue summary\"]", "text": "Review today's dental workload."},
+          {"label": "3", "target": "button:has-text('Account recovery')", "text": "Find a patient who needs account access help."},
+          {"label": "4", "target": "button:has-text('Refresh')", "text": "Request an immediate update."},
+          {"label": "5", "target": "a:has-text('Open dental monitor')", "text": "Open the dental queue display in a new tab."},
+          {"label": "6", "target": "#dental-queue", "text": "Call, confirm arrival, finish, or cancel tickets."},
+          {"label": "7", "target": "#walk-in-registration", "text": "Find or register a walk-in and issue a ticket."}
+        ]
+      }
+    },
+    {
+      "id": "staff-find-patient",
+      "title": "Staff: find an existing patient before registration",
+      "intro": "Always check whether the person already has a record. Reusing the correct record keeps the person's visits together and helps prevent duplicates.",
+      "steps": [
+        "In Register dental walk-in, enter the patient's name or mobile digits in Find an existing patient. A name search needs at least two characters; mobile searches can use any four or more digits.",
+        "Wait for Searching patient records… to finish. The form can also look for matches as you enter Full name, Date of birth, or Confirmed mobile number.",
+        "Compare each Possible existing patients result with the person in front of you. Results show a name, birthday, and masked mobile number.",
+        "Select the correct result. The form shows Returning patient, fills the patient details, and lists the number of Previous dental visits with up to three recent entries.",
+        "Review and confirm the patient's current details and mobile number before submitting. If you selected the wrong record, select Clear selection and search again.",
+        "Use Open patient profile when you need to see the identity details and full queue history before proceeding.",
+        "If the results are different people, check I checked these records; create a new patient. only after checking them. Then complete the new patient's details."
+      ],
+      "notes": ["The form will stop registration if likely matches exist and neither a patient nor the explicit new-record confirmation has been selected.", "Changes made to a selected patient's name, birthday, gender, mobile number, barangay, or priority category are saved with walk-in registration. Check these fields carefully; they are not just temporary ticket labels.", "The selected patient's queue must not already be active today."],
+      "screenshot": {
+        "screen": "Staff walk-in form with synthetic patient search results or selected synthetic patient",
+        "suggested_name": "staff-patient-lookup.png",
+        "callouts": [
+          {"label": "1", "target": "#patient-lookup", "text": "Search by patient name or at least four mobile digits."},
+          {"label": "2", "target": "text=Possible existing patients", "text": "Compare the record's birthday and masked number before selecting it."},
+          {"label": "3", "target": "text=I checked these records; create a new patient.", "text": "Use only after confirming that none of the matches is this person."}
+        ]
+      }
+    },
+    {
+      "id": "staff-register-walkin",
+      "title": "Staff: register a dental walk-in",
+      "intro": "This process assigns a same-day dental queue ticket to an existing or newly recorded walk-in patient.",
+      "steps": [
+        "Find and select the existing patient first, or confirm that a new record is needed.",
+        "Enter or confirm Full name, Date of birth, Gender, Barangay, Bago City, and Confirmed mobile number. The full name must include first and last names. Birthday cannot be in the future.",
+        "For Confirmed mobile number, enter the ten digits beginning with 9 in the field beside +63. Confirm the number directly with the patient before registration.",
+        "Under Dental services, select one or two services. Scroll within the service list when necessary to see all choices.",
+        "Under Queue type, choose Regular or Priority. When selecting Priority, select a Priority category: Senior citizen (60+), PWD (Person with Disability), or Pregnant.",
+        "Select Register and assign dental queue. While the request is processing, the button reads Registering patient… and the form is disabled.",
+        "Read the green registration message. Tell the patient the assigned queue number and initial position, and relay the exact SMS instruction shown.",
+        "Check that the new ticket appears in the dental queue. The form clears after a successful registration so it is ready for the next patient."
+      ],
+      "notes": [
+        "The form requires all patient-detail fields, a valid ten-digit mobile entry beginning with 9, one or two services, and a category when Priority is chosen.",
+        "The service can refuse registration when the dentist is unavailable, walk-in slots are full, a record is archived, or that patient already has an active queue today. Read the displayed error, correct the issue, and retry only when appropriate.",
+        "The success message may say no queue SMS will be sent. In that case, tell the patient to stay nearby. Otherwise explain that one SMS will be sent as the turn approaches and that serving order may change.",
+        "Registration creates or reuses a patient record and assigns a queue ticket. A new walk-in does not automatically receive a portal login account."
+      ],
+      "screenshot": {
+        "screen": "Walk-in form with clean synthetic values, dental services and queue type visible; do not submit just to take a screenshot",
+        "suggested_name": "staff-walkin-form.png",
+        "callouts": [
+          {"label": "1", "target": "#walkin-name", "text": "Enter and verify the first and last names."},
+          {"label": "2", "target": "#walkin-dob", "text": "Use the patient's actual date of birth."},
+          {"label": "3", "target": "#walkin-gender", "text": "Select Gender."},
+          {"label": "4", "target": "#walkin-address", "text": "Choose the recorded Bago City barangay."},
+          {"label": "5", "target": "#walkin-contact", "text": "Confirm ten mobile digits after +63."},
+          {"label": "6", "target": "fieldset:has(legend:has-text('Dental services'))", "text": "Select up to two services."},
+          {"label": "7", "target": "input[name='walkin-queue-type']", "text": "Choose Regular or Priority, and a category when required."},
+          {"label": "8", "target": "button:has-text('Register and assign dental queue')", "text": "Save the patient details and assign the queue ticket."}
+        ]
+      }
+    },
+    {
+      "id": "staff-serve",
+      "title": "Staff: call a patient and complete a visit",
+      "intro": "Use the queue panel when the dental team is ready to receive the next patient. A called ticket must be acknowledged before the visit can be completed.",
+      "steps": [
+        "Check Up next and the message under Call next patient. If the queue has no current patient, the hint identifies the next ticket ready to be called.",
+        "Select Call next patient when the chair is free. The orange panel changes to Called and shows the ticket number and patient name.",
+        "When the patient is physically at the clinic, select Patient present in Called patient controls. This changes the visit to receiving service.",
+        "Allow the dental team to finish the check-up. If other patients are waiting, select Call next patient only when the check-up has finished. This marks the current visit complete and calls the next ticket.",
+        "If this is the last patient and nobody is waiting, the main button reads Finish check-up. Select it when the visit is finished to mark it complete.",
+        "Check the refreshed queue and Completed today summary after the action."
+      ],
+      "notes": [
+        "While a ticket is only Called, the main Call next patient button remains disabled. Confirm physical presence, or use the recall and missed-patient process.",
+        "Patient names in the current queue and Up next list are links to Patient profile when a patient record is attached.",
+        "The queue list may change when another authorized user acts. If an error appears, read it and refresh; confirm the current state before taking another action."
+      ],
+      "screenshot": {
+        "screen": "Staff queue panel with a synthetic ticket in called state",
+        "suggested_name": "staff-called-patient.png",
+        "callouts": [
+          {"label": "1", "target": "#dental-queue", "text": "Read the current ticket and patient before acting."},
+          {"label": "2", "target": "button:has-text('Call next patient')", "text": "Call next when the dental chair is free; when serving, this also completes the current visit."},
+          {"label": "3", "target": "button:has-text('Patient present')", "text": "Confirm only when the called patient is physically present."},
+          {"label": "4", "target": "text=Up next", "text": "Use the displayed order to check upcoming patients."}
+        ]
+      }
+    },
+    {
+      "id": "staff-missed-return",
+      "title": "Staff: recall, skip, and restore a missed patient",
+      "intro": "The interface enforces two calls and waiting intervals before a missing patient is skipped. A first missed turn gives the patient a short return period.",
+      "steps": [
+        "After the first call, check Called patient controls. It shows Call 1 of 2 and a Wait countdown.",
+        "If the patient has not arrived, wait at least 30 seconds until Call again is enabled. Select Call again to make the second call.",
+        "After the second call, wait another 30 seconds. If the patient is still absent, select Skip and call next when enabled.",
+        "The absent patient's first missed turn moves to Missed patients · 10-minute return window. The next waiting patient is called as part of the skip action.",
+        "If the patient reports back before the listed Report before time, select Patient returned for that exact ticket. The ticket re-enters Waiting and will be called at the next opening.",
+        "If the window expires, Patient returned becomes disabled and the ticket ends as a no-show. If a patient returns but misses the next called turn as well, the ticket also ends as a no-show."
+      ],
+      "notes": [
+        "Use Patient present only for someone physically here. Use Patient returned only after the missed patient has reported back.",
+        "Each call is announced twice; Call again is the separate second call controlled by the 30-second wait.",
+        "The return period begins when the ticket is skipped. Continue serving the queue while the missed patient has time to return.",
+        "A missed ticket remains an active ticket during its return period, so the patient cannot hold another active ticket at the same time."
+      ],
+      "screenshot": {
+        "screen": "Staff dashboard containing synthetic called-patient controls and/or Missed patients panel",
+        "suggested_name": "staff-missed-return.png",
+        "callouts": [
+          {"label": "1", "target": "section[aria-label='Called patient controls']", "text": "Check call count and the waiting countdown."},
+          {"label": "2", "target": "button:has-text('Call again')", "text": "Make the second call after the first 30-second wait."},
+          {"label": "3", "target": "button:has-text('Skip and call next')", "text": "Skip only after the second call and another 30 seconds."},
+          {"label": "4", "target": "section[aria-label='Missed patients']", "text": "Read the exact deadline for each missed ticket."},
+          {"label": "5", "target": "button:has-text('Patient returned')", "text": "Restore the correct ticket after the person returns in time."}
+        ]
+      }
+    },
+    {
+      "id": "staff-cancel",
+      "title": "Staff: cancel a waiting queue entry",
+      "steps": [
+        "Find the correct ticket in Up next. Confirm the queue number and patient name.",
+        "Select Cancel at the right of that ticket.",
+        "In Reason for cancellation, select a reason from the list, then select Continue.",
+        "Review the refreshed queue. If the cancellation was not intended, select Cancel in the reason window before submitting."
+      ],
+      "notes": ["A reason is required; Continue is disabled until one is selected.", "The staff dashboard's visible Cancel action appears on waiting rows in Up next. It is not shown as a separate button on the current-serving or missed-patient cards.", "Cancellation reasons are the same choices listed in the patient cancellation section. They are recorded with the visit and may appear in queue history."]
+    },
+    {
+      "id": "staff-profile",
+      "title": "Staff and administrator: review a patient profile and queue history",
+      "intro": "Patient profile combines the person's identity details, account-recovery controls, and queue visits. It can be opened from queue-name links, a selected walk-in, or account-recovery search results.",
+      "steps": [
+        "Select the patient's linked name, Open patient profile, or a patient search result.",
+        "At the top of Patient profile, confirm the patient name and record number. Read date of birth, gender, mobile number, barangay, and city.",
+        "Under Queue history, review each visit's queue number, date, category, and status. A recorded status reason is shown beneath the visit.",
+        "If the record was merged, use the linked patient number in the merged-record notice to open its destination record.",
+        "Use ← Staff dashboard or ← Admin dashboard to return to your dashboard."
+      ],
+      "notes": ["No queue visits yet. means the record has no queue history to display.", "The patient profile itself is a viewing and account-recovery screen. The ordinary patient details do not have an Edit button on this page."],
+      "screenshot": {
+        "screen": "Staff patient profile /staff/patients/:id with a synthetic patient record",
+        "suggested_name": "staff-patient-profile.png",
+        "callouts": [
+          {"label": "1", "target": "a:has-text('dashboard')", "text": "Return to the appropriate dashboard."},
+          {"label": "2", "target": "h1:has-text('Patient profile')", "text": "Verify the selected patient's identity details."},
+          {"label": "3", "target": "#account-recovery-title", "text": "Begin identity-checked account recovery when eligible."},
+          {"label": "4", "target": "h2:has-text('Queue history')", "text": "Read past visits, statuses, and reasons."}
+        ]
+      }
+    },
+    {
+      "id": "staff-merge",
+      "title": "Staff and administrator: merge a duplicate walk-in record",
+      "intro": "Merge duplicate record appears only for an unarchived walk-in record that is not linked to a login account. Merging moves every queue visit to the selected patient and archives the duplicate record.",
+      "steps": [
+        "Open the duplicate walk-in's Patient profile and verify that it is the record whose visits should be moved.",
+        "Under Merge duplicate record, use Find the correct patient to enter a name or mobile number.",
+        "Compare the search results by name, date of birth, and masked contact number. Select the radio button for the correct destination patient.",
+        "Select Merge into selected patient. The button is enabled only after a destination is selected.",
+        "Read the confirmation: Move every queue visit to the selected patient and archive this record? Confirm only after checking both records.",
+        "After a successful merge, the destination Patient profile opens. Check the resulting queue history."
+      ],
+      "notes": ["The source must be an active, unarchived walk-in record. An account-linked source or an archived destination cannot be used.", "If both records have separate active queues today, resolve the active queues first. The merge is refused while more than one active queue exists across the two records.", "This action changes which patient owns the visits and archives the source record. Check the destination carefully before confirming."],
+      "screenshot": {
+        "screen": "Synthetic unlinked walk-in profile showing merge section; do not confirm a merge to capture it",
+        "suggested_name": "staff-merge-record.png",
+        "callouts": [
+          {"label": "1", "target": "#merge-search", "text": "Find the patient who should receive the visit history."},
+          {"label": "2", "target": "input[name='merge-target']", "text": "Select the verified destination record."},
+          {"label": "3", "target": "button:has-text('Merge into selected patient')", "text": "Move all queue visits and archive this duplicate after confirmation."}
+        ]
+      }
+    },
+    {
+      "id": "staff-account-recovery",
+      "title": "Staff and administrator: recover a patient's account in person",
+      "intro": "Use this process when a patient cannot access an existing account. The patient must be physically at the clinic and every identity check must match before a temporary password is issued.",
+      "steps": [
+        "On the staff dashboard, select Account recovery to show Find a patient for account recovery.",
+        "Enter Patient name or mobile number, using at least two name characters or four mobile digits, and select Search patients.",
+        "Choose the matching result to open Patient profile. If no record matches, the search displays No matching patient records.",
+        "In Account recovery, select Start account recovery. If the button is disabled, read the message and ask an administrator to resolve the account status or missing identity details.",
+        "Ask the patient to provide their details. Check each statement only after confirming it: the patient is physically present; first name matches; last name matches; phone number matches the registered login number; address matches barangay and city; and birthday matches.",
+        "If any detail differs or identity remains uncertain, stop. Use Close recovery without issuing a password.",
+        "When all six boxes are checked, select Issue temporary password. Read and accept the confirmation only after identity has been verified in person.",
+        "Hand the displayed temporary password directly to the verified patient together with the Registered login number. Read the expiration time, which is shown in Philippine time.",
+        "Tell the patient to log in before the 30-minute expiry. The password works for one login, after which the patient must choose a new password within 15 minutes.",
+        "Select Hide temporary password after handing it to the patient. Closing the section hides this displayed password permanently."
+      ],
+      "notes": [
+        "Recovery is available only for an active patient login account linked to an unarchived patient record, with a registered phone number, birthday, first and last names, barangay, and city.",
+        "Issuing the temporary password replaces the old password and signs out existing sessions. It also invalidates any earlier temporary password.",
+        "The password is handed to the patient on this page; this recovery process does not promise an SMS containing it.",
+        "If another authorized person has changed the account, refresh the patient profile and perform all identity checks again.",
+        "The system limits recovery requests. If the page says Too many recovery requests. Please try again in 15 minutes., wait for that period before another request.",
+        "Do not include a real temporary password, registered login number, or private patient details in a manual screenshot. Capture only the verification stage using a synthetic record."
+      ],
+      "screenshot": {
+        "screen": "Patient profile account recovery verification stage using only a synthetic patient; no password issued",
+        "suggested_name": "staff-account-recovery.png",
+        "callouts": [
+          {"label": "1", "target": "#account-recovery-title", "text": "Check eligibility and open recovery for this patient."},
+          {"label": "2", "target": "fieldset:has(legend:has-text('Identity verification'))", "text": "Confirm physical presence and all five identity details in person."},
+          {"label": "3", "target": "button:has-text('Issue temporary password')", "text": "Issue only after every check is complete; old access is invalidated."},
+          {"label": "4", "target": "button:has-text('Close recovery')", "text": "Stop without issuing if identity remains uncertain."}
+        ]
+      }
+    },
+    {
+      "id": "patient-recover-password",
+      "title": "Patient: use Forgot password? and set a new password",
+      "intro": "Forgot password? on the login page explains how to receive help at the clinic reception. It does not send an online reset link.",
+      "steps": [
+        "On the login page, select Forgot password? to show Password Recovery Steps.",
+        "Visit clinic reception. Be ready to verify your name, phone number, address, and birthday in person.",
+        "After staff verify your identity, receive the temporary password and confirm the registered login number you must use.",
+        "Enter that registered number and temporary password on the login page. The temporary password expires after 30 minutes and can be used for only one login.",
+        "The Change Your Password page appears before you can enter your dashboard. Enter a New Password, then enter the same value in Confirm New Password.",
+        "Use at least eight characters including a number. The maximum is 72 bytes: up to 72 plain English characters, and fewer if the password includes accented characters or emoji.",
+        "Use the eye icon beside a field when you need to show or hide what you entered. Select Update Password to save. The button reads Updating... while processing.",
+        "Complete this change within 15 minutes of temporary-password login. After success, your role's dashboard opens. Use your new password for future logins."
+      ],
+      "notes": ["During mandatory setup, the page shows New Password and Confirm New Password; it does not ask for the temporary password again as Current Password.", "If the values differ, the page shows Passwords do not match. Correct the two entries and submit again.", "If a temporary password expired, was already used, or was replaced, ask reception for help. Do not expect an earlier temporary password to work again."],
+      "screenshot": {
+        "screen": "Change Your Password setup page with empty password fields and no displayed credentials",
+        "suggested_name": "change-password.png",
+        "callouts": [
+          {"label": "1", "target": "input[name='newPassword']", "text": "Enter a permanent password with at least eight characters and a number."},
+          {"label": "2", "target": "input[name='confirmPassword']", "text": "Enter the same password again."},
+          {"label": "3", "target": "button[aria-label='Show new password']", "text": "Show or hide the entry to check it."},
+          {"label": "4", "target": "button:has-text('Update Password')", "text": "Save the password and continue to your dashboard."}
+        ]
+      }
+    }
+  ],
+  "manual_accuracy_notes": [
+    "Only the home and Appointment History views are reachable in the patient dashboard's current navigation. Do not document a separate My Queue tab as a user navigation step merely because PatientQueueTab exists in source.",
+    "Help and Notification buttons lack a functional action in PatientDashboard; the CHO services card lacks an onClick action. Do not imply that those controls open working features.",
+    "Patient Estimated wait is the literal ~15 min display, not a calculated forecast.",
+    "The current app route for RegisterPage is commented out. Do not describe patient self-registration or future appointment booking as available.",
+    "Completed and Cancelled statuses exist in the ticket component, but the main dashboard primarily fetches active tickets or the latest no-show. Use history for completed visits.",
+    "All example screenshots should use demonstration data. Account-recovery success is deliberately excluded from capture because it contains a usable password.",
+    "Suggested selectors identify source elements, not completed screenshot captures. Callout counts may be split across full-page and cropped screenshots for readable manual layout."
+  ]
+}

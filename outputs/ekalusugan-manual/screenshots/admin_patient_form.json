@@ -1,0 +1,37 @@
+{
+  "id": "admin_patient_form",
+  "labels": [
+    {
+      "number": 1,
+      "text": "First Name and Last Name — enter the patient’s identity"
+    },
+    {
+      "number": 2,
+      "text": "Phone — enter the patient’s mobile number"
+    },
+    {
+      "number": 3,
+      "text": "Date of Birth — choose the patient’s birth date"
+    },
+    {
+      "number": 4,
+      "text": "Address / Barangay — choose the patient’s barangay"
+    },
+    {
+      "number": 5,
+      "text": "Priority Status — choose None, Senior Citizen, PWD or Pregnant, as applicable"
+    },
+    {
+      "number": 6,
+      "text": "Create Account — submit the patient details; Cancel closes the form"
+    }
+  ],
+  "profile_anonymized": true,
+  "anonymized": true,
+  "clip": {
+    "x": 212,
+    "y": 241,
+    "width": 856,
+    "height": 412
+  }
+}

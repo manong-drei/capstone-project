@@ -1,0 +1,1241 @@
+EKalusugan User Manual   |   1 
+EKalusugan User Manual  
+Patient Dentist Staff and Administrator instructions  
+Version 1.0   |   18 October 2026 
+Use this manual to sign in, understand your dashboard, and complete the tasks assigned to your role. It 
+covers the current dental queue, walk-in registration, patient records, clinical documentation, reports, 
+account management, and SMS notifications. 
+ 
+Figure 1  EKalusugan homepage 
+1  Log in opens the sign in page.   2  Why E Kalusugan jumps to the feature overview.   3  Your next visit jumps to the sign in 
+invitation. 
+Read the access instructions first, then follow the chapter for your role. Red numbered labels identify the 
+controls explained below each screenshot. Names, contact details, and account identities in the 
+screenshots are anonymized. Example queue and clinical records illustrate actions in the actual running 
+interface. 
+The patient portal currently handles same-day dental queue tickets and appointment history. Clinic 
+administrators provide accounts; public self-registration and future-date patient booking are not available in 
+this version. 
+
+
+EKalusugan User Manual   |   2 
+Using this manual 
+Before you start, obtain the EKalusugan website address and an active account from the clinic. Use a 
+browser with an internet connection. Keep your registered mobile phone available if the clinic sends your 
+first temporary password by SMS. 
+A button name in these instructions matches the system text. A disabled button appears faded and cannot 
+be used until its requirements are met. Read any message near the button before retrying. Close or Cancel 
+in a dialog generally returns to the previous screen; Continue or a save button confirms the described 
+action. 
+Choose your role 
+Role Main responsibilities Begin with 
+Patient Request and follow your own dental ticket, review appointment history, and find 
+the clinic. Chapter 2 
+Dentist or Doctor Set availability and daily limits, manage the dental queue, save consultation 
+notes, enter clinical counts, and export reports. Chapter 4 
+Staff Find patients, register dental walk-ins, manage arrival and queue actions, 
+review records, and verify in-person recovery. Chapter 3 
+Administrator Oversee queues and activity, manage accounts, view history and forecasts, and 
+configure SMS alerts. Chapter 5 
+ 
+Read the screen correctly 
+The system uses Doctor as the account role and Dentist for the dental service. A ticket number identifies a 
+queue visit. An appointment record and a clinical report are separate records. A blank, dash, or loading 
+indicator does not confirm that a count is zero. 
+Dates and queue return times use Philippine time. Patient and Staff screens refresh about every 15 
+seconds; Dentist screens refresh about every 30 seconds. Read the latest state before acting because 
+another authorized user may have updated the same ticket. 
+Protect patient information 
+Use your own account. Verify the selected patient before opening or changing records. Keep passwords 
+private, share a recovery password only with the verified patient, and use Log Out when finished. Keep the 
+public queue monitor on the dedicated display and keep account and clinical screens at the staff 
+workstation. 
+
+EKalusugan User Manual   |   3 
+Contents 
+Using this manual ................................ ................................ ................................ ................................ ........ 2 
+Choose your role ................................ ................................ ................................ ................................ ...... 2 
+Read the screen correctly................................ ................................ ................................ ......................... 2 
+Protect patient information................................ ................................ ................................ ........................ 2 
+Contents ................................ ................................ ................................ ................................ ...................... 3 
+1 Access and sign in ................................ ................................ ................................ ................................ .... 5 
+Open the homepage ................................ ................................ ................................ ................................  5 
+Sign in to your account ................................ ................................ ................................ .............................  6 
+Recover access through reception ................................ ................................ ................................ ........... 7 
+Set or change your password ................................ ................................ ................................ ................... 8 
+Read terms and end your session ................................ ................................ ................................ ............ 9 
+2 Patient instructions ................................ ................................ ................................ ................................ . 10 
+Understand the patient dashboard ................................ ................................ ................................ ......... 10 
+Request a dental queue ticket ................................ ................................ ................................ ................ 11 
+Dental service choices ................................ ................................ ................................ ........................... 12 
+Read your active ticket ................................ ................................ ................................ ........................... 12 
+Ticket statuses and the next action................................ ................................ ................................ ......... 13 
+Cancel a waiting or missed ticket ................................ ................................ ................................ ........... 14 
+Return after a missed call ................................ ................................ ................................ ....................... 15 
+Review history and find the clinic ................................ ................................ ................................ ............ 16 
+3 Staff instructions ................................ ................................ ................................ ................................ ..... 17 
+Understand the staff dashboard ................................ ................................ ................................ ............. 17 
+Find an existing patient ................................ ................................ ................................ .......................... 18 
+Register a dental walk in ................................ ................................ ................................ ........................ 19 
+Call and serve dental patients ................................ ................................ ................................ ................ 20 
+Handle missed calls and returning patients ................................ ................................ ............................  21 
+Cancel a ticket with a reason ................................ ................................ ................................ .................. 21 
+Use the dental queue monitor ................................ ................................ ................................ ................ 22 
+Review the patient profile ................................ ................................ ................................ ....................... 23 
+Merge a duplicate walk in record ................................ ................................ ................................ ............ 24 
+Find a patient for account recovery................................ ................................ ................................ ......... 25 
+Verify identity and issue recovery access ................................ ................................ ...............................  26 
+4 Dentist instructions ................................ ................................ ................................ ................................ . 27 
+Understand the dentist dashboard ................................ ................................ ................................ .......... 27 
+Set availability and daily capacity ................................ ................................ ................................ ........... 28 
+Call patients and confirm arrival ................................ ................................ ................................ ............. 29 
+Document and complete the consultation ................................ ................................ ...............................  30 
+Review appointment history ................................ ................................ ................................ ................... 31 
+Read dentist analytics ................................ ................................ ................................ ............................  32 
+
+EKalusugan User Manual   |   4 
+Enter daily barangay clinical counts................................ ................................ ................................ ........ 33 
+Save and check clinical counts ................................ ................................ ................................ ............... 34 
+Print or download reports ................................ ................................ ................................ ....................... 35 
+5 Administrator instructions ................................ ................................ ................................ ........................ 36 
+Navigate the administrator dashboard ................................ ................................ ................................ .... 36 
+Monitor and cancel queue tickets ................................ ................................ ................................ ........... 37 
+Choose a cancellation reason ................................ ................................ ................................ ................ 37 
+Review statistics and forecasts................................ ................................ ................................ ............... 38 
+Check doctor availability ................................ ................................ ................................ ......................... 39 
+Review patient appointment history ................................ ................................ ................................ ........ 40 
+Configure and monitor SMS notifications ................................ ................................ ................................  41 
+Manage staff doctor and admin accounts ................................ ................................ ...............................  42 
+Create a staff doctor or admin account ................................ ................................ ................................ ... 43 
+Find and manage patient accounts ................................ ................................ ................................ ......... 44 
+Create a patient account ................................ ................................ ................................ ........................ 45 
+Assist a verified patient with recovery ................................ ................................ ................................ ..... 46 
+6 Common problems and routine checks ................................ ................................ ................................ ... 47 
+Sign in and account access ................................ ................................ ................................ .................... 47 
+Queue and walk in problems ................................ ................................ ................................ .................. 47 
+Reports notifications and records ................................ ................................ ................................ ........... 48 
+Daily routine by role ................................ ................................ ................................ ...............................  48 
+Get help from the clinic ................................ ................................ ................................ ........................... 48 
+ 
+
+EKalusugan User Manual   |   5 
+1 Access and sign in 
+Open the homepage 
+ 
+Figure 2  Homepage navigation 
+1  Log in opens the sign in page.   2  Why E Kalusugan jumps to the feature overview.   3  Your next visit jumps to the sign in 
+invitation. 
+1. Open the EKalusugan address supplied by the clinic. 
+2. Select Log in in the upper right. Why E-Kalusugan scrolls to the feature overview; Your next visit scrolls 
+to the invitation to sign in. 
+3. The homepage preview is an introduction to the portal. Sign in with your clinic-issued account to reach 
+your role dashboard. 
+Note  There is no active public registration page. Contact clinic reception if you do not yet have an account. 
+
+
+EKalusugan User Manual   |   6 
+Sign in to your account 
+ 
+Figure 3  Sign in to your account 
+1  Phone Number enter your registered login phone.   2  Password enter your password.   3  Eye icon shows or hides the 
+password.   4  Forgot password opens reception recovery instructions.   5  Login opens the dashboard assigned to your role.   
+6  Terms and privacy links open the policy dialog. 
+1. Enter your registered mobile number in Phone Number. Use the Philippine mobile format shown in the 
+field, such as 09 followed by nine digits. 
+2. Enter your password. Use the eye icon only when it is safe to display the password on screen. 
+3. Select Login once and wait while Logging in is displayed. 
+4. A Patient, Doctor, Staff, or Administrator account opens its assigned dashboard automatically. You do not 
+choose a role on the login form. 
+5. If the system requires a new password, complete Change Your Password before continuing. 
+Note  If Please fill in all fields appears, complete both fields. If Invalid phone or password appears, check 
+the registered phone and password. Ask reception for recovery assistance if access still fails. 
+
+
+EKalusugan User Manual   |   7 
+Recover access through reception 
+ 
+Figure 4  Recover access through reception 
+1  Reception recovery steps verify your identity in person.   2  Forgot password expands or collapses these instructions. 
+1. On the login form, select Forgot password? to expand Password Recovery Steps. 
+2. Visit clinic reception. Verify your name, registered login phone number, address, and birthday with 
+authorized staff. 
+3. Receive the temporary recovery password privately. It is valid for 30 minutes and one login. 
+4. Sign in with the same registered phone and the recovery password. Set a permanent password when 
+prompted. 
+Note  Forgot password? displays instructions for in-person recovery. It does not send a reset link or change 
+your password. 
+Note  The first activation password sent by SMS is a different workflow. Follow the activation message and 
+complete password setup promptly; ask the clinic if it expires or cannot be used. 
+
+
+EKalusugan User Manual   |   8 
+Set or change your password 
+ 
+Figure 5  Set or change your password 
+1  Current Password enter the password you currently use.   2  New Password use at least eight characters including a 
+number.   3  Confirm New Password enter the same new password again.   4  Update Password saves the new password. 
+1. At first activation or recovery login, the system opens Change Your Password. In this setup flow, the form 
+asks for New Password and Confirm New Password. 
+2. For a normal password change, enter Current Password as well, as shown in the screenshot. 
+3. Create a password with at least eight characters and at least one number. The maximum is 72 bytes, 
+equivalent to 72 plain English characters and fewer for accented characters or emoji. 
+4. Enter the same new password in Confirm New Password. Use the eye controls to check the fields when 
+appropriate. 
+5. Select Update Password. Wait for the assigned dashboard to open. If Passwords do not match appears, 
+enter matching values and try again. 
+Note  A temporary-password setup session is time limited. If it expires, return to reception or request the 
+appropriate activation assistance. 
+Note  You can open the normal password-change page from the website address ending in /change-
+password while signed in. 
+
+
+EKalusugan User Manual   |   9 
+Read terms and end your session 
+ 
+Figure 6  Read terms and end your session 
+1  Terms and privacy dialog read the displayed policy. 
+1. Select terms and conditions or privacy policy on the login page to open Terms, Privacy & Consent. 
+2. Read the policy and scroll through the policy area. The consent controls become available after reaching 
+the bottom. 
+3. Select the consent checkbox if you agree, then select Accept & Continue. Use Cancel or the X to close 
+the dialog when you only need to return to sign in. 
+4. When finished with a dashboard, open your name or profile chip at the upper right and select Log Out. 
+On a phone, open the menu first if the profile control is hidden. 
+Note  Closing the browser tab ends that tab session. Sign in again if you return to the login page or see an 
+expired-session message. 
+
+
+EKalusugan User Manual   |   10 
+2 Patient instructions 
+Request a same-day dental queue ticket, follow the live queue, and review your own appointment history. 
+Understand the patient dashboard 
+ 
+Figure 7  Patient dashboard 
+1  Get queue ticket opens the dental service selection.   2  Appointment history displays earlier appointments.   3  My queue 
+number shows your active ticket.   4  Doctor availability shows the current availability status.   5  Location opens the clinic 
+map. 
+After signing in with a patient account, E-KALUSUGAN opens the patient portal. The home screen brings 
+together today's dental queue, your own ticket, dentist availability, and appointment history. 
+1. Read the large Now serving and Next in queue cards. When a patient has been called and is awaiting 
+arrival confirmation, the first card reads Called  -  report to staff. 
+2. Check My queue number for your active ticket number and selected dental sub-services. A dash means 
+there is no active ticket to show. 
+3. Read Doctor availability. The card may show Checking availability, Available today, or Unavailable today. 
+Availability alone does not guarantee that registration or daily slots remain open. 
+4. Use Get queue ticket to join today's dental queue when the button is enabled. Use Appointment history to 
+review your visits. 
+5. On a narrow phone screen, use the Toggle menu button at the top to show the navigation controls. Tap 
+your name to reveal Log Out when you finish using the portal. 
+Note  The queue and dentist availability refresh automatically every 15 seconds while the portal remains 
+open. 
+Note  The Estimated wait card displays ~15 min. Treat this as an indicative display; keep watching the 
+queue and respond when called. 
+Note  An existing waiting, called, serving, or missed ticket counts as an active queue. You cannot request 
+another active ticket. 
+Note  Help, Notification, and CHO services are visible on the current home screen. There is no additional 
+help, notification list, or services action to complete from those controls in this version. 
+
+
+EKalusugan User Manual   |   11 
+Request a dental queue ticket 
+ 
+Figure 8  Request a dental queue ticket 
+1  Dental services choose one or two services.   2  Selection counter shows the two service limit.   3  Get Queue Ticket 
+submits the request.   4  Close returns to the dashboard. 
+Use this process for a dental visit on the current day. Choose the services you need, then let the system 
+assign the ticket number. 
+1. From the patient home screen, select Get queue ticket. 
+2. In Get Queue Ticket, read any registration message shown above the service list. 
+3. Select one or two checkboxes under Dental services. The counter shows how many services you have 
+selected. Once two are checked, the other checkboxes are disabled; uncheck one before choosing a 
+replacement. 
+4. Select Get Queue Ticket at the bottom. The button reads Getting your ticket... while the request is being 
+processed. 
+5. When the request succeeds, the window closes and your ticket appears on the dashboard. Check the 
+queue number, your name, selected services, and current status. 
+6. Keep the portal open or check it again while waiting. Follow the displayed queue and report to staff when 
+your status says It's your turn! 
+Note  At least one service is required. No more than two services can be selected. 
+Note  Close queue ticket (the X icon), the Escape key, or clicking outside the dialog closes it without issuing 
+a ticket. 
+Note  A valid priority category on your patient record is applied automatically. Ask clinic staff if your 
+recorded priority details need review. 
+Note  The system refuses a new request when you already have an active queue today. Patient self-service 
+is limited to two queue registrations per day, including earlier registrations that ended. 
+Note  Registration can be refused if there is no dentist, the dentist is unavailable, or today's appointment 
+slots are full. 
+Note  After today's dental queue has started, new same-day appointment registration closes. The displayed 
+message directs patients to approach staff for walk-in registration. A patient who already has an active 
+appointment for today may still be eligible to request a ticket. 
+
+
+EKalusugan User Manual   |   12 
+Dental service choices 
+Choose one or two services for one dental visit. Both the patient ticket form and staff walk-in form use these 
+choices. 
+Service group Choices shown in the forms 
+General dental care Dental Check-up; Oral Prophylaxis; Fluoride; Silver Diamine; Special Surgery; Others 
+Restoration or tooth filling Permanent Filling; Temporary Filling 
+Removable partial denture Removable Partial Denture - Upper; Removable Partial Denture - Lower 
+Dental surgery Closed Extraction; Open Extraction; Odontectomy / Wisdom Tooth Extraction 
+ 
+Read your active ticket 
+ 
+Figure 9  Active patient ticket  Example records 
+1  Your Queue Number identify yourself to staff using this ticket.   2  Waiting read this status and follow the instructions 
+above.   3  Cancel Queue opens the required cancellation reason. 
+1. Read Your Queue Number and the service labels. Use the ticket number when reporting to staff. 
+2. Read the status and the instruction above the ticket. If no SMS will be sent, stay nearby. If one alert is 
+expected, also follow the queue display. 
+3. When called, report to staff immediately so they can confirm your presence. 
+Note  Queue order may change. Initial position is not a fixed place, and the displayed estimated wait is 
+indicative. 
+
+
+EKalusugan User Manual   |   13 
+Ticket statuses and the next action 
+Your ticket status tells you what to do next. Keep your queue number available when speaking with staff. 
+Ticket display What it means What you should do 
+Waiting Your ticket is in the waiting queue. Stay nearby, watch the current queue number, and follow the 
+SMS instruction shown on your ticket. 
+It's your turn! Your number has been called; staff 
+have not yet confirmed your arrival. Report to staff now so they can confirm you are here. 
+Receiving care Your presence has been confirmed 
+and your visit is in service. Follow the dental team's instructions. 
+Missed call You did not respond to the calls. The 
+ticket is temporarily recoverable. 
+Report to staff before the exact deadline displayed on the ticket. 
+Other patients continue to be called while you return. 
+Waiting after 
+return 
+Staff have confirmed your return 
+within the allowed time. 
+Stay nearby. The ticket says that you will be called at the next 
+opening. 
+No-show 
+The ticket has ended because the 
+return period expired or the returning 
+patient missed the next turn. 
+Read the reason. A new ticket is subject to today's availability and 
+the daily queue limit. 
+Completed The visit has finished. Review your appointment history for the visit record. 
+Cancelled The queue visit was cancelled with a 
+recorded reason. 
+Check with staff if you still need care; another request is subject 
+to the current registration rules. 
+ 
+Note  For some waiting tickets, the portal says: Please stay nearby; no queue SMS will be sent. Follow that 
+instruction. 
+Note  For tickets eligible for an approach alert, the portal says that one SMS will be sent when your turn 
+approaches. Delivery may be delayed, so follow the queue display as well. 
+Note  An initial position is a starting position, not a fixed place. Order may change because the queue 
+combines online registrations, walk-ins, priority patients, and patients whose return has been confirmed. 
+Note  A missed ticket has a 10-minute return window. Staff must confirm the return before the displayed 
+deadline; merely refreshing your patient portal does not restore the ticket. 
+Note  Your home screen shows the active ticket or the latest no-show ticket. A finished or cancelled ticket 
+may no longer be displayed as your current ticket. 
+
+EKalusugan User Manual   |   14 
+Cancel a waiting or missed ticket 
+ 
+Figure 10  Cancel a waiting or missed ticket  Example records 
+1  Reason select the reason that applies.   2  Continue confirms cancellation with the selected reason.   3  Cancel closes the 
+dialog and keeps your ticket. 
+Use cancellation when you no longer need the current queue ticket. A reason is required. 
+1. On your active ticket, select Cancel Queue. This button is available only while your ticket is Waiting or 
+Missed call. 
+2. In Why are you cancelling your queue?, select the reason that best describes the cancellation. 
+3. Select Continue to submit the cancellation. The dialog closes and the portal refreshes your ticket 
+information. 
+4. To keep the ticket, select Cancel in the reason window or click outside it before continuing. 
+• Schedule conflict / no longer available 
+• No longer needs the service 
+• Found care elsewhere 
+• Transportation or access issue 
+• Wait time too long 
+• Booked by mistake / duplicate queue 
+• Other 
+Note  Continue remains disabled until a reason is selected. 
+Note  If your ticket has already been called or is receiving care, speak to staff because the patient 
+cancellation button is no longer available. 
+Note  Cancelling does not undo the fact that a queue registration was made today. Any later ticket request 
+remains subject to the daily limit and registration rules. 
+
+
+EKalusugan User Manual   |   15 
+Return after a missed call 
+ 
+Figure 11  Return after a missed call  Example records 
+1  Return deadline report to staff before the displayed time.   2  Missed call staff must confirm your return. 
+1. Read the deadline shown above the ticket after Missed call appears. 
+2. Report to Staff before that exact time. Staff must select Patient returned to confirm your return. 
+3. Stay nearby after confirmation. The queue continues while you return, and the restored ticket is called at 
+the next opening. 
+4. If the deadline expires or a returning patient misses the next call, the ticket ends as No-show. A new 
+request depends on current availability and daily limits. 
+Note  Refreshing the patient screen does not confirm a return. Do not wait for an SMS to report to 
+reception. 
+
+
+EKalusugan User Manual   |   16 
+Review history and find the clinic 
+ 
+Figure 12  Review history and find the clinic  Example records 
+1  Appointment history lists your recorded appointments.   2  Back returns to the patient dashboard. 
+1. Select Appointment history from the home screen. The Appointment History page loads your own 
+appointment records. 
+2. Read the dentist name, appointment date, time when recorded, service or reason, and status on each 
+card. Status may be confirmed, completed, or cancelled. 
+3. If the page says No appointments found., there are no appointment entries to show for your account. Use  
+Back to return home. 
+4. From home, select Location. The City Health Office of Bago map window opens. 
+5. Select Open in Google Maps to open a separate map tab. Use Close map (X), Escape, or click outside 
+the map window to close the portal's map. 
+Note  Appointment History is a viewing page. It has no date picker, booking button, or editing action in the 
+current patient portal. 
+
+
+EKalusugan User Manual   |   17 
+3 Staff instructions 
+Register dental walk-ins, keep the serving queue moving, confirm patient arrival, and help patients recover 
+account access after in-person verification. 
+Understand the staff dashboard 
+ 
+Figure 13  Staff dashboard 
+1  Account recovery opens the patient lookup.   2  Refresh reloads the current queue.   3  Open dental monitor displays the 
+queue in a new tab.   4  Dental queue contains the calling and ticket controls.   5  Register dental walk in finds or creates a 
+patient and ticket. 
+After a staff member signs in, the Staff Dashboard  |  Dental Services screen opens. It combines queue 
+operations and walk-in registration on one page. 
+1. Read the welcome panel for today's date and dentist availability. The display may show Dentist available 
+today, Dentist unavailable today, or Dentist availability unknown. 
+2. Read the summary cards: Waiting patients, Priority waiting, Walk-ins today, and Completed today. 
+3. Use Dental queue in the top navigation to move to the queue panel, or Register walk-in to move to the 
+registration form. 
+4. Use Refresh to load the latest queue and dentist availability immediately. The page also refreshes 
+automatically every 15 seconds, and the bottom of the page shows the last update time. 
+5. Select Staff guide in the top navigation for the built-in dental queue reminders. 
+6. Select Open dental monitor to open the queue monitor in a new tab. Keep the staff dashboard available 
+for operational actions. 
+7. Select your name and then Log Out at the end of your session. 
+Note  If a red warning says the displayed queue information may be outdated, refresh again before relying 
+on it. 
+Note  The Up next list shows the first five waiting tickets and a count of additional waiting patients. Its 
+displayed serving order should guide operations; queue numbers alone do not define the order. 
+
+
+EKalusugan User Manual   |   18 
+Find an existing patient 
+ 
+Figure 14  Find an existing patient 
+1  Find an existing patient search before creating a new record.   2  Full name enter or confirm the patient name.   3  
+Confirmed mobile number verify the number with the patient. 
+Always check whether the person already has a record. Reusing the correct record keeps the person's visits 
+together and helps prevent duplicates. 
+1. In Register dental walk-in, enter the patient's name or mobile digits in Find an existing patient. A name 
+search needs at least two characters; mobile searches can use any four or more digits. 
+2. Wait for Searching patient records… to finish. The form can also look for matches as you enter Full 
+name, Date of birth, or Confirmed mobile number. 
+3. Compare each Possible existing patients result with the person in front of you. Results show a name, 
+birthday, and masked mobile number. 
+4. Select the correct result. The form shows Returning patient, fills the patient details, and lists the number 
+of Previous dental visits with up to three recent entries. 
+5. Review and confirm the patient's current details and mobile number before submitting. If you selected the 
+wrong record, select Clear selection and search again. 
+6. Use Open patient profile when you need to see the identity details and full queue history before 
+proceeding. 
+7. If the results are different people, check I checked these records; create a new patient. only after 
+checking them. Then complete the new patient's details. 
+Note  The form will stop registration if likely matches exist and neither a patient nor the explicit new-record 
+confirmation has been selected. 
+Note  Changes made to a selected patient's name, birthday, gender, mobile number, barangay, or priority 
+category are saved with walk-in registration. Check these fields carefully; they are not just temporary ticket 
+labels. 
+Note  The selected patient's queue must not already be active today. 
+
+
+EKalusugan User Manual   |   19 
+Register a dental walk in 
+ 
+Figure 15  Register a dental walk in 
+1  Dental services select one or two required services.   2  Priority use only for a verified eligible patient.   3  Register and 
+assign dental queue creates the visit and issues a number. 
+This process assigns a same-day dental queue ticket to an existing or newly recorded walk-in patient. 
+1. Find and select the existing patient first, or confirm that a new record is needed. 
+2. Enter or confirm Full name, Date of birth, Gender, Barangay, Bago City, and Confirmed mobile number. 
+The full name must include first and last names. Birthday cannot be in the future. 
+3. For Confirmed mobile number, enter the ten digits beginning with 9 in the field beside +63. Confirm the 
+number directly with the patient before registration. 
+4. Under Dental services, select one or two services. Scroll within the service list when necessary to see all 
+choices. 
+5. Under Queue type, choose Regular or Priority. When selecting Priority, select a Priority category: Senior 
+citizen (60+), PWD (Person with Disability), or Pregnant. 
+6. Select Register and assign dental queue. While the request is processing, the button reads Registering 
+patient… and the form is disabled. 
+7. Read the green registration message. Tell the patient the assigned queue number and initial position, 
+and relay the exact SMS instruction shown. 
+8. Check that the new ticket appears in the dental queue. The form clears after a successful registration so 
+it is ready for the next patient. 
+Note  The form requires all patient-detail fields, a valid ten-digit mobile entry beginning with 9, one or two 
+services, and a category when Priority is chosen. 
+Note  The service can refuse registration when the dentist is unavailable, walk-in slots are full, a record is 
+archived, or that patient already has an active queue today. Read the displayed error, correct the issue, and 
+retry only when appropriate. 
+Note  The success message may say no queue SMS will be sent. In that case, tell the patient to stay 
+nearby. Otherwise explain that one SMS will be sent as the turn approaches and that serving order may 
+change. 
+Note  Registration creates or reuses a patient record and assigns a queue ticket. A new walk-in does not 
+automatically receive a portal login account. 
+
+
+EKalusugan User Manual   |   20 
+Call and serve dental patients 
+ 
+Figure 16  Call and serve dental patients  Example records 
+1  Patient present confirms physical presence and starts service.   2  Skip and call next moves an absent ticket into the return 
+window.   3  Patient returned confirms a missed patient before the deadline.   4  Cancel opens the required cancellation 
+reason. 
+Use the queue panel when the dental team is ready to receive the next patient. A called ticket must be 
+acknowledged before the visit can be completed. 
+1. Check Up next and the message under Call next patient. If the queue has no current patient, the hint 
+identifies the next ticket ready to be called. 
+2. Select Call next patient when the chair is free. The orange panel changes to Called and shows the ticket 
+number and patient name. 
+3. When the patient is physically at the clinic, select Patient present in Called patient controls. This changes 
+the visit to receiving service. 
+4. Allow the dental team to finish the check-up. If other patients are waiting, select Call next patient only 
+when the check-up has finished. This marks the current visit complete and calls the next ticket. 
+5. If this is the last patient and nobody is waiting, the main button reads Finish check-up. Select it when the 
+visit is finished to mark it complete. 
+6. Check the refreshed queue and Completed today summary after the action. 
+Note  While a ticket is only Called, the main Call next patient button remains disabled. Confirm physical 
+presence, or use the recall and missed-patient process. 
+Note  Patient names in the current queue and Up next list are links to Patient profile when a patient record 
+is attached. 
+Note  The queue list may change when another authorized user acts. If an error appears, read it and 
+refresh; confirm the current state before taking another action. 
+
+
+EKalusugan User Manual   |   21 
+Handle missed calls and returning patients 
+The interface enforces two calls and waiting intervals before a missing patient is skipped. A first missed turn 
+gives the patient a short return period. 
+1. After the first call, check Called patient controls. It shows Call 1 of 2 and a Wait countdown. 
+2. If the patient has not arrived, wait at least 30 seconds until Call again is enabled. Select Call again to 
+make the second call. 
+3. After the second call, wait another 30 seconds. If the patient is still absent, select Skip and call next when 
+enabled. 
+4. The absent patient's first missed turn moves to Missed patients  |  10-minute return window. The next 
+waiting patient is called as part of the skip action. 
+5. If the patient reports back before the listed Report before time, select Patient returned for that exact 
+ticket. The ticket re-enters Waiting and will be called at the next opening. 
+6. If the window expires, Patient returned becomes disabled and the ticket ends as a no-show. If a patient 
+returns but misses the next called turn as well, the ticket also ends as a no-show. 
+Note  Use Patient present only for someone physically here. Use Patient returned only after the missed 
+patient has reported back. 
+Note  Each call is announced twice; Call again is the separate second call controlled by the 30-second wait. 
+Note  The return period begins when the ticket is skipped. Continue serving the queue while the missed 
+patient has time to return. 
+Note  A missed ticket remains an active ticket during its return period, so the patient cannot hold another 
+active ticket at the same time. 
+Cancel a ticket with a reason 
+1. Find the correct ticket in Up next. Confirm the queue number and patient name. 
+2. Select Cancel at the right of that ticket. 
+3. In Reason for cancellation, select a reason from the list, then select Continue. 
+4. Review the refreshed queue. If the cancellation was not intended, select Cancel in the reason window 
+before submitting. 
+Note  A reason is required; Continue is disabled until one is selected. 
+Note  The staff dashboard's visible Cancel action appears on waiting rows in Up next. It is not shown as a 
+separate button on the current-serving or missed-patient cards. 
+Note  Cancellation reasons are the same choices listed in the patient cancellation section. They are 
+recorded with the visit and may appear in queue history. 
+
+EKalusugan User Manual   |   22 
+Use the dental queue monitor 
+ 
+Figure 17  Use the dental queue monitor 
+1  Enable announcements speaker control turns on queue audio. 
+1. From the staff dashboard, select Open dental monitor. The monitor opens in another browser tab. 
+2. Keep this display visible to waiting patients. Read the current and next dental queue numbers and the 
+waiting list. 
+3. Select Enable announcements using the speaker control if audio announcements are needed, and allow 
+audio through the browser. 
+4. Keep the staff dashboard available in its own tab for calling, confirming arrival, and handling returns. 
+Note  The monitor requires a Staff or Administrator session. If the tab returns to sign in, sign in with an 
+authorized account and reopen it. 
+
+
+EKalusugan User Manual   |   23 
+Review the patient profile 
+ 
+Figure 18  Review the patient profile  Example records 
+1  Staff dashboard returns to dental queue management.   2  Patient identity verify the record before acting.   3  Account 
+recovery requires an active eligible login.   4  Queue history lists recorded visits and statuses. 
+Patient profile combines the person's identity details, account-recovery controls, and queue visits. It can be 
+opened from queue-name links, a selected walk-in, or account-recovery search results. 
+1. Select the patient's linked name, Open patient profile, or a patient search result. 
+2. At the top of Patient profile, confirm the patient name and record number. Read date of birth, gender, 
+mobile number, barangay, and city. 
+3. Under Queue history, review each visit's queue number, date, category, and status. A recorded status 
+reason is shown beneath the visit. 
+4. If the record was merged, use the linked patient number in the merged-record notice to open its 
+destination record. 
+5. Use  Staff dashboard or  Admin dashboard to return to your dashboard. 
+Note  No queue visits yet. means the record has no queue history to display. 
+Note  The patient profile itself is a viewing and account-recovery screen. The ordinary patient details do not 
+have an Edit button on this page. 
+
+
+EKalusugan User Manual   |   24 
+Merge a duplicate walk in record 
+ 
+Figure 19  Merge a duplicate walk in record  Example records 
+1  Source walk-in record verify that this is the duplicate whose visits should move.   2  Find the correct patient searches the 
+destination by name or mobile number.   3  Destination patient compare the record carefully before selecting it.   4  Merge 
+moves every queue visit and archives the source after confirmation. 
+Merge duplicate record appears only for an unarchived walk-in record that is not linked to a login account. 
+Merging moves every queue visit to the selected patient and archives the duplicate record. 
+1. Open the duplicate walk-in's Patient profile and verify that it is the record whose visits should be moved. 
+2. Under Merge duplicate record, use Find the correct patient to enter a name or mobile number. 
+3. Compare the search results by name, date of birth, and masked contact number. Select the radio button 
+for the correct destination patient. 
+4. Select Merge into selected patient. The button is enabled only after a destination is selected. 
+5. Read the confirmation: Move every queue visit to the selected patient and archive this record? Confirm 
+only after checking both records. 
+6. After a successful merge, the destination Patient profile opens. Check the resulting queue history. 
+Note  The source must be an active, unarchived walk-in record. An account-linked source or an archived 
+destination cannot be used. 
+Note  If both records have separate active queues today, resolve the active queues first. The merge is 
+refused while more than one active queue exists across the two records. 
+Note  This action changes which patient owns the visits and archives the source record. Check the 
+destination carefully before confirming. 
+
+
+EKalusugan User Manual   |   25 
+Find a patient for account recovery 
+ 
+Figure 20  Find a patient for account recovery 
+1  Account recovery search finds the patient before identity checks.   2  Account recovery opens or closes the search panel. 
+1. On the staff dashboard, select Account recovery to show Find a patient for account recovery. 
+2. Enter Patient name or mobile number, using at least two name characters or four mobile digits, and 
+select Search patients. 
+3. Choose the matching result to open Patient profile. If no record matches, the search displays No 
+matching patient records. 
+Note  Account recovery is for a patient who is physically present. Search for the correct record and open 
+the profile before starting the verification checklist. 
+
+
+EKalusugan User Manual   |   26 
+Verify identity and issue recovery access 
+ 
+Figure 21  Verify identity and issue recovery access  Example records 
+1  Selected patient details compare these against what the patient provides.   2  Verify physical presence and every identity 
+item before checking each box.   3  Issue temporary password stays disabled until all six checks are complete; issuance 
+replaces old access.   4  Close recovery stops without issuing a password. 
+Use this process when a patient cannot access an existing account. The patient must be physically at the 
+clinic and every identity check must match before a temporary password is issued. 
+1. In Account recovery, select Start account recovery. If the button is disabled, read the message and ask 
+an administrator to resolve the account status or missing identity details. 
+2. Ask the patient to provide their details. Check each statement only after confirming it: the patient is 
+physically present; first name matches; last name matches; phone number matches the registered login 
+number; address matches barangay and city; and birthday matches. 
+3. If any detail differs or identity remains uncertain, stop. Use Close recovery without issuing a password. 
+4. When all six boxes are checked, select Issue temporary password. Read and accept the confirmation 
+only after identity has been verified in person. 
+5. Hand the displayed temporary password directly to the verified patient together with the Registered login 
+number. Read the expiration time, which is shown in Philippine time. 
+6. Tell the patient to log in before the 30-minute expiry. The password works for one login, after which the 
+patient must choose a new password within 15 minutes. 
+7. Select Hide temporary password after handing it to the patient. Closing the section hides this displayed 
+password permanently. 
+Note  Recovery is available only for an active patient login account linked to an unarchived patient record, 
+with a registered phone number, birthday, first and last names, barangay, and city. 
+Note  Issuing the temporary password replaces the old password and signs out existing sessions. It also 
+invalidates any earlier temporary password. 
+Note  The password is handed to the patient on this page; this recovery process does not promise an SMS 
+containing it. 
+Note  If another authorized person has changed the account, refresh the patient profile and perform all 
+identity checks again. 
+Note  The system limits recovery requests. If the page says Too many recovery requests. Please try again 
+in 15 minutes., wait for that period before another request. 
+
+
+EKalusugan User Manual   |   27 
+4 Dentist instructions 
+Manage today's dental service, document consultations, and prepare clinical reports from the Doctor 
+account. 
+Understand the dentist dashboard 
+ 
+Figure 22  Dentist dashboard  Example records 
+1  Analytics  -  view dental activity, clinical entries, and reports.   2  Appointment History  -  review your appointments.   3  
+Account menu  -  check your identity or Log Out.   4  Availability  -  select the current status to change it.   5  Apply  -  save 
+daily capacity settings. 
+Use the dashboard as the starting point for today's dental queue and service settings. 
+1. Sign in using an active Doctor account. The Doctor dashboard opens on its home view. 
+2. Read Today's Availability and Daily Capacity before receiving patients. 
+3. Use Now Queuing to identify the current called or serving ticket and Next Queuing to see the next waiting 
+ticket. 
+4. Read Waiting, Serving, Done, and Priority cards for today's dental queues. Priority is the number of 
+priority tickets in today's dental queue data, including tickets in other states; it is not solely the number 
+still waiting. 
+5. Use Analytics for activity summaries, clinical entries, and reports. Use Appointment History for the 
+signed-in doctor's appointment list. 
+6. Open the account menu at the upper right to view the signed-in identity and use Log Out when finished. 
+On a narrow screen, use Toggle menu to reveal navigation. 
+
+
+EKalusugan User Manual   |   28 
+Set availability and daily capacity 
+ 
+Figure 23  Set availability and daily capacity  Example records 
+1  Daily Capacity  -  expand or collapse this panel.   2  Appointment Limit  -  choose 0 to 10 appointments.   3  Walk-In 
+Capacity  -  enter 0 to 30 slots.   4  Apply  -  save both limits; wait for Saved. 
+Set availability 
+Tell users whether the doctor is available for today's service. 
+1. Find Today's Availability near the top of the home view. 
+2. Read the current state: Available or Unavailable. 
+3. Select the status button to switch to the opposite state. 
+4. Wait while the button shows Saving.... Check that the displayed state changes successfully. If an error 
+appears, address it before assuming availability was updated. 
+Note  The button displays its current state: selecting Available marks the doctor unavailable; selecting 
+Unavailable marks the doctor available. 
+Note  Availability saves immediately. Capacity changes use the separate Apply button. 
+Set patient limits 
+Control the number of patients accepted for the day. 
+1. Open Daily Capacity if the panel is collapsed. 
+2. Move the Appointment Limit slider to the required value from 0 to 10. 
+3. Enter Walk-In Capacity from 0 to 30. A blank field represents zero and the badge shows Not set. 
+4. Compare Appointments today and Walk-ins today with the selected limits. The progress bars show the 
+proportion already used. 
+5. Select Apply and wait for Saved . 
+6. If Lower Appointment Limit? appears because the new appointment limit is below the number already 
+booked, review the existing count. Select Continue to save the lower limit, or Cancel to restore the 
+saved settings. 
+Note  Lowering the appointment limit prevents additional bookings beyond that limit and does not cancel 
+existing appointments. 
+Note  SLOTS FULL appears when the existing count reaches the relevant positive limit. 
+Note  Daily Capacity is labeled Today's patient limits  -  resets at midnight. Recheck the settings each 
+service day. 
+Note  A zero walk-in value is shown as Not set; set the intended allowance before accepting walk-ins. 
+
+
+EKalusugan User Manual   |   29 
+Call patients and confirm arrival 
+ 
+Figure 24  Call patients and confirm arrival  Example records 
+1  Called patient controls  -  read the call number and wait time.   2  Start consultation  -  confirm that the patient is physically 
+present.   3  Call again  -  second call after the 30-second countdown.   4  Missed patients  -  return deadline for a skipped 
+ticket.   5  Patient returned  -  restore a missed ticket before its deadline. 
+Advance the dental queue after confirming the patient's presence. 
+1. Check that no patient is already called and waiting for a response. In Currently Serving, select Next to 
+call the next waiting dental ticket. 
+2. The ticket becomes Called  -  awaiting patient. Review the ticket and patient name in the current queue 
+card. 
+3. When the patient is physically present, select Start consultation in Called patient controls. The ticket 
+changes to serving and Consultation Notes opens. 
+4. If the ticket is already serving and the notes dialog is closed, select Consult to reopen it. 
+5. If the patient does not respond, wait until the displayed 30-second countdown ends. Select Call again for 
+the second call. 
+6. After the second call, wait for the next countdown to end, then select Skip and call next if the patient is 
+still absent. 
+7. A skipped ticket appears under Missed patients  |  10-minute return window. If the patient returns before 
+the shown deadline, select Patient returned. After the return window expires, that button is disabled. 
+Note  Each call is announced twice, according to the interface instruction. 
+Note  Next is disabled when there is no waiting ticket, while a call is already pending, or while an action is 
+processing. 
+Note  Presence must be confirmed only when the patient is physically at the clinic. 
+
+
+EKalusugan User Manual   |   30 
+Document and complete the consultation 
+ 
+Figure 25  Document and complete the consultation  Example records 
+1  Consultation Notes  -  verify the patient and queue number.   2  Consultation Notes  -  required clinical findings.   3  
+Diagnosis  -  enter the clinical assessment.   4  Prescription / Recommendations  -  treatment and follow-up.   5  Save 
+Consultation  -  save documentation and finish the serving visit.   6  Cancel  -  close without saving. 
+Record the clinical encounter against the correct dental queue visit. 
+1. Open Consultation Notes through Start consultation or Consult and verify the patient name and queue 
+number at the top. 
+2. Enter the required Consultation Notes, for example the chief complaint, history, and examination findings. 
+3. Enter Diagnosis when appropriate. 
+4. Enter Prescription / Recommendations when appropriate, including medication instructions or follow-up 
+guidance. 
+5. Review all entries and select Save Consultation. It remains disabled until the required notes contain text. 
+6. Wait while Saving... is shown. A successful save closes the dialog and moves a serving ticket to the 
+completed list. 
+7. If a visit was completed through Mark as Complete before notes were saved, find it in Completed List and 
+use Add notes. Add notes is shown only for completed tickets without a saved consultation. 
+Note  Mark as Complete is available only when a patient is serving. Prefer Save Consultation when clinical 
+documentation is ready. 
+Note  The system permits one saved consultation per queue visit. It rejects saving when the ticket is not 
+serving or done, when it has expired, or when a consultation already exists. 
+Note  If an error appears, leave the dialog open, review the message, and check the ticket state before 
+trying again. 
+Note  The current dialog retains its field state during the dashboard session; always review every field and 
+the patient heading when opening notes for another patient. 
+
+
+EKalusugan User Manual   |   31 
+Review appointment history 
+ 
+Figure 26  Review appointment history  Example records 
+1  Back  -  return to the Doctor dashboard.   2  Today  -  show appointments for the current day.   3  All  -  show the full loaded 
+appointment history.   4  Date  -  select a heading to sort; select again to reverse.   5  Services  -  review the appointment's 
+service details. 
+1. Select Appointment History in the top navigation. 
+2. Select Today for appointments on the current day, or All for the complete loaded appointment history. 
+3. On a desktop, select Date, Patient Name, or Services to sort by that column. Select the same heading 
+again to reverse the order; an arrow shows the direction. 
+4. Read the Date, Patient Name, and Services values. On a phone, the records are displayed as cards. 
+5. Select  Back to return to the Doctor dashboard. 
+Note  No appointments for today. and No appointments yet. are valid empty states. 
+Note  This view is for review; no appointment-edit or cancellation control is implemented here. 
+
+
+EKalusugan User Manual   |   32 
+Read dentist analytics 
+ 
+Figure 27  Read dentist analytics  Example records 
+1  Back to dashboard  -  return to the dental queue.   2  Today / This week / This month  -  choose the report period.   3  
+Report date  -  select an earlier date or period.   4  Daily barangay entries  -  open manual clinical counts. 
+1. Select Analytics to open Doctor Analytics. 
+2. Select Today, This week, or This month. For an earlier period, use Report date, Week containing, or 
+Report month. 
+3. Read the displayed date range, which uses Philippine time. Weekly periods run Monday-Sunday. 
+4. Review Unique patients, Completed, Priority, Appointments, and Walk-ins. Waiting and Serving are 
+additionally shown in the daily view. 
+5. Review Completed visits by age group. These counts use the patient's age at the time of the visit. 
+6. Scroll to Automatic completed visits to review the barangay, sex, and age-group breakdown. Review any 
+notice for missing demographics or barangays outside the report list. 
+7. If a data request fails, use the Retry button beside that error. Use Back to dashboard when finished. 
+Note  Unique patients and completed visits are different measures. A patient can have several completed 
+visits. 
+Note  Each completed visit is counted once, including a completed visit without saved consultation notes. 
+Note  Automatic completed visits and manual clinical counts remain separate; a completed ticket does not 
+by itself establish BOHC or another clinical outcome. 
+Note  Analytics and reports refresh approximately every 30 seconds. Future dates are unavailable in the 
+date selectors. 
+
+
+EKalusugan User Manual   |   33 
+Enter daily barangay clinical counts 
+ 
+Figure 28  Enter daily barangay clinical counts  Example records 
+1  Entry date  -  choose the clinical reporting day.   2  Barangay  -  choose the area for these clinical counts.   3  Clinical 
+measures  -  enter verified Male and Female counts.   4  Pregnant BOHC  -  record counts by the displayed age groups.   5  
+Save entries  -  save changes before changing the date. 
+Record verified clinical totals that are not automatically established by queue completion. 
+1. In Analytics, select Daily barangay entries. 
+2. Choose Entry date and wait for the saved values to load. Ready for entries indicates that no saved record 
+exists yet; Saved for this date indicates existing saved values. 
+3. Choose the Barangay. 
+4. Enter Male and Female counts for each applicable clinical measure. The form calculates the Total beside 
+each group. 
+
+
+EKalusugan User Manual   |   34 
+Save and check clinical counts 
+1. Enter applicable counts in Pregnant women who received BOHC for 10-14 years, 15-19 years, 20-24 
+years, and 25 and above years. 
+2. Select other barangays as needed and enter their counts for the same date. 
+3. Review the date, barangays and counts, then select Save entries. Wait for Saved for this date before 
+changing the date or report period. 
+4. If Earlier unassigned totals for this date appears, review those legacy values and assign them to the 
+correct barangays manually only when their source is known. 
+Clinical measures in the entry form 
+• Orally fit children 12-59 months after oral examination or rehabilitation 
+• Clients 5 years old and above examined 
+• New cases of DMFT, 5 years old and above 
+• Infants 0-11 months old who received BOHC 
+• Children 1-4 years old who received BOHC 
+• Children 5-9 years old who received BOHC 
+• Adolescents 10-14 years old who received BOHC 
+• Adults 15-19 years old who received BOHC 
+• Adults 20-59 years old who received BOHC 
+• Senior citizens 60 years old and above who received BOHC 
+Note  BOHC means Basic Oral Health Care. DMFT is shown as a clinical measure in the form; enter 
+verified clinical counts according to the facility's reporting definitions. 
+Note  Blank means no entry; enter 0 only for a confirmed zero. 
+Note  The count fields accept non-negative whole numbers up to nine digits. Totals are automatic. 
+Note  Unsaved changes disables the date, period and report export controls. Save before changing the 
+date. Back to dashboard asks whether to discard unsaved barangay entries. 
+Note  Saved daily entries are added together for weekly and monthly clinical reports. 
+
+EKalusugan User Manual   |   35 
+Print or download reports 
+ 
+Figure 29  Print or download reports  Example records 
+1  Manual clinical counts  -  saved daily clinical measures.   2  Page 1 / Page 2  -  switch the clinical measure table.   3  
+Clinical report table  -  barangay totals and clinical measures.   4  Print report  -  opens the browser print dialog when data is 
+ready.   5  Download Excel  -  saves the period report when data is ready. 
+1. Select the required period and date in Analytics. 
+2. Scroll to Daily dental service report, Weekly dental service report, or Monthly dental service report. 
+3. Review Automatic completed visits and the separate Manual clinical counts. 
+4. Use Page 1 to review dental measures 1-4 and pregnant BOHC. Use Page 2 to review BOHC age 
+groups 5-10. 
+5. Save any unsaved clinical entries and wait until report data finishes loading. 
+6. Select Print report to open the browser print dialog, or Download Excel to save the report workbook. 
+7. Review the downloaded file or print preview for the selected doctor, period and date range. 
+Note  Print report and Download Excel remain disabled while requests are loading, errors are unresolved, 
+entries are unsaved, or the selected period has neither completed visits nor manual entries. 
+Note  The Excel filename follows dental-report-[period]-[start-date].xlsx. 
+Note  The print version includes both clinical report pages. 
+
+
+EKalusugan User Manual   |   36 
+5 Administrator instructions 
+Oversee service activity, manage accounts, review patient history, and configure SMS notifications. 
+Navigate the administrator dashboard 
+ 
+Figure 30  Administrator dashboard 
+1  Dashboard  -  return to the administrator overview.   2  Overview cards  -  review recorded visits, doctors, appointments 
+and completed queues.   3  Queue Statistics  -  check today's waiting, serving, done and cancelled totals.   4  Monthly / 
+Weekly / Daily  -  change the patient-volume chart period. 
+1. Sign in using an active Administrator account. The Dashboard overview opens first. 
+2. Use the left MAIN MENU to switch between Dashboard, Queue Monitor, Statistics/Analytics, Doctors, 
+Patients History, Notifications, and Accounts. 
+3. On a narrow screen, select Open menu to display the navigation drawer. Select a page to close it, or 
+select Close menu, press Escape, or select the shaded area outside the drawer. 
+4. Use the account menu at the upper right and select Log Out when finished. 
+Review activity and volume 
+Check overall service activity and today's queue before opening a specialist page. 
+1. Select Dashboard. 
+2. Review Total Patient Visits, Total Doctors, Total Appointments, and Total Queues Completed. 
+3. Read Queue Statistics  |  Today: Waiting, Serving, Done, and Cancelled. Serving includes patients who 
+have been called. 
+4. Review Dental Queues by Age Group for the displayed age breakdown. 
+5. In Patient Volume, select Monthly for the last 12 months, Weekly for the last 8 weeks, or Daily for the last 
+7 days. 
+6. Review Doctors Profile and Recent Patient History for the available summary details. Open Doctors or 
+Patients History for the dedicated lists. 
+
+
+EKalusugan User Manual   |   37 
+Monitor and cancel queue tickets 
+ 
+Figure 31  Monitor and cancel queue tickets 
+1  Queue Monitor  -  open the live queue list.   2  Live queue  -  view ticket numbers, patient names, priority and status; the list 
+refreshes automatically.   3  Empty queue  -  this message appears when today has no tickets. 
+1. Select Queue Monitor. The list refreshes approximately every 15 seconds while this page is open. 
+2. Identify the ticket by queue number and patient name. Read its Regular or Priority badge and status 
+badge. 
+3. If a ticket is missed, review Missed call  |  Return before and the shown deadline. 
+4. When an active ticket needs to be cancelled, select its Cancel button. 
+5. In Reason for cancellation, choose one reason: Schedule conflict / no longer available; No longer needs 
+the service; Found care elsewhere; Transportation or access issue; Wait time too long; Booked by 
+mistake / duplicate queue; or Other. 
+6. Select Continue to submit, or Cancel to leave the ticket unchanged. 
+7. Check that the list refreshes to show the Cancelled state and the recorded Reason. 
+Note  Cancel is available for waiting, called, serving and missed tickets; the monitor does not offer it for 
+completed or already cancelled tickets. 
+Note  Continue stays disabled until a reason is selected. 
+Note  The Administrator's monitor does not expose the Doctor's consultation form or call-next controls. 
+Choose a cancellation reason 
+ 
+Figure 32  Administrator cancellation reason  Example records 
+1  Reason for cancellation  -  confirm that you opened the cancellation dialog for the intended ticket.   2  Reason  -  select the 
+reason that applies; a reason is required.   3  Cancel  -  close the dialog and leave the ticket unchanged.   4  Continue  -  
+cancel the selected ticket using the chosen reason. 
+Select one reason and then Continue to confirm. Select Cancel to keep the ticket. The reason is stored with 
+the cancelled visit. 
+
+
+EKalusugan User Manual   |   38 
+Review statistics and forecasts 
+ 
+Figure 33  Review statistics and forecasts 
+1  Statistics/Analytics  -  open oral health statistics and forecasting.   2  Year  -  choose recorded historical figures or the 2026 
+prediction.   3  Recipient chart  -  compare age groups and, for 2026, predictions with the 2025 actual figures. 
+Review annual BOHC data and the system's demonstration forecast. 
+1. Select Statistics/Analytics to open Statistics & Analytics. 
+2. Read Demonstration forecast and its data limitations before using the numbers for planning. The page 
+states that training includes synthetic historical values and that predictions and accuracy scores are 
+illustrative. 
+3. Review 2026 predicted recipients, 2025 actual recipients, Expected annual change, and Largest 
+predicted age group. 
+4. In BOHC recipients by age group, choose Year. Select 2026 prediction to compare the forecast with 2025 
+actual recipients, or select an available historical year. 
+5. Hover over or tap a chart point to inspect the full age group and count. Historical-year detail tables 
+identify records as Synthetic, Recorded, or Unavailable. 
+6. Review 2026 forecast breakdown for age-group counts, change, forecast share, and the 95% prediction 
+interval. 
+7. Review Model performance by age group and How to read these predictions for definitions and 
+methodology. 
+Note  Green represents 2025 actual counts in the forecast view; blue represents 2026 predictions; dashed 
+gray lines represent lower and upper prediction interval bounds. 
+Note  Change is prediction minus 2025 actual. A dash for Change (%) means the 2025 baseline is zero. 
+Note  Lower MAE, RMSE, and MAPE values indicate smaller historical prediction errors. MAE vs. baseline 
+compares the model to repeating the previous year's count. 
+Note  Prediction intervals are not guarantees or accuracy scores. Per-age-group intervals are not added 
+into a total interval. 
+Note  The current forecast covers 2026 only. Refresh the page to retry if Predictive analytics are 
+unavailable appears. 
+
+
+EKalusugan User Manual   |   39 
+Check doctor availability 
+ 
+Figure 34  Check doctor availability 
+1  Doctors  -  view registered doctors and their availability.   2  Doctor Availability  -  read each doctor's name and service.   3  
+Availability badges  -  identify available and on-leave doctors. 
+1. Select Doctors to open Doctor Availability. 
+2. Read each doctor's name, specialization when available, and availability badge. 
+3. Use Accounts > Staff when you need to create or edit a doctor account. Today's availability itself is 
+maintained in the Doctor dashboard. 
+Note  No doctors registered yet. indicates an empty doctor list. There is no edit or availability-toggle action 
+on this page. 
+
+
+EKalusugan User Manual   |   40 
+Review patient appointment history 
+ 
+Figure 35  Review patient appointment history 
+1  Patients History  -  open appointment and patient history records.   2  History table  -  review appointment date, patient, 
+doctor and status.   3  Recorded appointments  -  inspect each row and use the page controls below the table for more 
+records.   4  Previous / Next  -  move through the appointment history pages. 
+1. Select Patients History. 
+2. Review Total Records, Completed, and Open Cases. Open Cases combines pending and confirmed 
+appointments. 
+3. In Appointment History, read Date, Time, Patient, Doctor, Services, and Status for each appointment. 
+4. Use Previous and Next below the list to move through pages of 10 records. Check the Showing range 
+and Page number. 
+5. On a phone, read the patient cards instead of the desktop table. 
+Note  This page reviews appointment and service history; no clinical-note editor is provided. 
+Note  No appointments recorded yet. is the empty state. 
+
+
+EKalusugan User Manual   |   41 
+Configure and monitor SMS notifications 
+ 
+Figure 36  Configure and monitor SMS notifications 
+1  Notifications  -  manage queue SMS settings and review SMS activity.   2  Notify within the next  -  enter a whole-number 
+queue threshold from 1 to 100.   3  Save  -  apply the notification threshold.   4  Refresh  -  reload SMS delivery activity 
+immediately. 
+1. Select Notifications to open SMS notifications. 
+2. In Notify within the next, enter the desired whole number of patients from 1 to 100. 
+3. Select Save and wait for SMS threshold saved. Existing suppressed tickets stay suppressed. 
+4. Read Recent SMS activity. Each row shows Purpose, a masked Recipient, Status, Details, and Created 
+time in Philippine time. 
+5. Use Refresh to update the list immediately. Otherwise, the list refreshes approximately every 15 seconds. 
+6. If the status is unknown, follow the displayed instruction: Submission uncertain; check Semaphore before 
+replacing. Review the provider state before issuing another activation password. 
+Note  The threshold applies to dental and general queues. 
+Note  One alert is sent per eligible ticket. Patients who join when already inside the configured range 
+receive no queue SMS. 
+Note  Changing the threshold does not make previously suppressed tickets eligible. 
+Note  A submitted, queued, accepted or sent status should be read as the displayed job/provider state; it 
+does not by itself establish that the patient has read the message. 
+Note  No SMS jobs yet means no jobs are shown in the activity list; queue jobs appear when triggered. 
+
+
+EKalusugan User Manual   |   42 
+Manage staff doctor and admin accounts 
+ 
+Figure 37  Manage staff doctor and admin accounts 
+1  Accounts  -  open account management.   2  Staff / Patients  -  switch the account list.   3  Show inactive  -  include 
+deactivated staff accounts in the list.   4  Add Staff  -  open a form for a doctor, staff or administrator account.   5  Edit  -  
+update an existing staff member's account details.   6  Deactivate  -  open the confirmation that removes this account's 
+system access. 
+1. Select Accounts in the sidebar, then select Staff. The Staff Management list includes staff, doctor, and 
+administrator accounts. 
+2. Use Name, Email, Role, and Status in the list to identify the correct person before choosing an action. 
+3. Select Add Staff to open a new account form. Use Edit on an existing account to update it. 
+Edit and manage account status 
+1. Open Accounts > Staff and identify the account using Name, Email, Role, and Status. 
+2. Select Edit for an active account. In Edit Staff Account, update First Name, Last Name, Email, Phone, 
+and the applicable License Number or Position. 
+3. Select Save Changes. First and last name are required. Select Cancel or the close icon to leave without 
+saving. 
+4. To remove access, select Deactivate for the account. Review the named account in Deactivate Account, 
+then select Deactivate to confirm or Cancel to stop. 
+5. To restore access, enable Show inactive, locate the account, select Reactivate, and confirm Reactivate in 
+the dialog. 
+6. Confirm that the refreshed list displays the intended Active or Inactive state. 
+Note  Deactivation removes account access; reactivation restores it. 
+Note  Administrators cannot deactivate their own account. The system displays You cannot deactivate your 
+own account. 
+Note  The current edit modal does not change the account's role or password. 
+Note  Use Retry if the account list could not be loaded. 
+
+
+EKalusugan User Manual   |   43 
+Create a staff doctor or admin account 
+ 
+Figure 38  Create a staff doctor or admin account 
+1  Role  -  choose Doctor, Staff or Admin.   2  Identity and contact fields  -  enter the account holder's first name, last name, 
+email and phone.   3  Password  -  set the initial password for the staff account.   4  Role-specific field  -  enter the doctor's 
+license number; Staff uses Position.   5  Cancel  -  close the new-account form.   6  Create Account  -  validate and create the 
+staff account. 
+1. Select Accounts, then Staff. Staff Management includes doctor, staff and admin accounts. 
+2. Select Add Staff to open New Staff Account. 
+3. Choose Role: Doctor, Staff, or Admin. 
+4. Enter Phone, First Name, Last Name, Email, and Password. The form requires these entries. 
+5. For Doctor, also enter License Number. For Staff, enter Position. Changing Role clears the role-specific 
+license and position fields. 
+6. Review the account details and role, then select Create Account. Wait while Creating... appears. 
+7. Check that the form closes and the new account appears in the refreshed account list. Resolve any 
+validation error before submitting again. 
+Note  Use a valid Philippine mobile number. The system checks for duplicate phone numbers and duplicate 
+email addresses. 
+Note  The account role determines access. Select it carefully; the edit form does not include a role selector. 
+Note  A doctor license number and staff position are required for their respective roles. The backend can 
+also reject duplicate license values. 
+Note  Cancel closes the new-account form without creating an account. 
+
+
+EKalusugan User Manual   |   44 
+Find and manage patient accounts 
+ 
+Figure 39  Find and manage patient accounts 
+1  Patients  -  switch to patient account management.   2  Add Patient  -  open the assisted patient-account form.   3  Search  
+-  filter the patient list by name, contact or barangay.   4  Show inactive  -  include deactivated patient accounts.   5  
+Deactivate  -  open the account-access confirmation.   6  Previous / Next  -  move through the patient-account pages. 
+1. Select Accounts, then Patients to open Patient Accounts. 
+2. Find the patient using the search and filters. Check account state, activation or password SMS status, 
+and the matching identity. 
+3. Use Previous and Next to move through pages. Select Add Patient only after checking for an existing 
+account. 
+Manage activation and access 
+1. Open Accounts > Patients and find the correct patient. 
+2. Read Activation SMS below the patient name when first-time password setup is still required. 
+3. If an activation replacement is required, verify the patient's identity and registered mobile number, then 
+select Issue replacement password. 
+4. Read the confirmation. Issuing a replacement invalidates the old temporary password and setup session. 
+Confirm only after verifying the person and number. 
+5. Review the replacement-password SMS status notification and the refreshed Activation SMS value. 
+6. To suspend a patient's access, use Deactivate and confirm the named account. To restore it, enable 
+Show inactive, select Reactivate and confirm. 
+7. For a forgotten-password case requiring in-person recovery, use the patient's Account recovery link and 
+follow the identity checks on the patient profile. 
+Note  Issue replacement password is shown for active accounts that still require password setup. 
+Note  Activation replacement by SMS and in-person Account recovery are separate actions with different 
+delivery methods. 
+
+
+EKalusugan User Manual   |   45 
+Create a patient account 
+ 
+Figure 40  Create a patient account 
+1  First Name and Last Name  -  enter the patient's identity.   2  Phone  -  enter the patient's mobile number.   3  Date of Birth  
+-  choose the patient's birth date.   4  Address / Barangay  -  choose the patient's barangay.   5  Priority Status  -  choose 
+None, Senior Citizen, PWD or Pregnant, as applicable.   6  Create Account  -  submit the patient details; Cancel closes the 
+form. 
+1. Select Accounts, then Patients to open Patient Accounts. 
+2. Before creating a new account, search by name, contact, or barangay to check whether the patient 
+already exists. 
+3. Select Add Patient to open New Patient Account. 
+4. Enter First Name, Last Name, Phone, Date of Birth, Gender, and Address / Barangay. 
+5. Choose Priority Status when applicable: None, Senior Citizen, PWD (Person with Disability), or Pregnant. 
+6. Review the registered mobile number with the patient and select Create Account. 
+7. Review the temporary-password SMS status notification. The system generates the password and 
+requests an activation SMS; this form does not ask the administrator to type a patient password. 
+8. Find the account in the refreshed list. Use Previous and Next to move through pages of 10 results. 
+Note  All identity/contact fields in the new-patient form are required; Priority Status can remain None. 
+Note  The system rejects an invalid Philippine mobile number or one that is already in use. 
+Note  Patient SMS state refreshes approximately every 15 seconds. 
+Note  Show inactive includes accounts excluded from the default active-only list. 
+
+
+EKalusugan User Manual   |   46 
+Assist a verified patient with recovery 
+Restore access after checking the patient's identity in person. 
+1. In Accounts > Patients, select Account recovery under the verified patient's name. 
+2. Read Patient profile and compare the record with the patient. Check name, date of birth, gender, 
+registered mobile number, barangay, and city. 
+3. Select Start account recovery. 
+4. Ask the physically present patient to provide their details. Confirm all six checks only when they match: 
+patient present, first name, last name, registered login phone, address, and birthday. 
+5. Select Issue temporary password and review the confirmation that the old password and all existing 
+sessions will be invalidated. 
+6. Hand the displayed temporary password directly to the verified patient. The result also shows the 
+registered login number and expiry in Philippine time. 
+7. Explain that the temporary password expires in 30 minutes and works for one login. After signing in, the 
+patient must choose a new password within 15 minutes. 
+8. Select Hide temporary password when handover is complete. Closing hides it permanently. Use  Admin 
+dashboard to return. 
+Note  Recovery requires an active account, a complete identity record, a registered account phone, and a 
+record that has not been archived into another patient. 
+Note  If the patient details differ or identity is uncertain, stop the recovery flow. 
+Note  Issue temporary password is disabled until every verification checkbox is checked. 
+Note  The result disappears at expiry. Hand it directly to the verified patient and keep it private. 
+Note  The profile also shows Queue history. Duplicate-record merging appears only for eligible unlinked, 
+unarchived records; it moves every queue visit and archives the source record. Verify the destination 
+carefully before confirming any merge. 
+Follow the illustrated reception checklist in Chapter 3 for the verification screen. Activation SMS 
+replacement and in-person account recovery have different actions; select the workflow that matches the 
+patient's account state. 
+
+EKalusugan User Manual   |   47 
+6 Common problems and routine checks 
+Sign in and account access 
+What you see What to do 
+Please fill in all fields Enter the registered phone number and password. 
+Invalid phone or password Check the number and password. Use Forgot password? for reception recovery 
+instructions. 
+Temporary password fails or expires Ask the clinic to check activation status or complete in-person recovery. Keep the 
+same registered login phone. 
+Change Your Password appears Complete the required password setup before using a dashboard. 
+Session expired or login page 
+appears again 
+Sign in again. If access remains unavailable, ask the administrator to check that 
+your account is active. 
+Wrong dashboard for the account Open your profile and check the displayed role. Ask the administrator to check the 
+account assignment. 
+ 
+Queue and walk in problems 
+What you see What to do 
+Get queue ticket is disabled Read the nearby message. An active ticket, registration closure, or daily limit may 
+prevent another request. 
+An old number or delayed status Wait for the automatic refresh. Staff can use Refresh. Check the connection before 
+repeating an action. 
+Call again or Skip is disabled Allow the displayed 30-second wait to finish. The second call must occur before 
+skipping. 
+Missed call Report to staff before the displayed return deadline. Staff confirms the return. 
+Possible patient match found Review the existing records. Select the correct patient, or confirm a new record only 
+after checking identity details. 
+Mobile number is rejected Use the requested format. Walk-in entry expects ten digits starting with 9 after the 
+displayed +63 prefix. 
+No queue SMS arrives Follow the on-screen ticket instruction. Some tickets intentionally receive no SMS; 
+delivery can also be delayed. 
+ 
+
+EKalusugan User Manual   |   48 
+Reports notifications and records 
+What you see What to do 
+Report export is disabled Save clinical entries, resolve load errors, and wait for loading to finish. The selected 
+period needs completed visits or manual entries. 
+Unsaved changes Use Save entries before changing the date or period. Read any discard confirmation 
+carefully. 
+Dentist profile not found Ask the administrator to check the Doctor account and linked dentist profile. 
+SMS is queued or processing Wait for the status to update. Queued does not mean delivered or read. 
+SMS is unknown or failed Review the activity status. Follow the clinic's provider checks before issuing a 
+replacement password; do not repeatedly create accounts. 
+Recovery button is unavailable Check active account eligibility, complete identity details, and finish the required 
+verification boxes. 
+No appointments or no patients 
+waiting 
+This is a valid empty state when no matching records exist. Check the selected day, 
+period, and filters. 
+ 
+Daily routine by role 
+Patient 
+• Check availability and registration before requesting a ticket. 
+• Stay near the clinic when instructed and report promptly when called. 
+• Review your appointment history and log out. 
+Staff 
+• Check dentist availability and refresh the queue. 
+• Find the existing record before creating a walk-in record. 
+• Confirm patient contact, priority eligibility, services, and the registration SMS instruction. 
+• Record arrival, missed returns, completion, and cancellation accurately. 
+Dentist 
+• Set today's availability and patient limits. 
+• Check the correct patient before entering and saving consultation notes. 
+• Review and save verified clinical counts before printing or downloading reports. 
+Administrator 
+• Check accounts and activation states. 
+• Review queue activity and any SMS delivery problems. 
+• Review the selected period and data limitations before using statistics. 
+Get help from the clinic 
+For a problem that remains unresolved, note your role, the page name, the action you selected, and the 
+exact error message. Give this information to clinic reception or the system administrator. Do not include a 
+password in a support message. 

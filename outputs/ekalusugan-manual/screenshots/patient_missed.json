@@ -1,0 +1,21 @@
+{
+  "id": "patient_missed",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Return deadline report to staff before the displayed time"
+    },
+    {
+      "number": 2,
+      "text": "Missed call staff must confirm your return"
+    }
+  ],
+  "scenario": true,
+  "clip": {
+    "x": 2,
+    "y": 665,
+    "width": 916,
+    "height": 448
+  },
+  "cropped": true
+}

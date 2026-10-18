@@ -1,0 +1,25 @@
+{
+  "id": "patient_active",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Your Queue Number identify yourself to staff using this ticket"
+    },
+    {
+      "number": 2,
+      "text": "Waiting read this status and follow the instructions above"
+    },
+    {
+      "number": 3,
+      "text": "Cancel Queue opens the required cancellation reason"
+    }
+  ],
+  "scenario": true,
+  "clip": {
+    "x": 2,
+    "y": 665,
+    "width": 916,
+    "height": 408
+  },
+  "cropped": true
+}

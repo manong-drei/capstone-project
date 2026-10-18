@@ -1,0 +1,37 @@
+{
+  "id": "doctor_report_entry",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Entry date — choose the clinical reporting day"
+    },
+    {
+      "number": 2,
+      "text": "Barangay — choose the area for these clinical counts"
+    },
+    {
+      "number": 3,
+      "text": "Clinical measures — enter verified Male and Female counts"
+    },
+    {
+      "number": 4,
+      "text": "Pregnant BOHC — record counts by the displayed age groups"
+    },
+    {
+      "number": 5,
+      "text": "Save entries — save changes before changing the date"
+    }
+  ],
+  "scrollY": 932.1875,
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed.",
+  "crop": {
+    "left": 210,
+    "top": 24,
+    "width": 1620,
+    "height": 1710,
+    "unit": "source pixels",
+    "original_width": 2040,
+    "original_height": 1875
+  }
+}

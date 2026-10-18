@@ -1,0 +1,25 @@
+{
+  "id": "patient_cancel",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Reason select the reason that applies"
+    },
+    {
+      "number": 2,
+      "text": "Continue confirms cancellation with the selected reason"
+    },
+    {
+      "number": 3,
+      "text": "Cancel closes the dialog and keeps your ticket"
+    }
+  ],
+  "scenario": true,
+  "clip": {
+    "x": 206,
+    "y": 367,
+    "width": 508,
+    "height": 565
+  },
+  "cropped": true
+}

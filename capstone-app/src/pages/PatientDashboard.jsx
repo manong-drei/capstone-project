@@ -14,6 +14,7 @@ import * as patientService from "@/services/patientService";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
+import UserManual from "@/components/common/UserManual";
 import Icon from "@/components/common/AppIcons";
 import GetQueueModal from "@/components/dashboards/patient/GetQueueModal";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
@@ -101,6 +102,7 @@ export default function PatientDashboard() {
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
   const [queueStatus, setQueueStatus] = useState({
@@ -189,6 +191,8 @@ export default function PatientDashboard() {
     try {
       await submitQueue(payload);
       setShowQueueModal(false);
+      fetchMyQueue();
+      fetchQueueStatus();
     } catch (err) {
       alert(err.message || "Failed to get queue number.");
       await fetchQueueStatus();
@@ -236,6 +240,7 @@ export default function PatientDashboard() {
       }}
     >
       <style>{PATIENT_RESPONSIVE_CSS}</style>
+      <UserManual role="patient" isOpen={showManual} onClose={() => setShowManual(false)} />
 
       {/* ── Navbar ── */}
       <nav
@@ -326,6 +331,8 @@ export default function PatientDashboard() {
           ].map(({ icon, label }) => (
             <button
               key={label}
+              aria-label={label}
+              onClick={label === "Help" ? () => setShowManual(true) : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -393,7 +400,10 @@ export default function PatientDashboard() {
             ].map(({ icon, label }) => (
               <button
                 key={label}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => {
+                  if (label === "Help") setShowManual(true);
+                  setMobileMenuOpen(false);
+                }}
                 style={mobileMenuBtn}
               >
                 <Icon name={icon} size={16} color="white" /> {label}
@@ -411,6 +421,7 @@ export default function PatientDashboard() {
           hasActiveQueue={hasActiveQueue}
           registrationMessage={queueStatus.registration_message}
           queue={queue}
+          queueError={error}
           myQueueSubtitle={myQueueSubtitle}
           onGetQueue={() => setShowQueueModal(true)}
           onCancelQueue={handleCancelQueue}

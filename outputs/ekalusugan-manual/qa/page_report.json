@@ -1,0 +1,818 @@
+[
+  {
+    "page": 1,
+    "words": 159,
+    "chars": 1127,
+    "first_lines": [
+      "EKalusugan User Manual   |   1 ",
+      "EKalusugan User Manual  ",
+      "Patient Dentist Staff and Administrator instructions  ",
+      "Version 1.0   |   18 October 2026 "
+    ],
+    "last_lines": [
+      "interface. ",
+      "The patient portal currently handles same-day dental queue tickets and appointment history. Clinic ",
+      "administrators provide accounts; public self-registration and future-date patient booking are not available in ",
+      "this version. "
+    ]
+  },
+  {
+    "page": 2,
+    "words": 325,
+    "chars": 2117,
+    "first_lines": [
+      "EKalusugan User Manual   |   2 ",
+      "Using this manual ",
+      "Before you start, obtain the EKalusugan website address and an active account from the clinic. Use a ",
+      "browser with an internet connection. Keep your registered mobile phone available if the clinic sends your "
+    ],
+    "last_lines": [
+      "Use your own account. Verify the selected patient before opening or changing records. Keep passwords ",
+      "private, share a recovery password only with the verified patient, and use Log Out when finished. Keep the ",
+      "public queue monitor on the dedicated display and keep account and clinical screens at the staff ",
+      "workstation. "
+    ]
+  },
+  {
+    "page": 3,
+    "words": 373,
+    "chars": 5989,
+    "first_lines": [
+      "EKalusugan User Manual   |   3 ",
+      "Contents ",
+      "Using this manual ................................ ................................ ................................ ................................ ........ 2 ",
+      "Choose your role ................................ ................................ ................................ ................................ ...... 2 "
+    ],
+    "last_lines": [
+      "Call patients and confirm arrival ................................ ................................ ................................ ............. 29 ",
+      "Document and complete the consultation ................................ ................................ ...............................  30 ",
+      "Review appointment history ................................ ................................ ................................ ................... 31 ",
+      "Read dentist analytics ................................ ................................ ................................ ............................  32 "
+    ]
+  },
+  {
+    "page": 4,
+    "words": 214,
+    "chars": 3322,
+    "first_lines": [
+      "EKalusugan User Manual   |   4 ",
+      "Enter daily barangay clinical counts................................ ................................ ................................ ........ 33 ",
+      "Save and check clinical counts ................................ ................................ ................................ ............... 34 ",
+      "Print or download reports ................................ ................................ ................................ ....................... 35 "
+    ],
+    "last_lines": [
+      "Reports notifications and records ................................ ................................ ................................ ........... 48 ",
+      "Daily routine by role ................................ ................................ ................................ ...............................  48 ",
+      "Get help from the clinic ................................ ................................ ................................ ........................... 48 ",
+      " "
+    ]
+  },
+  {
+    "page": 5,
+    "words": 118,
+    "chars": 688,
+    "first_lines": [
+      "EKalusugan User Manual   |   5 ",
+      "1 Access and sign in ",
+      "Open the homepage ",
+      " "
+    ],
+    "last_lines": [
+      "to the invitation to sign in. ",
+      "3. The homepage preview is an introduction to the portal. Sign in with your clinic-issued account to reach ",
+      "your role dashboard. ",
+      "Note  There is no active public registration page. Contact clinic reception if you do not yet have an account. "
+    ]
+  },
+  {
+    "page": 6,
+    "words": 187,
+    "chars": 1144,
+    "first_lines": [
+      "EKalusugan User Manual   |   6 ",
+      "Sign in to your account ",
+      " ",
+      "Figure 3  Sign in to your account "
+    ],
+    "last_lines": [
+      "choose a role on the login form. ",
+      "5. If the system requires a new password, complete Change Your Password before continuing. ",
+      "Note  If Please fill in all fields appears, complete both fields. If Invalid phone or password appears, check ",
+      "the registered phone and password. Ask reception for recovery assistance if access still fails. "
+    ]
+  },
+  {
+    "page": 7,
+    "words": 146,
+    "chars": 965,
+    "first_lines": [
+      "EKalusugan User Manual   |   7 ",
+      "Recover access through reception ",
+      " ",
+      "Figure 4  Recover access through reception "
+    ],
+    "last_lines": [
+      "Note  Forgot password? displays instructions for in-person recovery. It does not send a reset link or change ",
+      "your password. ",
+      "Note  The first activation password sent by SMS is a different workflow. Follow the activation message and ",
+      "complete password setup promptly; ask the clinic if it expires or cannot be used. "
+    ]
+  },
+  {
+    "page": 8,
+    "words": 211,
+    "chars": 1306,
+    "first_lines": [
+      "EKalusugan User Manual   |   8 ",
+      "Set or change your password ",
+      " ",
+      "Figure 5  Set or change your password "
+    ],
+    "last_lines": [
+      "Note  A temporary-password setup session is time limited. If it expires, return to reception or request the ",
+      "appropriate activation assistance. ",
+      "Note  You can open the normal password-change page from the website address ending in /change-",
+      "password while signed in. "
+    ]
+  },
+  {
+    "page": 9,
+    "words": 153,
+    "chars": 858,
+    "first_lines": [
+      "EKalusugan User Manual   |   9 ",
+      "Read terms and end your session ",
+      " ",
+      "Figure 6  Read terms and end your session "
+    ],
+    "last_lines": [
+      "4. When finished with a dashboard, open your name or profile chip at the upper right and select Log Out. ",
+      "On a phone, open the menu first if the profile control is hidden. ",
+      "Note  Closing the browser tab ends that tab session. Sign in again if you return to the login page or see an ",
+      "expired-session message. "
+    ]
+  },
+  {
+    "page": 10,
+    "words": 322,
+    "chars": 2077,
+    "first_lines": [
+      "EKalusugan User Manual   |   10 ",
+      "2 Patient instructions ",
+      "Request a same-day dental queue ticket, follow the live queue, and review your own appointment history. ",
+      "Understand the patient dashboard "
+    ],
+    "last_lines": [
+      "Note  An existing waiting, called, serving, or missed ticket counts as an active queue. You cannot request ",
+      "another active ticket. ",
+      "Note  Help, Notification, and CHO services are visible on the current home screen. There is no additional ",
+      "help, notification list, or services action to complete from those controls in this version. "
+    ]
+  },
+  {
+    "page": 11,
+    "words": 348,
+    "chars": 2170,
+    "first_lines": [
+      "EKalusugan User Manual   |   11 ",
+      "Request a dental queue ticket ",
+      " ",
+      "Figure 8  Request a dental queue ticket "
+    ],
+    "last_lines": [
+      "slots are full. ",
+      "Note  After today's dental queue has started, new same-day appointment registration closes. The displayed ",
+      "message directs patients to approach staff for walk-in registration. A patient who already has an active ",
+      "appointment for today may still be eligible to request a ticket. "
+    ]
+  },
+  {
+    "page": 12,
+    "words": 198,
+    "chars": 1301,
+    "first_lines": [
+      "EKalusugan User Manual   |   12 ",
+      "Dental service choices ",
+      "Choose one or two services for one dental visit. Both the patient ticket form and staff walk-in form use these ",
+      "choices. "
+    ],
+    "last_lines": [
+      "expected, also follow the queue display. ",
+      "3. When called, report to staff immediately so they can confirm your presence. ",
+      "Note  Queue order may change. Initial position is not a fixed place, and the displayed estimated wait is ",
+      "indicative. "
+    ]
+  },
+  {
+    "page": 13,
+    "words": 378,
+    "chars": 2334,
+    "first_lines": [
+      "EKalusugan User Manual   |   13 ",
+      "Ticket statuses and the next action ",
+      "Your ticket status tells you what to do next. Keep your queue number available when speaking with staff. ",
+      "Ticket display What it means What you should do "
+    ],
+    "last_lines": [
+      "Note  A missed ticket has a 10-minute return window. Staff must confirm the return before the displayed ",
+      "deadline; merely refreshing your patient portal does not restore the ticket. ",
+      "Note  Your home screen shows the active ticket or the latest no-show ticket. A finished or cancelled ticket ",
+      "may no longer be displayed as your current ticket. "
+    ]
+  },
+  {
+    "page": 14,
+    "words": 227,
+    "chars": 1399,
+    "first_lines": [
+      "EKalusugan User Manual   |   14 ",
+      "Cancel a waiting or missed ticket ",
+      " ",
+      "Figure 10  Cancel a waiting or missed ticket  Example records "
+    ],
+    "last_lines": [
+      "Note  If your ticket has already been called or is receiving care, speak to staff because the patient ",
+      "cancellation button is no longer available. ",
+      "Note  Cancelling does not undo the fact that a queue registration was made today. Any later ticket request ",
+      "remains subject to the daily limit and registration rules. "
+    ]
+  },
+  {
+    "page": 15,
+    "words": 135,
+    "chars": 814,
+    "first_lines": [
+      "EKalusugan User Manual   |   15 ",
+      "Return after a missed call ",
+      " ",
+      "Figure 11  Return after a missed call  Example records "
+    ],
+    "last_lines": [
+      "4. If the deadline expires or a returning patient misses the next call, the ticket ends as No-show. A new ",
+      "request depends on current availability and daily limits. ",
+      "Note  Refreshing the patient screen does not confirm a return. Do not wait for an SMS to report to ",
+      "reception. "
+    ]
+  },
+  {
+    "page": 16,
+    "words": 164,
+    "chars": 1009,
+    "first_lines": [
+      "EKalusugan User Manual   |   16 ",
+      "Review history and find the clinic ",
+      " ",
+      "Figure 12  Review history and find the clinic  Example records "
+    ],
+    "last_lines": [
+      "5. Select Open in Google Maps to open a separate map tab. Use Close map (X), Escape, or click outside ",
+      "the map window to close the portal's map. ",
+      "Note  Appointment History is a viewing page. It has no date picker, booking button, or editing action in the ",
+      "current patient portal. "
+    ]
+  },
+  {
+    "page": 17,
+    "words": 300,
+    "chars": 1899,
+    "first_lines": [
+      "EKalusugan User Manual   |   17 ",
+      "3 Staff instructions ",
+      "Register dental walk-ins, keep the serving queue moving, confirm patient arrival, and help patients recover ",
+      "account access after in-person verification. "
+    ],
+    "last_lines": [
+      "Note  If a red warning says the displayed queue information may be outdated, refresh again before relying ",
+      "on it. ",
+      "Note  The Up next list shows the first five waiting tickets and a count of additional waiting patients. Its ",
+      "displayed serving order should guide operations; queue numbers alone do not define the order. "
+    ]
+  },
+  {
+    "page": 18,
+    "words": 314,
+    "chars": 1979,
+    "first_lines": [
+      "EKalusugan User Manual   |   18 ",
+      "Find an existing patient ",
+      " ",
+      "Figure 14  Find an existing patient "
+    ],
+    "last_lines": [
+      "Note  Changes made to a selected patient's name, birthday, gender, mobile number, barangay, or priority ",
+      "category are saved with walk-in registration. Check these fields carefully; they are not just temporary ticket ",
+      "labels. ",
+      "Note  The selected patient's queue must not already be active today. "
+    ]
+  },
+  {
+    "page": 19,
+    "words": 382,
+    "chars": 2345,
+    "first_lines": [
+      "EKalusugan User Manual   |   19 ",
+      "Register a dental walk in ",
+      " ",
+      "Figure 15  Register a dental walk in "
+    ],
+    "last_lines": [
+      "nearby. Otherwise explain that one SMS will be sent as the turn approaches and that serving order may ",
+      "change. ",
+      "Note  Registration creates or reuses a patient record and assigns a queue ticket. A new walk-in does not ",
+      "automatically receive a portal login account. "
+    ]
+  },
+  {
+    "page": 20,
+    "words": 309,
+    "chars": 1869,
+    "first_lines": [
+      "EKalusugan User Manual   |   20 ",
+      "Call and serve dental patients ",
+      " ",
+      "Figure 16  Call and serve dental patients  Example records "
+    ],
+    "last_lines": [
+      "Note  Patient names in the current queue and Up next list are links to Patient profile when a patient record ",
+      "is attached. ",
+      "Note  The queue list may change when another authorized user acts. If an error appears, read it and ",
+      "refresh; confirm the current state before taking another action. "
+    ]
+  },
+  {
+    "page": 21,
+    "words": 407,
+    "chars": 2425,
+    "first_lines": [
+      "EKalusugan User Manual   |   21 ",
+      "Handle missed calls and returning patients ",
+      "The interface enforces two calls and waiting intervals before a missing patient is skipped. A first missed turn ",
+      "gives the patient a short return period. "
+    ],
+    "last_lines": [
+      "Note  The staff dashboard's visible Cancel action appears on waiting rows in Up next. It is not shown as a ",
+      "separate button on the current-serving or missed-patient cards. ",
+      "Note  Cancellation reasons are the same choices listed in the patient cancellation section. They are ",
+      "recorded with the visit and may appear in queue history. "
+    ]
+  },
+  {
+    "page": 22,
+    "words": 123,
+    "chars": 774,
+    "first_lines": [
+      "EKalusugan User Manual   |   22 ",
+      "Use the dental queue monitor ",
+      " ",
+      "Figure 17  Use the dental queue monitor "
+    ],
+    "last_lines": [
+      "audio through the browser. ",
+      "4. Keep the staff dashboard available in its own tab for calling, confirming arrival, and handling returns. ",
+      "Note  The monitor requires a Staff or Administrator session. If the tab returns to sign in, sign in with an ",
+      "authorized account and reopen it. "
+    ]
+  },
+  {
+    "page": 23,
+    "words": 205,
+    "chars": 1334,
+    "first_lines": [
+      "EKalusugan User Manual   |   23 ",
+      "Review the patient profile ",
+      " ",
+      "Figure 18  Review the patient profile  Example records "
+    ],
+    "last_lines": [
+      "5. Use  Staff dashboard or  Admin dashboard to return to your dashboard. ",
+      "Note  No queue visits yet. means the record has no queue history to display. ",
+      "Note  The patient profile itself is a viewing and account-recovery screen. The ordinary patient details do not ",
+      "have an Edit button on this page. "
+    ]
+  },
+  {
+    "page": 24,
+    "words": 283,
+    "chars": 1805,
+    "first_lines": [
+      "EKalusugan User Manual   |   24 ",
+      "Merge a duplicate walk in record ",
+      " ",
+      "Figure 19  Merge a duplicate walk in record  Example records "
+    ],
+    "last_lines": [
+      "Note  If both records have separate active queues today, resolve the active queues first. The merge is ",
+      "refused while more than one active queue exists across the two records. ",
+      "Note  This action changes which patient owns the visits and archives the source record. Check the ",
+      "destination carefully before confirming. "
+    ]
+  },
+  {
+    "page": 25,
+    "words": 120,
+    "chars": 763,
+    "first_lines": [
+      "EKalusugan User Manual   |   25 ",
+      "Find a patient for account recovery ",
+      " ",
+      "Figure 20  Find a patient for account recovery "
+    ],
+    "last_lines": [
+      "3. Choose the matching result to open Patient profile. If no record matches, the search displays No ",
+      "matching patient records. ",
+      "Note  Account recovery is for a patient who is physically present. Search for the correct record and open ",
+      "the profile before starting the verification checklist. "
+    ]
+  },
+  {
+    "page": 26,
+    "words": 403,
+    "chars": 2625,
+    "first_lines": [
+      "EKalusugan User Manual   |   26 ",
+      "Verify identity and issue recovery access ",
+      " ",
+      "Figure 21  Verify identity and issue recovery access  Example records "
+    ],
+    "last_lines": [
+      "Note  If another authorized person has changed the account, refresh the patient profile and perform all ",
+      "identity checks again. ",
+      "Note  The system limits recovery requests. If the page says Too many recovery requests. Please try again ",
+      "in 15 minutes., wait for that period before another request. "
+    ]
+  },
+  {
+    "page": 27,
+    "words": 223,
+    "chars": 1453,
+    "first_lines": [
+      "EKalusugan User Manual   |   27 ",
+      "4 Dentist instructions ",
+      "Manage today's dental service, document consultations, and prepare clinical reports from the Doctor ",
+      "account. "
+    ],
+    "last_lines": [
+      "5. Use Analytics for activity summaries, clinical entries, and reports. Use Appointment History for the ",
+      "signed-in doctor's appointment list. ",
+      "6. Open the account menu at the upper right to view the signed-in identity and use Log Out when finished. ",
+      "On a narrow screen, use Toggle menu to reveal navigation. "
+    ]
+  },
+  {
+    "page": 28,
+    "words": 333,
+    "chars": 2135,
+    "first_lines": [
+      "EKalusugan User Manual   |   28 ",
+      "Set availability and daily capacity ",
+      " ",
+      "Figure 23  Set availability and daily capacity  Example records "
+    ],
+    "last_lines": [
+      "Note  SLOTS FULL appears when the existing count reaches the relevant positive limit. ",
+      "Note  Daily Capacity is labeled Today's patient limits  -  resets at midnight. Recheck the settings each ",
+      "service day. ",
+      "Note  A zero walk-in value is shown as Not set; set the intended allowance before accepting walk-ins. "
+    ]
+  },
+  {
+    "page": 29,
+    "words": 291,
+    "chars": 1818,
+    "first_lines": [
+      "EKalusugan User Manual   |   29 ",
+      "Call patients and confirm arrival ",
+      " ",
+      "Figure 24  Call patients and confirm arrival  Example records "
+    ],
+    "last_lines": [
+      "Note  Each call is announced twice, according to the interface instruction. ",
+      "Note  Next is disabled when there is no waiting ticket, while a call is already pending, or while an action is ",
+      "processing. ",
+      "Note  Presence must be confirmed only when the patient is physically at the clinic. "
+    ]
+  },
+  {
+    "page": 30,
+    "words": 301,
+    "chars": 1999,
+    "first_lines": [
+      "EKalusugan User Manual   |   30 ",
+      "Document and complete the consultation ",
+      " ",
+      "Figure 25  Document and complete the consultation  Example records "
+    ],
+    "last_lines": [
+      "Note  If an error appears, leave the dialog open, review the message, and check the ticket state before ",
+      "trying again. ",
+      "Note  The current dialog retains its field state during the dashboard session; always review every field and ",
+      "the patient heading when opening notes for another patient. "
+    ]
+  },
+  {
+    "page": 31,
+    "words": 169,
+    "chars": 1058,
+    "first_lines": [
+      "EKalusugan User Manual   |   31 ",
+      "Review appointment history ",
+      " ",
+      "Figure 26  Review appointment history  Example records "
+    ],
+    "last_lines": [
+      "4. Read the Date, Patient Name, and Services values. On a phone, the records are displayed as cards. ",
+      "5. Select  Back to return to the Doctor dashboard. ",
+      "Note  No appointments for today. and No appointments yet. are valid empty states. ",
+      "Note  This view is for review; no appointment-edit or cancellation control is implemented here. "
+    ]
+  },
+  {
+    "page": 32,
+    "words": 252,
+    "chars": 1641,
+    "first_lines": [
+      "EKalusugan User Manual   |   32 ",
+      "Read dentist analytics ",
+      " ",
+      "Figure 27  Read dentist analytics  Example records "
+    ],
+    "last_lines": [
+      "Note  Automatic completed visits and manual clinical counts remain separate; a completed ticket does not ",
+      "by itself establish BOHC or another clinical outcome. ",
+      "Note  Analytics and reports refresh approximately every 30 seconds. Future dates are unavailable in the ",
+      "date selectors. "
+    ]
+  },
+  {
+    "page": 33,
+    "words": 141,
+    "chars": 913,
+    "first_lines": [
+      "EKalusugan User Manual   |   33 ",
+      "Enter daily barangay clinical counts ",
+      " ",
+      "Figure 28  Enter daily barangay clinical counts  Example records "
+    ],
+    "last_lines": [
+      "exists yet; Saved for this date indicates existing saved values. ",
+      "3. Choose the Barangay. ",
+      "4. Enter Male and Female counts for each applicable clinical measure. The form calculates the Total beside ",
+      "each group. "
+    ]
+  },
+  {
+    "page": 34,
+    "words": 284,
+    "chars": 1715,
+    "first_lines": [
+      "EKalusugan User Manual   |   34 ",
+      "Save and check clinical counts ",
+      "1. Enter applicable counts in Pregnant women who received BOHC for 10-14 years, 15-19 years, 20-24 ",
+      "years, and 25 and above years. "
+    ],
+    "last_lines": [
+      "Note  The count fields accept non-negative whole numbers up to nine digits. Totals are automatic. ",
+      "Note  Unsaved changes disables the date, period and report export controls. Save before changing the ",
+      "date. Back to dashboard asks whether to discard unsaved barangay entries. ",
+      "Note  Saved daily entries are added together for weekly and monthly clinical reports. "
+    ]
+  },
+  {
+    "page": 35,
+    "words": 221,
+    "chars": 1422,
+    "first_lines": [
+      "EKalusugan User Manual   |   35 ",
+      "Print or download reports ",
+      " ",
+      "Figure 29  Print or download reports  Example records "
+    ],
+    "last_lines": [
+      "Note  Print report and Download Excel remain disabled while requests are loading, errors are unresolved, ",
+      "entries are unsaved, or the selected period has neither completed visits nor manual entries. ",
+      "Note  The Excel filename follows dental-report-[period]-[start-date].xlsx. ",
+      "Note  The print version includes both clinical report pages. "
+    ]
+  },
+  {
+    "page": 36,
+    "words": 260,
+    "chars": 1745,
+    "first_lines": [
+      "EKalusugan User Manual   |   36 ",
+      "5 Administrator instructions ",
+      "Oversee service activity, manage accounts, review patient history, and configure SMS notifications. ",
+      "Navigate the administrator dashboard "
+    ],
+    "last_lines": [
+      "5. In Patient Volume, select Monthly for the last 12 months, Weekly for the last 8 weeks, or Daily for the last ",
+      "7 days. ",
+      "6. Review Doctors Profile and Recent Patient History for the available summary details. Open Doctors or ",
+      "Patients History for the dedicated lists. "
+    ]
+  },
+  {
+    "page": 37,
+    "words": 312,
+    "chars": 1975,
+    "first_lines": [
+      "EKalusugan User Manual   |   37 ",
+      "Monitor and cancel queue tickets ",
+      " ",
+      "Figure 31  Monitor and cancel queue tickets "
+    ],
+    "last_lines": [
+      "reason that applies; a reason is required.   3  Cancel  -  close the dialog and leave the ticket unchanged.   4  Continue  -  ",
+      "cancel the selected ticket using the chosen reason. ",
+      "Select one reason and then Continue to confirm. Select Cancel to keep the ticket. The reason is stored with ",
+      "the cancelled visit. "
+    ]
+  },
+  {
+    "page": 38,
+    "words": 302,
+    "chars": 2081,
+    "first_lines": [
+      "EKalusugan User Manual   |   38 ",
+      "Review statistics and forecasts ",
+      " ",
+      "Figure 33  Review statistics and forecasts "
+    ],
+    "last_lines": [
+      "Note  Prediction intervals are not guarantees or accuracy scores. Per-age-group intervals are not added ",
+      "into a total interval. ",
+      "Note  The current forecast covers 2026 only. Refresh the page to retry if Predictive analytics are ",
+      "unavailable appears. "
+    ]
+  },
+  {
+    "page": 39,
+    "words": 103,
+    "chars": 704,
+    "first_lines": [
+      "EKalusugan User Manual   |   39 ",
+      "Check doctor availability ",
+      " ",
+      "Figure 34  Check doctor availability "
+    ],
+    "last_lines": [
+      "3. Use Accounts > Staff when you need to create or edit a doctor account. Today's availability itself is ",
+      "maintained in the Doctor dashboard. ",
+      "Note  No doctors registered yet. indicates an empty doctor list. There is no edit or availability-toggle action ",
+      "on this page. "
+    ]
+  },
+  {
+    "page": 40,
+    "words": 156,
+    "chars": 1029,
+    "first_lines": [
+      "EKalusugan User Manual   |   40 ",
+      "Review patient appointment history ",
+      " ",
+      "Figure 35  Review patient appointment history "
+    ],
+    "last_lines": [
+      "and Page number. ",
+      "5. On a phone, read the patient cards instead of the desktop table. ",
+      "Note  This page reviews appointment and service history; no clinical-note editor is provided. ",
+      "Note  No appointments recorded yet. is the empty state. "
+    ]
+  },
+  {
+    "page": 41,
+    "words": 246,
+    "chars": 1610,
+    "first_lines": [
+      "EKalusugan User Manual   |   41 ",
+      "Configure and monitor SMS notifications ",
+      " ",
+      "Figure 36  Configure and monitor SMS notifications "
+    ],
+    "last_lines": [
+      "Note  Changing the threshold does not make previously suppressed tickets eligible. ",
+      "Note  A submitted, queued, accepted or sent status should be read as the displayed job/provider state; it ",
+      "does not by itself establish that the patient has read the message. ",
+      "Note  No SMS jobs yet means no jobs are shown in the activity list; queue jobs appear when triggered. "
+    ]
+  },
+  {
+    "page": 42,
+    "words": 307,
+    "chars": 1940,
+    "first_lines": [
+      "EKalusugan User Manual   |   42 ",
+      "Manage staff doctor and admin accounts ",
+      " ",
+      "Figure 37  Manage staff doctor and admin accounts "
+    ],
+    "last_lines": [
+      "Note  Administrators cannot deactivate their own account. The system displays You cannot deactivate your ",
+      "own account. ",
+      "Note  The current edit modal does not change the account's role or password. ",
+      "Note  Use Retry if the account list could not be loaded. "
+    ]
+  },
+  {
+    "page": 43,
+    "words": 256,
+    "chars": 1649,
+    "first_lines": [
+      "EKalusugan User Manual   |   43 ",
+      "Create a staff doctor or admin account ",
+      " ",
+      "Figure 38  Create a staff doctor or admin account "
+    ],
+    "last_lines": [
+      "Note  The account role determines access. Select it carefully; the edit form does not include a role selector. ",
+      "Note  A doctor license number and staff position are required for their respective roles. The backend can ",
+      "also reject duplicate license values. ",
+      "Note  Cancel closes the new-account form without creating an account. "
+    ]
+  },
+  {
+    "page": 44,
+    "words": 281,
+    "chars": 1920,
+    "first_lines": [
+      "EKalusugan User Manual   |   44 ",
+      "Find and manage patient accounts ",
+      " ",
+      "Figure 39  Find and manage patient accounts "
+    ],
+    "last_lines": [
+      "follow the identity checks on the patient profile. ",
+      "Note  Issue replacement password is shown for active accounts that still require password setup. ",
+      "Note  Activation replacement by SMS and in-person Account recovery are separate actions with different ",
+      "delivery methods. "
+    ]
+  },
+  {
+    "page": 45,
+    "words": 257,
+    "chars": 1649,
+    "first_lines": [
+      "EKalusugan User Manual   |   45 ",
+      "Create a patient account ",
+      " ",
+      "Figure 40  Create a patient account "
+    ],
+    "last_lines": [
+      "Note  All identity/contact fields in the new-patient form are required; Priority Status can remain None. ",
+      "Note  The system rejects an invalid Philippine mobile number or one that is already in use. ",
+      "Note  Patient SMS state refreshes approximately every 15 seconds. ",
+      "Note  Show inactive includes accounts excluded from the default active-only list. "
+    ]
+  },
+  {
+    "page": 46,
+    "words": 314,
+    "chars": 2110,
+    "first_lines": [
+      "EKalusugan User Manual   |   46 ",
+      "Assist a verified patient with recovery ",
+      "Restore access after checking the patient's identity in person. ",
+      "1. In Accounts > Patients, select Account recovery under the verified patient's name. "
+    ],
+    "last_lines": [
+      "carefully before confirming any merge. ",
+      "Follow the illustrated reception checklist in Chapter 3 for the verification screen. Activation SMS ",
+      "replacement and in-person account recovery have different actions; select the workflow that matches the ",
+      "patient's account state. "
+    ]
+  },
+  {
+    "page": 47,
+    "words": 281,
+    "chars": 1823,
+    "first_lines": [
+      "EKalusugan User Manual   |   47 ",
+      "6 Common problems and routine checks ",
+      "Sign in and account access ",
+      "What you see What to do "
+    ],
+    "last_lines": [
+      "displayed +63 prefix. ",
+      "No queue SMS arrives Follow the on-screen ticket instruction. Some tickets intentionally receive no SMS; ",
+      "delivery can also be delayed. ",
+      " "
+    ]
+  },
+  {
+    "page": 48,
+    "words": 332,
+    "chars": 2221,
+    "first_lines": [
+      "EKalusugan User Manual   |   48 ",
+      "Reports notifications and records ",
+      "What you see What to do ",
+      "Report export is disabled Save clinical entries, resolve load errors, and wait for loading to finish. The selected "
+    ],
+    "last_lines": [
+      "Get help from the clinic ",
+      "For a problem that remains unresolved, note your role, the page name, the action you selected, and the ",
+      "exact error message. Give this information to clinic reception or the system administrator. Do not include a ",
+      "password in a support message. "
+    ]
+  }
+]

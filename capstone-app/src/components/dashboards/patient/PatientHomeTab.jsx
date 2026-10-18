@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import QueueStatus from "./QueueStatus";
 import { Footer } from "@/pages/LandingPage";
+import { QUEUE_STATUS } from "@/constants/queue";
 
 const ORANGE = "#f97316";
 const NAVY = "#2d3a8c";
@@ -9,18 +10,38 @@ const BLUE = "#1e4db7";
 const CHO_MAP_EMBED_SRC =
   "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2564.558871295493!2d122.83512719999999!3d10.538003599034457!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33aec71e206eb71d%3A0xfbcc4df1333ed49a!2sCity%20Health%20Office%20of%20Bago!5e0!3m2!1sen!2sph!4v1791246126385!5m2!1sen!2sph";
 
+function getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError) {
+  if (queueError) return { value: "Unavailable", detail: "Queue updates failed. Retrying automatically." };
+  if (!hasActiveQueue) return { value: "—", detail: "Join the queue to see your estimate" };
+  if (queue.status === QUEUE_STATUS.CALLED) return { value: "Your turn", detail: "Please report to staff now" };
+  if (queue.status === QUEUE_STATUS.SERVING) return { value: "In progress", detail: "You are receiving care" };
+  if (queue.status === QUEUE_STATUS.MISSED) return { value: "On hold", detail: "Report to staff to rejoin the queue" };
+  if (doctorAvailability === 0) return { value: "Paused", detail: "The dentist is unavailable. Please check with staff." };
+  if (doctorAvailability === null) return { value: "Checking…", detail: "Checking doctor availability" };
+  const estimate = queue.wait_estimate;
+  if (!estimate || !Number.isFinite(estimate.minutes)) return { value: "Updating…", detail: "Waiting for the latest queue estimate" };
+  if (estimate.minutes === 0) return { value: "You’re next", detail: "No patients ahead. Please stay nearby." };
+  const basis = estimate.sample_count > 0 ? "Based on today’s completed visits." : "Using 15 min per patient until visits are completed.";
+  return {
+    value: `~${estimate.minutes} min`,
+    detail: `${estimate.patients_ahead} patient${estimate.patients_ahead === 1 ? "" : "s"} ahead. ${basis} Times may change.`,
+  };
+}
+
 export default function PatientHomeTab({
   queueStatus,
   doctorAvailability,
   hasActiveQueue,
   registrationMessage,
   queue,
+  queueError,
   myQueueSubtitle,
   onGetQueue,
   onCancelQueue,
   onGoAppointments,
 }) {
   const [showMap, setShowMap] = useState(false);
+  const estimatedWait = getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError);
 
   const doctorAvailable = doctorAvailability !== 0;
   const availabilityLabel =
@@ -158,8 +179,8 @@ export default function PatientHomeTab({
             />
             <InfoCard
               title="Estimated wait"
-              value="~15 min"
-              detail="Based on the current queue"
+              value={estimatedWait.value}
+              detail={estimatedWait.detail}
               accent={BLUE}
             />
             <InfoCard

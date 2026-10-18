@@ -1,0 +1,29 @@
+{
+  "id": "admin_history",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Patients History — open appointment and patient history records"
+    },
+    {
+      "number": 2,
+      "text": "History table — review appointment date, patient, doctor and status"
+    },
+    {
+      "number": 3,
+      "text": "Recorded appointments — inspect each row and use the page controls below the table for more records"
+    },
+    {
+      "number": 4,
+      "text": "Previous / Next — move through the appointment history pages"
+    }
+  ],
+  "profile_anonymized": true,
+  "anonymized": true,
+  "clip": {
+    "x": 0,
+    "y": 0,
+    "width": 1360,
+    "height": 1025
+  }
+}

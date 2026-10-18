@@ -1,0 +1,31 @@
+{
+  "id": "staff_merge",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Source walk-in record verify that this is the duplicate whose visits should move"
+    },
+    {
+      "number": 2,
+      "text": "Find the correct patient searches the destination by name or mobile number"
+    },
+    {
+      "number": 3,
+      "text": "Destination patient compare the record carefully before selecting it"
+    },
+    {
+      "number": 4,
+      "text": "Merge moves every queue visit and archives the source after confirmation"
+    }
+  ],
+  "scenario": true,
+  "anonymized": true,
+  "profile_anonymized": true,
+  "source": "Browser-only demonstration patient/search GET responses; current application merge form. Destination selected but merge not submitted.",
+  "clip": {
+    "x": 176,
+    "y": 58,
+    "width": 808,
+    "height": 686
+  }
+}

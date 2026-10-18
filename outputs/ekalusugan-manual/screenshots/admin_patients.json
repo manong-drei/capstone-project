@@ -1,0 +1,37 @@
+{
+  "id": "admin_patients",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Patients — switch to patient account management"
+    },
+    {
+      "number": 2,
+      "text": "Add Patient — open the assisted patient-account form"
+    },
+    {
+      "number": 3,
+      "text": "Search — filter the patient list by name, contact or barangay"
+    },
+    {
+      "number": 4,
+      "text": "Show inactive — include deactivated patient accounts"
+    },
+    {
+      "number": 5,
+      "text": "Deactivate — open the account-access confirmation"
+    },
+    {
+      "number": 6,
+      "text": "Previous / Next — move through the patient-account pages"
+    }
+  ],
+  "profile_anonymized": true,
+  "anonymized": true,
+  "clip": {
+    "x": 0,
+    "y": 0,
+    "width": 1360,
+    "height": 1027
+  }
+}

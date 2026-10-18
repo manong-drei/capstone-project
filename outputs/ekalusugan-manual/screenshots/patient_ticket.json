@@ -1,0 +1,28 @@
+{
+  "id": "patient_ticket",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Dental services choose one or two services"
+    },
+    {
+      "number": 2,
+      "text": "Selection counter shows the two service limit"
+    },
+    {
+      "number": 3,
+      "text": "Get Queue Ticket submits the request"
+    },
+    {
+      "number": 4,
+      "text": "Close returns to the dashboard"
+    }
+  ],
+  "clip": {
+    "x": 142,
+    "y": 238,
+    "width": 636,
+    "height": 824
+  },
+  "cropped": true
+}

@@ -1,0 +1,17 @@
+{
+  "id": "public_home",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Log in opens the sign in page"
+    },
+    {
+      "number": 2,
+      "text": "Why E Kalusugan jumps to the feature overview"
+    },
+    {
+      "number": 3,
+      "text": "Your next visit jumps to the sign in invitation"
+    }
+  ]
+}

@@ -14,6 +14,7 @@ export function useQueue() {
       const data = await queueService.getMyQueue();
 setQueue(data);
     } catch (err) {
+      setQueue((current) => current ? { ...current, wait_estimate: null } : current);
       setError(err.message);
     } finally {
       setLoading(false);

@@ -1,0 +1,21 @@
+{
+  "id": "staff_walkin",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Find patient search for an existing record first"
+    },
+    {
+      "number": 2,
+      "text": "Full name enter the patient first and last name"
+    },
+    {
+      "number": 3,
+      "text": "Confirmed mobile number enter ten digits after the displayed plus 63"
+    },
+    {
+      "number": 4,
+      "text": "Register and assign dental queue saves the record and issues a ticket"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "staff_monitor",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Enable announcements speaker control turns on queue audio"
+    }
+  ]
+}

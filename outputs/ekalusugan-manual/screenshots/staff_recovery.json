@@ -1,0 +1,13 @@
+{
+  "id": "staff_recovery",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Account recovery search finds the patient before identity checks"
+    },
+    {
+      "number": 2,
+      "text": "Account recovery opens or closes the search panel"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "doctor_capacity",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Daily Capacity — expand or collapse this panel"
+    },
+    {
+      "number": 2,
+      "text": "Appointment Limit — choose 0 to 10 appointments"
+    },
+    {
+      "number": 3,
+      "text": "Walk-In Capacity — enter 0 to 30 slots"
+    },
+    {
+      "number": 4,
+      "text": "Apply — save both limits; wait for Saved ✓"
+    }
+  ],
+  "scrollY": 360,
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed.",
+  "crop": {
+    "left": 20,
+    "top": 170,
+    "width": 2000,
+    "height": 445,
+    "unit": "source pixels",
+    "original_width": 2040,
+    "original_height": 1650
+  }
+}

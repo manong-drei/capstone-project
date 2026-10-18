@@ -1,0 +1,31 @@
+{
+  "id": "staff_recovery_verify",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Selected patient details compare these against what the patient provides"
+    },
+    {
+      "number": 2,
+      "text": "Verify physical presence and every identity item before checking each box"
+    },
+    {
+      "number": 3,
+      "text": "Issue temporary password stays disabled until all six checks are complete; issuance replaces old access"
+    },
+    {
+      "number": 4,
+      "text": "Close recovery stops without issuing a password"
+    }
+  ],
+  "scenario": true,
+  "anonymized": true,
+  "profile_anonymized": true,
+  "source": "Browser-only complete demonstration patient GET; current application recovery form. Only two verification boxes selected; no password issued.",
+  "clip": {
+    "x": 176,
+    "y": 58,
+    "width": 808,
+    "height": 677
+  }
+}

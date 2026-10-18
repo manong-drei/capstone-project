@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/common/AppIcons";
 import api from "@/services/api";
+import ToastNotifications from "@/components/common/ToastNotifications";
+import useSmsToasts from "@/hooks/useSmsToasts";
 
 const PM_RESPONSIVE_CSS = `
   .pm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -189,17 +191,16 @@ export default function PatientManager() {
   const [fetchError, setFetchError] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
-  const [smsMessage, setSmsMessage] = useState('');
+  const { toasts, dismissToast, showToast, showSmsToast, trackSmsStatuses } = useSmsToasts();
 
   const replacePassword = async (patient) => {
     if (!window.confirm(`Confirm you have verified ${patient.full_name}'s identity and registered mobile number. Issue a new temporary password? The old password and setup session will be invalidated.`)) return;
     setSmsBusy(true);
-    setSmsMessage('');
     try {
       const result = await api.post(`/admin/patients/${patient.user_id}/temporary-password`, { identity_confirmed: true });
-      setSmsMessage(result.message);
-      await fetchPatients();
-    } catch (err) { setSmsMessage(err.message); }
+      showSmsToast({ id: result.sms_job_id, state: result.sms_status, label: `Replacement password SMS for ${patient.full_name}` });
+      await fetchPatients(true);
+    } catch (err) { showToast(`Unable to request replacement password SMS. ${err.message}`, "error"); }
     finally { setSmsBusy(false); }
   };
   const [search, setSearch] = useState("");
@@ -211,10 +212,6 @@ export default function PatientManager() {
     action: "",
   });
 
-  useEffect(() => {
-    fetchPatients();
-  }, []);
-
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -225,19 +222,32 @@ export default function PatientManager() {
     priority_category: "",
   });
 
-  const fetchPatients = async () => {
-    setLoading(true);
+  const fetchPatients = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setFetchError("");
     try {
       const data = await api.get("/admin/patients");
-      setPatients(data?.patients ?? []);
+      const list = data?.patients ?? [];
+      setPatients(list);
+      trackSmsStatuses(list.map((patient) => ({
+        id: patient.sms_job_id,
+        state: patient.sms_state,
+        provider_status: patient.sms_provider_status,
+        label: `Temporary password SMS for ${patient.full_name}`,
+      })));
     } catch (err) {
       setFetchError(err.message || "Failed to load patient accounts.");
-      setPatients([]);
+      if (!silent) setPatients([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [trackSmsStatuses]);
+
+  useEffect(() => {
+    fetchPatients();
+    const interval = setInterval(() => fetchPatients(true), 15_000);
+    return () => clearInterval(interval);
+  }, [fetchPatients]);
 
   const handleChange = (field, value) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -257,7 +267,8 @@ export default function PatientManager() {
     }
     setSubmitting(true);
     try {
-      await api.post("/admin/patients", form);
+      const result = await api.post("/admin/patients", form);
+      showSmsToast({ id: result.sms_job_id, state: result.sms_status, label: `Temporary password SMS for ${form.first_name} ${form.last_name}` });
       setShowForm(false);
       setForm({
         first_name: "",
@@ -271,6 +282,7 @@ export default function PatientManager() {
       fetchPatients();
     } catch (err) {
       setFormError(err.message);
+      showToast(`Unable to request the temporary password SMS. ${err.message}`, "error");
     } finally {
       setSubmitting(false);
     }
@@ -329,7 +341,7 @@ export default function PatientManager() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <style>{PM_RESPONSIVE_CSS}</style>
-      {smsMessage && <p role="status">{smsMessage}</p>}
+      <ToastNotifications toasts={toasts} onDismiss={dismissToast} />
 
       <ConfirmModal
         open={confirm.open}

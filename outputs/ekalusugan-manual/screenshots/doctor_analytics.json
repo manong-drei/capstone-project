@@ -1,0 +1,23 @@
+{
+  "id": "doctor_analytics",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Back to dashboard — return to the dental queue"
+    },
+    {
+      "number": 2,
+      "text": "Today / This week / This month — choose the report period"
+    },
+    {
+      "number": 3,
+      "text": "Report date — select an earlier date or period"
+    },
+    {
+      "number": 4,
+      "text": "Daily barangay entries — open manual clinical counts"
+    }
+  ],
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed."
+}

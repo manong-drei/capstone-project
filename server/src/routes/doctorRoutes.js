@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getAllDoctors,
   getDoctorById,
+  getDoctorRecords,
   createConsultation,
   getDailySettings,
   upsertDailySettings,
@@ -39,6 +40,7 @@ router.post(
   authorize("doctor"),
   createConsultation,
 );
+router.get("/:id/records", authenticate, authorize("admin"), getDoctorRecords);
 router.get("/:id", authenticate, getDoctorById);
 
 module.exports = router;

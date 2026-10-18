@@ -9,7 +9,7 @@ async function mockPatient(page) {
     sessionStorage.setItem("ek_user", JSON.stringify({ user_id: 11, role: "patient" }));
     sessionStorage.setItem("ek_token", token);
   }, createTestToken({ user_id: 11, role: "patient" }));
-  const state = { registrationMessage: null, started: false, rejectRegistration: false, posts: 0, queue: { id: 1, queue_number: "AQ11", category: "dental", status: "waiting", type: "regular", services: ["CONSULTATION"] } };
+  const state = { registrationMessage: null, started: false, rejectRegistration: false, posts: 0, doctorAvailability: 1, failQueue: false, queue: { id: 1, queue_number: "AQ11", category: "dental", status: "waiting", type: "regular", services: ["CONSULTATION"] } };
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     let body = { data: [] };
@@ -23,14 +23,96 @@ async function mockPatient(page) {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(state.queue) });
     }
     if (path === "/api/auth/profile") body = { data: { user_id: 11, role: "patient", display_name: "Queue Patient" } };
-    else if (path === "/api/queue/me") body = state.queue;
+    else if (path === "/api/queue/me") {
+      if (state.failQueue) return route.fulfill({ status: 503, json: { message: 'Queue temporarily unavailable.' } });
+      body = state.queue;
+    }
     else if (path === "/api/queue/status") body = { now_serving: state.started ? 'Q02' : null, registration_message: state.registrationMessage };
-    else if (path === "/api/doctor") body = { data: [{ doctor_id: 1, is_available: 1 }] };
+    else if (path === "/api/doctor") body = { data: [{ doctor_id: 1, is_available: state.doctorAvailability }] };
     await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
   });
   await page.clock.install();
   return state;
 }
+
+const estimatedWaitCard = page => page.getByText('Estimated wait', { exact: true }).locator('../..');
+
+for (const width of [1440, 375]) {
+  test(`estimated wait refreshes with the patient's queue at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = await mockPatient(page);
+    state.queue.wait_estimate = { minutes: 45, patients_ahead: 3, sample_count: 2 };
+    await page.goto('/patient');
+    const card = estimatedWaitCard(page);
+    await expect(card).toContainText('~45 min');
+    await expect(card).toContainText('3 patients ahead. Based on today’s completed visits.');
+    state.queue.wait_estimate = { minutes: 25, patients_ahead: 2, sample_count: 3 };
+    await page.clock.fastForward(15_000);
+    await expect(card).toContainText('~25 min');
+    await expect(card).not.toContainText('~45 min');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testInfo.outputPath(`patient-wait-${width}.png`), fullPage: true });
+  });
+}
+
+test('wait estimates label the starting assumption and replace numbers for next/called/serving/missed states', async ({ page }) => {
+  const state = await mockPatient(page);
+  state.queue.wait_estimate = { minutes: 30, patients_ahead: 2, sample_count: 0 };
+  await page.goto('/patient');
+  const card = estimatedWaitCard(page);
+  await expect(card).toContainText('~30 min');
+  await expect(card).toContainText('Using 15 min per patient until visits are completed.');
+  state.queue.wait_estimate = { minutes: 0, patients_ahead: 0, sample_count: 0 };
+  await page.clock.fastForward(15_000);
+  await expect(card).toContainText('You’re next');
+  for (const [status, value, detail] of [
+    ['called', 'Your turn', 'Please report to staff now'],
+    ['serving', 'In progress', 'You are receiving care'],
+    ['missed', 'On hold', 'Report to staff to rejoin the queue'],
+  ]) {
+    Object.assign(state.queue, { status, grace_expires_at: '2026-10-18T10:10:00+08:00' });
+    await page.clock.fastForward(15_000);
+    await expect(card).toContainText(value);
+    await expect(card).toContainText(detail);
+    await expect(card).not.toContainText(' min');
+  }
+});
+
+test('wait estimates handle doctor unavailability, missing estimates, and patients without a ticket', async ({ page }) => {
+  const state = await mockPatient(page);
+  state.doctorAvailability = 0;
+  state.queue.wait_estimate = { minutes: 15, patients_ahead: 1, sample_count: 0 };
+  await page.goto('/patient');
+  const card = estimatedWaitCard(page);
+  await expect(card).toContainText('Paused');
+  await expect(card).not.toContainText('~15 min');
+  state.doctorAvailability = 1;
+  state.queue.wait_estimate = null;
+  await page.clock.fastForward(15_000);
+  await expect(card).toContainText('Updating…');
+  state.queue = null;
+  await page.clock.fastForward(15_000);
+  await expect(card).toContainText('Join the queue to see your estimate');
+  await expect(card).not.toContainText(' min');
+});
+
+test('failed queue polls hide stale estimates and successful polls restore the latest value', async ({ page }) => {
+  const state = await mockPatient(page);
+  state.queue.wait_estimate = { minutes: 40, patients_ahead: 2, sample_count: 1 };
+  await page.goto('/patient');
+  const card = estimatedWaitCard(page);
+  await expect(card).toContainText('~40 min');
+  state.failQueue = true;
+  await page.clock.fastForward(15_000);
+  await expect(card).toContainText('Queue updates failed. Retrying automatically.');
+  await expect(card).not.toContainText('~40 min');
+  await expect(page.getByText('Your Queue Number', { exact: true })).toBeVisible();
+  state.failQueue = false;
+  state.queue.wait_estimate = { minutes: 18, patients_ahead: 1, sample_count: 2 };
+  await page.clock.fastForward(15_000);
+  await expect(card).toContainText('~18 min');
+  await expect(card).toContainText('1 patient ahead.');
+});
 
 for (const [type, ticket] of [["regular", "AQ11"], ["priority", "AP11"]]) {
   test(`patient displays the assigned ${ticket} ticket`, async ({ page }) => {

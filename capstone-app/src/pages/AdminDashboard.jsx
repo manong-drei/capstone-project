@@ -7,6 +7,7 @@ import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
+import UserManual from "@/components/common/UserManual";
 import AdminOverviewTab from "@/components/dashboards/admin/AdminOverviewTab";
 import AdminQueueMonitorTab from "@/components/dashboards/admin/AdminQueueMonitorTab";
 import AdminReportsTab from "@/components/dashboards/admin/AdminReportsTab";
@@ -169,7 +170,7 @@ const ADMIN_RESPONSIVE_CSS = `
   /* ───────── Small phones ───────── */
   @media (max-width: 420px) {
     .ad-nav { padding: 0 10px; }
-    .ad-brand-text { font-size: 12.5px !important; }
+    .ad-brand-text { display: none; }
     .ad-logo { width: 32px !important; height: 32px !important; }
     .ad-main { padding: 10px !important; }
   }
@@ -192,6 +193,7 @@ export default function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showManual, setShowManual] = useState(false);
 
   const [overview, setOverview] = useState(null);
   const [ovLoading, setOvLoading] = useState(true);
@@ -340,6 +342,7 @@ export default function AdminDashboard() {
   return (
     <div className="ad-root">
       <style>{ADMIN_RESPONSIVE_CSS}</style>
+      <UserManual role="admin" isOpen={showManual} onClose={() => setShowManual(false)} />
       <QueueReasonModal
         request={queueReasonRequest}
         onClose={() => setQueueReasonRequest(null)}
@@ -426,7 +429,8 @@ export default function AdminDashboard() {
 
         <div className="ad-nav-right">
           <button
-            className="ad-nav-btn ad-hide-on-mobile"
+            className="ad-nav-btn"
+            onClick={() => { setSidebarOpen(false); setShowManual(true); }}
             style={{
               background: "rgba(255,255,255,0.15)",
               border: "none",

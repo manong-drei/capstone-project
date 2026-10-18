@@ -1,0 +1,36 @@
+{
+  "id": "public_login",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Phone Number enter your registered login phone"
+    },
+    {
+      "number": 2,
+      "text": "Password enter your password"
+    },
+    {
+      "number": 3,
+      "text": "Eye icon shows or hides the password"
+    },
+    {
+      "number": 4,
+      "text": "Forgot password opens reception recovery instructions"
+    },
+    {
+      "number": 5,
+      "text": "Login opens the dashboard assigned to your role"
+    },
+    {
+      "number": 6,
+      "text": "Terms and privacy links open the policy dialog"
+    }
+  ],
+  "clip": {
+    "x": 324,
+    "y": 325,
+    "width": 452,
+    "height": 510
+  },
+  "cropped": true
+}

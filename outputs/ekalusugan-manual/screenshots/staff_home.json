@@ -1,0 +1,25 @@
+{
+  "id": "staff_home",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Account recovery opens the patient lookup"
+    },
+    {
+      "number": 2,
+      "text": "Refresh reloads the current queue"
+    },
+    {
+      "number": 3,
+      "text": "Open dental monitor displays the queue in a new tab"
+    },
+    {
+      "number": 4,
+      "text": "Dental queue contains the calling and ticket controls"
+    },
+    {
+      "number": 5,
+      "text": "Register dental walk in finds or creates a patient and ticket"
+    }
+  ]
+}

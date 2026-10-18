@@ -1,0 +1,27 @@
+{
+  "id": "doctor_home",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Analytics — view dental activity, clinical entries, and reports"
+    },
+    {
+      "number": 2,
+      "text": "Appointment History — review your appointments"
+    },
+    {
+      "number": 3,
+      "text": "Account menu — check your identity or Log Out"
+    },
+    {
+      "number": 4,
+      "text": "Availability — select the current status to change it"
+    },
+    {
+      "number": 5,
+      "text": "Apply — save daily capacity settings"
+    }
+  ],
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed."
+}

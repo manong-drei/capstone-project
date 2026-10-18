@@ -1,0 +1,22 @@
+{
+  "id": "patient_history",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Appointment history lists your recorded appointments"
+    },
+    {
+      "number": 2,
+      "text": "Back returns to the patient dashboard"
+    }
+  ],
+  "scenario": true,
+  "source": "Browser-only demonstration appointment GET response in the current application. No appointments were created or changed.",
+  "clip": {
+    "x": 24,
+    "y": 56,
+    "width": 872,
+    "height": 311
+  },
+  "cropped": true
+}

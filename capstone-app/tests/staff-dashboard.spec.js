@@ -74,6 +74,41 @@ async function mockStaff(page) {
   return state;
 }
 
+test('queue SMS toasts distinguish pending, sent, failed, and uncertain results and do not repeat on refresh', async ({ page }, testInfo) => {
+  const state = await mockStaff(page);
+  const queue = state.queues[0];
+  Object.assign(queue, { sms_job_id: 70, sms_state: 'submitted', sms_provider_status: 'sent' });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/staff');
+  const refresh = page.getByRole('button', { name: 'Refresh', exact: true });
+  await expect(refresh).toBeEnabled();
+  await expect(page.getByRole('status')).toHaveCount(0);
+
+  for (const [sms_job_id, sms_state, sms_provider_status, role, message] of [
+    [71, 'queued', null, 'status', 'queued for sending.'],
+    [71, 'submitting', null, null, null],
+    [71, 'submitted', 'pending', 'status', 'accepted by the SMS provider. Delivery is pending.'],
+    [71, 'submitted', 'sent', 'status', 'sent successfully.'],
+    [71, 'submitted', 'refunded', 'alert', 'could not be sent.'],
+    [72, 'unknown', null, 'status', 'sending status is unknown. Verify the SMS history before retrying.'],
+    [73, 'cancelled', null, 'status', 'was cancelled before sending.'],
+  ]) {
+    Object.assign(queue, { sms_job_id, sms_state, sms_provider_status });
+    await refresh.click();
+    if (role) {
+      await expect(page.getByRole(role)).toHaveText(`Queue alert SMS for AP02 ${message}`);
+      if (sms_provider_status === 'sent') {
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        await page.screenshot({ path: testInfo.outputPath('queue-sms-toast-mobile.png') });
+      }
+      await page.getByRole('button', { name: 'Dismiss notification' }).click();
+    }
+    await refresh.click();
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  }
+});
+
 test("staff keeps serving order, handles reasons, and calls only the dental queue", async ({ page }) => {
   const state = await mockStaff(page);
   await page.setViewportSize({ width: 1440, height: 1000 });

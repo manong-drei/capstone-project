@@ -1,0 +1,37 @@
+{
+  "id": "doctor_report",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Manual clinical counts — saved daily clinical measures"
+    },
+    {
+      "number": 2,
+      "text": "Page 1 / Page 2 — switch the clinical measure table"
+    },
+    {
+      "number": 3,
+      "text": "Clinical report table — barangay totals and clinical measures"
+    },
+    {
+      "number": 4,
+      "text": "Print report — opens the browser print dialog when data is ready"
+    },
+    {
+      "number": 5,
+      "text": "Download Excel — saves the period report when data is ready"
+    }
+  ],
+  "scrollY": 1547.375,
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed.",
+  "crop": {
+    "left": 210,
+    "top": 150,
+    "width": 1620,
+    "height": 1075,
+    "unit": "source pixels",
+    "original_width": 2040,
+    "original_height": 1650
+  }
+}

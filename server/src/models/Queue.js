@@ -69,9 +69,11 @@ const Queue = {
       `
       SELECT q.*,
              COALESCE(CONCAT(p.first_name, ' ', p.last_name), q.walk_in_name) AS full_name,
-             EXISTS(SELECT 1 FROM consultations c WHERE c.queue_id = q.id) AS has_consultation
+             EXISTS(SELECT 1 FROM consultations c WHERE c.queue_id = q.id) AS has_consultation,
+             sms.id AS sms_job_id, sms.state AS sms_state, sms.provider_status AS sms_provider_status
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
+      LEFT JOIN sms_jobs sms ON sms.deduplication_key = CONCAT('queue:', q.id) AND sms.purpose = 'queue_alert'
       WHERE  DATE(q.created_at) = CURDATE()
         AND (q.status IN ('waiting', 'called', 'serving', 'missed', 'done', 'no_show')
              OR (q.status = 'cancelled' AND q.last_called_at IS NOT NULL))
@@ -120,6 +122,30 @@ const Queue = {
       WHERE patient_id = ? AND category = 'dental' AND DATE(created_at) = CURDATE()
       ORDER BY created_at DESC, id DESC LIMIT 1`, [patient_id]);
     return row?.status === 'no_show' ? Queue._fetchById(row.id) : null;
+  },
+
+  getWaitEstimate: async (queue) => {
+    if (queue.status !== 'waiting') return null;
+    // Reuse the same projected order as call-next, including priority and confirmed returns.
+    const rows = await Queue.findTodayActive({ category: queue.category });
+    const position = rows.filter(row => row.status === 'waiting').findIndex(row => row.id === queue.id);
+    if (position < 0) return null;
+
+    // shortcut: Call-to-completion times include attendance checks; add service timestamps if treatment-only timing is needed.
+    const durations = rows.filter(row => row.status === 'done' && row.last_called_at && row.updated_at)
+      .map(row => (new Date(row.updated_at) - new Date(row.last_called_at)) / 60_000)
+      .filter(minutes => Number.isFinite(minutes) && minutes > 0);
+    const average = durations.length ? durations.reduce((sum, minutes) => sum + minutes, 0) / durations.length : 15;
+    const current = rows.find(row => ['called', 'serving'].includes(row.status));
+    const calledAt = current?.last_called_at ? new Date(current.last_called_at).getTime() : NaN;
+    const elapsed = Number.isFinite(calledAt) ? Math.max(0, (Date.now() - calledAt) / 60_000) : 0;
+    const remaining = current ? Math.max(1, average - elapsed) : 0;
+
+    return {
+      minutes: Math.ceil(position * average + remaining),
+      patients_ahead: position + (current ? 1 : 0),
+      sample_count: durations.length,
+    };
   },
 
   // Insert a new queue entry (supports both patient self-queue and staff walk-in)

@@ -1,0 +1,18 @@
+{
+  "id": "admin_statistics",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Statistics/Analytics — open oral health statistics and forecasting."
+    },
+    {
+      "number": 2,
+      "text": "Year — choose recorded historical figures or the 2026 prediction."
+    },
+    {
+      "number": 3,
+      "text": "Recipient chart — compare age groups and, for 2026, predictions with the 2025 actual figures."
+    }
+  ],
+  "profile_anonymized": true
+}

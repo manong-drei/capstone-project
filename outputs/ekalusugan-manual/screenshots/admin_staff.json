@@ -1,0 +1,30 @@
+{
+  "id": "admin_staff",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Accounts — open account management."
+    },
+    {
+      "number": 2,
+      "text": "Staff / Patients — switch the account list."
+    },
+    {
+      "number": 3,
+      "text": "Show inactive — include deactivated staff accounts in the list."
+    },
+    {
+      "number": 4,
+      "text": "Add Staff — open a form for a doctor, staff or administrator account."
+    },
+    {
+      "number": 5,
+      "text": "Edit — update an existing staff member’s account details."
+    },
+    {
+      "number": 6,
+      "text": "Deactivate — open the confirmation that removes this account’s system access."
+    }
+  ],
+  "profile_anonymized": true
+}

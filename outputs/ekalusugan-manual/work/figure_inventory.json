@@ -1,0 +1,202 @@
+[
+  [
+    1,
+    "public_home",
+    "EKalusugan homepage"
+  ],
+  [
+    2,
+    "public_home",
+    "Homepage navigation"
+  ],
+  [
+    3,
+    "public_login",
+    "Sign in to your account"
+  ],
+  [
+    4,
+    "public_recovery",
+    "Recover access through reception"
+  ],
+  [
+    5,
+    "password_change",
+    "Set or change your password"
+  ],
+  [
+    6,
+    "public_terms",
+    "Read terms and end your session"
+  ],
+  [
+    7,
+    "patient_home",
+    "Patient dashboard"
+  ],
+  [
+    8,
+    "patient_ticket",
+    "Request a dental queue ticket"
+  ],
+  [
+    9,
+    "patient_active",
+    "Active patient ticket"
+  ],
+  [
+    10,
+    "patient_cancel",
+    "Cancel a waiting or missed ticket"
+  ],
+  [
+    11,
+    "patient_missed",
+    "Return after a missed call"
+  ],
+  [
+    12,
+    "patient_history",
+    "Review history and find the clinic"
+  ],
+  [
+    13,
+    "staff_home",
+    "Staff dashboard"
+  ],
+  [
+    14,
+    "staff_find",
+    "Find an existing patient"
+  ],
+  [
+    15,
+    "staff_services",
+    "Register a dental walk in"
+  ],
+  [
+    16,
+    "staff_called",
+    "Call and serve dental patients"
+  ],
+  [
+    17,
+    "staff_monitor",
+    "Use the dental queue monitor"
+  ],
+  [
+    18,
+    "staff_profile",
+    "Review the patient profile"
+  ],
+  [
+    19,
+    "staff_merge",
+    "Merge a duplicate walk in record"
+  ],
+  [
+    20,
+    "staff_recovery",
+    "Find a patient for account recovery"
+  ],
+  [
+    21,
+    "staff_recovery_verify",
+    "Verify identity and issue recovery access"
+  ],
+  [
+    22,
+    "doctor_home",
+    "Dentist dashboard"
+  ],
+  [
+    23,
+    "doctor_capacity",
+    "Set availability and daily capacity"
+  ],
+  [
+    24,
+    "doctor_called",
+    "Call patients and confirm arrival"
+  ],
+  [
+    25,
+    "doctor_consultation",
+    "Document and complete the consultation"
+  ],
+  [
+    26,
+    "doctor_history",
+    "Review appointment history"
+  ],
+  [
+    27,
+    "doctor_analytics",
+    "Read dentist analytics"
+  ],
+  [
+    28,
+    "doctor_report_entry",
+    "Enter daily barangay clinical counts"
+  ],
+  [
+    29,
+    "doctor_report",
+    "Print or download reports"
+  ],
+  [
+    30,
+    "admin_home",
+    "Administrator dashboard"
+  ],
+  [
+    31,
+    "admin_queue",
+    "Monitor and cancel queue tickets"
+  ],
+  [
+    32,
+    "admin_cancel",
+    "Administrator cancellation reason"
+  ],
+  [
+    33,
+    "admin_statistics",
+    "Review statistics and forecasts"
+  ],
+  [
+    34,
+    "admin_doctors",
+    "Check doctor availability"
+  ],
+  [
+    35,
+    "admin_history",
+    "Review patient appointment history"
+  ],
+  [
+    36,
+    "admin_notifications",
+    "Configure and monitor SMS notifications"
+  ],
+  [
+    37,
+    "admin_staff",
+    "Manage staff doctor and admin accounts"
+  ],
+  [
+    38,
+    "admin_staff_form",
+    "Create a staff doctor or admin account"
+  ],
+  [
+    39,
+    "admin_patients",
+    "Find and manage patient accounts"
+  ],
+  [
+    40,
+    "admin_patient_form",
+    "Create a patient account"
+  ]
+]

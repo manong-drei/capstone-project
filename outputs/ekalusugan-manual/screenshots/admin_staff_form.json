@@ -1,0 +1,37 @@
+{
+  "id": "admin_staff_form",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Role — choose Doctor, Staff or Admin"
+    },
+    {
+      "number": 2,
+      "text": "Identity and contact fields — enter the account holder’s first name, last name, email and phone"
+    },
+    {
+      "number": 3,
+      "text": "Password — set the initial password for the staff account"
+    },
+    {
+      "number": 4,
+      "text": "Role-specific field — enter the doctor’s license number; Staff uses Position"
+    },
+    {
+      "number": 5,
+      "text": "Cancel — close the new-account form"
+    },
+    {
+      "number": 6,
+      "text": "Create Account — validate and create the staff account"
+    }
+  ],
+  "profile_anonymized": true,
+  "anonymized": true,
+  "clip": {
+    "x": 212,
+    "y": 241,
+    "width": 856,
+    "height": 488
+  }
+}

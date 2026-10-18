@@ -1,0 +1,37 @@
+{
+  "id": "doctor_called",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Called patient controls — read the call number and wait time"
+    },
+    {
+      "number": 2,
+      "text": "Start consultation — confirm that the patient is physically present"
+    },
+    {
+      "number": 3,
+      "text": "Call again — second call after the 30-second countdown"
+    },
+    {
+      "number": 4,
+      "text": "Missed patients — return deadline for a skipped ticket"
+    },
+    {
+      "number": 5,
+      "text": "Patient returned — restore a missed ticket before its deadline"
+    }
+  ],
+  "scrollY": 1274.6875,
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed.",
+  "crop": {
+    "left": 20,
+    "top": 460,
+    "width": 2000,
+    "height": 825,
+    "unit": "source pixels",
+    "original_width": 2040,
+    "original_height": 1650
+  }
+}

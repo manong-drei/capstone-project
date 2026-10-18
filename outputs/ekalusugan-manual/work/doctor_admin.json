@@ -1,0 +1,423 @@
+{
+  "scope": "Doctor and Administrator user-manual content verified against the current E-KALUSUGAN source",
+  "verified_date": "2026-10-18",
+  "editor_notes": [
+    "Do not include account passwords, actual patient data, or generated temporary passwords in the published manual.",
+    "Use screenshots of the real application with synthetic demonstration data. A screenshot of a recovery result must conceal the temporary password.",
+    "The Doctor and Admin Help buttons are visible but have no implemented help-page action in the current source; do not instruct users that they open help.",
+    "The Admin Doctors page is a display of availability. Doctor account creation and editing are under Accounts > Staff.",
+    "The Admin Queue Monitor is not strictly read-only: its Cancel button opens a reason dialog for active queue entries."
+  ],
+  "role_boundaries": [
+    {"role": "Doctor", "responsibility": "Manage today's dental availability and capacity; call dental patients and confirm presence; document consultations; review own appointment history, recorded dental activity, and daily clinical counts; print or download dental reports.", "limits": "The doctor dashboard displays dental queues. Doctor reports are associated with the signed-in doctor. Staff and patient account management and SMS threshold settings belong to the Administrator."},
+    {"role": "Administrator", "responsibility": "Review system overview and queue activity; cancel active tickets with reasons; inspect doctor availability, patient appointment history and predictive statistics; manage staff, doctor, admin, and patient accounts; monitor SMS activity and configure the queue-alert threshold; perform verified patient account recovery.", "limits": "Doctor-specific clinical consultation and daily clinical report entry are handled from the Doctor dashboard. Administrators cannot deactivate their own account. The forecast page labels its predictions as a demonstration using synthetic historical values."}
+  ],
+  "doctor": {
+    "route": "/doctor",
+    "sections": [
+      {
+        "title": "Doctor dashboard orientation",
+        "purpose": "Use the dashboard as the starting point for today's dental queue and service settings.",
+        "steps": [
+          "Sign in using an active Doctor account. The Doctor dashboard opens on its home view.",
+          "Read Today's Availability and Daily Capacity before receiving patients.",
+          "Use Now Queuing to identify the current called or serving ticket and Next Queuing to see the next waiting ticket.",
+          "Read Waiting, Serving, Done, and Priority cards for today's dental queues. Priority is the number of priority tickets in today's dental queue data, including tickets in other states; it is not solely the number still waiting.",
+          "Use Analytics for activity summaries, clinical entries, and reports. Use Appointment History for the signed-in doctor's appointment list.",
+          "Open the account menu at the upper right to view the signed-in identity and use Log Out when finished. On a narrow screen, use Toggle menu to reveal navigation."
+        ],
+        "controls": [
+          {"label": "Analytics", "action": "Opens Doctor Analytics."},
+          {"label": "Appointment History", "action": "Opens appointment history for the doctor."},
+          {"label": "Toggle menu", "action": "Opens or closes navigation on a phone-sized screen."}
+        ],
+        "notes": ["Queue data and daily settings refresh approximately every 30 seconds while the dashboard is open.", "An em dash means no ticket or value is available."]
+      },
+      {
+        "title": "Set today's availability",
+        "purpose": "Tell users whether the doctor is available for today's service.",
+        "steps": [
+          "Find Today's Availability near the top of the home view.",
+          "Read the current state: Available or Unavailable.",
+          "Select the status button to switch to the opposite state.",
+          "Wait while the button shows Saving.... Check that the displayed state changes successfully. If an error appears, address it before assuming availability was updated."
+        ],
+        "notes": ["The button displays its current state: selecting Available marks the doctor unavailable; selecting Unavailable marks the doctor available.", "Availability saves immediately. Capacity changes use the separate Apply button."]
+      },
+      {
+        "title": "Set today's appointment and walk-in capacity",
+        "purpose": "Control the number of patients accepted for the day.",
+        "steps": [
+          "Open Daily Capacity if the panel is collapsed.",
+          "Move the Appointment Limit slider to the required value from 0 to 10.",
+          "Enter Walk-In Capacity from 0 to 30. A blank field represents zero and the badge shows Not set.",
+          "Compare Appointments today and Walk-ins today with the selected limits. The progress bars show the proportion already used.",
+          "Select Apply and wait for Saved ✓.",
+          "If Lower Appointment Limit? appears because the new appointment limit is below the number already booked, review the existing count. Select Continue to save the lower limit, or Cancel to restore the saved settings."
+        ],
+        "controls": [
+          {"label": "Daily Capacity", "action": "Expands or collapses the capacity panel."},
+          {"label": "Appointment Limit", "action": "Slider with a maximum of 10 appointments."},
+          {"label": "Walk-In Capacity", "action": "Number field limited to 0–30 by the current interface."},
+          {"label": "Apply", "action": "Saves the selected daily limits."},
+          {"label": "Continue", "action": "Confirms a limit below the existing appointment count."}
+        ],
+        "notes": [
+          "Lowering the appointment limit prevents additional bookings beyond that limit and does not cancel existing appointments.",
+          "SLOTS FULL appears when the existing count reaches the relevant positive limit.",
+          "Daily Capacity is labeled Today's patient limits — resets at midnight. Recheck the settings each service day.",
+          "A zero walk-in value is shown as Not set; do not describe it as an unlimited allowance."
+        ]
+      },
+      {
+        "title": "Call a patient and begin a consultation",
+        "purpose": "Advance the dental queue after confirming the patient's presence.",
+        "steps": [
+          "Check that no patient is already called and waiting for a response. In Currently Serving, select Next to call the next waiting dental ticket.",
+          "The ticket becomes Called — awaiting patient. Review the ticket and patient name in the current queue card.",
+          "When the patient is physically present, select Start consultation in Called patient controls. The ticket changes to serving and Consultation Notes opens.",
+          "If the ticket is already serving and the notes dialog is closed, select Consult to reopen it.",
+          "If the patient does not respond, wait until the displayed 30-second countdown ends. Select Call again for the second call.",
+          "After the second call, wait for the next countdown to end, then select Skip and call next if the patient is still absent.",
+          "A skipped ticket appears under Missed patients · 10-minute return window. If the patient returns before the shown deadline, select Patient returned. After the return window expires, that button is disabled."
+        ],
+        "controls": [
+          {"label": "Next", "action": "Calls the next waiting dental ticket."},
+          {"label": "Awaiting patient", "action": "Disabled status button while a called ticket awaits confirmation."},
+          {"label": "Start consultation", "action": "Confirms physical presence and opens consultation entry."},
+          {"label": "Call again", "action": "Makes the second call once the countdown ends."},
+          {"label": "Skip and call next", "action": "Moves on after the second unanswered call."},
+          {"label": "Patient returned", "action": "Restores a missed ticket within its 10-minute return window."},
+          {"label": "Consult", "action": "Opens notes for the current serving patient."}
+        ],
+        "notes": ["Each call is announced twice, according to the interface instruction.", "Next is disabled when there is no waiting ticket, while a call is already pending, or while an action is processing.", "Presence must be confirmed only when the patient is physically at the clinic."]
+      },
+      {
+        "title": "Save consultation notes and complete the visit",
+        "purpose": "Record the clinical encounter against the correct dental queue visit.",
+        "steps": [
+          "Open Consultation Notes through Start consultation or Consult and verify the patient name and queue number at the top.",
+          "Enter the required Consultation Notes, for example the chief complaint, history, and examination findings.",
+          "Enter Diagnosis when appropriate.",
+          "Enter Prescription / Recommendations when appropriate, including medication instructions or follow-up guidance.",
+          "Review all entries and select Save Consultation. It remains disabled until the required notes contain text.",
+          "Wait while Saving... is shown. A successful save closes the dialog and moves a serving ticket to the completed list.",
+          "If a visit was completed through Mark as Complete before notes were saved, find it in Completed List and use Add notes. Add notes is shown only for completed tickets without a saved consultation."
+        ],
+        "controls": [
+          {"label": "Consultation Notes *", "action": "Required clinical notes field."},
+          {"label": "Diagnosis", "action": "Optional assessment field."},
+          {"label": "Prescription / Recommendations", "action": "Optional treatment and follow-up field."},
+          {"label": "Save Consultation", "action": "Saves clinical documentation; completing a serving visit also changes it to done."},
+          {"label": "Mark as Complete", "action": "Completes the currently serving queue ticket without entering consultation documentation."},
+          {"label": "Add notes", "action": "Adds the missing clinical record to a completed visit."},
+          {"label": "Cancel", "action": "Closes the notes dialog without saving the form."}
+        ],
+        "notes": [
+          "Mark as Complete is available only when a patient is serving. Prefer Save Consultation when clinical documentation is ready.",
+          "The system permits one saved consultation per queue visit. It rejects saving when the ticket is not serving or done, when it has expired, or when a consultation already exists.",
+          "If an error appears, leave the dialog open, review the message, and check the ticket state before trying again.",
+          "The current dialog retains its field state during the dashboard session; always review every field and the patient heading when opening notes for another patient."
+        ]
+      },
+      {
+        "title": "Review appointment history",
+        "steps": [
+          "Select Appointment History in the top navigation.",
+          "Select Today for appointments on the current day, or All for the complete loaded appointment history.",
+          "On a desktop, select Date, Patient Name, or Services to sort by that column. Select the same heading again to reverse the order; an arrow shows the direction.",
+          "Read the Date, Patient Name, and Services values. On a phone, the records are displayed as cards.",
+          "Select ← Back to return to the Doctor dashboard."
+        ],
+        "notes": ["No appointments for today. and No appointments yet. are valid empty states.", "This view is for review; no appointment-edit or cancellation control is implemented here."]
+      },
+      {
+        "title": "Read Doctor Analytics",
+        "steps": [
+          "Select Analytics to open Doctor Analytics.",
+          "Select Today, This week, or This month. For an earlier period, use Report date, Week containing, or Report month.",
+          "Read the displayed date range, which uses Philippine time. Weekly periods run Monday–Sunday.",
+          "Review Unique patients, Completed, Priority, Appointments, and Walk-ins. Waiting and Serving are additionally shown in the daily view.",
+          "Review Completed visits by age group. These counts use the patient's age at the time of the visit.",
+          "Scroll to Automatic completed visits to review the barangay, sex, and age-group breakdown. Review any notice for missing demographics or barangays outside the report list.",
+          "If a data request fails, use the Retry button beside that error. Use Back to dashboard when finished."
+        ],
+        "notes": [
+          "Unique patients and completed visits are different measures. A patient can have several completed visits.",
+          "Each completed visit is counted once, including a completed visit without saved consultation notes.",
+          "Automatic completed visits and manual clinical counts remain separate; a completed ticket does not by itself establish BOHC or another clinical outcome.",
+          "Analytics and reports refresh approximately every 30 seconds. Future dates are unavailable in the date selectors."
+        ]
+      },
+      {
+        "title": "Enter daily barangay clinical counts",
+        "purpose": "Record verified clinical totals that are not automatically established by queue completion.",
+        "steps": [
+          "In Analytics, select Daily barangay entries.",
+          "Choose Entry date and wait for the saved values to load. Ready for entries indicates that no saved record exists yet; Saved for this date indicates existing saved values.",
+          "Choose the Barangay.",
+          "Enter Male and Female counts for each applicable clinical measure. The form calculates the Total beside each group.",
+          "Enter applicable counts in Pregnant women who received BOHC for 10–14 years, 15–19 years, 20–24 years, and 25 and above years.",
+          "Select other barangays as needed and enter their counts for the same date.",
+          "Review the date, barangays and counts, then select Save entries. Wait for Saved for this date before changing the date or report period.",
+          "If Earlier unassigned totals for this date appears, review those legacy values and assign them to the correct barangays manually only when their source is known."
+        ],
+        "clinical_measures": [
+          "Orally fit children 12–59 months after oral examination or rehabilitation",
+          "Clients 5 years old and above examined",
+          "New cases of DMFT, 5 years old and above",
+          "Infants 0–11 months old who received BOHC",
+          "Children 1–4 years old who received BOHC",
+          "Children 5–9 years old who received BOHC",
+          "Adolescents 10–14 years old who received BOHC",
+          "Adults 15–19 years old who received BOHC",
+          "Adults 20–59 years old who received BOHC",
+          "Senior citizens 60 years old and above who received BOHC"
+        ],
+        "notes": [
+          "BOHC means Basic Oral Health Care. DMFT is shown as a clinical measure in the form; enter verified clinical counts according to the facility's reporting definitions.",
+          "Blank means no entry; enter 0 only for a confirmed zero.",
+          "The count fields accept non-negative whole numbers up to nine digits. Totals are automatic.",
+          "Unsaved changes disables the date, period and report export controls. Save before changing the date. Back to dashboard asks whether to discard unsaved barangay entries.",
+          "Saved daily entries are added together for weekly and monthly clinical reports."
+        ]
+      },
+      {
+        "title": "Print or download the dental service report",
+        "steps": [
+          "Select the required period and date in Analytics.",
+          "Scroll to Daily dental service report, Weekly dental service report, or Monthly dental service report.",
+          "Review Automatic completed visits and the separate Manual clinical counts.",
+          "Use Page 1 to review dental measures 1–4 and pregnant BOHC. Use Page 2 to review BOHC age groups 5–10.",
+          "Save any unsaved clinical entries and wait until report data finishes loading.",
+          "Select Print report to open the browser print dialog, or Download Excel to save the report workbook.",
+          "Review the downloaded file or print preview for the selected doctor, period and date range."
+        ],
+        "notes": ["Print report and Download Excel remain disabled while requests are loading, errors are unresolved, entries are unsaved, or the selected period has neither completed visits nor manual entries.", "The Excel filename follows dental-report-[period]-[start-date].xlsx.", "The print version includes both clinical report pages."]
+      }
+    ]
+  },
+  "admin": {
+    "route": "/admin",
+    "navigation": ["Dashboard", "Queue Monitor", "Statistics/Analytics", "Doctors", "Patients History", "Notifications", "Accounts"],
+    "sections": [
+      {
+        "title": "Administrator dashboard orientation",
+        "steps": [
+          "Sign in using an active Administrator account. The Dashboard overview opens first.",
+          "Use the left MAIN MENU to switch between Dashboard, Queue Monitor, Statistics/Analytics, Doctors, Patients History, Notifications, and Accounts.",
+          "On a narrow screen, select Open menu to display the navigation drawer. Select a page to close it, or select Close menu, press Escape, or select the shaded area outside the drawer.",
+          "Use the account menu at the upper right and select Log Out when finished."
+        ]
+      },
+      {
+        "title": "Review the Dashboard overview",
+        "purpose": "Check overall service activity and today's queue before opening a specialist page.",
+        "steps": [
+          "Select Dashboard.",
+          "Review Total Patient Visits, Total Doctors, Total Appointments, and Total Queues Completed.",
+          "Read Queue Statistics · Today: Waiting, Serving, Done, and Cancelled. Serving includes patients who have been called.",
+          "Review Dental Queues by Age Group for the displayed age breakdown.",
+          "In Patient Volume, select Monthly for the last 12 months, Weekly for the last 8 weeks, or Daily for the last 7 days.",
+          "Review Doctors Profile and Recent Patient History for the available summary details. Open Doctors or Patients History for the dedicated lists."
+        ],
+        "notes": ["Patient Volume measures queue visits; one person can contribute multiple visits.", "A loading indicator or em dash should not be interpreted as a confirmed zero."]
+      },
+      {
+        "title": "Monitor and cancel queue tickets",
+        "steps": [
+          "Select Queue Monitor. The list refreshes approximately every 15 seconds while this page is open.",
+          "Identify the ticket by queue number and patient name. Read its Regular or Priority badge and status badge.",
+          "If a ticket is missed, review Missed call · Return before and the shown deadline.",
+          "When an active ticket needs to be cancelled, select its Cancel button.",
+          "In Reason for cancellation, choose one reason: Schedule conflict / no longer available; No longer needs the service; Found care elsewhere; Transportation or access issue; Wait time too long; Booked by mistake / duplicate queue; or Other.",
+          "Select Continue to submit, or Cancel to leave the ticket unchanged.",
+          "Check that the list refreshes to show the Cancelled state and the recorded Reason."
+        ],
+        "notes": ["Cancel is available for waiting, called, serving and missed tickets; the monitor does not offer it for completed or already cancelled tickets.", "Continue stays disabled until a reason is selected.", "The Administrator's monitor does not expose the Doctor's consultation form or call-next controls."]
+      },
+      {
+        "title": "Use Statistics/Analytics",
+        "purpose": "Review annual BOHC data and the system's demonstration forecast.",
+        "steps": [
+          "Select Statistics/Analytics to open Statistics & Analytics.",
+          "Read Demonstration forecast and its data limitations before using the numbers for planning. The page states that training includes synthetic historical values and that predictions and accuracy scores are illustrative.",
+          "Review 2026 predicted recipients, 2025 actual recipients, Expected annual change, and Largest predicted age group.",
+          "In BOHC recipients by age group, choose Year. Select 2026 prediction to compare the forecast with 2025 actual recipients, or select an available historical year.",
+          "Hover over or tap a chart point to inspect the full age group and count. Historical-year detail tables identify records as Synthetic, Recorded, or Unavailable.",
+          "Review 2026 forecast breakdown for age-group counts, change, forecast share, and the 95% prediction interval.",
+          "Review Model performance by age group and How to read these predictions for definitions and methodology."
+        ],
+        "notes": [
+          "Green represents 2025 actual counts in the forecast view; blue represents 2026 predictions; dashed gray lines represent lower and upper prediction interval bounds.",
+          "Change is prediction minus 2025 actual. A dash for Change (%) means the 2025 baseline is zero.",
+          "Lower MAE, RMSE, and MAPE values indicate smaller historical prediction errors. MAE vs. baseline compares the model to repeating the previous year's count.",
+          "Prediction intervals are not guarantees or accuracy scores. Per-age-group intervals are not added into a total interval.",
+          "The current forecast covers 2026 only. Refresh the page to retry if Predictive analytics are unavailable appears."
+        ]
+      },
+      {
+        "title": "Check doctor availability",
+        "steps": [
+          "Select Doctors to open Doctor Availability.",
+          "Read each doctor's name, specialization when available, and availability badge.",
+          "Use Accounts > Staff when you need to create or edit a doctor account. Today's availability itself is maintained in the Doctor dashboard."
+        ],
+        "notes": ["No doctors registered yet. indicates an empty doctor list. There is no edit or availability-toggle action on this page."]
+      },
+      {
+        "title": "Review Patients History",
+        "steps": [
+          "Select Patients History.",
+          "Review Total Records, Completed, and Open Cases. Open Cases combines pending and confirmed appointments.",
+          "In Appointment History, read Date, Time, Patient, Doctor, Services, and Status for each appointment.",
+          "Use Previous and Next below the list to move through pages of 10 records. Check the Showing range and Page number.",
+          "On a phone, read the patient cards instead of the desktop table."
+        ],
+        "notes": ["This page reviews appointment and service history; no clinical-note editor is provided.", "No appointments recorded yet. is the empty state."]
+      },
+      {
+        "title": "Configure and monitor SMS notifications",
+        "steps": [
+          "Select Notifications to open SMS notifications.",
+          "In Notify within the next, enter the desired whole number of patients from 1 to 100.",
+          "Select Save and wait for SMS threshold saved. Existing suppressed tickets stay suppressed.",
+          "Read Recent SMS activity. Each row shows Purpose, a masked Recipient, Status, Details, and Created time in Philippine time.",
+          "Use Refresh to update the list immediately. Otherwise, the list refreshes approximately every 15 seconds.",
+          "If the status is unknown, follow the displayed instruction: Submission uncertain; check Semaphore before replacing. Review the provider state before issuing another activation password."
+        ],
+        "notes": [
+          "The threshold applies to dental and general queues.",
+          "One alert is sent per eligible ticket. Patients who join when already inside the configured range receive no queue SMS.",
+          "Changing the threshold does not make previously suppressed tickets eligible.",
+          "A submitted, queued, accepted or sent status should be read as the displayed job/provider state; it does not by itself establish that the patient has read the message.",
+          "No SMS jobs yet means no jobs are shown in the activity list; queue jobs appear when triggered."
+        ]
+      },
+      {
+        "title": "Create doctor, staff or administrator accounts",
+        "steps": [
+          "Select Accounts, then Staff. Staff Management includes doctor, staff and admin accounts.",
+          "Select Add Staff to open New Staff Account.",
+          "Choose Role: Doctor, Staff, or Admin.",
+          "Enter Phone, First Name, Last Name, Email, and Password. The form requires these entries.",
+          "For Doctor, also enter License Number. For Staff, enter Position. Changing Role clears the role-specific license and position fields.",
+          "Review the account details and role, then select Create Account. Wait while Creating... appears.",
+          "Check that the form closes and the new account appears in the refreshed account list. Resolve any validation error before submitting again."
+        ],
+        "notes": [
+          "Use a valid Philippine mobile number. The system checks for duplicate phone numbers and duplicate email addresses.",
+          "The account role determines access. Select it carefully; the edit form does not include a role selector.",
+          "A doctor license number and staff position are required for their respective roles. The backend can also reject duplicate license values.",
+          "Cancel closes the new-account form without creating an account."
+        ]
+      },
+      {
+        "title": "Edit, deactivate or reactivate staff accounts",
+        "steps": [
+          "Open Accounts > Staff and identify the account using Name, Email, Role, and Status.",
+          "Select Edit for an active account. In Edit Staff Account, update First Name, Last Name, Email, Phone, and the applicable License Number or Position.",
+          "Select Save Changes. First and last name are required. Select Cancel or the close icon to leave without saving.",
+          "To remove access, select Deactivate for the account. Review the named account in Deactivate Account, then select Deactivate to confirm or Cancel to stop.",
+          "To restore access, enable Show inactive, locate the account, select Reactivate, and confirm Reactivate in the dialog.",
+          "Confirm that the refreshed list displays the intended Active or Inactive state."
+        ],
+        "notes": ["Deactivation removes account access; reactivation restores it.", "Administrators cannot deactivate their own account. The system displays You cannot deactivate your own account.", "The current edit modal does not change the account's role or password.", "Use Retry if the account list could not be loaded."]
+      },
+      {
+        "title": "Create and find patient accounts",
+        "steps": [
+          "Select Accounts, then Patients to open Patient Accounts.",
+          "Before creating a new account, search by name, contact, or barangay to check whether the patient already exists.",
+          "Select Add Patient to open New Patient Account.",
+          "Enter First Name, Last Name, Phone, Date of Birth, Gender, and Address / Barangay.",
+          "Choose Priority Status when applicable: None, Senior Citizen, PWD (Person with Disability), or Pregnant.",
+          "Review the registered mobile number with the patient and select Create Account.",
+          "Review the temporary-password SMS status notification. The system generates the password and requests an activation SMS; this form does not ask the administrator to type a patient password.",
+          "Find the account in the refreshed list. Use Previous and Next to move through pages of 10 results."
+        ],
+        "notes": ["All identity/contact fields in the new-patient form are required; Priority Status can remain None.", "The system rejects an invalid Philippine mobile number or one that is already in use.", "Patient SMS state refreshes approximately every 15 seconds.", "Show inactive includes accounts excluded from the default active-only list."]
+      },
+      {
+        "title": "Manage patient activation and account access",
+        "steps": [
+          "Open Accounts > Patients and find the correct patient.",
+          "Read Activation SMS below the patient name when first-time password setup is still required.",
+          "If an activation replacement is required, verify the patient's identity and registered mobile number, then select Issue replacement password.",
+          "Read the confirmation. Issuing a replacement invalidates the old temporary password and setup session. Confirm only after verifying the person and number.",
+          "Review the replacement-password SMS status notification and the refreshed Activation SMS value.",
+          "To suspend a patient's access, use Deactivate and confirm the named account. To restore it, enable Show inactive, select Reactivate and confirm.",
+          "For a forgotten-password case requiring in-person recovery, use the patient's Account recovery link and follow the identity checks on the patient profile."
+        ],
+        "notes": ["Issue replacement password is shown for active accounts that still require password setup.", "Activation replacement by SMS and in-person Account recovery are separate actions with different delivery methods.", "No password value should be copied into the user manual, a screenshot, or a public demonstration."]
+      },
+      {
+        "title": "Perform verified patient account recovery",
+        "purpose": "Restore access after checking the patient's identity in person.",
+        "steps": [
+          "In Accounts > Patients, select Account recovery under the verified patient's name.",
+          "Read Patient profile and compare the record with the patient. Check name, date of birth, gender, registered mobile number, barangay, and city.",
+          "Select Start account recovery.",
+          "Ask the physically present patient to provide their details. Confirm all six checks only when they match: patient present, first name, last name, registered login phone, address, and birthday.",
+          "Select Issue temporary password and review the confirmation that the old password and all existing sessions will be invalidated.",
+          "Hand the displayed temporary password directly to the verified patient. The result also shows the registered login number and expiry in Philippine time.",
+          "Explain that the temporary password expires in 30 minutes and works for one login. After signing in, the patient must choose a new password within 15 minutes.",
+          "Select Hide temporary password when handover is complete. Closing hides it permanently. Use ← Admin dashboard to return."
+        ],
+        "notes": ["Recovery requires an active account, a complete identity record, a registered account phone, and a record that has not been archived into another patient.", "If the patient details differ or identity is uncertain, stop the recovery flow.", "Issue temporary password is disabled until every verification checkbox is checked.", "The result disappears at expiry; it should not be captured in published screenshots.", "The profile also shows Queue history. Duplicate-record merging appears only for eligible unlinked, unarchived records; it moves every queue visit and archives the source record. Verify the destination carefully before confirming any merge."]
+      }
+    ]
+  },
+  "screenshot_plan": [
+    {"id": "doctor-home-top", "route": "/doctor", "view": "Doctor home, top", "callouts": ["Analytics", "Appointment History", "Profile / Log Out", "Today's Availability", "Available / Unavailable", "Daily Capacity", "Appointment Limit", "Walk-In Capacity", "Apply"], "selectors": ["button:has-text('Analytics')", "button:has-text('Appointment History')", "input[type=range]", "input[type=number]", "button:has-text('Apply')"]},
+    {"id": "doctor-home-queue", "route": "/doctor", "view": "Doctor home, scroll to queue controls", "callouts": ["Now Queuing", "Next Queuing", "Waiting / Serving / Done / Priority", "Mark as Complete", "Next / Consult", "Completed List", "Next Queue"]},
+    {"id": "doctor-called", "route": "/doctor", "view": "Called patient controls with synthetic called ticket", "callouts": ["Call count and 30-second wait", "Start consultation", "Call again / Skip and call next", "Patient returned and deadline"], "selectors": ["section[aria-label='Called patient controls']", "section[aria-label='Missed patients']"]},
+    {"id": "doctor-consultation", "route": "/doctor", "view": "Consultation Notes dialog", "callouts": ["Patient and queue number", "Consultation Notes required", "Diagnosis", "Prescription / Recommendations", "Cancel", "Save Consultation"], "selectors": ["textarea[placeholder='Chief complaint, history, physical examination findings...']", "button:has-text('Save Consultation')"]},
+    {"id": "doctor-history", "route": "/doctor", "view": "Appointment History", "callouts": ["Back", "Today / All", "Date / Patient Name / Services sort headings"], "selectors": ["button:has-text('Appointment History')", "button:has-text('Today')", "button:has-text('All')"]},
+    {"id": "doctor-analytics", "route": "/doctor", "view": "Analytics top", "callouts": ["Back to dashboard", "Today / This week / This month", "Report date", "Metrics", "Completed visits by age group"], "selectors": ["main.da-page", "[aria-label='Analytics period']"]},
+    {"id": "doctor-manual-entries", "route": "/doctor", "view": "Analytics > Daily barangay entries expanded", "callouts": ["Entry date", "Barangay", "Male / Female counts", "Calculated total", "Save entries", "Unsaved changes / Saved for this date"], "selectors": ["button:has-text('Daily barangay entries')", "#da-manual-entries", "button:has-text('Save entries')"]},
+    {"id": "doctor-report", "route": "/doctor", "view": "Analytics report, scroll down", "callouts": ["Automatic completed visits", "Manual clinical counts", "Page 1 / Page 2", "Print report", "Download Excel"], "selectors": ["#da-period-report-title", "[aria-label='Report pages']", "button:has-text('Download Excel')"]},
+    {"id": "admin-overview", "route": "/admin", "view": "Overview top", "callouts": ["MAIN MENU", "Summary totals", "Queue Statistics · Today", "Account menu"], "selectors": ["#ad-sidebar", "#today-queue-heading"]},
+    {"id": "admin-overview-charts", "route": "/admin", "view": "Overview scroll to charts", "callouts": ["Dental Queues by Age Group", "Patient Volume", "Monthly / Weekly / Daily", "Doctors Profile", "Recent Patient History"]},
+    {"id": "admin-queue", "route": "/admin", "view": "Queue Monitor", "callouts": ["Queue number and patient", "Regular / Priority", "Status", "Cancel", "Recorded reason / missed deadline"], "selectors": ["button.ad-sidebar-btn:has-text('Queue Monitor')"]},
+    {"id": "admin-cancel", "route": "/admin", "view": "Reason for cancellation dialog opened without submitting", "callouts": ["Reason selection", "Cancel", "Continue"], "selectors": ["[role=dialog][aria-labelledby='queue-reason-title']"]},
+    {"id": "admin-statistics", "route": "/admin", "view": "Statistics/Analytics top", "callouts": ["Demonstration forecast", "2026 summary", "Year", "Chart legend"], "selectors": [".ar-page", "[aria-label='Forecast data limitations']", ".ar-year select"]},
+    {"id": "admin-statistics-tables", "route": "/admin", "view": "Statistics/Analytics lower report", "callouts": ["Forecast breakdown", "95% prediction interval", "Model performance", "Method definitions"]},
+    {"id": "admin-doctors", "route": "/admin", "view": "Doctors", "callouts": ["Doctor Availability", "Doctor name", "Specialization", "Availability status"]},
+    {"id": "admin-history", "route": "/admin", "view": "Patients History", "callouts": ["Total Records / Completed / Open Cases", "Appointment table", "Previous / Next", "Showing range"]},
+    {"id": "admin-notifications", "route": "/admin", "view": "Notifications", "callouts": ["Notify within the next", "Save", "Eligibility note", "Recent SMS activity", "Refresh", "Status / Details"], "selectors": ["#sms-threshold", "button[aria-label='Refresh SMS activity']"]},
+    {"id": "admin-accounts-staff", "route": "/admin", "view": "Accounts > Staff", "callouts": ["Staff / Patients", "Show inactive", "Add Staff", "Edit", "Deactivate / Reactivate"], "selectors": ["[aria-label='Account type']", "button:has-text('Add Staff')"]},
+    {"id": "admin-add-staff", "route": "/admin", "view": "Accounts > Staff > Add Staff opened without submitting", "callouts": ["Role", "Phone", "Name / Email", "Password", "License Number / Position", "Create Account / Cancel"]},
+    {"id": "admin-accounts-patients", "route": "/admin", "view": "Accounts > Patients", "callouts": ["Add Patient", "Search", "Activation SMS", "Issue replacement password", "Account recovery", "Deactivate / Reactivate"], "selectors": ["input[placeholder='Search by name, contact, or barangay...']", "button:has-text('Add Patient')"]},
+    {"id": "admin-add-patient", "route": "/admin", "view": "Accounts > Patients > Add Patient opened without submitting", "callouts": ["Identity and phone", "Date of Birth", "Gender", "Address / Barangay", "Priority Status", "Create Account / Cancel"]},
+    {"id": "admin-recovery", "route": "/staff/patients/:id", "view": "Synthetic patient profile with recovery checklist expanded, without issuing a password", "callouts": ["Admin dashboard return link", "Patient identity", "Start account recovery", "Six verification checks", "Issue temporary password", "Close recovery"], "selectors": ["#account-recovery-title", "button:has-text('Start account recovery')", "button:has-text('Issue temporary password')"]}
+  ],
+  "source_files": [
+    "capstone-app/src/pages/DoctorDashboard.jsx",
+    "capstone-app/src/components/dashboards/doctor/DoctorHomeTab.jsx",
+    "capstone-app/src/components/dashboards/doctor/ConsultationModal.jsx",
+    "capstone-app/src/components/dashboards/doctor/LimitWarningModal.jsx",
+    "capstone-app/src/components/dashboards/doctor/DoctorAppointmentsTab.jsx",
+    "capstone-app/src/components/dashboards/doctor/DoctorAnalyticsTab.jsx",
+    "capstone-app/src/components/dashboards/doctor/doctorReport.js",
+    "capstone-app/src/components/common/QueueRecovery.jsx",
+    "capstone-app/src/pages/AdminDashboard.jsx",
+    "capstone-app/src/components/dashboards/admin/AdminOverviewTab.jsx",
+    "capstone-app/src/components/dashboards/admin/AdminQueueMonitorTab.jsx",
+    "capstone-app/src/components/dashboards/admin/AdminDoctorsTab.jsx",
+    "capstone-app/src/components/dashboards/admin/AdminPatientsHistoryTab.jsx",
+    "capstone-app/src/components/dashboards/admin/AdminReportsTab.jsx",
+    "capstone-app/src/components/dashboards/admin/AdminNotificationsTab.jsx",
+    "capstone-app/src/components/dashboards/admin/AdminStaffTab.jsx",
+    "capstone-app/src/components/dashboards/admin/StaffManager.jsx",
+    "capstone-app/src/components/dashboards/admin/PatientManager.jsx",
+    "capstone-app/src/pages/StaffPatientProfile.jsx",
+    "capstone-app/src/components/dashboards/staff/AccountRecovery.jsx",
+    "capstone-app/src/components/common/QueueReasonModal.jsx",
+    "capstone-app/src/constants/queueReasons.js",
+    "server/src/routes/adminRoutes.js",
+    "server/src/routes/doctorRoutes.js",
+    "server/src/controllers/adminController.js",
+    "server/src/controllers/doctorController.js"
+  ]
+}

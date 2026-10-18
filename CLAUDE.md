@@ -266,6 +266,8 @@ Dental tickets have four independent daily counters: `appointment_regular` (`AQ`
 
 Keep Manila deadline formatting in `utils/queueDisplay.js` and recovery instructions in the common queue components. See `server/QUEUE_GRACE_PERIOD.md` for detailed behavior.
 
+`GET /api/queue/me` includes `wait_estimate` for waiting tickets: minutes, patients ahead, and completed-visit sample count. It uses the shared projected queue order and today's mean call-to-completion time (15 minutes per patient until valid samples exist), subtracting elapsed time for the current patient with a one-minute minimum remaining. Patient Home refreshes every 15 seconds, labels the fallback, and replaces the number with instructions for called, serving, missed, unavailable-doctor, and failed-update states. These are rough estimates; no service-duration schema change is required.
+
 ### Walk-In Records
 
 Staff/admin `POST /api/queue/walkin` can create dental or general tickets. General tickets use `GENERAL_CONSULTATION`; current staff dashboard and kiosk controls focus on dental.
@@ -329,13 +331,15 @@ All paths below are relative to `/api`; check the mounted route files before add
 | `/patients` | GET/PUT `/me` for patients; GET `/search`, GET `/:id`, POST `/:id/merge` and `/:id/account-recovery` for staff/admin (recovery requires a real session) |
 | `/appointments` | Patient POST and GET me; doctor GET doctor; staff/admin GET list; staff/admin/doctor PATCH :id/status |
 | `/queue` | Authenticated GET `/status`; patient GET `/me`, POST `/`, PATCH `/:id/cancel`; doctor/staff/admin GET `/`; staff/admin POST `/walkin`; doctor/staff POST `/call-next`, `/:id/recall`, `/:id/skip`, `/:id/return`; doctor/staff/admin PATCH `/:id/status` (presence excludes admin) |
-| `/doctor` | Authenticated GET list/:id; doctor-only GET/PUT daily-settings, GET analytics/report/daily-report/monthly-report, PUT daily-report, POST consultations |
+| `/doctor` | Authenticated GET list/:id; admin-only GET `/:id/records` for profile and saved daily availability; doctor-only GET/PUT daily-settings, GET analytics/report/daily-report/monthly-report, PUT daily-report, POST consultations |
 | `/admin` | Admin-only overview/bohc-forecast, staff and patient account management, specializations, SMS settings/jobs/replacement |
 | `/health` | Public GET API status |
 
 Some old service helpers reference unmounted logout, queue delete, appointment edit/cancel, or admin report routes. Their presence is not evidence of API support. The mounted appointment mutation is `PATCH /appointments/:id/status`, restricted to staff/admin/doctor.
 
 ### Frontend
+
+Dashboard **Help** opens the shared native-dialog manual in `src/components/common/UserManual.jsx`, with role-specific instructions in `src/constants/userManuals.js` and annotated sample screenshots in `public/assets/manual/`. Keep these instructions aligned with working UI labels and current queue/account rules. Manual text uses a 16px minimum; preserve linked contents, keyboard access, mobile layout, and dashboard form state. `tests/user-manual.spec.js` covers all four roles with mocked API data.
 
 Use shared `services/api.js`: its response interceptor returns `res.data` and rejects with `Error(message)`. Backend envelopes vary (`data`, raw array/object, `{ queue }`, or `{ queue, next_queue }`); inspect the actual endpoint shape instead of adding another unconditional `.data` unwrap. Existing dashboards use both service wrappers and direct shared-client calls.
 

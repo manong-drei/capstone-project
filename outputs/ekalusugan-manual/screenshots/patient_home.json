@@ -1,0 +1,25 @@
+{
+  "id": "patient_home",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Get queue ticket opens the dental service selection"
+    },
+    {
+      "number": 2,
+      "text": "Appointment history displays earlier appointments"
+    },
+    {
+      "number": 3,
+      "text": "My queue number shows your active ticket"
+    },
+    {
+      "number": 4,
+      "text": "Doctor availability shows the current availability status"
+    },
+    {
+      "number": 5,
+      "text": "Location opens the clinic map"
+    }
+  ]
+}

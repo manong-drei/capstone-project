@@ -2,23 +2,19 @@
  * GeneralQueueMonitor.jsx — Waiting-area TV/monitor display for the
  * Dental Check-up queue. Meant to be opened in kiosk/full-screen mode.
  *
- * Layout: left 70% queue info, right 30% placeholder image.
+ * Layout: left 70% queue info and skipped tickets, right 30% clinic image.
  * Polls /queue?category=dental every 10 seconds and keeps backend serving order.
  */
 
 import { useEffect, useState } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { Stethoscope, Volume2, VolumeX } from "lucide-react";
 import { getAllQueues } from "@/services/queueService";
-import { formatQueueTime } from '@/utils/queueDisplay';
-
-const NAVY = "#1e2d6b";
-const INDIGO = "#2d3a8c";
-const ORANGE = "#f97316";
+import { formatQueueTime } from "@/utils/queueDisplay";
 
 const POLL_INTERVAL_MS = 10_000;
 const UPCOMING_LIMIT = 10;
 
-const STYLES = `
+const KEYFRAMES = `
   @keyframes gqm-pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50%      { opacity: 0.35; transform: scale(1.8); }
@@ -27,45 +23,27 @@ const STYLES = `
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .gqm-pulse { animation: gqm-pulse 1.8s ease-in-out infinite; }
-  .gqm-fade-up { animation: gqm-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
-  .gqm-upcoming-row + .gqm-upcoming-row { border-top: 1px solid rgba(255,255,255,0.07); }
-
-  .gqm-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    border-radius: 9px;
-    border: 1px solid rgba(255,255,255,0.22);
-    background: rgba(255,255,255,0.08);
-    color: #ffffff;
-    cursor: pointer;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-  }
-  .gqm-icon-btn:hover { background: rgba(255,255,255,0.16); }
-  .gqm-icon-btn[data-on="true"] {
-    background: ${ORANGE};
-    border-color: ${ORANGE};
-    color: #ffffff;
-  }
-  .gqm-icon-btn:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 `;
 
+const FONT_STACK =
+  "font-['Inter','Segoe_UI',system-ui,-apple-system,sans-serif]";
+const PULSE = "[animation:gqm-pulse_1.8s_ease-in-out_infinite]";
+const FADE_UP =
+  "[animation:gqm-fade-up_0.55s_cubic-bezier(0.22,1,0.36,1)_both]";
+
 function formatTime(date) {
-  return date.toLocaleTimeString([], {
+  return date.toLocaleTimeString("en-PH", {
+    timeZone: "Asia/Manila",
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
   });
 }
 
 function formatDate(date) {
-  return date.toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
+  return date.toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
+    weekday: "short",
+    month: "short",
     day: "numeric",
     year: "numeric",
   });
@@ -107,11 +85,22 @@ export default function GeneralQueueMonitor() {
     };
   }, []);
 
-  const currentServing = queues.find((q) => ['called', 'serving'].includes(q.status)) ?? null;
+  const currentServing =
+    queues.find((q) => ["called", "serving"].includes(q.status)) ?? null;
   const waitingList = queues.filter((q) => q.status === "waiting");
   const nextServing = waitingList[0] ?? null;
   const upcoming = waitingList.slice(1, 1 + UPCOMING_LIMIT);
   const remaining = Math.max(waitingList.length - 1 - upcoming.length, 0);
+  const recoverableTickets = queues
+    .filter(
+      (queue) =>
+        queue.status === "missed" &&
+        new Date(queue.grace_expires_at).getTime() > now.getTime(),
+    )
+    .sort(
+      (a, b) => new Date(a.grace_expires_at) - new Date(b.grace_expires_at),
+    );
+
   const servingId = currentServing?.id;
   const servingNumber = currentServing?.queue_number;
   const lastCalledAt = currentServing?.last_called_at;
@@ -177,34 +166,22 @@ export default function GeneralQueueMonitor() {
       for (const utterance of utterances) utterance.onerror = null;
       synth.cancel();
     };
-  }, [announcementsEnabled, speechSupported, servingId, servingNumber, lastCalledAt]);
+  }, [
+    announcementsEnabled,
+    speechSupported,
+    servingId,
+    servingNumber,
+    lastCalledAt,
+  ]);
 
   return (
     <>
-      <style>{STYLES}</style>
+      <style>{KEYFRAMES}</style>
       <div
-        style={{
-          minHeight: "100vh",
-          width: "100%",
-          display: "flex",
-          background: NAVY,
-          color: "#ffffff",
-          fontFamily:
-            "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
-          overflow: "hidden",
-        }}
+        className={`min-h-screen w-full flex bg-[#1e2d6b] text-white ${FONT_STACK} overflow-hidden`}
       >
         {/* Left column — queue info (70%) */}
-        <div
-          style={{
-            flex: "0 0 70%",
-            padding: "40px 48px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "26px",
-            background: NAVY,
-          }}
-        >
+        <div className="basis-[70%] shrink-0 grow-0 min-w-0 h-screen grid grid-rows-[auto_minmax(0,1.3fr)_minmax(0,1fr)] gap-4 p-6 xl:gap-5 xl:p-8 bg-[#1e2d6b]">
           <Header
             now={now}
             speechSupported={speechSupported}
@@ -218,32 +195,18 @@ export default function GeneralQueueMonitor() {
 
           <PanelPair current={currentServing} next={nextServing} />
 
-          <UpcomingList upcoming={upcoming} remaining={remaining} />
-          {queues.some(q => q.status === 'missed') && <section aria-label="Missed calls" className="rounded-2xl border border-amber-300/50 bg-amber-500/15 p-5">
-            <h2 className="mb-3 text-lg font-bold text-amber-200">Missed calls</h2>
-            {queues.filter(q => q.status === 'missed').map(q => <p key={q.id} className="mb-2 text-base"><strong>{q.queue_number}</strong> — You missed your call. Report to staff before {formatQueueTime(q.grace_expires_at)} to keep this ticket.</p>)}
-          </section>}
+          <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-4 xl:gap-5 min-h-0">
+            <UpcomingList upcoming={upcoming} remaining={remaining} />
+            <SkippedTickets tickets={recoverableTickets} />
+          </div>
         </div>
 
-        {/* Right column — placeholder image (30%) */}
-        <div
-          style={{
-            flex: "0 0 30%",
-            minHeight: "100vh",
-            overflow: "hidden",
-            position: "relative",
-            background: "#0f1a4a",
-          }}
-        >
+        {/* Right column — clinic image (30%) */}
+        <div className="basis-[30%] shrink-0 grow-0 min-w-0 min-h-screen overflow-hidden relative bg-[#0f1a4a]">
           <img
             src="/assets/BGHero.png"
             alt=""
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
+            className="absolute inset-0 w-full h-full object-cover block"
           />
         </div>
       </div>
@@ -253,6 +216,44 @@ export default function GeneralQueueMonitor() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
+function SkippedTickets({ tickets }) {
+  return (
+    <section
+      aria-labelledby="skipped-tickets-title"
+      className={`min-w-0 min-h-0 flex flex-col rounded-2xl border border-amber-300/25 bg-amber-500/10 p-4 xl:p-5 ${FADE_UP}`}
+    >
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <h2 id="skipped-tickets-title" className="text-[clamp(12px,1.1vw,22px)] font-bold tracking-wide uppercase text-amber-200">Skipped tickets</h2>
+        <span className="text-[clamp(10px,0.9vw,16px)] text-amber-200/70">Grace period</span>
+      </div>
+      {tickets.length ? (
+        <ul className="grid grid-cols-2 gap-2.5 min-h-0 overflow-y-auto">
+          {tickets.map((queue) => (
+            <li
+              key={queue.id}
+              className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-amber-300/20 bg-amber-300/10 px-1 py-3 xl:py-4"
+            >
+              <strong className="break-all text-[clamp(18px,1.8vw,34px)] font-extrabold tracking-tight tabular-nums text-amber-100">
+                {queue.queue_number}
+              </strong>
+              <time dateTime={queue.grace_expires_at} className="text-[clamp(10px,0.8vw,15px)] tabular-nums text-amber-100/70">
+                {formatQueueTime(queue.grace_expires_at)}
+              </time>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p aria-label="No skipped tickets" className="flex-1 grid place-items-center py-4 text-white/40">
+          —
+        </p>
+      )}
+      <p className="mt-auto pt-3 text-[clamp(10px,0.9vw,16px)] leading-relaxed text-amber-100/75">
+        Report to staff before the deadline to keep your ticket.
+      </p>
+    </section>
+  );
+}
+
 function Header({
   now,
   speechSupported,
@@ -261,62 +262,21 @@ function Header({
   onToggleAnnouncements,
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: "24px",
-      }}
-    >
-      <div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            marginBottom: "12px",
-          }}
-        >
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "9px",
-              padding: "5px 14px 5px 11px",
-              borderRadius: "999px",
-              background: "rgba(34,197,94,0.12)",
-              border: "1px solid rgba(34,197,94,0.35)",
-            }}
-          >
-            <span
-              className="gqm-pulse"
-              style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                background: "#22c55e",
-                display: "inline-block",
-              }}
-            />
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "#86efac",
-              }}
-            >
-              Live
-            </span>
-          </div>
-
+    <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="flex min-w-0 items-center gap-3">
+        <img src="/assets/Logo.jpg" alt="" className="h-[clamp(44px,4vw,76px)] w-[clamp(44px,4vw,76px)] shrink-0 rounded-full border border-white/30 object-cover" />
+        <div className="min-w-0">
+          <h1 className="text-[clamp(18px,2.1vw,40px)] font-extrabold leading-tight tracking-tight">Dental Check-up Queue</h1>
+          <p className="mt-1 flex items-center gap-2 text-[clamp(10px,1vw,18px)] text-white/60">
+            <span aria-label="Live queue" className={`h-1.5 w-1.5 shrink-0 rounded-full bg-green-400 ${PULSE}`} />
+            E-KALUSUGAN · Bago City Health Center
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
           {speechSupported && (
             <button
               type="button"
-              className="gqm-icon-btn"
-              data-on={announcementsEnabled}
               aria-pressed={announcementsEnabled}
               aria-label={
                 announcementsEnabled
@@ -329,6 +289,11 @@ function Header({
                   : "Enable announcements"
               }
               onClick={onToggleAnnouncements}
+              className={`inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-[9px] border cursor-pointer transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
+                announcementsEnabled
+                  ? "bg-[#f97316] border-[#f97316] text-white"
+                  : "bg-white/[0.08] border-white/[0.22] text-white hover:bg-white/[0.16]"
+              }`}
             >
               {announcementsEnabled ? (
                 <Volume2 size={16} strokeWidth={2.2} />
@@ -337,97 +302,36 @@ function Header({
               )}
             </button>
           )}
+        <div className="text-right shrink-0">
+          <p className="mb-1 text-[clamp(10px,1vw,18px)] text-white/65">{formatDate(now)}</p>
+          <p className="text-[clamp(24px,2.4vw,42px)] font-extrabold leading-none tracking-tight tabular-nums">{formatTime(now)}</p>
         </div>
-
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "clamp(30px, 3.4vw, 46px)",
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-            lineHeight: 1.08,
-            color: "#ffffff",
-          }}
-        >
-          Dental Check-up Queue
-        </h1>
-        <p
-          style={{
-            margin: "10px 0 0",
-            fontSize: "14px",
-            letterSpacing: "0.01em",
-            color: "rgba(255,255,255,0.62)",
-          }}
-        >
-          Please wait for your queue number to be called.
-        </p>
-
-        {announcementError ? (
+      </div>
+      {announcementError ? (
           <p
             role="status"
-            style={{
-              margin: "10px 0 0",
-              maxWidth: "560px",
-              fontSize: "13px",
-              lineHeight: 1.45,
-              color: "#fca5a5",
-            }}
+            className="basis-full text-xs leading-relaxed text-red-300"
           >
             {announcementError}
           </p>
         ) : !speechSupported ? (
-          <p
-            role="status"
-            style={{
-              margin: "10px 0 0",
-              fontSize: "13px",
-              color: "rgba(255,255,255,0.55)",
-            }}
-          >
+          <p role="status" className="basis-full text-xs text-white/55">
             Voice announcements are unavailable in this browser.
           </p>
         ) : null}
-      </div>
-
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div
-          style={{
-            fontSize: "clamp(28px, 2.8vw, 40px)",
-            fontWeight: 800,
-            letterSpacing: "0.01em",
-            fontVariantNumeric: "tabular-nums",
-            lineHeight: 1,
-          }}
-        >
-          {formatTime(now)}
-        </div>
-        <div
-          style={{
-            marginTop: "8px",
-            fontSize: "13px",
-            letterSpacing: "0.02em",
-            color: "rgba(255,255,255,0.58)",
-          }}
-        >
-          {formatDate(now)}
-        </div>
-      </div>
-    </div>
+    </header>
   );
 }
 
 function PanelPair({ current, next }) {
   return (
-    <div
-      className="gqm-fade-up"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "20px",
-      }}
-    >
+    <div className={`grid min-h-0 grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-4 xl:gap-5 ${FADE_UP}`}>
       <QueueCard
-        label={current?.status === 'called' ? 'Called — please report to staff' : 'Now Serving'}
+        label={
+          current?.status === "called"
+            ? "Called — report to staff"
+            : "Now Serving"
+        }
         entry={current}
         emptyText="No patient being served"
         primary
@@ -438,250 +342,62 @@ function PanelPair({ current, next }) {
 }
 
 function QueueCard({ label, entry, emptyText, primary }) {
+  const cardCls = primary
+    ? "bg-linear-to-br from-[#f97316] to-[#ea580c] border-white/20"
+    : "bg-[#2d3a8c]/80 border-white/10";
+
   return (
-    <div
-      style={{
-        background: primary ? ORANGE : "rgba(255,255,255,0.06)",
-        border: primary
-          ? "1px solid rgba(255,255,255,0.22)"
-          : "1px solid rgba(255,255,255,0.12)",
-        borderRadius: "20px",
-        padding: "28px 32px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "10px",
-        minHeight: "240px",
-      }}
+    <section
+      aria-label={primary ? "Current ticket" : "Next ticket"}
+      className={`min-w-0 min-h-0 rounded-2xl border p-5 xl:p-6 flex flex-col gap-3 ${cardCls}`}
     >
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "8px",
-          fontSize: "12px",
-          fontWeight: 700,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color: primary ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)",
-        }}
-      >
-        <span
-          style={{
-            width: "6px",
-            height: "6px",
-            borderRadius: "50%",
-            background: primary ? "#ffffff" : "rgba(255,255,255,0.35)",
-            display: "inline-block",
-          }}
-        />
-        {label}
-      </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[clamp(14px,1.6vw,30px)] font-bold tracking-[0.06em] uppercase text-white/90">{label}</h2>
+        {entry?.type === "priority" && <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[clamp(9px,0.8vw,14px)] font-semibold uppercase tracking-wide">Priority</span>}
+      </div>
 
       {entry ? (
         <>
-          <span
-            style={{
-              fontSize: "clamp(58px, 6.6vw, 108px)",
-              fontWeight: 900,
-              lineHeight: 1,
-              letterSpacing: "-0.03em",
-              fontVariantNumeric: "tabular-nums",
-              color: "#ffffff",
-            }}
-          >
-            {entry.queue_number}
-          </span>
-
-          <span
-            style={{
-              display: "inline-flex",
-              alignSelf: "flex-start",
-              marginTop: "auto",
-              fontSize: "11px",
-              fontWeight: 700,
-              padding: "5px 13px",
-              borderRadius: "999px",
-              background: primary
-                ? "rgba(255,255,255,0.24)"
-                : entry.type === "priority"
-                  ? "rgba(249,115,22,0.18)"
-                  : "rgba(255,255,255,0.1)",
-              border: primary
-                ? "1px solid rgba(255,255,255,0.35)"
-                : "1px solid rgba(255,255,255,0.12)",
-              color: primary
-                ? "#ffffff"
-                : entry.type === "priority"
-                  ? "#fdba74"
-                  : "rgba(255,255,255,0.72)",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-            }}
-          >
-            {entry.type === "priority" ? "Priority" : "Regular"}
-          </span>
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <strong className={`break-all text-center font-black leading-none tracking-[-0.04em] tabular-nums ${primary ? "text-[clamp(64px,9.8vw,168px)]" : "text-[clamp(48px,6.7vw,116px)]"}`}>{entry.queue_number}</strong>
+          </div>
+          <p className="flex items-center gap-2 text-[clamp(12px,1.6vw,28px)] font-medium text-white/90"><Stethoscope size={20} className="h-[1.15em] w-[1.15em] shrink-0" aria-hidden="true" />Dental Check-up</p>
         </>
       ) : (
         <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "clamp(17px, 1.9vw, 24px)",
-            fontWeight: 600,
-            letterSpacing: "-0.01em",
-            color: primary
-              ? "rgba(255,255,255,0.88)"
-              : "rgba(255,255,255,0.42)",
-            textAlign: "center",
-          }}
+          className="flex-1 flex items-center justify-center text-[clamp(16px,1.7vw,24px)] font-semibold text-center text-white/65"
         >
           {emptyText}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
 function UpcomingList({ upcoming, remaining }) {
   return (
-    <div
-      className="gqm-fade-up"
-      style={{
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.12)",
-        borderRadius: "18px",
-        padding: "20px 26px",
-        flex: 1,
-        minHeight: 0,
-      }}
+    <section
+      aria-label="Upcoming"
+      className={`min-w-0 min-h-0 flex flex-col bg-white/[0.04] border border-white/10 rounded-2xl p-4 xl:p-5 ${FADE_UP}`}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "12px",
-          gap: "12px",
-        }}
-      >
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            fontSize: "12px",
-            fontWeight: 700,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.62)",
-          }}
-        >
-          <span
-            style={{
-              width: "6px",
-              height: "6px",
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.35)",
-              display: "inline-block",
-            }}
-          />
-          Upcoming
-        </span>
-        <span
-          style={{
-            fontSize: "12px",
-            fontWeight: 600,
-            padding: "4px 12px",
-            borderRadius: "999px",
-            background: "rgba(255,255,255,0.07)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            color: "rgba(255,255,255,0.55)",
-          }}
-        >
-          {upcoming.length === 0
-            ? "Queue is empty"
-            : `${upcoming.length} waiting${
-                remaining > 0 ? ` (+${remaining} more)` : ""
-              }`}
-        </span>
+      <div className="flex items-center justify-between mb-3 gap-3">
+        <h2 className="text-[clamp(12px,1.1vw,22px)] font-bold tracking-wide uppercase text-white/80">Upcoming</h2>
+        {remaining > 0 && <span className="text-[clamp(10px,0.9vw,16px)] text-white/50">+{remaining} more</span>}
       </div>
 
       {upcoming.length === 0 ? (
-        <div
-          style={{
-            padding: "32px 0",
-            textAlign: "center",
-            color: "rgba(255,255,255,0.4)",
-            fontSize: "15px",
-            letterSpacing: "0.01em",
-          }}
-        >
+        <div className="flex-1 grid place-items-center text-center text-white/40 text-sm">
           No patients waiting.
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {upcoming.map((q) => (
-            <div
-              key={q.id}
-              className="gqm-upcoming-row"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "11px 2px",
-                gap: "12px",
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minWidth: "96px",
-                  padding: "7px 14px",
-                  borderRadius: "12px",
-                  background: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  fontSize: "20px",
-                  fontWeight: 800,
-                  letterSpacing: "-0.01em",
-                  fontVariantNumeric: "tabular-nums",
-                  color: "#ffffff",
-                }}
-              >
-                {q.queue_number}
-              </span>
-
-              <span
-                style={{
-                  fontSize: "10.5px",
-                  fontWeight: 700,
-                  padding: "4px 11px",
-                  borderRadius: "999px",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  background:
-                    q.type === "priority"
-                      ? "rgba(249,115,22,0.18)"
-                      : "rgba(255,255,255,0.08)",
-                  border:
-                    q.type === "priority"
-                      ? "1px solid rgba(249,115,22,0.32)"
-                      : "1px solid rgba(255,255,255,0.1)",
-                  color:
-                    q.type === "priority"
-                      ? "#fdba74"
-                      : "rgba(255,255,255,0.62)",
-                }}
-              >
-                {q.type === "priority" ? "Priority" : "Regular"}
-              </span>
-            </div>
+        <ol className="grid min-h-0 grid-cols-4 gap-2.5 overflow-y-auto">
+          {upcoming.map((queue) => (
+            <li key={queue.id} className="min-w-0 rounded-xl border border-white/10 bg-[#2d3a8c] px-1 py-[clamp(8px,1.2vh,16px)] text-center text-[clamp(18px,3.2vh,34px)] font-extrabold leading-none tracking-tight tabular-nums text-white">
+              {queue.queue_number}
+            </li>
           ))}
-        </div>
+        </ol>
       )}
-    </div>
+    </section>
   );
 }

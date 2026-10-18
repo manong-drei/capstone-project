@@ -1,0 +1,31 @@
+{
+  "id": "admin_cancel",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Reason for cancellation — confirm that you opened the cancellation dialog for the intended ticket"
+    },
+    {
+      "number": 2,
+      "text": "Reason — select the reason that applies; a reason is required"
+    },
+    {
+      "number": 3,
+      "text": "Cancel — close the dialog and leave the ticket unchanged"
+    },
+    {
+      "number": 4,
+      "text": "Continue — cancel the selected ticket using the chosen reason"
+    }
+  ],
+  "scenario": true,
+  "profile_anonymized": true,
+  "anonymized": true,
+  "source": "Browser-only sample waiting queue GET; current React cancellation dialog. No cancellation submitted.",
+  "clip": {
+    "x": 436,
+    "y": 177.5,
+    "width": 488,
+    "height": 545
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "staff_called",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Patient present confirms physical presence and starts service"
+    },
+    {
+      "number": 2,
+      "text": "Skip and call next moves an absent ticket into the return window"
+    },
+    {
+      "number": 3,
+      "text": "Patient returned confirms a missed patient before the deadline"
+    },
+    {
+      "number": 4,
+      "text": "Cancel opens the required cancellation reason"
+    }
+  ],
+  "scenario": true,
+  "clip": {
+    "x": 60,
+    "y": 439.75,
+    "width": 591.609375,
+    "height": 848.5
+  },
+  "crop": "Called controls missed returns and waiting ticket actions"
+}

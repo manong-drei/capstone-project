@@ -9,6 +9,7 @@ import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
+import UserManual from "@/components/common/UserManual";
 import Icon from "@/components/common/AppIcons";
 import ConsultationModal from "@/components/dashboards/doctor/ConsultationModal";
 import LimitWarningModal from "@/components/dashboards/doctor/LimitWarningModal";
@@ -57,6 +58,7 @@ export default function DoctorDashboard() {
 
   const [activeTab, setActiveTab]           = useState("home");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [showConsultModal, setShowConsultModal] = useState(false);
   const [servingPatient, setServingPatient] = useState(null);
   const [consultLoading, setConsultLoading] = useState(false);
@@ -230,6 +232,7 @@ export default function DoctorDashboard() {
   return (
     <div style={{ minHeight: "100vh", background: "#f3f4f6", display: "flex", flexDirection: "column" }}>
       <style>{DOC_RESPONSIVE_CSS}</style>
+      <UserManual role="doctor" isOpen={showManual} onClose={() => setShowManual(false)} />
 
       {/* ── Navbar ── */}
       <nav className="dd-nav" style={{ background: "linear-gradient(90deg, #1a3a8f 0%, #1e4db7 100%)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "relative" }}>
@@ -251,7 +254,7 @@ export default function DoctorDashboard() {
               <span className="dd-nav-btn-label">{label}</span>
             </button>
           ))}
-          <button style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none", color: "white", fontSize: "13px", fontWeight: 500, cursor: "pointer", padding: "7px 12px", borderRadius: "8px" }}>
+          <button aria-label="Help" onClick={() => setShowManual(true)} style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none", color: "white", fontSize: "13px", fontWeight: 500, cursor: "pointer", padding: "7px 12px", borderRadius: "8px" }}>
             <Icon name="info" size={16} color="white" />
             <span className="dd-nav-btn-label">Help</span>
           </button>
@@ -268,7 +271,7 @@ export default function DoctorDashboard() {
                 <Icon name={icon} size={16} color="white" /> {label}
               </button>
             ))}
-            <button onClick={() => setMobileMenuOpen(false)} style={mobileMenuBtnStyle}>
+            <button onClick={() => { setShowManual(true); setMobileMenuOpen(false); }} style={mobileMenuBtnStyle}>
               <Icon name="info" size={16} color="white" /> Help
             </button>
           </div>

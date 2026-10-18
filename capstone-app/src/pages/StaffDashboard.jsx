@@ -11,8 +11,11 @@ import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
+import UserManual from "@/components/common/UserManual";
 import WalkInForm from "@/components/dashboards/staff/WalkInForm";
 import AccountRecoverySearch from "@/components/dashboards/staff/AccountRecoverySearch";
+import ToastNotifications from "@/components/common/ToastNotifications";
+import useSmsToasts from "@/hooks/useSmsToasts";
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
@@ -26,12 +29,21 @@ export default function StaffDashboard() {
   const [doctorAvailable, setDoctorAvailable] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showRecoverySearch, setShowRecoverySearch] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const { toasts, dismissToast, trackSmsStatuses } = useSmsToasts();
 
   const fetchQueue = useCallback(async () => {
     try {
       const data = await api.get("/queue?category=dental");
       const list = Array.isArray(data) ? data : (data?.data ?? []);
-      setQueues(list.filter((queue) => queue.category === "dental"));
+      const dentalQueues = list.filter((queue) => queue.category === "dental");
+      setQueues(dentalQueues);
+      trackSmsStatuses(dentalQueues.map((queue) => ({
+        id: queue.sms_job_id,
+        state: queue.sms_state,
+        provider_status: queue.sms_provider_status,
+        label: `Queue alert SMS for ${queue.queue_number}`,
+      })));
       setLastUpdated(new Date());
       setError("");
     } catch (err) {
@@ -39,7 +51,7 @@ export default function StaffDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [trackSmsStatuses]);
 
   const fetchDoctorAvailability = useCallback(async () => {
     try {
@@ -118,7 +130,9 @@ export default function StaffDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
-      <StaffNavbar identity={identity} onLogout={() => { logout(); navigate(ROUTES.LOGIN); }} />
+      <ToastNotifications toasts={toasts} onDismiss={dismissToast} />
+      <UserManual role="staff" isOpen={showManual} onClose={() => setShowManual(false)} />
+      <StaffNavbar identity={identity} onHelp={() => setShowManual(true)} onLogout={() => { logout(); navigate(ROUTES.LOGIN); }} />
       <QueueReasonModal request={queueReasonRequest} onClose={() => setQueueReasonRequest(null)} onSubmit={submitQueueReason} />
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <StaffHeroBanner identity={identity} doctorAvailable={doctorAvailable} />

@@ -71,6 +71,14 @@ const getMyQueue = async (req, res) => {
         .json({ success: false, message: "Patient profile not found." });
     }
     const queue = await Queue.findByPatientId(patient.patient_id) || await Queue.findLatestNoShow(patient.patient_id);
+    if (queue) {
+      queue.wait_estimate = null;
+      try {
+        queue.wait_estimate = await Queue.getWaitEstimate(queue);
+      } catch (err) {
+        console.error("Queue wait estimate error:", err);
+      }
+    }
     res.json(queue);
   } catch (err) {
     console.error("getMyQueue error:", err);

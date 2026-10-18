@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
 async function mockMonitor(page, supported = true) {
+  await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
   await page.addInitScript(({ token, supported }) => {
     sessionStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role: "staff" }));
     sessionStorage.setItem("ek_token", token);
@@ -39,11 +40,52 @@ async function mockMonitor(page, supported = true) {
     } else if (url.pathname === "/api/auth/profile") body = { data: { user_id: 8, role: "staff" } };
     await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
   });
-  await page.clock.install();
+  await page.clock.install({ time: new Date('2026-10-10T09:00:00+08:00') });
   return state;
 }
 
 const spokenTickets = (page) => page.evaluate(() => window.announcements);
+
+for (const viewport of [{ width: 1440, height: 640 }, { width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
+  test(`monitor follows the concept layout at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+    const state = await mockMonitor(page);
+    state.queues = [
+      { id: 1, queue_number: 'AQ15', status: 'serving', type: 'regular' },
+      ...['AQ16', 'AQ17', 'AQ18', 'AQ19', 'AQ20'].map((queue_number, index) => ({ id: index + 2, queue_number, status: 'waiting', type: 'regular' })),
+      { id: 7, queue_number: 'AQ11', status: 'missed', grace_expires_at: '2026-10-10T09:08:00+08:00' },
+      { id: 8, queue_number: 'AQ13', status: 'missed', grace_expires_at: '2026-10-10T09:09:00+08:00' },
+    ];
+    await page.setViewportSize(viewport);
+    await page.goto('/general-queue-monitor');
+    const current = page.getByRole('region', { name: 'Current ticket', exact: true });
+    const next = page.getByRole('region', { name: 'Next ticket', exact: true });
+    const upcoming = page.getByRole('region', { name: 'Upcoming', exact: true });
+    const skipped = page.getByRole('region', { name: 'Skipped tickets', exact: true });
+    await expect(current.getByText('AQ15', { exact: true })).toBeVisible();
+    await expect(next.getByText('AQ16', { exact: true })).toBeVisible();
+    await expect(upcoming.getByRole('listitem')).toHaveText(['AQ17', 'AQ18', 'AQ19', 'AQ20']);
+    await expect(skipped.getByRole('listitem')).toHaveCount(2);
+    await page.clock.pauseAt(new Date('2026-10-10T09:01:00+08:00'));
+    await page.screenshot({ path: testInfo.outputPath(`monitor-concept-${viewport.width}.png`), animations: 'disabled' });
+    const currentBox = await current.boundingBox();
+    const nextBox = await next.boundingBox();
+    const upcomingBox = await upcoming.boundingBox();
+    const skippedBox = await skipped.boundingBox();
+    const imageBox = await page.locator('img[src="/assets/BGHero.png"]').boundingBox();
+    expect(currentBox.width).toBeGreaterThan(nextBox.width);
+    expect(upcomingBox.x).toBeCloseTo(currentBox.x, 1);
+    expect(skippedBox.x).toBeCloseTo(nextBox.x, 1);
+    expect(upcomingBox.y).toBeGreaterThanOrEqual(currentBox.y + currentBox.height);
+    expect(skippedBox.y).toBeCloseTo(upcomingBox.y, 1);
+    expect(imageBox.x).toBeCloseTo(viewport.width * 0.7, 1);
+    expect(imageBox.width).toBeCloseTo(viewport.width * 0.3, 1);
+    expect(imageBox.height).toBe(viewport.height);
+    const tiles = await upcoming.getByRole('listitem').all();
+    const firstTile = await tiles[0].boundingBox();
+    for (const tile of tiles) expect((await tile.boundingBox()).y).toBeCloseTo(firstTile.y, 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
+  });
+}
 
 test('recall repeats the same ticket; presence and polling stay quiet; missed tickets show deadlines', async ({ page }) => {
   const state = await mockMonitor(page);
@@ -59,8 +101,63 @@ test('recall repeats the same ticket; presence and polling stay quiet; missed ti
   expect(await spokenTickets(page)).toHaveLength(4);
   Object.assign(state.queues[0], { status: 'missed', grace_expires_at: '2026-10-10T09:11:00+08:00' });
   await page.clock.fastForward(10_000);
-  await expect(page.getByRole('region', { name: 'Missed calls' })).toContainText('Report to staff before 9:11 AM');
+  await expect(page.getByRole('region', { name: 'Skipped tickets' }).locator('time')).toHaveText('9:11 AM');
   expect(await spokenTickets(page)).toHaveLength(4);
+});
+
+test('skipped tickets show only recoverable numbers, expire locally, and leave the panel after staff confirms a return', async ({ page }, testInfo) => {
+  const state = await mockMonitor(page);
+  state.queues.push(
+    { id: 2, queue_number: 'AP02', status: 'serving', type: 'priority' },
+    { id: 3, queue_number: 'Q03', status: 'missed', grace_expires_at: '2026-10-10T09:06:00+08:00', full_name: 'Private Patient Name' },
+    { id: 4, queue_number: 'P04', status: 'missed', grace_expires_at: '2026-10-10T09:01:05+08:00' },
+    { id: 5, queue_number: 'AQ05', status: 'missed', grace_expires_at: '2026-10-10T09:01:00+08:00' },
+    { id: 6, queue_number: 'AP06', status: 'no_show', grace_expires_at: '2026-10-10T09:10:00+08:00' },
+    { id: 7, queue_number: 'Q07', status: 'cancelled', grace_expires_at: '2026-10-10T09:10:00+08:00' },
+    { id: 8, queue_number: 'Q08', status: 'missed', grace_expires_at: 'invalid' },
+    { id: 9, queue_number: 'Q09', status: 'missed', grace_expires_at: null },
+    { id: 10, queue_number: 'Q10', status: 'missed' },
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/general-queue-monitor');
+  const skipped = page.getByRole('region', { name: 'Skipped tickets' });
+  await expect(skipped.getByRole('heading', { name: 'Skipped tickets' })).toBeVisible();
+  await page.clock.pauseAt(new Date('2026-10-10T09:01:00+08:00'));
+  await expect(skipped.getByRole('listitem')).toHaveCount(2);
+  await expect(skipped.getByRole('listitem').first()).toContainText('P04');
+  await expect(skipped.locator('time').last()).toHaveText('9:06 AM');
+  await expect(skipped.getByText('Report to staff before the deadline to keep your ticket.', { exact: true })).toHaveCount(1);
+  await expect(page.getByText('Private Patient Name')).toHaveCount(0);
+  for (const number of ['AQ05', 'AP06', 'Q07', 'Q08', 'Q09', 'Q10']) {
+    await expect(skipped.getByText(number, { exact: true })).toHaveCount(0);
+  }
+  const pollsBeforeExpiry = state.polls;
+  await page.clock.runFor(4_000);
+  await expect(skipped.getByRole('listitem')).toHaveCount(2);
+  await page.screenshot({ path: testInfo.outputPath('skipped-tickets-monitor.png'), fullPage: true });
+  const panel = await skipped.boundingBox();
+  const upcoming = await page.getByRole('region', { name: 'Upcoming', exact: true }).boundingBox();
+  const image = await page.locator('img[src="/assets/BGHero.png"]').boundingBox();
+  expect(panel.x).toBeGreaterThan(upcoming.x + upcoming.width);
+  expect(panel.y).toBeCloseTo(upcoming.y, 1);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(image.x);
+  expect(image.x).toBeCloseTo(1440 * 0.7, 1);
+  expect(image.width).toBeCloseTo(1440 * 0.3, 1);
+  expect(image.y).toBe(0);
+  expect(image.height).toBeGreaterThanOrEqual(900);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(900);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.clock.runFor(1_000);
+  await expect(skipped.getByText('P04', { exact: true })).toHaveCount(0);
+  await expect(skipped.getByRole('listitem')).toHaveCount(1);
+  expect(state.polls).toBe(pollsBeforeExpiry);
+  expect(state.queues.find(queue => queue.id === 4).status).toBe('missed');
+
+  state.queues.find(queue => queue.id === 3).status = 'waiting';
+  await page.clock.runFor(5_000);
+  await expect(skipped.getByRole('listitem')).toHaveCount(0);
+  await expect(page.getByText('Q03', { exact: true })).toBeVisible();
+  expect(await spokenTickets(page)).toEqual([]);
 });
 
 test("announces each serving ticket twice with a female voice and keeps quiet on repeated polls", async ({ page }) => {

@@ -1,0 +1,27 @@
+{
+  "id": "doctor_history",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Back — return to the Doctor dashboard"
+    },
+    {
+      "number": 2,
+      "text": "Today — show appointments for the current day"
+    },
+    {
+      "number": 3,
+      "text": "All — show the full loaded appointment history"
+    },
+    {
+      "number": 4,
+      "text": "Date — select a heading to sort; select again to reverse"
+    },
+    {
+      "number": 5,
+      "text": "Services — review the appointment’s service details"
+    }
+  ],
+  "scenario": true,
+  "scenarioNote": "Actual current React interface with browser-only sample records; no backend records were created or changed."
+}

@@ -1,0 +1,23 @@
+{
+  "id": "staff_services",
+  "labels": [
+    {
+      "number": 1,
+      "text": "Dental services select one or two required services"
+    },
+    {
+      "number": 2,
+      "text": "Priority use only for a verified eligible patient"
+    },
+    {
+      "number": 3,
+      "text": "Register and assign dental queue creates the visit and issues a number"
+    }
+  ],
+  "clip": {
+    "x": 651.609375,
+    "y": 1009.25,
+    "width": 648.390625,
+    "height": 432
+  }
+}
