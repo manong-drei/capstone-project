@@ -161,6 +161,8 @@ const RegisterPage = () => {
   const [form, setForm] = useState({
     username: "",
     fullName: "",
+    middle_name: "",
+    suffix: "",
     address: "",
     phone: "",
     date_of_birth: "",
@@ -346,6 +348,28 @@ const RegisterPage = () => {
                   placeholder="e.g. Juan Dela Cruz"
                   value={form.fullName}
                   onChange={set("fullName")}
+                />
+              </Field>
+              <Field label="Middle name (optional)">
+                <input
+                  className={inputCls}
+                  style={inputStyle}
+                  placeholder="e.g. Santos"
+                  value={form.middle_name}
+                  onChange={set("middle_name")}
+                  autoComplete="additional-name"
+                  maxLength={100}
+                />
+              </Field>
+              <Field label="Suffix (optional)">
+                <input
+                  className={inputCls}
+                  style={inputStyle}
+                  placeholder="e.g. Jr., Sr., III"
+                  value={form.suffix}
+                  onChange={set("suffix")}
+                  autoComplete="honorific-suffix"
+                  maxLength={20}
                 />
               </Field>
 

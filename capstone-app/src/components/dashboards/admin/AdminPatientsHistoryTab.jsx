@@ -22,7 +22,7 @@ const formatAppointmentTime = (value) => {
 };
 const formatDoctorName = (appt) => {
   const name =
-    `Dr. ${appt?.doctor_first_name ?? ""} ${appt?.doctor_last_name ?? ""}`.trim();
+    `Dr. ${[appt?.doctor_first_name, appt?.doctor_middle_name, appt?.doctor_last_name, appt?.doctor_suffix].filter(Boolean).join(" ")}`.trim();
   return name === "Dr." ? "—" : name;
 };
 const formatServices = (appt) => {

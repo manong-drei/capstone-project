@@ -26,12 +26,12 @@ const STATUS_TONES = {
   slate: "bg-slate-100 text-slate-600 ring-slate-200",
 };
 
-function toneFor(job) {
-  const s = String(job.provider_status || job.state || "").toLowerCase();
-  if (["sent", "delivered", "success", "accepted", "queued"].includes(s))
+function toneFor(status) {
+  const s = String(status).toLowerCase();
+  if (["sent", "delivered", "success", "accepted"].includes(s))
     return "emerald";
   if (["failed", "error", "undelivered", "rejected"].includes(s)) return "rose";
-  if (["unknown", "pending", "submitted", "sending"].includes(s))
+  if (["unknown", "queued", "pending", "submitted", "submitting", "sending"].includes(s))
     return "amber";
   return "slate";
 }
@@ -50,15 +50,27 @@ const formatDate = (value) =>
   new Date(value).toLocaleString("en-PH", { timeZone: "Asia/Manila" });
 
 function StatusBadge({ job }) {
-  const label = job.provider_status || job.state || "unknown";
+  const label = job.state === "cancelled" ? job.state : job.provider_status || job.state || "unknown";
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${
-        STATUS_TONES[toneFor(job)]
+        STATUS_TONES[toneFor(label)]
       }`}
     >
       {label}
     </span>
+  );
+}
+
+function JobDetails({ job }) {
+  return (
+    <div className="space-y-1 text-xs leading-relaxed text-slate-500">
+      <p>Job #{job.id} · Attempts: {job.attempts}</p>
+      {job.provider_message_id && (
+        <p className="break-all">Provider ref: {job.provider_message_id}</p>
+      )}
+      {(job.state === "unknown" || job.last_error) && <p>{detailText(job)}</p>}
+    </div>
   );
 }
 
@@ -69,28 +81,36 @@ function StatusBadge({ job }) {
 export default function AdminNotificationsTab() {
   const [threshold, setThreshold] = useState("5");
   const [jobs, setJobs] = useState([]);
+  const [jobsLoaded, setJobsLoaded] = useState(false);
+  const [jobsError, setJobsError] = useState(null);
   const [message, setMessage] = useState(null); // { text, tone: 'ok' | 'error' }
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const loadJobs = useCallback(async (showSpinner = false) => {
     if (showSpinner && mounted.current) setRefreshing(true);
     try {
       const result = await api.get("/admin/sms-jobs");
-      if (mounted.current) setJobs(result.jobs ?? []);
+      if (mounted.current) {
+        setJobs(result.jobs ?? []);
+        setJobsError(null);
+      }
     } catch (err) {
-      if (mounted.current) setMessage({ text: err.message, tone: "error" });
+      if (mounted.current) setJobsError(err.message);
     } finally {
-      if (mounted.current && showSpinner) setRefreshing(false);
+      if (mounted.current) {
+        setJobsLoaded(true);
+        if (showSpinner) setRefreshing(false);
+      }
     }
   }, []);
 
@@ -268,14 +288,29 @@ export default function AdminNotificationsTab() {
           </div>
         </div>
 
-        {!jobs.length ? (
-          <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center">
+        <p className="mt-2 text-xs text-slate-500">
+          Latest 100 queue alerts and account activation jobs.
+        </p>
+
+        {jobsError && (
+          <p role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">
+            {jobsError}
+          </p>
+        )}
+
+        {!jobsLoaded ? (
+          <div role="status" className="mt-4 flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading SMS activity…
+          </div>
+        ) : !jobs.length ? (
+          !jobsError && <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center">
             <Inbox className="h-7 w-7 text-slate-300" />
             <p className="mt-2 text-sm font-medium text-slate-600">
               No SMS jobs yet
             </p>
             <p className="mt-0.5 text-[12px] text-slate-400">
-              Queue alerts will appear here once they are triggered.
+              Queue alerts and account activation messages will appear here once they are triggered.
             </p>
           </div>
         ) : (
@@ -296,14 +331,17 @@ export default function AdminNotificationsTab() {
                     <span className="tabular-nums">{job.masked_recipient}</span>
                   </p>
 
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                    {detailText(job)}
-                  </p>
+                  <div className="mt-1.5">
+                    <JobDetails job={job} />
+                  </div>
 
-                  <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-400">
-                    <Clock className="h-3.5 w-3.5 shrink-0" />
-                    {formatDate(job.created_at)}
-                  </p>
+                  <div className="mt-1.5 space-y-1 text-[11px] text-slate-400">
+                    <p className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      Created: {formatDate(job.created_at)}
+                    </p>
+                    <p>Updated: {formatDate(job.updated_at)}</p>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -347,10 +385,13 @@ export default function AdminNotificationsTab() {
                           <StatusBadge job={job} />
                         </td>
                         <td className="max-w-[22rem] px-4 py-3 text-slate-600">
-                          {detailText(job)}
+                          <JobDetails job={job} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-slate-500">
-                          {formatDate(job.created_at)}
+                          <p>{formatDate(job.created_at)}</p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            Updated: {formatDate(job.updated_at)}
+                          </p>
                         </td>
                       </tr>
                     ))}

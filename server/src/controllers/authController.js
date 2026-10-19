@@ -29,7 +29,7 @@ const buildDisplayName = (row) => {
 
   const firstName = pickFirst(row.first_name);
   const lastName = pickFirst(row.last_name);
-  const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const combined = [firstName, pickFirst(row.middle_name), lastName, pickFirst(row.suffix)].filter(Boolean).join(" ").trim();
   if (combined) return combined;
 
   return pickFirst(ROLE_LABELS[row.role], "User");
@@ -40,7 +40,9 @@ const normalizeProfile = (row) => ({
   role: row.role,
   display_name: buildDisplayName(row),
   first_name: pickFirst(row.first_name),
+  middle_name: pickFirst(row.middle_name),
   last_name: pickFirst(row.last_name),
+  suffix: pickFirst(row.suffix),
   full_name: pickFirst(row.full_name, row.dev_full_name),
   phone: pickFirst(row.profile_contact_number, row.user_phone, row.phone),
   email: pickFirst(row.email, row.dev_email),
@@ -173,17 +175,25 @@ const getProfile = async (req, res) => {
           u.role,
           u.phone AS user_phone,
           u.email,
-          CONCAT(p.first_name, ' ', p.last_name) AS patient_full_name,
+          p.first_name AS patient_first_name,
+          p.middle_name AS patient_middle_name,
+          p.last_name AS patient_last_name,
+          p.suffix AS patient_suffix,
+          CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')) AS patient_full_name,
           p.contact_number AS patient_contact_number,
           p.barangay AS patient_barangay,
           p.city AS patient_city,
           d.first_name AS doctor_first_name,
+          d.middle_name AS doctor_middle_name,
           d.last_name AS doctor_last_name,
+          d.suffix AS doctor_suffix,
           d.contact_number AS doctor_contact_number,
           d.license_number,
           sp.specialization_name,
           st.first_name AS staff_first_name,
+          st.middle_name AS staff_middle_name,
           st.last_name AS staff_last_name,
+          st.suffix AS staff_suffix,
           st.position,
           st.contact_number AS staff_contact_number
         FROM users u
@@ -216,13 +226,29 @@ const getProfile = async (req, res) => {
           ? row.doctor_first_name
           : row.role === "staff" || row.role === "admin"
             ? row.staff_first_name
-            : null,
+            : row.role === "patient" ? row.patient_first_name : null,
       last_name:
         row.role === "doctor"
           ? row.doctor_last_name
           : row.role === "staff" || row.role === "admin"
             ? row.staff_last_name
-            : null,
+            : row.role === "patient" ? row.patient_last_name : null,
+      suffix:
+        row.role === "patient"
+          ? row.patient_suffix
+          : row.role === "doctor"
+            ? row.doctor_suffix
+            : row.role === "staff" || row.role === "admin"
+              ? row.staff_suffix
+              : null,
+      middle_name:
+        row.role === "patient"
+          ? row.patient_middle_name
+          : row.role === "doctor"
+            ? row.doctor_middle_name
+            : row.role === "staff" || row.role === "admin"
+              ? row.staff_middle_name
+              : null,
       profile_contact_number:
         row.role === "patient"
           ? row.patient_contact_number

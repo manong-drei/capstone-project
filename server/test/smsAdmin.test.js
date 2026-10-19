@@ -5,9 +5,46 @@ const pool = require('../src/config/db');
 const User = require('../src/models/User');
 const sms = require('../src/utils/sms');
 const { createPatient } = require('../src/controllers/adminController');
-const { replacePassword } = require('../src/controllers/smsController');
+const { listJobs, replacePassword } = require('../src/controllers/smsController');
 const adminRouter = require('../src/routes/adminRoutes');
 const response = () => ({ statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
+
+test('SMS history returns recent audit metadata while excluding message payloads and full recipients', async () => {
+  const savedQuery = pool.query;
+  const jobs = [{
+    id: 91, purpose: 'temporary_password', user_id: 7, queue_id: null,
+    state: 'submitted', provider_status: 'sent', last_error: null,
+    masked_recipient: '*******6789', attempts: 2, provider_message_id: '123456',
+    created_at: new Date(0), updated_at: new Date(60000),
+  }];
+  pool.query = async sql => {
+    const projection = sql.slice(0, sql.indexOf('FROM sms_jobs'));
+    for (const field of ['attempts', 'provider_message_id', 'created_at', 'updated_at']) {
+      assert.ok(projection.includes(field), `History should include ${field}`);
+    }
+    assert.match(projection, /CONCAT\('\*{7}', RIGHT\(recipient, 4\)\) AS masked_recipient/);
+    assert.doesNotMatch(projection.replace(/CONCAT\(.*?AS masked_recipient/, ''), /\b(recipient|payload|credential_version|deduplication_key)\b|SELECT\s+\*/);
+    assert.match(sql, /ORDER BY id DESC LIMIT 100/);
+    return [jobs];
+  };
+  try {
+    const res = response();
+    await listJobs({}, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { success: true, jobs });
+  } finally { pool.query = savedQuery; }
+});
+
+test('SMS history reports database failures without exposing internal errors', async () => {
+  const savedQuery = pool.query;
+  pool.query = async () => { throw new Error('private database details'); };
+  try {
+    const res = response();
+    await listJobs({}, res);
+    assert.equal(res.statusCode, 500);
+    assert.deepEqual(res.body, { success: false, message: 'Unable to load SMS history.' });
+  } finally { pool.query = savedQuery; }
+});
 
 test('patient creation commits the encrypted SMS with the account and exposes only job status', async () => {
   const saved = { getConnection: pool.getConnection, query: pool.query, generate: User.generateTempPassword, key: process.env.SMS_ENCRYPTION_KEY };

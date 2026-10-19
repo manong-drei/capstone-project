@@ -3,6 +3,7 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
+const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
 
 /** GET /api/patients/me */
 const getMyProfile = async (req, res) => {
@@ -25,6 +26,8 @@ const getMyProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const payload = { ...req.body };
+    if (payload.suffix !== undefined) payload.suffix = normalizeSuffix(payload.suffix);
+    if (payload.middle_name !== undefined) payload.middle_name = normalizeMiddleName(payload.middle_name);
 
     if (payload.contact_number !== undefined) {
       const normalizedPhone = normalizePhilippineMobilePhone(payload.contact_number);
@@ -63,6 +66,7 @@ const updateProfile = async (req, res) => {
       });
   } catch (err) {
     console.error("updateProfile error:", err);
+    if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
     res.status(500).json({ success: false, message: "Server error." });
   }
 };
@@ -97,7 +101,7 @@ const getPatientById = async (req, res) => {
 
 const searchPatients = async (req, res) => {
   try {
-    const name = String(req.query.name || "").trim().replace(/\s+/g, " ").slice(0, 100);
+    const name = String(req.query.name || "").trim().replace(/\s+/g, " ").slice(0, 323);
     const phoneInput = req.query.phone;
     const phone = typeof phoneInput === "string" && /^\+?[\d\s-]+$/.test(phoneInput.trim())
       ? normalizePhilippineMobilePhone(phoneInput) || phoneInput.replace(/\D/g, "") : null;
@@ -174,7 +178,7 @@ const recoverAccount = async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
     const [[patient]] = await connection.query(
-      "SELECT patient_id, user_id, archived_into_patient_id, first_name, last_name, date_of_birth, barangay, city FROM patients WHERE patient_id = ? FOR UPDATE",
+      "SELECT patient_id, user_id, archived_into_patient_id, first_name, middle_name, last_name, suffix, date_of_birth, barangay, city FROM patients WHERE patient_id = ? FOR UPDATE",
       [patientId],
     );
     if (!patient) throw Object.assign(new Error("Patient not found."), { status: 404 });

@@ -43,7 +43,7 @@ export default function AccountRecoverySearch() {
     {!!matches?.length && <ul className="mt-4 space-y-2">
       {matches.map((patient) => <li key={patient.patient_id}>
         <Link to={`/staff/patients/${patient.patient_id}`} className="block rounded-xl border border-slate-200 p-3 text-sm text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600">
-          <span className="font-semibold">{patient.first_name} {patient.last_name}</span> · {patient.masked_contact || "No mobile recorded"}
+          <span className="font-semibold">{[patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")}</span> · {patient.masked_contact || "No mobile recorded"}
           {patient.date_of_birth && <span className="block mt-1 text-xs text-slate-600">Birthday: {new Date(patient.date_of_birth).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" })}</span>}
         </Link>
       </li>)}

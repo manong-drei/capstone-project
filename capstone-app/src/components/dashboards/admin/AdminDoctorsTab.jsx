@@ -52,7 +52,7 @@ function DoctorRecordsDialog({ doctor, onClose }) {
       <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white p-5 sm:p-6">
         <div className="min-w-0">
           <p className="mb-1 text-xs font-semibold text-slate-500">Doctor records</p>
-          <h2 id="doctor-records-title" className="break-words text-lg font-bold">Dr. {doctor.first_name} {doctor.last_name}</h2>
+          <h2 id="doctor-records-title" className="break-words text-lg font-bold">Dr. {[doctor.first_name, doctor.middle_name, doctor.last_name, doctor.suffix].filter(Boolean).join(" ")}</h2>
         </div>
         <button type="button" onClick={onClose} aria-label="Close doctor records" autoFocus className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-700">
           <X size={20} aria-hidden="true" />
@@ -73,7 +73,9 @@ function DoctorRecordsDialog({ doctor, onClose }) {
               <dl className="grid grid-cols-1 gap-4 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 {[
                   ["First name", records.doctor.first_name],
+                  ["Middle name", records.doctor.middle_name],
                   ["Last name", records.doctor.last_name],
+                  ["Suffix", records.doctor.suffix],
                   ["Contact number", records.doctor.contact_number],
                   ["Specialization", records.doctor.specialization_name],
                   ["License number", records.doctor.license_number],
@@ -162,7 +164,7 @@ export default function AdminDoctorsTab({ doctors }) {
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ margin: "0 0 2px", fontSize: "14px", fontWeight: 700, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  Dr. {d.first_name} {d.last_name}
+                  Dr. {[d.first_name, d.middle_name, d.last_name, d.suffix].filter(Boolean).join(" ")}
                 </p>
                 {d.specialization_name && (
                   <p style={{ margin: "0 0 6px", fontSize: "12px", color: "#64748b" }}>
@@ -173,7 +175,7 @@ export default function AdminDoctorsTab({ doctors }) {
                 <button
                   type="button"
                   onClick={() => setSelectedDoctor(d)}
-                  aria-label={`View records for Dr. ${d.first_name} ${d.last_name}`}
+                  aria-label={`View records for Dr. ${[d.first_name, d.middle_name, d.last_name, d.suffix].filter(Boolean).join(" ")}`}
                   className="mt-4 block rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-700"
                 >
                   View records

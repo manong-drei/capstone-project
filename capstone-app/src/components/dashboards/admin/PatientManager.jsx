@@ -4,11 +4,15 @@ import Icon from "@/components/common/AppIcons";
 import api from "@/services/api";
 import ToastNotifications from "@/components/common/ToastNotifications";
 import useSmsToasts from "@/hooks/useSmsToasts";
+import { getNameFields } from "@/utils/nameDisplay";
 
 const PM_RESPONSIVE_CSS = `
   .pm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .pm-table-row, .pm-table-head { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) 80px 110px; gap: 12px; }
+  .pm-table-row, .pm-table-head { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 48px 52px 110px minmax(100px, 1fr) 70px 150px; min-width: 950px; gap: 12px; }
   .pm-table-row > span { min-width: 0; overflow-wrap: anywhere; }
+  .pm-name-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; margin: 0; flex: 1; min-width: 0; }
+  .pm-name-grid dt { font-size: 11px; color: #6b7280; }
+  .pm-name-grid dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #111827; overflow-wrap: anywhere; }
   .pm-cards-mobile { display: none; }
   @media (max-width: 900px) {
     .pm-table-row, .pm-table-head { display: none !important; }
@@ -214,7 +218,9 @@ export default function PatientManager() {
 
   const [form, setForm] = useState({
     first_name: "",
+    middle_name: "",
     last_name: "",
+    suffix: "",
     phone: "",
     address: "",
     date_of_birth: "",
@@ -262,17 +268,19 @@ export default function PatientManager() {
       !form.date_of_birth ||
       !form.gender
     ) {
-      setFormError("All fields are required.");
+      setFormError("Please complete all required fields.");
       return;
     }
     setSubmitting(true);
     try {
       const result = await api.post("/admin/patients", form);
-      showSmsToast({ id: result.sms_job_id, state: result.sms_status, label: `Temporary password SMS for ${form.first_name} ${form.last_name}` });
+      showSmsToast({ id: result.sms_job_id, state: result.sms_status, label: `Temporary password SMS for ${[form.first_name, form.middle_name, form.last_name, form.suffix].filter(Boolean).join(" ")}` });
       setShowForm(false);
       setForm({
         first_name: "",
+        middle_name: "",
         last_name: "",
+        suffix: "",
         phone: "",
         address: "",
         date_of_birth: "",
@@ -317,7 +325,8 @@ export default function PatientManager() {
       const q = search.toLowerCase();
       return (
         (p.full_name || "").toLowerCase().includes(q) ||
-        (p.contact_number || "").includes(q) ||
+        getNameFields(p).map(([, value]) => value).join(" ").toLowerCase().includes(q) ||
+        (p.contact_number || p.phone || "").includes(q) ||
         (p.barangay || "").toLowerCase().includes(q)
       );
     }
@@ -457,12 +466,34 @@ export default function PatientManager() {
               />
             </div>
             <div>
+              <label htmlFor="patient-create-middle-name" style={labelStyle}>Middle Name (optional)</label>
+              <input
+                id="patient-create-middle-name"
+                style={inputStyle}
+                value={form.middle_name}
+                onChange={(e) => handleChange("middle_name", e.target.value)}
+                maxLength={100}
+                autoComplete="additional-name"
+              />
+            </div>
+            <div>
               <label style={labelStyle}>Last Name</label>
               <input
                 style={inputStyle}
                 value={form.last_name}
                 onChange={(e) => handleChange("last_name", e.target.value)}
                 placeholder="Dela Cruz"
+              />
+            </div>
+            <div>
+              <label htmlFor="patient-create-suffix" style={labelStyle}>Suffix (optional)</label>
+              <input
+                id="patient-create-suffix"
+                style={inputStyle}
+                value={form.suffix}
+                onChange={(e) => handleChange("suffix", e.target.value)}
+                maxLength={20}
+                placeholder="Jr., Sr., III"
               />
             </div>
             <div>
@@ -617,7 +648,7 @@ export default function PatientManager() {
             outline: "none",
             fontFamily: "inherit",
           }}
-          placeholder="Search by name, contact, or barangay..."
+          placeholder="Search by name, phone number, or barangay..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -629,7 +660,7 @@ export default function PatientManager() {
           background: "#ffffff",
           border: "1px solid #e5e7eb",
           borderRadius: "14px",
-          overflow: "hidden",
+          overflowX: "auto",
         }}
       >
         <div
@@ -640,7 +671,7 @@ export default function PatientManager() {
             borderBottom: "1px solid #f3f4f6",
           }}
         >
-          {["Full Name", "Contact", "Barangay", "Status", "Action"].map((h) => (
+          {["Last name", "First name", "Middle initial", "Suffix", "Phone number", "Barangay", "Status", "Actions"].map((h) => (
             <span
               key={h}
               style={{
@@ -719,17 +750,9 @@ export default function PatientManager() {
                     opacity: isInactive ? 0.6 : 1,
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: 500,
-                      color: "#111827",
-                    }}
-                  >
-                    {patient.full_name || "—"}
-                    <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
-                    {!!patient.patient_id && <Link to={`/staff/patients/${patient.patient_id}`} aria-label={`Recover account for ${patient.full_name}`} style={{ display: "block", marginTop: "5px", fontSize: "12px", color: "#1d4ed8" }}>Account recovery</Link>}
-                  </span>
+                  {getNameFields(patient).map(([label, value]) => (
+                    <span key={label} style={{ fontSize: "14px", fontWeight: 500, color: "#111827" }}>{value}</span>
+                  ))}
                   <span style={{ fontSize: "13px", color: "#6b7280" }}>
                     {patient.contact_number || patient.phone || "—"}
                   </span>
@@ -750,41 +773,45 @@ export default function PatientManager() {
                   >
                     {sb.label}
                   </span>
-                  {isInactive ? (
-                    <button
-                      onClick={() => openConfirm(patient, "reactivate")}
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: "7px",
-                        border: "none",
-                        background: "#dcfce7",
-                        color: "#16a34a",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        width: "fit-content",
-                      }}
-                    >
-                      Reactivate
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => openConfirm(patient, "deactivate")}
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: "7px",
-                        border: "none",
-                        background: "#fee2e2",
-                        color: "#dc2626",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        width: "fit-content",
-                      }}
-                    >
-                      Deactivate
-                    </button>
-                  )}
+                  <div>
+                    {isInactive ? (
+                      <button
+                        onClick={() => openConfirm(patient, "reactivate")}
+                        style={{
+                          padding: "5px 10px",
+                          borderRadius: "7px",
+                          border: "none",
+                          background: "#dcfce7",
+                          color: "#16a34a",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          width: "fit-content",
+                        }}
+                      >
+                        Reactivate
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => openConfirm(patient, "deactivate")}
+                        style={{
+                          padding: "5px 10px",
+                          borderRadius: "7px",
+                          border: "none",
+                          background: "#fee2e2",
+                          color: "#dc2626",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          width: "fit-content",
+                        }}
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                    <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
+                    {!!patient.patient_id && <Link to={`/staff/patients/${patient.patient_id}`} aria-label={`Recover account for ${patient.full_name}`} style={{ display: "block", marginTop: "5px", fontSize: "12px", color: "#1d4ed8" }}>Account recovery</Link>}
+                  </div>
                 </div>
               );
             })}
@@ -816,17 +843,11 @@ export default function PatientManager() {
                         gap: "8px",
                       }}
                     >
-                      <span
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 600,
-                          color: "#111827",
-                        }}
-                      >
-                        {patient.full_name || "—"}
-                        <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
-                        {!!patient.patient_id && <Link to={`/staff/patients/${patient.patient_id}`} aria-label={`Recover account for ${patient.full_name}`} style={{ display: "block", marginTop: "5px", fontSize: "12px", color: "#1d4ed8" }}>Account recovery</Link>}
-                      </span>
+                      <dl className="pm-name-grid">
+                        {getNameFields(patient).map(([label, value]) => (
+                          <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+                        ))}
+                      </dl>
                       <span
                         style={{
                           fontSize: "11px",
@@ -842,8 +863,10 @@ export default function PatientManager() {
                       </span>
                     </div>
                     <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                      {patient.contact_number || patient.phone || "—"}
+                      Phone number: {patient.contact_number || patient.phone || "—"}
                     </span>
+                    <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
+                    {!!patient.patient_id && <Link to={`/staff/patients/${patient.patient_id}`} aria-label={`Recover account for ${patient.full_name}`} style={{ display: "block", marginTop: "5px", fontSize: "12px", color: "#1d4ed8" }}>Account recovery</Link>}
                     {patient.barangay && (
                       <span style={{ fontSize: "12px", color: "#9ca3af" }}>
                         {patient.barangay}

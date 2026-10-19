@@ -14,7 +14,8 @@
     "migrate:queue-no-show": "node src/config/migrateQueueNoShow.js",
     "migrate:queue-grace": "node src/config/migrateQueueGracePeriod.js",
     "migrate:walkin-patients": "node src/config/migrateWalkInPatients.js",
-    "migrate:doctor-daily-reports": "node src/config/migrateDoctorDailyReports.js"
+    "migrate:doctor-daily-reports": "node src/config/migrateDoctorDailyReports.js",
+    "migrate:user-names": "node src/config/migrateUserNames.js"
   },
   "dependencies": {
     "axios": "^1.20.0",

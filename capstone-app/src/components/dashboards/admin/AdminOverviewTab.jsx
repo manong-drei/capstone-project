@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import StatusBadge from "@/components/common/StatusBadge";
 import AdminStaffTab from "./AdminStaffTab";
+import AdminLiveQueueMonitor from "./AdminLiveQueueMonitor";
 
 const BLUE = "#1a3a8f";
 const BLUE2 = "#1e4db7";
@@ -111,7 +112,7 @@ const formatAppointmentTime = (value) =>
     : "—";
 const formatDoctorName = (appt) => {
   const name =
-    `Dr. ${appt?.doctor_first_name ?? ""} ${appt?.doctor_last_name ?? ""}`.trim();
+    `Dr. ${[appt?.doctor_first_name, appt?.doctor_middle_name, appt?.doctor_last_name, appt?.doctor_suffix].filter(Boolean).join(" ")}`.trim();
   return name === "Dr." ? "—" : name;
 };
 const formatServices = (appt) => {
@@ -267,6 +268,8 @@ export default function AdminOverviewTab({
           </div>
         ))}
       </div>
+
+      <AdminLiveQueueMonitor />
 
       <section
         className="ad-section-pad"
@@ -561,7 +564,7 @@ export default function AdminOverviewTab({
                     color: "#1e293b",
                   }}
                 >
-                  Dr. {d.first_name} {d.last_name}
+                  Dr. {[d.first_name, d.middle_name, d.last_name, d.suffix].filter(Boolean).join(" ")}
                 </span>
                 <StatusBadge
                   status={d.is_available ? "available" : "on_leave"}

@@ -254,11 +254,11 @@ export const USER_MANUALS = {
     ],
     tasks: [
       {
-        id: "admin-overview", title: "Review clinic activity and queue", summary: "Use the sidebar to move between the overview and today's queue.",
+        id: "admin-overview", title: "Review clinic activity and queue", summary: "Review today's live queue directly on the Dashboard overview.",
         steps: [
           "Open “Dashboard” to review Total Patient Visits, Total Doctors, Total Appointments, and Total Queues Completed. In today's queue statistics, Serving includes called patients.",
-          "Open “Queue Monitor” to review ticket numbers, patients, queue types, statuses, and recorded reasons. It refreshes about every 15 seconds.",
-          "To withdraw an eligible active ticket, select “Cancel”, choose the reason in “Reason for cancellation”, then select “Continue”. Staff and doctors handle calls and physical presence.",
+          "On “Dashboard”, use “Live queue monitor” to see Dental and General patients now being served and up next. Filter today's tickets by All queues, Dental, or General to review patients, queue types, statuses, and recorded reasons. It refreshes every 15 seconds; use “Refresh live queue” for an immediate update.",
+          "To withdraw an eligible active ticket, select its “Cancel” button, choose the reason in “Reason for cancellation”, then select “Continue”. Staff and doctors handle calls and physical presence.",
           "Open “Doctors” to read Doctor Availability. Open “Patients History” for Appointment History; use “Previous” and “Next” to move through ten-record pages.",
         ],
         note: "Doctors and Patients History are viewing screens here. Doctor availability is changed by the doctor. Cancelled tickets may no longer appear in the active queue list.",

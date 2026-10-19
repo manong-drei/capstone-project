@@ -37,7 +37,7 @@ Pending bodies are AES-GCM encrypted; bodies are deleted on submission, failure,
 
 - `GET /api/admin/sms-settings` → `{ success, data: { threshold, updated_at } }`.
 - `PUT /api/admin/sms-settings` accepts `{ threshold }`, integer 1–100; applies to both services.
-- `GET /api/admin/sms-jobs` returns the latest 100 jobs with masked recipients and no bodies or keys.
+- `GET /api/admin/sms-jobs` returns the latest 100 jobs with masked recipients, job and provider references, send attempt counts, statuses, errors, and creation/update timestamps. No bodies or keys are returned.
 - `POST /api/admin/patients/:user_id/temporary-password` accepts `{ identity_confirmed: true }`; only active patient accounts awaiting activation qualify. Returns queued job status, never a password.
 - Account creation returns `sms_job_id` and `sms_status` instead of `temp_password`.
 - `PATCH /api/auth/change-password` accepts `{ newPassword }` for setup sessions; normal sessions also require `oldPassword`. Returns a new `token` and `user`.

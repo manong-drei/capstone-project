@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
 
 const Patient = {
   findByUserId: async (user_id) => {
@@ -21,32 +22,39 @@ const Patient = {
   search: async ({ name, date_of_birth, phone }, connection = pool) => {
     const filters = [];
     const values = [];
+    const fullNameSql = "CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), ''))";
+    const noMiddleNameSql = "CONCAT_WS(' ', p.first_name, p.last_name, NULLIF(TRIM(p.suffix), ''))";
+    const legacyNameSql = "CONCAT(p.first_name, ' ', p.last_name)";
+    const exactNameSql = `(LOWER(${fullNameSql}) = LOWER(?) OR LOWER(${noMiddleNameSql}) = LOWER(?) OR LOWER(${legacyNameSql}) = LOWER(?))`;
     if (phone) { filters.push("COALESCE(p.contact_number, u.phone) LIKE ?"); values.push(`%${phone}%`); }
-    if (name) { filters.push("CONCAT(p.first_name, ' ', p.last_name) LIKE ?"); values.push(`%${name}%`); }
+    if (name) {
+      filters.push(`(${fullNameSql} LIKE ? OR ${noMiddleNameSql} LIKE ? OR ${legacyNameSql} LIKE ?)`);
+      values.push(`%${name}%`, `%${name}%`, `%${name}%`);
+    }
     if (name && date_of_birth) {
-      filters.push("LOWER(CONCAT(p.first_name, ' ', p.last_name)) = LOWER(?) AND p.date_of_birth = ?");
-      values.push(name, date_of_birth);
+      filters.push(`${exactNameSql} AND p.date_of_birth = ?`);
+      values.push(name, name, name, date_of_birth);
     }
     if (date_of_birth) { filters.push("p.date_of_birth = ?"); values.push(date_of_birth); }
     if (!filters.length) return [];
     const [rows] = await connection.query(
-      `SELECT p.patient_id, p.first_name, p.last_name, p.date_of_birth, p.gender,
+      `SELECT p.patient_id, p.first_name, p.middle_name, p.last_name, p.suffix, p.date_of_birth, p.gender,
               COALESCE(p.contact_number, u.phone) AS contact_number, p.barangay, p.city, p.user_id
        FROM patients p LEFT JOIN users u ON p.user_id = u.user_id
        WHERE p.archived_into_patient_id IS NULL AND (${filters.join(" OR ")})
        ORDER BY (COALESCE(p.contact_number, u.phone) = ?) DESC,
-                (LOWER(CONCAT(p.first_name, ' ', p.last_name)) = LOWER(?) AND p.date_of_birth = ?) DESC,
+                (${exactNameSql} AND p.date_of_birth = ?) DESC,
                 p.last_name, p.first_name LIMIT 20`,
-      [...values, phone || "", name || "", date_of_birth || "1000-01-01"],
+      [...values, phone || "", name || "", name || "", name || "", date_of_birth || "1000-01-01"],
     );
     return rows;
   },
 
-  createWalkIn: async ({ first_name, last_name, date_of_birth, gender, contact_number, barangay }, connection) => {
+  createWalkIn: async ({ first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number, barangay }, connection) => {
     const [result] = await connection.query(
-      `INSERT INTO patients (user_id, first_name, last_name, date_of_birth, gender, contact_number, barangay, city)
-       VALUES (NULL, ?, ?, ?, ?, ?, ?, 'Bago City')`,
-      [first_name, last_name, date_of_birth, gender, contact_number, barangay],
+      `INSERT INTO patients (user_id, first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number, barangay, city)
+       VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'Bago City')`,
+      [first_name, normalizeMiddleName(middle_name), last_name, normalizeSuffix(suffix), date_of_birth, gender, contact_number, barangay],
     );
     return result.insertId;
   },
@@ -62,7 +70,9 @@ const Patient = {
     const {
       user_id,
       first_name,
+      middle_name,
       last_name,
+      suffix,
       address,
       phone,
       date_of_birth,
@@ -77,14 +87,16 @@ const Patient = {
 
     const [result] = await pool.query(
       `INSERT INTO patients
-         (user_id, first_name, last_name, date_of_birth, gender, contact_number,
+         (user_id, first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number,
           barangay, city, philhealth_id,
           emergency_contact, emg_contact_no, priority_category, priority_expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user_id,
         first_name,
+        normalizeMiddleName(middle_name),
         last_name,
+        normalizeSuffix(suffix),
         date_of_birth,
         gender,
         phone || null,
@@ -104,7 +116,9 @@ const Patient = {
   updateByUserId: async (user_id, data) => {
     const allowed = [
       "first_name",
+      "middle_name",
       "last_name",
+      "suffix",
       "date_of_birth",
       "gender",
       "contact_number",
@@ -116,10 +130,10 @@ const Patient = {
       "priority_category",
       "priority_expires_at",
     ];
-    const fields = Object.keys(data).filter((k) => allowed.includes(k));
+    const fields = Object.keys(data).filter((k) => allowed.includes(k) && data[k] !== undefined);
     if (!fields.length) return null;
 
-    const values = fields.map((f) => data[f]);
+    const values = fields.map((f) => f === "suffix" ? normalizeSuffix(data[f]) : f === "middle_name" ? normalizeMiddleName(data[f]) : data[f]);
     values.push(user_id);
 
     await pool.query(

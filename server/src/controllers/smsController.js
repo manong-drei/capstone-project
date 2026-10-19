@@ -43,7 +43,8 @@ async function listJobs(req, res) {
   try {
     const [rows] =
       await pool.query(`SELECT id, purpose, user_id, queue_id, state, provider_status, last_error,
-      CONCAT('*******', RIGHT(recipient, 4)) AS masked_recipient, created_at FROM sms_jobs ORDER BY id DESC LIMIT 100`);
+      attempts, provider_message_id, CONCAT('*******', RIGHT(recipient, 4)) AS masked_recipient,
+      created_at, updated_at FROM sms_jobs ORDER BY id DESC LIMIT 100`);
     res.json({ success: true, jobs: rows });
   } catch {
     res

@@ -4,6 +4,7 @@ const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
+const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
 const { wakeWorker } = require('../services/smsNotifications');
 
 const ALLOWED_SERVICE_IDS = new Set([
@@ -170,10 +171,20 @@ const createQueue = async (req, res) => {
 };
 
 const createWalkIn = async (req, res) => {
-  const { full_name, date_of_birth, gender, contact, address, type, services, category, patient_id, create_new_confirmed, priority_category } = req.body;
+  const { full_name, middle_name, suffix, date_of_birth, gender, contact, address, type, services, category, patient_id, create_new_confirmed, priority_category } = req.body;
   const queueCategory = category === "general" ? "general" : "dental";
   const name = typeof full_name === "string" ? full_name.trim().replace(/\s+/g, " ") : "";
   const names = name ? splitName(name) : { first_name: "", last_name: "" };
+  let normalizedSuffix;
+  let normalizedMiddleName;
+  try {
+    normalizedSuffix = normalizeSuffix(suffix);
+    normalizedMiddleName = normalizeMiddleName(middle_name);
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+  let effectiveSuffix = normalizedSuffix;
+  let effectiveMiddleName = normalizedMiddleName;
   const phone = normalizePhilippineMobilePhone(contact);
   if (!names.first_name || !names.last_name || names.first_name.length > 100 || names.last_name.length > 100) return res.status(400).json({ success: false, message: "A first and last name of up to 100 characters each are required." });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth || "") || !isValid(parseISO(date_of_birth)) || new Date(date_of_birth) > new Date()) {
@@ -229,16 +240,18 @@ const createWalkIn = async (req, res) => {
     if (patientId) {
       const [[existing]] = await connection.query("SELECT * FROM patients WHERE patient_id = ? FOR UPDATE", [patientId]);
       if (!existing || existing.archived_into_patient_id) throw httpError(404, "Patient record not found or archived.");
+      effectiveSuffix = suffix === undefined ? existing.suffix : normalizedSuffix;
+      effectiveMiddleName = middle_name === undefined ? existing.middle_name : normalizedMiddleName;
       const { first_name, last_name } = names;
       const changes = {};
-      for (const [key, value] of Object.entries({ first_name, last_name, date_of_birth, gender: gender[0].toUpperCase() + gender.slice(1), contact_number: phone, barangay, priority_category: priority_category || existing.priority_category })) {
+      for (const [key, value] of Object.entries({ first_name, middle_name: effectiveMiddleName, last_name, suffix: effectiveSuffix, date_of_birth, gender: gender[0].toUpperCase() + gender.slice(1), contact_number: phone, barangay, priority_category: priority_category || existing.priority_category })) {
         const old = existing[key] instanceof Date ? existing[key].toISOString().slice(0, 10) : existing[key];
         if (String(old ?? "") !== String(value ?? "")) changes[key] = { from: old, to: value };
       }
       if (Object.keys(changes).length) {
         await connection.query(
-          "UPDATE patients SET first_name = ?, last_name = ?, date_of_birth = ?, gender = ?, contact_number = ?, barangay = ?, priority_category = ? WHERE patient_id = ?",
-          [first_name, last_name, date_of_birth, gender, phone, barangay, priority_category || existing.priority_category, patientId],
+          "UPDATE patients SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?, date_of_birth = ?, gender = ?, contact_number = ?, barangay = ?, priority_category = ? WHERE patient_id = ?",
+          [first_name, effectiveMiddleName ?? null, last_name, effectiveSuffix ?? null, date_of_birth, gender, phone, barangay, priority_category || existing.priority_category, patientId],
         );
         await Patient.audit(patientId, req.user.user_id, "update", changes, connection);
       }
@@ -246,12 +259,12 @@ const createWalkIn = async (req, res) => {
       const [likely] = await connection.query(
         `SELECT p.patient_id FROM patients p LEFT JOIN users u ON p.user_id = u.user_id
          WHERE p.archived_into_patient_id IS NULL
-         AND (COALESCE(p.contact_number, u.phone) = ? OR (LOWER(CONCAT(p.first_name, ' ', p.last_name)) = LOWER(?) AND p.date_of_birth = ?))
+         AND (COALESCE(p.contact_number, u.phone) = ? OR (LOWER(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), ''))) = LOWER(?) AND p.date_of_birth = ?))
          LIMIT 1 FOR UPDATE`,
-        [phone, name, date_of_birth],
+        [phone, [names.first_name, normalizedMiddleName, names.last_name, normalizedSuffix].filter(Boolean).join(" "), date_of_birth],
       );
       if (likely.length && create_new_confirmed !== true) throw httpError(409, "Possible existing patient found. Select their record or explicitly confirm a new record.");
-      patientId = await Patient.createWalkIn({ ...names, date_of_birth, gender, contact_number: phone, barangay }, connection);
+      patientId = await Patient.createWalkIn({ ...names, middle_name: normalizedMiddleName, suffix: normalizedSuffix, date_of_birth, gender, contact_number: phone, barangay }, connection);
       if (priority_category) await connection.query("UPDATE patients SET priority_category = ? WHERE patient_id = ?", [priority_category, patientId]);
       await Patient.audit(patientId, req.user.user_id, "create", likely.length ? { duplicate_override: true, possible_patient_ids: likely.map((p) => p.patient_id) } : null, connection);
     }
@@ -269,7 +282,7 @@ const createWalkIn = async (req, res) => {
       type: queueType,
       category: queueCategory,
       services: selectedServices,
-      walk_in_name: name,
+      walk_in_name: [names.first_name, effectiveMiddleName, names.last_name, effectiveSuffix].filter(Boolean).join(" "),
       walk_in_dob: date_of_birth,
       walk_in_gender: gender === "other" ? null : gender,
       walk_in_contact: phone,

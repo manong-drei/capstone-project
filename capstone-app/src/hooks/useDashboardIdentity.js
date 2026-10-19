@@ -17,16 +17,16 @@ const pickFirst = (...values) => {
 };
 
 const buildDisplayName = (source = {}) => {
-  const combined = [pickFirst(source.first_name), pickFirst(source.last_name)]
+  const combined = [pickFirst(source.first_name), pickFirst(source.middle_name), pickFirst(source.last_name), pickFirst(source.suffix)]
     .filter(Boolean)
     .join(" ")
     .trim();
 
   return pickFirst(
     source.display_name,
+    combined,
     source.first_name,
     source.last_name,
-    combined,
     ROLE_LABELS[source.role],
     "User",
   );

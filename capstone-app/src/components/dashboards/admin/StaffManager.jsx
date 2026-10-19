@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/common/AppIcons";
 import api from "@/services/api";
+import { getNameFields } from "@/utils/nameDisplay";
 
 const ROLES = ["doctor", "staff", "admin"];
 
 const STAFF_RESPONSIVE_CSS = `
   .sm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .sm-table-row, .sm-table-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 72px 72px 150px; gap: 12px; }
+  .sm-table-row, .sm-table-head { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 48px 52px 110px minmax(130px, 1.2fr) 66px 66px 148px; min-width: 980px; gap: 12px; }
   .sm-table-row > span { min-width: 0; overflow-wrap: anywhere; }
+  .sm-name-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; margin: 0; flex: 1; min-width: 0; }
+  .sm-name-grid dt { font-size: 11px; color: #6b7280; }
+  .sm-name-grid dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #111827; overflow-wrap: anywhere; }
   .sm-cards-mobile { display: none; }
   @media (max-width: 900px) {
     .sm-table-row, .sm-table-head { display: none !important; }
@@ -184,7 +188,9 @@ function ConfirmModal({ open, memberName, action, onConfirm, onCancel }) {
 function EditStaffModal({ member, onSave, onClose }) {
   const [form, setForm] = useState({
     first_name: member.first_name || "",
+    middle_name: member.middle_name || "",
     last_name: member.last_name || "",
+    suffix: member.suffix || "",
     email: member.email || "",
     phone: member.phone || "",
     license_number: member.license_number || "",
@@ -281,11 +287,33 @@ function EditStaffModal({ member, onSave, onClose }) {
             />
           </div>
           <div>
+            <label htmlFor="staff-edit-middle-name" style={labelStyle}>Middle Name (optional)</label>
+            <input
+              id="staff-edit-middle-name"
+              style={inputStyle}
+              value={form.middle_name}
+              onChange={(e) => handleChange("middle_name", e.target.value)}
+              maxLength={100}
+              autoComplete="additional-name"
+            />
+          </div>
+          <div>
             <label style={labelStyle}>Last Name</label>
             <input
               style={inputStyle}
               value={form.last_name}
               onChange={(e) => handleChange("last_name", e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="staff-edit-suffix" style={labelStyle}>Suffix (optional)</label>
+            <input
+              id="staff-edit-suffix"
+              style={inputStyle}
+              value={form.suffix}
+              onChange={(e) => handleChange("suffix", e.target.value)}
+              maxLength={20}
+              placeholder="Jr., Sr., III"
             />
           </div>
           <div>
@@ -396,7 +424,9 @@ export default function StaffManager() {
 
   const [form, setForm] = useState({
     first_name: "",
+    middle_name: "",
     last_name: "",
+    suffix: "",
     email: "",
     phone: "",
     password: "",
@@ -444,7 +474,7 @@ export default function StaffManager() {
       !form.phone ||
       !form.password
     ) {
-      setFormError("All fields are required.");
+      setFormError("Please complete all required fields.");
       return;
     }
     if (form.role === "doctor" && !form.license_number) {
@@ -461,7 +491,9 @@ export default function StaffManager() {
       setShowForm(false);
       setForm({
         first_name: "",
+        middle_name: "",
         last_name: "",
+        suffix: "",
         email: "",
         phone: "",
         password: "",
@@ -481,7 +513,7 @@ export default function StaffManager() {
     setConfirm({
       open: true,
       memberId: member.user_id,
-      memberName: `${member.first_name} ${member.last_name}`,
+      memberName: [member.first_name, member.middle_name, member.last_name, member.suffix].filter(Boolean).join(" "),
       action,
     });
   };
@@ -655,12 +687,34 @@ export default function StaffManager() {
               />
             </div>
             <div>
+              <label htmlFor="staff-create-middle-name" style={labelStyle}>Middle Name (optional)</label>
+              <input
+                id="staff-create-middle-name"
+                style={inputStyle}
+                value={form.middle_name}
+                onChange={(e) => handleChange("middle_name", e.target.value)}
+                maxLength={100}
+                autoComplete="additional-name"
+              />
+            </div>
+            <div>
               <label style={labelStyle}>Last Name</label>
               <input
                 style={inputStyle}
                 value={form.last_name}
                 onChange={(e) => handleChange("last_name", e.target.value)}
                 placeholder="Dela Cruz"
+              />
+            </div>
+            <div>
+              <label htmlFor="staff-create-suffix" style={labelStyle}>Suffix (optional)</label>
+              <input
+                id="staff-create-suffix"
+                style={inputStyle}
+                value={form.suffix}
+                onChange={(e) => handleChange("suffix", e.target.value)}
+                maxLength={20}
+                placeholder="Jr., Sr., III"
               />
             </div>
             <div>
@@ -768,7 +822,7 @@ export default function StaffManager() {
           background: "#ffffff",
           border: "1px solid #e5e7eb",
           borderRadius: "14px",
-          overflow: "hidden",
+          overflowX: "auto",
         }}
       >
         <div
@@ -779,7 +833,7 @@ export default function StaffManager() {
             borderBottom: "1px solid #f3f4f6",
           }}
         >
-          {["Name", "Email", "Role", "Status", "Actions"].map((h) => (
+          {["Last name", "First name", "Middle initial", "Suffix", "Phone number", "Email", "Role", "Status", "Actions"].map((h) => (
             <span
               key={h}
               style={{
@@ -857,17 +911,14 @@ export default function StaffManager() {
                     opacity: isInactive ? 0.6 : 1,
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: 500,
-                      color: "#111827",
-                    }}
-                  >
-                    {member.first_name} {member.last_name}
+                  {getNameFields(member).map(([label, value]) => (
+                    <span key={label} style={{ fontSize: "14px", fontWeight: 500, color: "#111827" }}>{value}</span>
+                  ))}
+                  <span style={{ fontSize: "13px", color: "#6b7280" }}>
+                    {member.phone || member.contact_number || "—"}
                   </span>
                   <span style={{ fontSize: "13px", color: "#6b7280" }}>
-                    {member.email}
+                    {member.email || "—"}
                   </span>
                   <span
                     style={{
@@ -984,15 +1035,11 @@ export default function StaffManager() {
                         gap: "8px",
                       }}
                     >
-                      <span
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 600,
-                          color: "#111827",
-                        }}
-                      >
-                        {member.first_name} {member.last_name}
-                      </span>
+                      <dl className="sm-name-grid">
+                        {getNameFields(member).map(([label, value]) => (
+                          <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+                        ))}
+                      </dl>
                       <span
                         style={{
                           fontSize: "11px",
@@ -1007,6 +1054,9 @@ export default function StaffManager() {
                         {member.role}
                       </span>
                     </div>
+                    <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                      Phone number: {member.phone || member.contact_number || "—"}
+                    </span>
                     <span
                       style={{
                         fontSize: "12px",
@@ -1014,7 +1064,7 @@ export default function StaffManager() {
                         wordBreak: "break-all",
                       }}
                     >
-                      {member.email}
+                      {member.email || "—"}
                     </span>
                     <div
                       style={{ display: "flex", gap: "6px", marginTop: "2px" }}

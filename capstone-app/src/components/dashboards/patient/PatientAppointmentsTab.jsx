@@ -41,7 +41,7 @@ export default function PatientAppointmentsTab({ appointments, apptLoading, onBa
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {appointments.map((appt) => {
-              const doctorName = `Dr. ${appt.doctor_first_name ?? ""} ${appt.doctor_last_name ?? ""}`.trim();
+              const doctorName = `Dr. ${[appt.doctor_first_name, appt.doctor_middle_name, appt.doctor_last_name, appt.doctor_suffix].filter(Boolean).join(" ")}`.trim();
               const services = formatServices(appt);
               const { bg, color } = statusStyle(appt.status);
               return (

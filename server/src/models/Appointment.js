@@ -15,7 +15,9 @@ const Appointment = {
       SELECT
         a.*,
         d.first_name       AS doctor_first_name,
+        d.middle_name      AS doctor_middle_name,
         d.last_name        AS doctor_last_name,
+        d.suffix           AS doctor_suffix,
         s.specialization_name,
         (
           SELECT q.services FROM queues q
@@ -50,7 +52,8 @@ const Appointment = {
       `
       SELECT
         a.*,
-        CONCAT(p.first_name, ' ' ,p.last_name)   AS patient_full_name,
+        p.middle_name AS patient_middle_name, p.suffix AS patient_suffix,
+        CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')) AS patient_full_name,
         (
           SELECT q.services FROM queues q
           WHERE q.patient_id = a.patient_id
@@ -82,9 +85,12 @@ const Appointment = {
     const [rows] = await pool.query(`
       SELECT
         a.*,
-        CONCAT(p.first_name, ' ', p.last_name)   AS patient_full_name,
+        p.middle_name AS patient_middle_name, p.suffix AS patient_suffix,
+        CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')) AS patient_full_name,
         d.first_name  AS doctor_first_name,
+        d.middle_name AS doctor_middle_name,
         d.last_name   AS doctor_last_name,
+        d.suffix      AS doctor_suffix,
         (
           SELECT q.services FROM queues q
           WHERE q.patient_id = a.patient_id

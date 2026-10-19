@@ -3,8 +3,8 @@ import api from "./api";
 export const getMyQueue = () => api.get("/queue/me");
 export const getQueueStatus = (category) =>
   api.get(`/queue/status${category ? `?category=${category}` : ""}`);
-export const getAllQueues = (category) =>
-  api.get(`/queue${category ? `?category=${category}` : ""}`);
+export const getAllQueues = (category, config) =>
+  api.get(`/queue${category ? `?category=${category}` : ""}`, config);
 export const createQueue = (payload) => api.post("/queue", payload);
 export const callNextQueue = (category = "dental") =>
   api.post("/queue/call-next", { category });

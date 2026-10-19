@@ -9,14 +9,11 @@ import * as appointmentService from "@/services/appointmentService";
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
 import UserManual from "@/components/common/UserManual";
 import AdminOverviewTab from "@/components/dashboards/admin/AdminOverviewTab";
-import AdminQueueMonitorTab from "@/components/dashboards/admin/AdminQueueMonitorTab";
 import AdminReportsTab from "@/components/dashboards/admin/AdminReportsTab";
 import AdminDoctorsTab from "@/components/dashboards/admin/AdminDoctorsTab";
 import AdminPatientsHistoryTab from "@/components/dashboards/admin/AdminPatientsHistoryTab";
 import AdminNotificationsTab from "@/components/dashboards/admin/AdminNotificationsTab";
 import AdminStaffTab from "@/components/dashboards/admin/AdminStaffTab";
-import { CANCELLATION_REASONS } from "@/constants/queueReasons";
-import QueueReasonModal from "@/components/common/QueueReasonModal";
 
 const BLUE = "#1a3a8f";
 const BLUE2 = "#1e4db7";
@@ -178,7 +175,6 @@ const ADMIN_RESPONSIVE_CSS = `
 
 const sidebarItems = [
   { label: "Dashboard", tab: "overview" },
-  { label: "Queue Monitor", tab: "queuemonitor" },
   { label: "Statistics/Analytics", tab: "reports" },
   { label: "Doctors", tab: "doctors" },
   { label: "Patients History", tab: "patientshistory" },
@@ -200,10 +196,6 @@ export default function AdminDashboard() {
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
-  const [queueMonitor, setQueueMonitor] = useState([]);
-  const [queueLoading, setQueueLoading] = useState(false);
-  const [queueCategoryFilter, setQueueCategoryFilter] = useState("general");
-  const [queueReasonRequest, setQueueReasonRequest] = useState(null);
 
   useEffect(() => {
     fetchDoctors();
@@ -218,13 +210,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab !== "patientshistory") return;
     fetchAppointments();
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== "queuemonitor") return;
-    fetchQueueMonitor();
-    const interval = setInterval(fetchQueueMonitor, 15_000);
-    return () => clearInterval(interval);
   }, [activeTab]);
 
   /* ── Lock body scroll while the mobile drawer is open ── */
@@ -298,37 +283,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchQueueMonitor = async () => {
-    setQueueLoading(true);
-    try {
-      const data = await api.get("/queue");
-      setQueueMonitor(Array.isArray(data) ? data : []);
-    } catch {
-      setQueueMonitor([]);
-    } finally {
-      setQueueLoading(false);
-    }
-  };
-
-  const handleQueueStatus = async (queue, status) => {
-    setQueueReasonRequest({
-      title: "Reason for cancellation",
-      reasons: CANCELLATION_REASONS,
-      id: queue.id,
-      status,
-    });
-  };
-
-  const submitQueueReason = async (reason) => {
-    const { id, status } = queueReasonRequest;
-    try {
-      await api.patch(`/queue/${id}/status`, { status, reason });
-      await fetchQueueMonitor();
-    } catch (err) {
-      window.alert(err.message || "Could not update queue status.");
-    }
-  };
-
   const handleLogout = () => {
     logout();
     navigate(ROUTES.LOGIN);
@@ -343,11 +297,6 @@ export default function AdminDashboard() {
     <div className="ad-root">
       <style>{ADMIN_RESPONSIVE_CSS}</style>
       <UserManual role="admin" isOpen={showManual} onClose={() => setShowManual(false)} />
-      <QueueReasonModal
-        request={queueReasonRequest}
-        onClose={() => setQueueReasonRequest(null)}
-        onSubmit={submitQueueReason}
-      />
 
       {/* ── Navbar ── */}
       <nav
@@ -490,15 +439,6 @@ export default function AdminDashboard() {
               doctors={doctors}
               recentAppointments={appointments.slice(0, 5)}
               apptLoading={apptLoading}
-            />
-          )}
-          {activeTab === "queuemonitor" && (
-            <AdminQueueMonitorTab
-              queueMonitor={queueMonitor}
-              queueLoading={queueLoading}
-              queueCategoryFilter={queueCategoryFilter}
-              setQueueCategoryFilter={setQueueCategoryFilter}
-              onQueueStatus={handleQueueStatus}
             />
           )}
           {activeTab === "reports" && (

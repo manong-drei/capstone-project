@@ -47,7 +47,8 @@ const Queue = {
     const [rows] = await connection.query(
       `
       SELECT q.*,
-             COALESCE(CONCAT(p.first_name,' ',p.last_name), q.walk_in_name) AS full_name
+             p.middle_name, p.suffix,
+             COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')), ''), q.walk_in_name) AS full_name
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  q.id = ?
@@ -68,7 +69,8 @@ const Queue = {
     const [rows] = await pool.query(
       `
       SELECT q.*,
-             COALESCE(CONCAT(p.first_name, ' ', p.last_name), q.walk_in_name) AS full_name,
+             p.middle_name, p.suffix,
+             COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')), ''), q.walk_in_name) AS full_name,
              EXISTS(SELECT 1 FROM consultations c WHERE c.queue_id = q.id) AS has_consultation,
              sms.id AS sms_job_id, sms.state AS sms_state, sms.provider_status AS sms_provider_status
       FROM   queues q
@@ -102,7 +104,8 @@ const Queue = {
     const [rows] = await connection.query(
       `
       SELECT q.*,
-             COALESCE(CONCAT(p.first_name,' ', p.last_name), q.walk_in_name) AS full_name
+             p.middle_name, p.suffix,
+             COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')), ''), q.walk_in_name) AS full_name
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  q.patient_id = ?

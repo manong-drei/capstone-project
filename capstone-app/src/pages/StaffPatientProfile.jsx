@@ -51,7 +51,7 @@ function PatientProfile({ id }) {
     {!patient && !error && <p>Loading…</p>}
     {patient && <>
       <section style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "20px" }}>
-        <h2>{patient.first_name} {patient.last_name} <small>#{patient.patient_id}</small></h2>
+        <h2>{[patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")} <small>#{patient.patient_id}</small></h2>
         {patient.archived_into_patient_id && <p>This record was merged into <Link to={`/staff/patients/${patient.archived_into_patient_id}`}>patient #{patient.archived_into_patient_id}</Link>.</p>}
         <p>Date of birth: {patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" }) : "Unknown"}</p>
         <p>Gender: {patient.gender} · Mobile: {patient.contact_number || "Not recorded"}</p>
@@ -69,7 +69,7 @@ function PatientProfile({ id }) {
         <p>All queue visits will move to the selected patient. This record will be archived.</p>
         <label htmlFor="merge-search">Find the correct patient</label>
         <input id="merge-search" value={mergeSearch} onChange={(e) => { setMergeSearch(e.target.value); setTargetId(""); setTargets([]); }} placeholder="Name or mobile number" style={{ display: "block", width: "100%", maxWidth: "380px", padding: "9px", margin: "7px 0" }} />
-        {targets.map((p) => <label key={p.patient_id} style={{ display: "block", padding: "5px" }}><input type="radio" name="merge-target" value={p.patient_id} checked={targetId === String(p.patient_id)} onChange={() => setTargetId(String(p.patient_id))} /> {p.first_name} {p.last_name} · {String(p.date_of_birth || "").slice(0, 10)} · {p.masked_contact}</label>)}
+        {targets.map((p) => <label key={p.patient_id} style={{ display: "block", padding: "5px" }}><input type="radio" name="merge-target" value={p.patient_id} checked={targetId === String(p.patient_id)} onChange={() => setTargetId(String(p.patient_id))} /> {[p.first_name, p.middle_name, p.last_name, p.suffix].filter(Boolean).join(" ")} · {String(p.date_of_birth || "").slice(0, 10)} · {p.masked_contact}</label>)}
         <button type="button" onClick={merge} disabled={!targetId} style={{ marginTop: "10px", padding: "9px 15px" }}>Merge into selected patient</button>
       </section>}
     </>}

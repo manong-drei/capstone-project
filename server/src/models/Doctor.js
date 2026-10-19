@@ -4,6 +4,7 @@
  */
 
 const pool = require('../config/db');
+const { normalizeSuffix, normalizeMiddleName } = require('../utils/name');
 
 const Doctor = {
 
@@ -32,7 +33,7 @@ const Doctor = {
 
   findAdminProfile: async (doctor_id) => {
     const [rows] = await pool.query(`
-      SELECT d.doctor_id, d.first_name, d.last_name, d.license_number,
+      SELECT d.doctor_id, d.first_name, d.middle_name, d.last_name, d.suffix, d.license_number,
         COALESCE(NULLIF(d.contact_number, ''), u.phone) AS contact_number,
         s.specialization_name, u.created_at AS date_added,
         COALESCE(dds.is_available, 1) AS is_available
@@ -65,11 +66,11 @@ const Doctor = {
     return rows[0] || null;
   },
 
-  create: async ({ user_id, specialization_id, first_name, last_name, license_number, contact_number }) => {
+  create: async ({ user_id, specialization_id, first_name, middle_name, last_name, suffix, license_number, contact_number }) => {
     const [result] = await pool.query(
-      `INSERT INTO doctors (user_id, specialization_id, first_name, last_name, license_number, contact_number)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [user_id, specialization_id || null, first_name, last_name, license_number, contact_number || null]
+      `INSERT INTO doctors (user_id, specialization_id, first_name, middle_name, last_name, suffix, license_number, contact_number)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [user_id, specialization_id || null, first_name, normalizeMiddleName(middle_name), last_name, normalizeSuffix(suffix), license_number, contact_number || null]
     );
     return result.insertId;
   }

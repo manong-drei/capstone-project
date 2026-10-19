@@ -185,6 +185,8 @@ There is no ORM migration framework or complete base-schema installer in this ch
 - Clinical/reporting: `consultations`, `prescriptions`, `vital_signs`, `medical_records`, `doctor_daily_reports`.
 - SMS: `sms_settings`, `sms_jobs`, `sms_password_audit`.
 
+Names live in `patients`, `doctors`, and `staff` (including admin profiles), while `users` stores account credentials. `middle_name` and `suffix` are optional, trimmed strings of up to 100 and 20 characters. Blank values clear them; omitted update fields preserve existing values. Full names display as first, middle, last, suffix.
+
 All the following scripts are defined in `server/package.json`; availability of a command does not mean its required SQL file is present.
 
 | Command from `server/` | Purpose and current prerequisite |
@@ -194,6 +196,7 @@ All the following scripts are defined in `server/package.json`; availability of 
 | `npm run migrate:walkin-patients` | Persistent walk-in records, legacy backfill, queue foreign-key changes; references missing `migrations/003_walkin_patients.sql` |
 | `npm run migrate:doctor-daily-reports` | Saved daily report table; references missing `migrations/004_doctor_daily_reports.sql` |
 | `npm run migrate:sms` | Runs the present `migrations/005_sms_notifications.sql`; requires the earlier schema |
+| `npm run migrate:user-names` | Adds optional `middle_name VARCHAR(100)` and `suffix VARCHAR(20)` to `patients`, `staff` (including admins), and `doctors`, and widens `queues.walk_in_name` to fit complete names; safe to rerun |
 | `npm run migrate:queue-no-show` | Inline SQL expands the queue status enum; requires `queues` |
 | `npm run migrate:queue-grace` | Inline SQL adds grace/call timestamps, count, expiry index, and historical call backfill; designed to be rerunnable |
 

@@ -36,6 +36,8 @@ export default function WalkInForm({ onSuccess }) {
 
   const [form, setForm] = useState({
     fullName: "",
+    middle_name: "",
+    suffix: "",
     dateOfBirth: "",
     gender: "",
     address: "",
@@ -91,6 +93,8 @@ export default function WalkInForm({ onSuccess }) {
       setSelectedPatient(data);
       setForm({
         fullName: `${data.first_name} ${data.last_name}`,
+        middle_name: data.middle_name || "",
+        suffix: data.suffix || "",
         dateOfBirth: String(data.date_of_birth || "").slice(0, 10),
         gender: String(data.gender || "").toLowerCase(),
         address: data.barangay || "",
@@ -133,6 +137,8 @@ export default function WalkInForm({ onSuccess }) {
     try {
       const res = await api.post("/queue/walkin", {
         full_name: form.fullName,
+        middle_name: form.middle_name.trim(),
+        suffix: form.suffix.trim(),
         date_of_birth: form.dateOfBirth,
         gender: form.gender,
         address: form.address,
@@ -148,7 +154,7 @@ export default function WalkInForm({ onSuccess }) {
         (res.queue.sms_alert_state === "suppressed"
           ? "Tell the patient: Please stay nearby; no queue SMS will be sent."
           : "Tell the patient: One SMS will be sent as your turn approaches. Order may change."));
-      setForm({ fullName: "", dateOfBirth: "", gender: "", address: "", contact: "" });
+      setForm({ fullName: "", middle_name: "", suffix: "", dateOfBirth: "", gender: "", address: "", contact: "" });
       setSelectedServices([]);
       setIsPriority(false);
       setPriorityCategory("");
@@ -185,12 +191,12 @@ export default function WalkInForm({ onSuccess }) {
             {!selectedPatient && matches.length > 0 && (
               <div className="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <p className="text-xs font-semibold text-amber-900">Possible existing patients</p>
-                {matches.map((patient) => <button key={patient.patient_id} type="button" onClick={() => selectPatient(patient.patient_id)} className="block w-full rounded-lg border border-amber-100 bg-white px-3 py-2 text-left text-xs leading-relaxed text-slate-700 hover:border-blue-400 focus-visible:outline-2 focus-visible:outline-blue-600">{patient.first_name} {patient.last_name} · {String(patient.date_of_birth || "").slice(0, 10)} · {patient.masked_contact || "No phone"}</button>)}
+                {matches.map((patient) => <button key={patient.patient_id} type="button" onClick={() => selectPatient(patient.patient_id)} className="block w-full rounded-lg border border-amber-100 bg-white px-3 py-2 text-left text-xs leading-relaxed text-slate-700 hover:border-blue-400 focus-visible:outline-2 focus-visible:outline-blue-600">{[patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")} · {String(patient.date_of_birth || "").slice(0, 10)} · {patient.masked_contact || "No phone"}</button>)}
                 <label className="flex items-start gap-2 pt-1 text-xs leading-relaxed text-amber-900"><input type="checkbox" checked={confirmNew} onChange={(event) => setConfirmNew(event.target.checked)} className="mt-0.5 accent-blue-700" />I checked these records; create a new patient.</label>
               </div>
             )}
             {selectedPatient && <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">
-              <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">Returning patient #{selectedPatient.patient_id}</p><button type="button" onClick={() => { setSelectedPatient(null); setForm({ fullName: "", dateOfBirth: "", gender: "", address: "", contact: "" }); }} className="flex items-center gap-1 rounded-md p-1 hover:bg-blue-100"><X size={14} aria-hidden="true" />Clear selection</button></div>
+              <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">Returning patient #{selectedPatient.patient_id}</p><button type="button" onClick={() => { setSelectedPatient(null); setForm({ fullName: "", middle_name: "", suffix: "", dateOfBirth: "", gender: "", address: "", contact: "" }); }} className="flex items-center gap-1 rounded-md p-1 hover:bg-blue-100"><X size={14} aria-hidden="true" />Clear selection</button></div>
               <Link to={`/staff/patients/${selectedPatient.patient_id}`} className="mt-2 inline-block font-medium underline underline-offset-2">Open patient profile</Link>
               <p className="mt-2 font-medium">Previous dental visits: {dentalVisits.length}</p>
               {dentalVisits.slice(0, 3).map((visit) => <p key={visit.id} className="mt-1 text-blue-700">{new Date(visit.created_at).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" })} · {visit.queue_number} · {visit.status}</p>)}
@@ -200,6 +206,8 @@ export default function WalkInForm({ onSuccess }) {
             <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-slate-900"><UserRound size={16} className="text-blue-700" aria-hidden="true" />Patient details</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2"><label htmlFor="walkin-name" className="mb-1.5 block text-xs font-medium text-slate-600">Full name</label><input id="walkin-name" required autoComplete="name" value={form.fullName} onChange={set("fullName")} placeholder="First and last name" className={inputClass} /></div>
+              <div className="sm:col-span-2"><label htmlFor="walkin-middle-name" className="mb-1.5 block text-xs font-medium text-slate-600">Middle name (optional)</label><input id="walkin-middle-name" autoComplete="additional-name" maxLength={100} value={form.middle_name} onChange={set("middle_name")} placeholder="e.g. Santos" className={inputClass} /></div>
+              <div className="sm:col-span-2"><label htmlFor="walkin-suffix" className="mb-1.5 block text-xs font-medium text-slate-600">Suffix (optional)</label><input id="walkin-suffix" autoComplete="honorific-suffix" maxLength={20} value={form.suffix} onChange={set("suffix")} placeholder="e.g. Jr., Sr., III" className={inputClass} /></div>
               <div><label htmlFor="walkin-dob" className="mb-1.5 block text-xs font-medium text-slate-600">Date of birth</label><input id="walkin-dob" type="date" required value={form.dateOfBirth} onChange={set("dateOfBirth")} className={inputClass} /></div>
               <div><label htmlFor="walkin-gender" className="mb-1.5 block text-xs font-medium text-slate-600">Gender</label><select id="walkin-gender" required value={form.gender} onChange={set("gender")} className={inputClass}><option value="">Select gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
               <div className="sm:col-span-2"><label htmlFor="walkin-address" className="mb-1.5 block text-xs font-medium text-slate-600">Barangay, Bago City</label><select id="walkin-address" required value={form.address} onChange={set("address")} className={inputClass}><option value="">Select barangay</option>{form.address && !BAGO_BARANGAYS.some((name) => form.address === `Barangay ${name}, Bago City`) && <option value={form.address}>{form.address}</option>}{BAGO_BARANGAYS.map((name) => <option key={name} value={`Barangay ${name}, Bago City`}>{name}</option>)}</select></div>

@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const Queue = require("../models/Queue");
 const User = require("../models/User");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
+const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
 const { enqueuePassword, wakeWorker } = require('../services/smsNotifications');
 
 /** GET /api/admin/overview — live stats for the admin dashboard */
@@ -64,7 +65,7 @@ const getStaff = async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT u.user_id, u.email, u.phone, u.role, u.is_active,
-             d.first_name, d.last_name,
+             d.first_name, d.middle_name, d.last_name, d.suffix,
              d.license_number, d.specialization_id
       FROM   users u
       JOIN   doctors d ON u.user_id = d.user_id
@@ -73,7 +74,7 @@ const getStaff = async (req, res) => {
       UNION ALL
 
       SELECT u.user_id, u.email, u.phone, u.role, u.is_active,
-             s.first_name, s.last_name,
+             s.first_name, s.middle_name, s.last_name, s.suffix,
              NULL AS license_number, NULL AS specialization_id
       FROM   users u
       JOIN   staff s ON u.user_id = s.user_id
@@ -94,7 +95,9 @@ const createStaff = async (req, res) => {
   try {
     const {
       first_name,
+      middle_name,
       last_name,
+      suffix,
       email,
       phone,
       password,
@@ -103,6 +106,8 @@ const createStaff = async (req, res) => {
       specialization_id,
       position,
     } = req.body;
+    const normalizedSuffix = normalizeSuffix(suffix);
+    const normalizedMiddleName = normalizeMiddleName(middle_name);
 
     if (!first_name || !last_name || !phone || !password || !role) {
       return res
@@ -178,18 +183,20 @@ const createStaff = async (req, res) => {
 
       if (role === "doctor") {
         await conn.query(
-          `INSERT INTO doctors (user_id, specialization_id, first_name, last_name, license_number, contact_number)
-           VALUES (?, NULL, ?, ?, ?, ?)`,
-          [user_id, first_name, last_name, license_number, normalizedPhone],
+          `INSERT INTO doctors (user_id, specialization_id, first_name, middle_name, last_name, suffix, license_number, contact_number)
+           VALUES (?, NULL, ?, ?, ?, ?, ?, ?)`,
+          [user_id, first_name, normalizedMiddleName, last_name, normalizedSuffix, license_number, normalizedPhone],
         );
       } else {
         await conn.query(
-          `INSERT INTO staff (user_id, first_name, last_name, position, contact_number)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO staff (user_id, first_name, middle_name, last_name, suffix, position, contact_number)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             user_id,
             first_name,
+            normalizedMiddleName,
             last_name,
+            normalizedSuffix,
             role === "admin" ? "Administrator" : position,
             normalizedPhone,
           ],
@@ -208,6 +215,7 @@ const createStaff = async (req, res) => {
     }
   } catch (err) {
     console.error("createStaff error:", err);
+    if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
     if (err.code === "ER_DUP_ENTRY") {
       return res.status(409).json({
         success: false,
@@ -301,8 +309,14 @@ const reactivateStaff = async (req, res) => {
 const updateStaff = async (req, res) => {
   try {
     const { user_id } = req.params;
-    const { first_name, last_name, email, phone, license_number, position } =
+    const { first_name, middle_name, last_name, suffix, email, phone, license_number, position } =
       req.body;
+    const normalizedSuffix = normalizeSuffix(suffix);
+    const normalizedMiddleName = normalizeMiddleName(middle_name);
+    const normalizedPhone = phone ? normalizePhilippineMobilePhone(phone) : null;
+    if (phone && !normalizedPhone) {
+      return res.status(400).json({ success: false, message: "Invalid Philippine mobile phone number." });
+    }
 
     const [[user]] = await pool.query(
       "SELECT user_id, role FROM users WHERE user_id = ?",
@@ -320,18 +334,6 @@ const updateStaff = async (req, res) => {
       await conn.beginTransaction();
 
       if (email || phone) {
-        let normalizedPhone = phone;
-        if (phone) {
-          normalizedPhone = normalizePhilippineMobilePhone(phone);
-          if (!normalizedPhone) {
-            await conn.rollback();
-            conn.release();
-            return res.status(400).json({
-              success: false,
-              message: "Invalid Philippine mobile phone number.",
-            });
-          }
-        }
         const fields = [];
         const vals = [];
         if (email) {
@@ -360,9 +362,21 @@ const updateStaff = async (req, res) => {
           docFields.push("last_name = ?");
           docVals.push(last_name);
         }
+        if (suffix !== undefined) {
+          docFields.push("suffix = ?");
+          docVals.push(normalizedSuffix);
+        }
+        if (middle_name !== undefined) {
+          docFields.push("middle_name = ?");
+          docVals.push(normalizedMiddleName);
+        }
         if (license_number) {
           docFields.push("license_number = ?");
           docVals.push(license_number);
+        }
+        if (phone) {
+          docFields.push("contact_number = ?");
+          docVals.push(normalizedPhone);
         }
         if (docFields.length) {
           docVals.push(user_id);
@@ -370,10 +384,6 @@ const updateStaff = async (req, res) => {
             `UPDATE doctors SET ${docFields.join(", ")} WHERE user_id = ?`,
             docVals,
           );
-        }
-        if (phone) {
-          docFields.push("contact_number = ?");
-          docVals.push(normalizedPhone);
         }
       } else {
         const staffFields = [];
@@ -385,6 +395,14 @@ const updateStaff = async (req, res) => {
         if (last_name) {
           staffFields.push("last_name = ?");
           staffVals.push(last_name);
+        }
+        if (suffix !== undefined) {
+          staffFields.push("suffix = ?");
+          staffVals.push(normalizedSuffix);
+        }
+        if (middle_name !== undefined) {
+          staffFields.push("middle_name = ?");
+          staffVals.push(normalizedMiddleName);
         }
         if (phone) {
           staffFields.push("contact_number = ?");
@@ -413,6 +431,7 @@ const updateStaff = async (req, res) => {
     }
   } catch (err) {
     console.error("updateStaff error:", err);
+    if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
     if (err.code === "ER_DUP_ENTRY") {
       return res
         .status(409)
@@ -430,7 +449,8 @@ const getPatients = async (req, res) => {
        (SELECT j.id FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_job_id,
        (SELECT j.state FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_state,
        (SELECT j.provider_status FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_provider_status,
-       p.patient_id, CONCAT(p.first_name, ' ', p.last_name) AS full_name, p.contact_number,
+       p.patient_id, p.first_name, p.middle_name, p.last_name, p.suffix,
+       CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')) AS full_name, p.contact_number,
        p.barangay, p.city, p.gender, p.date_of_birth
       FROM   users u
       JOIN   patients p ON u.user_id = p.user_id
@@ -449,13 +469,17 @@ const createPatient = async (req, res) => {
   try {
     const {
       first_name,
+      middle_name,
       last_name,
+      suffix,
       phone,
       address,
       date_of_birth,
       gender,
       priority_category,
     } = req.body;
+    const normalizedSuffix = normalizeSuffix(suffix);
+    const normalizedMiddleName = normalizeMiddleName(middle_name);
 
     if (
       !first_name ||
@@ -537,13 +561,15 @@ const createPatient = async (req, res) => {
 
       const [patientResult] = await conn.query(
         `INSERT INTO patients
-           (user_id, first_name, last_name, date_of_birth, gender, contact_number, barangay, city,
+           (user_id, first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number, barangay, city,
             priority_category, priority_expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user_id,
           first_name,
+          normalizedMiddleName,
           last_name,
+          normalizedSuffix,
           date_of_birth,
           gender,
           normalizedPhone,
@@ -575,6 +601,7 @@ const createPatient = async (req, res) => {
     }
   } catch (err) {
     console.error("Patient account creation failed internally.");
+    if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
     if (err.code === "ER_DUP_ENTRY") {
       return res
         .status(409)

@@ -49,7 +49,7 @@ test('MySQL phone fragments match patient and account contacts and exclude archi
   try {
     // Temporary tables shadow real tables only on this connection.
     await connection.query(`CREATE TEMPORARY TABLE patients (
-      patient_id INT PRIMARY KEY, first_name VARCHAR(100), last_name VARCHAR(100),
+      patient_id INT PRIMARY KEY, first_name VARCHAR(100), middle_name VARCHAR(100), last_name VARCHAR(100), suffix VARCHAR(20),
       date_of_birth DATE, gender VARCHAR(20), contact_number VARCHAR(20), barangay VARCHAR(100),
       city VARCHAR(100), user_id INT, archived_into_patient_id INT)`);
     await connection.query('CREATE TEMPORARY TABLE users (user_id INT PRIMARY KEY, phone VARCHAR(20))');
