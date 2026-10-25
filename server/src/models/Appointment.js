@@ -81,7 +81,7 @@ const Appointment = {
   },
 
   // All appointments — admin/staff
-  findAll: async () => {
+  findAll: async ({ limit = 10, offset = 0 } = {}) => {
     const [rows] = await pool.query(`
       SELECT
         a.*,
@@ -111,8 +111,19 @@ const Appointment = {
       JOIN   patients p ON a.patient_id = p.patient_id
       JOIN   doctors  d ON a.doctor_id  = d.doctor_id
       ORDER  BY a.appointment_date DESC, a.appointment_time DESC, a.appointment_id DESC
-    `);
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
     return rows;
+  },
+
+  getSummary: async () => {
+    const [[row]] = await pool.query(`
+      SELECT COUNT(*) AS total,
+        COALESCE(SUM(status = 'completed'), 0) AS completed,
+        COALESCE(SUM(status IN ('pending', 'confirmed')), 0) AS open
+      FROM appointments
+    `);
+    return { total: Number(row.total), completed: Number(row.completed), open: Number(row.open) };
   },
 
   // Count appointments created today — used by admin overview

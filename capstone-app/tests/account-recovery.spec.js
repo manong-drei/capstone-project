@@ -44,7 +44,7 @@ async function mockApp(page, { role = "staff", signedIn = true, patientPatch = {
       state.passwordChanges.push(req.postDataJSON());
       body = { success: true, token: createTestToken({ user_id: 7, role: "patient", credential_version: 4 }), user: { user_id: 7, role: "patient", must_change_password: false } };
     } else if (url.pathname === "/api/patients/me") body = { data: state.patient };
-    else if (url.pathname === "/api/admin/patients") body = { patients: [{ ...state.patient, full_name: "Ana Test", is_active: 1 }] };
+    else if (url.pathname === "/api/admin/patients") body = { patients: [{ ...state.patient, full_name: "Ana Test", is_active: 1 }], pagination: { page: 1, limit: 10, total: 1, totalPages: 1 } };
     else if (url.pathname === "/api/admin/overview") body = { stats: {}, recentPatients: [], recentActivity: [] };
     await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
   });
@@ -182,6 +182,7 @@ test("search handles invalid inputs, empty results, and server errors", async ({
 test("admins can open recovery from patient management and return to their dashboard", async ({ page }) => {
   await mockApp(page, { role: "admin" });
   await page.goto("/admin");
+  await page.locator("#ad-sidebar").getByRole("button", { name: "Accounts", exact: true }).click();
   await page.getByRole("button", { name: "Patients", exact: true }).click();
   await page.getByRole("link", { name: "Recover account for Ana Test" }).first().click();
   await expect(page).toHaveURL(/\/staff\/patients\/42$/);

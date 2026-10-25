@@ -3,12 +3,12 @@ import {
   Activity,
   ArrowRight,
   Inbox,
-  Loader2,
   RefreshCw,
   Stethoscope,
 } from "lucide-react";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import StatusBadge from "@/components/common/StatusBadge";
+import { Skeleton } from "@/components/common/LoadingState";
 import { QUEUE_STATUS } from "@/constants/queue";
 import { CANCELLATION_REASONS } from "@/constants/queueReasons";
 import { getAllQueues, updateQueueStatus } from "@/services/queueService";
@@ -238,11 +238,9 @@ export default function AdminLiveQueueMonitor() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {updatedAt && (
-            <span className="text-[11px] text-slate-500">
-              Updated {formatQueueTime(updatedAt)}
-            </span>
-          )}
+          <span className={`text-[11px] text-slate-500 ${updatedAt ? "" : "invisible"}`}>
+            Updated {updatedAt ? formatQueueTime(updatedAt) : "00:00 AM"}
+          </span>
           <button
             type="button"
             onClick={() => loadQueues()}
@@ -259,6 +257,8 @@ export default function AdminLiveQueueMonitor() {
         </div>
       </div>
 
+      <div role="region" aria-label="Live queue details" tabIndex={0}
+        className="h-[560px] overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
       {error && (
         <p
           role="alert"
@@ -271,10 +271,14 @@ export default function AdminLiveQueueMonitor() {
       {initialLoading ? (
         <div
           role="status"
-          className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"
+          aria-busy="true"
+          className="space-y-5 p-4 sm:p-5"
         >
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{" "}
-          Loading live queue…
+          <span className="sr-only">Loading live queue…</span>
+          <div aria-hidden="true" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[0, 1, 2, 3].map((card) => <Skeleton key={card} className="h-24 w-full" />)}
+          </div>
+          {[0, 1, 2, 3].map((row) => <Skeleton key={row} className="h-16 w-full" />)}
         </div>
       ) : (
         updatedAt && (
@@ -307,7 +311,7 @@ export default function AdminLiveQueueMonitor() {
                 role="region"
                 aria-label="Today's queue tickets"
                 tabIndex={0}
-                className="max-h-[440px] overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
+                className="focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
               >
                 <div
                   aria-hidden="true"
@@ -333,6 +337,7 @@ export default function AdminLiveQueueMonitor() {
           </>
         )
       )}
+      </div>
     </section>
   );
 }

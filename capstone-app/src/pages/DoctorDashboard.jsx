@@ -9,6 +9,7 @@ import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
+import { DashboardSkeleton } from "@/components/common/LoadingState";
 import UserManual from "@/components/common/UserManual";
 import Icon from "@/components/common/AppIcons";
 import ConsultationModal from "@/components/dashboards/doctor/ConsultationModal";
@@ -57,6 +58,7 @@ export default function DoctorDashboard() {
   const { queues, loading, error, fetchAllQueues, updateStatus } = useQueue();
 
   const [activeTab, setActiveTab]           = useState("home");
+  const [initialLoading, setInitialLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [showConsultModal, setShowConsultModal] = useState(false);
@@ -143,8 +145,10 @@ export default function DoctorDashboard() {
   };
 
   useEffect(() => {
-    fetchAllQueues();
-    fetchDailySettings();
+    let active = true;
+    Promise.all([fetchAllQueues(), fetchDailySettings()])
+      .finally(() => { if (active) setInitialLoading(false); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -279,7 +283,7 @@ export default function DoctorDashboard() {
       </nav>
 
       {/* ── Tab Content ── */}
-      {activeTab === "home" && (
+      {activeTab === "home" && (initialLoading ? <DashboardSkeleton hero /> :
         <DoctorHomeTab
           isAvailable={isAvailable} availLoading={availLoading} onToggleAvailability={handleToggleAvailability}
           capacityCollapsed={capacityCollapsed} setCapacityCollapsed={setCapacityCollapsed}

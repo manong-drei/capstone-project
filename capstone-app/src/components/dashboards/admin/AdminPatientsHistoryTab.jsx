@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import StatusBadge from "@/components/common/StatusBadge";
+import { getAllAppointments } from "@/services/appointmentService";
 
 const BLUE = "#1a3a8f";
 const ORANGE = "#f97316";
@@ -36,32 +37,35 @@ const formatServices = (appt) => {
   return appt?.cancellation_reason || (appt?.reason === "Same-day queue registration" ? "—" : appt?.reason) || "—";
 };
 
-export default function AdminPatientsHistoryTab({ appointments, apptLoading }) {
+export default function AdminPatientsHistoryTab() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [result, setResult] = useState({ data: [], summary: {}, pagination: {} });
+  const [apptLoading, setApptLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
   const pageSize = 10;
+  useEffect(() => {
+    const controller = new AbortController();
+    getAllAppointments({ page: currentPage, limit: pageSize }, controller.signal)
+      .then((response) => {
+        if (!controller.signal.aborted) {
+          setResult(response);
+          setCurrentPage(response.pagination.page);
+        }
+      })
+      .catch((err) => { if (!controller.signal.aborted) setError(err.message); })
+      .finally(() => { if (!controller.signal.aborted) setApptLoading(false); });
+    return () => controller.abort();
+  }, [currentPage, retry]);
 
-  // Ensure appointments is always an array
-  const safeAppointments = Array.isArray(appointments) ? appointments : [];
-
-  const totalPages = Math.ceil(safeAppointments.length / pageSize);
-
-  // Reset current page if it exceeds total pages (state adjustment during render)
-  if (currentPage > totalPages) {
-    setCurrentPage(Math.max(1, totalPages));
-  }
-
-  const paginatedAppointments = safeAppointments.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
-
-  const completed = safeAppointments.filter(
-    (a) => a.status === "completed",
-  ).length;
-  const pending = safeAppointments.filter((a) => a.status === "pending").length;
-  const confirmed = safeAppointments.filter(
-    (a) => a.status === "confirmed",
-  ).length;
+  const appointments = result.data;
+  const totalPages = result.pagination.totalPages ?? 1;
+  const totalRecords = result.pagination.total ?? 0;
+  const changePage = (page) => {
+    setApptLoading(true);
+    setError("");
+    setCurrentPage(page);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -114,19 +118,19 @@ export default function AdminPatientsHistoryTab({ appointments, apptLoading }) {
         {[
           {
             label: "Total Records",
-            value: safeAppointments.length,
+            value: totalRecords,
             color: BLUE,
             bg: "#dbeafe",
           },
           {
             label: "Completed",
-            value: completed,
+            value: result.summary.completed ?? 0,
             color: "#059669",
             bg: "#dcfce7",
           },
           {
             label: "Open Cases",
-            value: pending + confirmed,
+            value: result.summary.open ?? 0,
             color: ORANGE,
             bg: "#ffedd5",
           },
@@ -182,11 +186,20 @@ export default function AdminPatientsHistoryTab({ appointments, apptLoading }) {
           Appointment History
         </h3>
 
-        {apptLoading ? (
+        {error ? (
+          <div role="alert">
+            <p>{error}</p>
+            <button type="button" onClick={() => {
+              setApptLoading(true);
+              setError("");
+              setRetry((value) => value + 1);
+            }}>Retry</button>
+          </div>
+        ) : apptLoading ? (
           <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
             Loading appointments...
           </p>
-        ) : safeAppointments.length === 0 ? (
+        ) : appointments.length === 0 ? (
           <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
             No appointments recorded yet.
           </p>
@@ -218,7 +231,7 @@ export default function AdminPatientsHistoryTab({ appointments, apptLoading }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedAppointments.map((appt) => (
+                  {appointments.map((appt) => (
                     <tr
                       key={appt.appointment_id}
                       style={{ borderBottom: "1px solid #f1f5f9" }}
@@ -264,7 +277,7 @@ export default function AdminPatientsHistoryTab({ appointments, apptLoading }) {
               className="ad-show-on-mobile"
               style={{ display: "none", flexDirection: "column", gap: "10px" }}
             >
-              {paginatedAppointments.map((appt) => (
+              {appointments.map((appt) => (
                 <div
                   key={appt.appointment_id}
                   style={{
@@ -324,14 +337,14 @@ export default function AdminPatientsHistoryTab({ appointments, apptLoading }) {
             >
               <span style={{ fontSize: "12px", color: "#6b7280" }}>
                 Showing {(currentPage - 1) * pageSize + 1}–
-                {Math.min(currentPage * pageSize, safeAppointments.length)} of{" "}
-                {safeAppointments.length}
+                {Math.min(currentPage * pageSize, totalRecords)} of{" "}
+                {totalRecords}
               </span>
               <div
                 style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => changePage(Math.max(1, currentPage - 1))}
                   disabled={currentPage <= 1}
                   style={{
                     padding: "6px 12px",
@@ -357,7 +370,7 @@ export default function AdminPatientsHistoryTab({ appointments, apptLoading }) {
                 </span>
                 <button
                   onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    changePage(Math.min(totalPages, currentPage + 1))
                   }
                   disabled={currentPage >= totalPages}
                   style={{

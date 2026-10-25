@@ -40,11 +40,10 @@ export default function useSmsToasts() {
   }, [showToast]);
 
   const trackSmsStatuses = useCallback((jobs) => {
-    // Seed the first snapshot silently so opening a dashboard does not replay old SMS results.
-    const initialSnapshot = previousStatuses.current === null;
+    // Newly visited pages must not replay historical SMS results.
     previousStatuses.current ??= new Map();
     for (const job of jobs) {
-      if (initialSnapshot) {
+      if (!previousStatuses.current.has(String(job.id))) {
         const feedback = smsFeedback(job);
         if (job.id && feedback) previousStatuses.current.set(String(job.id), feedback.status);
       } else {

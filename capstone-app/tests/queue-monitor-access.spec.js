@@ -45,11 +45,85 @@ test("staff opens the monitor with its own session and keeps access after refres
   await monitor.reload();
   await expect(monitor.getByText("Q01", { exact: true })).toBeVisible();
   ticket = "Q02";
-  await monitor.clock.fastForward(10_000);
+  await monitor.clock.fastForward(1_000);
   await expect(monitor.getByText("Q02", { exact: true })).toBeVisible();
   // Each tab retains its own storage after the initial session copy.
   await monitor.evaluate(() => sessionStorage.setItem("ek_user", JSON.stringify({ user_id: 8, role: "staff", display_name: "Monitor Tab" })));
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("ek_user")).display_name)).toBe("Monitor Staff");
+});
+
+test("staff calls and recalls reach the monitor immediately without waiting for polling", async ({ page, context }) => {
+  const user = { user_id: 8, role: "staff", display_name: "Monitor Staff" };
+  const token = createTestToken(user);
+  const queues = [1, 2].map(id => ({ id, category: "dental", queue_number: `Q0${id}`, status: "waiting", type: "regular" }));
+  let failCall = true;
+  let monitorPolls = 0;
+  await context.addInitScript(({ user, token }) => {
+    sessionStorage.setItem("ek_user", JSON.stringify(user));
+    sessionStorage.setItem("ek_token", token);
+    window.announcements = [];
+    window.queueSignals = [];
+    const messages = new BroadcastChannel("ek_queue_updates");
+    messages.onmessage = event => window.queueSignals.push(event.data);
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { configurable: true, value: class { constructor(text) { this.text = text; } } });
+    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: Object.assign(new EventTarget(), {
+      getVoices: () => [{ name: "Microsoft Zira Desktop", lang: "en-US" }],
+      speak: utterance => window.announcements.push(utterance.text), cancel() {},
+    }) });
+  }, { user, token });
+  await context.route("https://fonts.googleapis.com/**", route => route.fulfill({ contentType: "text/css", body: "" }));
+  await context.route("**/api/**", async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    let body = { data: [] };
+    if (path === "/api/auth/profile") body = { data: user };
+    else if (path === "/api/queue") {
+      if (request.frame().page() !== page) monitorPolls++;
+      expect(request.headers().authorization).toBe(`Bearer ${token}`);
+      body = queues;
+    } else if (path === "/api/queue/call-next") {
+      if (failCall) return route.fulfill({ status: 503, json: { message: "Call failed." } });
+      body = queues.find(queue => queue.status === "waiting");
+      Object.assign(body, { status: "called", call_count: 1, last_called_at: new Date().toISOString() });
+    } else if (path === "/api/queue/1/recall") {
+      body = queues[0];
+      Object.assign(body, { call_count: 2, last_called_at: new Date(Date.now() + 15_000).toISOString() });
+    } else if (/\/api\/queue\/\d+\/status$/.test(path)) {
+      body = queues.find(queue => queue.id === Number(path.split("/")[3]));
+      body.status = request.postDataJSON().status;
+    }
+    await route.fulfill({ json: body });
+  });
+  await page.clock.install();
+  await page.goto("/staff");
+  const monitor = await context.newPage();
+  await monitor.goto("/general-queue-monitor");
+  await expect(monitor.getByRole("heading", { name: "Dental Check-up Queue", exact: true })).toBeVisible();
+  await monitor.getByRole("button", { name: "Enable announcements" }).click();
+  await monitor.clock.pauseAt(new Date(Date.now() + 1_000));
+  const current = monitor.getByRole("region", { name: "Current ticket", exact: true });
+  await expect(current).toContainText("No patient being served");
+  const call = page.getByRole("button", { name: "Call next patient", exact: true });
+  const initialPolls = monitorPolls;
+  await call.click();
+  await expect(page.getByRole("alert")).toContainText("Call failed.");
+  expect(monitorPolls).toBe(initialPolls);
+  expect(await monitor.evaluate(() => window.queueSignals)).toEqual([]);
+  failCall = false;
+  await call.click();
+  await expect(current.getByText("Q01", { exact: true })).toBeVisible();
+  await expect.poll(() => monitor.evaluate(() => window.announcements.length)).toBe(2);
+  const afterCall = monitorPolls;
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  expect(monitorPolls).toBe(afterCall);
+  await page.clock.fastForward(15_000);
+  await page.getByRole("button", { name: "Call again", exact: true }).click();
+  await expect.poll(() => monitor.evaluate(() => window.announcements.length)).toBe(4);
+  await page.getByRole("button", { name: "Patient present", exact: true }).click();
+  await call.click();
+  await expect(current.getByText("Q02", { exact: true })).toBeVisible();
+  await expect.poll(() => monitor.evaluate(() => window.announcements.length)).toBe(6);
+  expect(await monitor.evaluate(() => window.queueSignals.every(message => message === "changed"))).toBe(true);
 });
 
 test("the monitor still requires a login", async ({ page }) => {

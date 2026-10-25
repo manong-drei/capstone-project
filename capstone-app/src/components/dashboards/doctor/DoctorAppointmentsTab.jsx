@@ -12,7 +12,13 @@ const formatServices = (appt) => {
   return appt?.cancellation_reason || (appt?.reason === "Same-day queue registration" ? "—" : appt?.reason) || "—";
 };
 
-const TODAY = new Date().toISOString().split("T")[0];
+// Midnight clinic dates arrive from MySQL as the previous day in UTC.
+const getDateKey = (value) => {
+  const date = new Date(value);
+  return value && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })
+    : "";
+};
 
 /**
  * DoctorAppointmentsTab
@@ -33,14 +39,14 @@ export default function DoctorAppointmentsTab({ appointments, apptLoading, onBac
     else { setSortField(field); setSortDir("asc"); }
   };
 
-  const getDateKey = (value) => String(value ?? "").split("T")[0];
+  const today = getDateKey(new Date());
   const filtered = filter === "today"
-    ? appointments.filter((a) => getDateKey(a.appointment_date) === TODAY)
+    ? appointments.filter((a) => getDateKey(a.appointment_date) === today)
     : appointments;
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
-    if (sortField === "date")     cmp = (a.appointment_date ?? "").localeCompare(b.appointment_date ?? "");
+    if (sortField === "date")     cmp = getDateKey(a.appointment_date).localeCompare(getDateKey(b.appointment_date));
     else if (sortField === "name") cmp = (a.patient_full_name ?? "").toLowerCase().localeCompare((b.patient_full_name ?? "").toLowerCase());
     else                           cmp = formatServices(a).toLowerCase().localeCompare(formatServices(b).toLowerCase());
     return sortDir === "asc" ? cmp : -cmp;
@@ -100,7 +106,7 @@ export default function DoctorAppointmentsTab({ appointments, apptLoading, onBac
                   {sorted.map((appt) => (
                     <tr key={appt.appointment_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                       <td style={{ padding: "10px 14px", color: "#111827" }}>
-                        {new Date(appt.appointment_date).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                        {new Date(appt.appointment_date).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })}
                         {appt.appointment_time ? ` · ${appt.appointment_time}` : ""}
                       </td>
                       <td style={{ padding: "10px 14px", color: "#111827" }}>{appt.patient_full_name || "—"}</td>
@@ -118,7 +124,7 @@ export default function DoctorAppointmentsTab({ appointments, apptLoading, onBac
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontWeight: 600, color: "#111827" }}>{appt.patient_full_name || "—"}</span>
                     <span style={{ fontSize: 12, color: "#6b7280" }}>
-                      {new Date(appt.appointment_date).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
+                      {new Date(appt.appointment_date).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric" })}
                     </span>
                   </div>
                   <span style={{ fontSize: 13, color: "#374151" }}>{formatServices(appt)}</span>

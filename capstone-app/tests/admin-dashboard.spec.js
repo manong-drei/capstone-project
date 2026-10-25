@@ -20,6 +20,14 @@ async function mockAdmin(page) {
   };
   await page.route('**/api/**', route => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/admin/patients') {
+      const data = responses[path];
+      return route.fulfill({ json: { ...data, pagination: { page: 1, limit: 10, total: data.patients.length, totalPages: 1 } } });
+    }
+    if (path === '/api/appointments') {
+      const data = responses[path];
+      return route.fulfill({ json: { ...data, summary: { total: data.data.length, completed: 1, open: 0 }, pagination: { page: 1, limit: 10, total: data.data.length, totalPages: 1 } } });
+    }
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(responses[path] ?? { data: [] }) });
   });
   return responses;
@@ -197,6 +205,72 @@ for (const width of [1440, 375]) {
     await selectTab('Accounts');
     await selectTab('Notifications');
     await expect(main.getByText('Queue alert #42', { exact: true }).filter({ visible: true })).toBeVisible();
+  });
+}
+
+for (const width of [1440, 375]) {
+  test(`SMS activity pages retain their position on refresh and recover when history shrinks at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const responses = await mockAdmin(page);
+    const makeJob = (id) => ({
+      id, purpose: 'queue_alert', queue_id: id, state: 'submitted', provider_status: 'sent',
+      masked_recipient: '*******6789', attempts: 1,
+      created_at: '2026-10-19T01:00:00.000Z', updated_at: '2026-10-19T01:01:00.000Z',
+    });
+    responses['/api/admin/sms-jobs'].jobs = Array.from({ length: 23 }, (_, index) => makeJob(100 - index));
+    let fail = false;
+    await page.route('**/api/admin/sms-jobs', route => fail
+      ? route.fulfill({ status: 503, json: { message: 'Unable to load SMS history.' } })
+      : route.fulfill({ json: responses['/api/admin/sms-jobs'] }));
+    await page.clock.install();
+    await page.goto('/admin');
+    if (width <= 900) await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.locator('#ad-sidebar').getByRole('button', { name: 'Notifications', exact: true }).click();
+    const main = page.getByRole('main');
+    const pagination = main.getByRole('navigation', { name: 'SMS activity pagination' });
+    const rows = main.getByText(/^Queue alert #\d+$/).filter({ visible: true });
+    const previous = pagination.getByRole('button', { name: 'Previous', exact: true });
+    const next = pagination.getByRole('button', { name: 'Next', exact: true });
+    await expect(pagination).toContainText('Showing 1–10 of 23');
+    await expect(pagination).toContainText('Page 1 of 3');
+    await expect(rows).toHaveCount(10);
+    await expect(rows.first()).toHaveText('Queue alert #100');
+    await expect(previous).toBeDisabled();
+    await next.click();
+    await expect(pagination).toContainText('Showing 11–20 of 23');
+    await expect(rows.first()).toHaveText('Queue alert #90');
+    await next.click();
+    await expect(pagination).toContainText('Showing 21–23 of 23');
+    await expect(rows).toHaveCount(3);
+    await expect(next).toBeDisabled();
+    await previous.click();
+    responses['/api/admin/sms-jobs'].jobs.unshift(makeJob(101));
+    await page.clock.runFor(15_000);
+    await expect(pagination).toContainText('Showing 11–20 of 24');
+    await expect(pagination).toContainText('Page 2 of 3');
+    await expect(rows.first()).toHaveText('Queue alert #91');
+    await expect(rows).toHaveCount(10);
+    await pagination.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`sms-pagination-${width}.png`), fullPage: true, animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+
+    fail = true;
+    await main.getByRole('button', { name: 'Refresh SMS activity' }).click();
+    await expect(main.getByRole('alert')).toHaveText('Unable to load SMS history.');
+    await expect(pagination).toContainText('Page 2 of 3');
+    await expect(rows).toHaveCount(10);
+    fail = false;
+    responses['/api/admin/sms-jobs'].jobs = [makeJob(101), makeJob(100)];
+    await main.getByRole('button', { name: 'Refresh SMS activity' }).click();
+    await expect(pagination).toContainText('Showing 1–2 of 2');
+    await expect(pagination).toContainText('Page 1 of 1');
+    await expect(rows).toHaveCount(2);
+    await expect(previous).toBeDisabled();
+    await expect(next).toBeDisabled();
+    responses['/api/admin/sms-jobs'].jobs = [];
+    await main.getByRole('button', { name: 'Refresh SMS activity' }).click();
+    await expect(main.getByText('No SMS jobs yet', { exact: true })).toBeVisible();
+    await expect(pagination).toHaveCount(0);
   });
 }
 

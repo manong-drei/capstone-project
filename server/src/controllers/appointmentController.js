@@ -3,6 +3,7 @@ const Patient = require("../models/Patient");
 const Doctor = require("../models/Doctor");
 const Queue = require("../models/Queue");
 const pool = require("../config/db");
+const { parsePagination } = require("../utils/pagination");
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -26,9 +27,17 @@ const getMyAppointments = async (req, res) => {
 /** GET /api/appointments — admin/staff sees all appointments */
 const getAllAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.findAll();
-    res.json({ success: true, count: appointments.length, data: appointments });
+    const { page: requestedPage, limit } = parsePagination(req.query);
+    const summary = await Appointment.getSummary();
+    const totalPages = Math.max(1, Math.ceil(summary.total / limit));
+    const page = Math.min(requestedPage, totalPages);
+    const appointments = await Appointment.findAll({ limit, offset: (page - 1) * limit });
+    res.json({
+      success: true, count: appointments.length, data: appointments, summary,
+      pagination: { page, limit, total: summary.total, totalPages },
+    });
   } catch (err) {
+    if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
     console.error("getAllAppointments error:", err);
     res.status(500).json({ success: false, message: "Server error." });
   }

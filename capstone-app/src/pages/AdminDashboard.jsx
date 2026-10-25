@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
@@ -7,13 +7,14 @@ import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
-import UserManual from "@/components/common/UserManual";
 import AdminOverviewTab from "@/components/dashboards/admin/AdminOverviewTab";
-import AdminReportsTab from "@/components/dashboards/admin/AdminReportsTab";
-import AdminDoctorsTab from "@/components/dashboards/admin/AdminDoctorsTab";
-import AdminPatientsHistoryTab from "@/components/dashboards/admin/AdminPatientsHistoryTab";
-import AdminNotificationsTab from "@/components/dashboards/admin/AdminNotificationsTab";
-import AdminStaffTab from "@/components/dashboards/admin/AdminStaffTab";
+import { DashboardSkeleton } from "@/components/common/LoadingState";
+const UserManual = lazy(() => import("@/components/common/UserManual"));
+const AdminReportsTab = lazy(() => import("@/components/dashboards/admin/AdminReportsTab"));
+const AdminDoctorsTab = lazy(() => import("@/components/dashboards/admin/AdminDoctorsTab"));
+const AdminPatientsHistoryTab = lazy(() => import("@/components/dashboards/admin/AdminPatientsHistoryTab"));
+const AdminNotificationsTab = lazy(() => import("@/components/dashboards/admin/AdminNotificationsTab"));
+const AdminStaffTab = lazy(() => import("@/components/dashboards/admin/AdminStaffTab"));
 
 const BLUE = "#1a3a8f";
 const BLUE2 = "#1e4db7";
@@ -193,9 +194,11 @@ export default function AdminDashboard() {
 
   const [overview, setOverview] = useState(null);
   const [ovLoading, setOvLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
+  const [initialAppointmentsLoading, setInitialAppointmentsLoading] = useState(true);
 
   useEffect(() => {
     fetchDoctors();
@@ -204,12 +207,18 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab !== "overview") return;
     fetchOverview();
-    fetchAppointments();
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== "patientshistory") return;
-    fetchAppointments();
+    const controller = new AbortController();
+    setApptLoading(true);
+    appointmentService.getAllAppointments({ limit: 5 }, controller.signal)
+      .then((response) => { if (!controller.signal.aborted) setAppointments(response.data); })
+      .catch(() => { if (!controller.signal.aborted) setAppointments([]); })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setApptLoading(false);
+          setInitialAppointmentsLoading(false);
+        }
+      });
+    return () => controller.abort();
   }, [activeTab]);
 
   /* ── Lock body scroll while the mobile drawer is open ── */
@@ -259,6 +268,7 @@ export default function AdminDashboard() {
       setOverview(null);
     } finally {
       setOvLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -267,19 +277,6 @@ export default function AdminDashboard() {
       setDoctors((await api.get("/doctor"))?.data ?? []);
     } catch {
       /* silently ignore */
-    }
-  };
-
-  const fetchAppointments = async () => {
-    setApptLoading(true);
-    try {
-      setAppointments(
-        (await appointmentService.getAllAppointments())?.data ?? [],
-      );
-    } catch {
-      setAppointments([]);
-    } finally {
-      setApptLoading(false);
     }
   };
 
@@ -296,7 +293,9 @@ export default function AdminDashboard() {
   return (
     <div className="ad-root">
       <style>{ADMIN_RESPONSIVE_CSS}</style>
-      <UserManual role="admin" isOpen={showManual} onClose={() => setShowManual(false)} />
+      {showManual && <Suspense fallback={<p role="status">Loading help…</p>}>
+        <UserManual role="admin" isOpen onClose={() => setShowManual(false)} />
+      </Suspense>}
 
       {/* ── Navbar ── */}
       <nav
@@ -432,13 +431,16 @@ export default function AdminDashboard() {
         </aside>
 
         <main className="ad-main">
+          <Suspense fallback={<DashboardSkeleton />}>
           {activeTab === "overview" && (
             <AdminOverviewTab
               overview={overview}
               ovLoading={ovLoading}
+              initialLoading={initialLoading}
               doctors={doctors}
-              recentAppointments={appointments.slice(0, 5)}
+              recentAppointments={appointments}
               apptLoading={apptLoading}
+              initialAppointmentsLoading={initialAppointmentsLoading}
             />
           )}
           {activeTab === "reports" && (
@@ -446,13 +448,11 @@ export default function AdminDashboard() {
           )}
           {activeTab === "doctors" && <AdminDoctorsTab doctors={doctors} />}
           {activeTab === "patientshistory" && (
-            <AdminPatientsHistoryTab
-              appointments={appointments}
-              apptLoading={apptLoading}
-            />
+            <AdminPatientsHistoryTab />
           )}
           {activeTab === "notifications" && <AdminNotificationsTab />}
           {activeTab === "staff" && <AdminStaffTab />}
+          </Suspense>
         </main>
       </div>
     </div>

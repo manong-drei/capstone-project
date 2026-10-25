@@ -7,7 +7,7 @@ export default function QueueRecovery({ called, missed = [], onAction, loading, 
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
-  const remaining = called ? Math.max(0, Math.ceil((new Date(called.last_called_at).getTime() + 30_000 - now) / 1000)) : 0;
+  const remaining = called ? Math.max(0, Math.ceil((new Date(called.last_called_at).getTime() + 15_000 - now) / 1000)) : 0;
   const buttonClass = 'rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50';
 
   return <div className="space-y-4">

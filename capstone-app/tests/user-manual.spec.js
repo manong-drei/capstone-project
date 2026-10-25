@@ -29,7 +29,7 @@ async function mockDashboard(page, role) {
       '/api/doctor/daily-settings': { appointment_limit: 10, walk_in_limit: 5, booked_count: 0, walkin_count: 0, is_available: 1 },
       '/api/admin/overview': { totalPatients: 0, totalDoctors: 1, totalAppointments: 0, completedQueues: 0 },
       '/api/admin/staff': { staff: [] },
-      '/api/admin/patients': { patients: [] },
+      '/api/admin/patients': { patients: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 1 } },
       '/api/admin/sms-settings': { data: { threshold: 5 } },
       '/api/admin/sms-jobs': { jobs: [] },
     };
@@ -158,9 +158,9 @@ test('keyboard cannot reach dashboard controls while the manual is open', async 
 test('staff keeps an unfinished walk-in registration when closing Help', async ({ page }) => {
   const writes = await mockDashboard(page, 'staff');
   await page.goto('/staff');
-  const name = page.getByLabel('Full name', { exact: true });
+  const name = page.getByLabel('First name', { exact: true });
   const contact = page.getByLabel('Confirmed mobile number', { exact: true });
-  await name.fill('Ana Santos');
+  await name.fill('Ana');
   await contact.fill('9123456789');
   await page.getByRole('checkbox', { name: 'Dental Check-up', exact: true }).check();
   const help = await helpButton(page, 'staff', false);
@@ -168,7 +168,7 @@ test('staff keeps an unfinished walk-in registration when closing Help', async (
   const manual = page.getByRole('dialog', { name: 'Staff user manual', exact: true });
   await expect(manual).toBeVisible();
   await manual.getByRole('button', { name: 'Close manual', exact: true }).click();
-  await expect(name).toHaveValue('Ana Santos');
+  await expect(name).toHaveValue('Ana');
   await expect(contact).toHaveValue('9123456789');
   await expect(page.getByRole('checkbox', { name: 'Dental Check-up', exact: true })).toBeChecked();
   expect(writes).toEqual([]);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   PieChart,
   Pie,
@@ -11,8 +11,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import StatusBadge from "@/components/common/StatusBadge";
-import AdminStaffTab from "./AdminStaffTab";
+import { Skeleton } from "@/components/common/LoadingState";
 import AdminLiveQueueMonitor from "./AdminLiveQueueMonitor";
+const AdminStaffTab = lazy(() => import("./AdminStaffTab"));
 
 const BLUE = "#1a3a8f";
 const BLUE2 = "#1e4db7";
@@ -144,11 +145,25 @@ const formatServices = (appt) => {
 export default function AdminOverviewTab({
   overview,
   ovLoading,
+  initialLoading,
   doctors,
   recentAppointments,
   apptLoading,
+  initialAppointmentsLoading,
 }) {
   const [volumeTab, setVolumeTab] = useState("Monthly");
+  const accountsRef = useRef(null);
+  const [showAccounts, setShowAccounts] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setShowAccounts(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "200px" });
+    observer.observe(accountsRef.current);
+    return () => observer.disconnect();
+  }, []);
   const dentalAges = (overview?.dentalAgeGroups ?? [])
     .map((row) => ({
       name: row.age_group,
@@ -175,7 +190,7 @@ export default function AdminOverviewTab({
           style={{
             position: "absolute",
             inset: 0,
-            backgroundImage: "url(/assets/BGHero.png)",
+            backgroundImage: "url(/assets/BGHero.webp)",
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
@@ -225,7 +240,9 @@ export default function AdminOverviewTab({
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-busy={initialLoading}
+        role={initialLoading ? "status" : undefined} aria-label={initialLoading ? "Loading dashboard" : undefined}>
+        {initialLoading && <span className="sr-only">Loading dashboard…</span>}
         {[
           {
             label: "Total Patient Visits",
@@ -262,7 +279,7 @@ export default function AdminOverviewTab({
             }}
           >
             <span style={{ fontSize: "26px", fontWeight: 800, color: bg }}>
-              {value}
+              {initialLoading ? <Skeleton className="h-10 w-16" /> : value}
             </span>
             <span style={{ fontSize: "12px", color: "#64748b" }}>{label}</span>
           </div>
@@ -274,26 +291,74 @@ export default function AdminOverviewTab({
       <section
         className="ad-section-pad"
         aria-labelledby="today-queue-heading"
-        style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
+        style={{
+          background: "#fff",
+          borderRadius: "16px",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+        }}
       >
-        <h3 id="today-queue-heading" style={{ margin: "0 0 16px", fontSize: "15px", fontWeight: 700, color: "#1e293b" }}>
+        <h3
+          id="today-queue-heading"
+          style={{
+            margin: "0 0 16px",
+            fontSize: "15px",
+            fontWeight: 700,
+            color: "#1e293b",
+          }}
+        >
           Queue Statistics · Today
         </h3>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-busy={ovLoading}>
+        <div
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+          aria-busy={ovLoading}
+        >
           {[
-            { label: "Waiting", value: overview?.waiting, color: "#2d3a8c", bg: "#eef2ff" },
-            { label: "Serving", value: overview?.serving, color: "#059669", bg: "#d1fae5" },
-            { label: "Done", value: overview?.doneToday, color: "#0891b2", bg: "#e0f2fe" },
-            { label: "Cancelled", value: overview?.cancelled, color: "#dc2626", bg: "#fee2e2" },
+            {
+              label: "Waiting",
+              value: overview?.waiting,
+              color: "#2d3a8c",
+              bg: "#eef2ff",
+            },
+            {
+              label: "Serving",
+              value: overview?.serving,
+              color: "#059669",
+              bg: "#d1fae5",
+            },
+            {
+              label: "Done",
+              value: overview?.doneToday,
+              color: "#0891b2",
+              bg: "#e0f2fe",
+            },
+            {
+              label: "Cancelled",
+              value: overview?.cancelled,
+              color: "#dc2626",
+              bg: "#fee2e2",
+            },
           ].map(({ label, value, color, bg }) => (
-            <div key={label} style={{ background: bg, borderRadius: "14px", padding: "16px 18px", display: "flex", flexDirection: "column", gap: "6px" }}>
-              <span style={{ fontSize: "24px", fontWeight: 800, color }}>{ovLoading ? "—" : (value ?? 0)}</span>
+            <div
+              key={label}
+              style={{
+                background: bg,
+                borderRadius: "14px",
+                padding: "16px 18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}
+            >
+              <span style={{ fontSize: "24px", fontWeight: 800, color }}>
+                {initialLoading ? <Skeleton className="h-9 w-12" /> : ovLoading ? "—" : (value ?? 0)}
+              </span>
               <span style={{ fontSize: "12px", color }}>{label}</span>
             </div>
           ))}
         </div>
         <p style={{ margin: "12px 0 0", fontSize: "12px", color: "#64748b" }}>
-          Queues registered today. Serving includes patients who have been called.
+          Queues registered today. Serving includes patients who have been
+          called.
         </p>
       </section>
 
@@ -321,12 +386,19 @@ export default function AdminOverviewTab({
             All recorded dental queues · most common age group:{" "}
             {dentalAges.find((row) => row.name !== "Unknown")?.name ?? "—"}
           </p>
-          {ovLoading ? (
-            <p style={{ color: "#94a3b8", fontSize: "13px" }}>
+          <div style={{ minHeight: "200px" }} aria-busy={ovLoading}>
+          {initialLoading ? (
+            <div role="status" className="space-y-4">
+              <span className="sr-only">Loading age groups…</span>
+              <Skeleton className="mx-auto h-40 w-40 rounded-full" />
+              <Skeleton className="mx-auto h-4 w-1/2" />
+            </div>
+          ) : ovLoading ? (
+            <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
               Loading age groups...
             </p>
           ) : dentalTotal === 0 ? (
-            <p style={{ color: "#94a3b8", fontSize: "13px" }}>
+            <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
               No dental queues recorded yet.
             </p>
           ) : (
@@ -419,6 +491,7 @@ export default function AdminOverviewTab({
               </div>
             </div>
           )}
+          </div>
         </div>
 
         <div
@@ -484,8 +557,14 @@ export default function AdminOverviewTab({
                 ? "8 weeks"
                 : "7 days"}
           </p>
-          {ovLoading ? (
-            <p style={{ color: "#94a3b8", fontSize: "13px" }}>
+          <div style={{ height: "180px" }} aria-busy={ovLoading}>
+          {initialLoading ? (
+            <div role="status" className="flex h-full items-end justify-around gap-3 border-b border-slate-200 px-4 pb-6">
+              <span className="sr-only">Loading patient volume…</span>
+              {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map((height) => <Skeleton key={height} className={`w-6 ${height}`} />)}
+            </div>
+          ) : ovLoading ? (
+            <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
               Loading patient volume...
             </p>
           ) : (
@@ -515,6 +594,7 @@ export default function AdminOverviewTab({
               </BarChart>
             </ResponsiveContainer>
           )}
+          </div>
         </div>
       </div>
 
@@ -564,7 +644,10 @@ export default function AdminOverviewTab({
                     color: "#1e293b",
                   }}
                 >
-                  Dr. {[d.first_name, d.middle_name, d.last_name, d.suffix].filter(Boolean).join(" ")}
+                  Dr.{" "}
+                  {[d.first_name, d.middle_name, d.last_name, d.suffix]
+                    .filter(Boolean)
+                    .join(" ")}
                 </span>
                 <StatusBadge
                   status={d.is_available ? "available" : "on_leave"}
@@ -594,7 +677,12 @@ export default function AdminOverviewTab({
         >
           Patient History
         </h3>
-        {apptLoading ? (
+        {initialAppointmentsLoading ? (
+          <div role="status" aria-busy="true" className="space-y-3">
+            <span className="sr-only">Loading recent history…</span>
+            {[0, 1, 2].map((row) => <Skeleton key={row} className="h-12 w-full" />)}
+          </div>
+        ) : apptLoading ? (
           <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
             Loading recent history...
           </p>
@@ -723,8 +811,11 @@ export default function AdminOverviewTab({
       </div>
 
       {/* Account Management */}
-      <AdminStaffTab />
-
+      <div ref={accountsRef} role="region" aria-label="Overview account management" style={{ minHeight: "300px" }}>
+        {showAccounts && <Suspense fallback={<p role="status">Loading accounts…</p>}>
+          <AdminStaffTab />
+        </Suspense>}
+      </div>
     </div>
   );
 }

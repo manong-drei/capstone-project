@@ -28,7 +28,7 @@ async function mockAdmin(page, forecastResponse = { forecasts, history }, status
       "/api/doctor": { data: [] },
       "/api/appointments": { data: [] },
       "/api/admin/staff": { staff: [] },
-      "/api/admin/patients": { patients: [] },
+      "/api/admin/patients": { patients: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 1 } },
     };
     return route.fulfill({ status: path.endsWith("/bohc-forecast") ? status : 200, contentType: "application/json", body: JSON.stringify(path.endsWith("/bohc-forecast") ? forecastResponse : responses[path] ?? { data: [] }) });
   });

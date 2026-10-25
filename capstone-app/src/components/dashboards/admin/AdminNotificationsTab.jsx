@@ -25,6 +25,7 @@ const STATUS_TONES = {
   amber: "bg-amber-50 text-amber-800 ring-amber-200",
   slate: "bg-slate-100 text-slate-600 ring-slate-200",
 };
+const JOBS_PER_PAGE = 10;
 
 function toneFor(status) {
   const s = String(status).toLowerCase();
@@ -81,6 +82,7 @@ function JobDetails({ job }) {
 export default function AdminNotificationsTab() {
   const [threshold, setThreshold] = useState("5");
   const [jobs, setJobs] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [jobsLoaded, setJobsLoaded] = useState(false);
   const [jobsError, setJobsError] = useState(null);
   const [message, setMessage] = useState(null); // { text, tone: 'ok' | 'error' }
@@ -101,7 +103,9 @@ export default function AdminNotificationsTab() {
     try {
       const result = await api.get("/admin/sms-jobs");
       if (mounted.current) {
-        setJobs(result.jobs ?? []);
+        const nextJobs = result.jobs ?? [];
+        setJobs(nextJobs);
+        setCurrentPage((page) => Math.min(page, Math.max(1, Math.ceil(nextJobs.length / JOBS_PER_PAGE))));
         setJobsError(null);
       }
     } catch (err) {
@@ -162,6 +166,9 @@ export default function AdminNotificationsTab() {
   };
 
   const disabled = !loaded || busy;
+  const totalPages = Math.max(1, Math.ceil(jobs.length / JOBS_PER_PAGE));
+  const firstJobIndex = (currentPage - 1) * JOBS_PER_PAGE;
+  const pageJobs = jobs.slice(firstJobIndex, firstJobIndex + JOBS_PER_PAGE);
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
@@ -289,7 +296,7 @@ export default function AdminNotificationsTab() {
         </div>
 
         <p className="mt-2 text-xs text-slate-500">
-          Latest 100 queue alerts and account activation jobs.
+          Latest 100 queue alerts and account activation jobs. 10 per page.
         </p>
 
         {jobsError && (
@@ -317,7 +324,7 @@ export default function AdminNotificationsTab() {
           <>
             {/* mobile: cards */}
             <ul className="mt-3 divide-y divide-slate-100 md:hidden">
-              {jobs.map((job) => (
+              {pageJobs.map((job) => (
                 <li key={job.id} className="py-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <p className="min-w-0 truncate text-sm font-semibold text-slate-800">
@@ -370,7 +377,7 @@ export default function AdminNotificationsTab() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {jobs.map((job) => (
+                    {pageJobs.map((job) => (
                       <tr
                         key={job.id}
                         className="transition hover:bg-slate-50/70"
@@ -399,6 +406,24 @@ export default function AdminNotificationsTab() {
                 </table>
               </div>
             </div>
+            <nav aria-label="SMS activity pagination" className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
+              <p aria-live="polite" className="text-slate-500">
+                Showing {firstJobIndex + 1}–{Math.min(firstJobIndex + JOBS_PER_PAGE, jobs.length)} of {jobs.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage <= 1}
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+                  Previous
+                </button>
+                <span className="whitespace-nowrap text-slate-600">Page {currentPage} of {totalPages}</span>
+                <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+                  Next
+                </button>
+              </div>
+            </nav>
           </>
         )}
       </section>

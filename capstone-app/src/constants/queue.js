@@ -1,3 +1,5 @@
+export const QUEUE_UPDATES_CHANNEL = "ek_queue_updates";
+
 export const QUEUE_TYPE = {
   REGULAR: "regular",
   PRIORITY: "priority",

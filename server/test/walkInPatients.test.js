@@ -16,14 +16,18 @@ const body = {
   category: "dental", services: ["CONSULTATION"], type: "regular",
 };
 
-test("new, returning, and duplicate walk-ins use the correct patient record", async () => {
+test("new, returning, and duplicate walk-ins preserve names and assign senior priority by birthday", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-24T16:30:00Z") });
   const originals = { getConnection: pool.getConnection, createWalkIn: Patient.createWalkIn, audit: Patient.audit, create: Queue.create, next: Queue.nextQueueNumber };
   let duplicate = false;
   let created = 0;
   let queueInput;
+  let patientInput;
+  const patientUpdates = [];
   let committed = false;
   const connection = {
-    async query(sql) {
+    async query(sql, values) {
+      if (sql.startsWith("UPDATE patients SET")) patientUpdates.push({ sql, values });
       if (sql.includes("GET_LOCK")) return [[{ acquired: 1 }]];
       if (sql.includes("RELEASE_LOCK")) return [[{ released: 1 }]];
       if (sql.includes("FROM doctors")) return [[{ doctor_id: 1 }]];
@@ -40,7 +44,7 @@ test("new, returning, and duplicate walk-ins use the correct patient record", as
     async beginTransaction() {}, async commit() { committed = true; }, async rollback() {}, release() {},
   };
   pool.getConnection = async () => connection;
-  Patient.createWalkIn = async () => { created++; return 42; };
+  Patient.createWalkIn = async (input) => { patientInput = input; created++; return 42; };
   Patient.audit = async () => {};
   Queue.nextQueueNumber = async ({ is_walk_in }) => { assert.equal(is_walk_in, true); return "Q01"; };
   Queue.create = async (input) => { queueInput = input; return { id: 99, patient_id: input.patient_id, queue_number: "Q01" }; };
@@ -69,6 +73,40 @@ test("new, returning, and duplicate walk-ins use the correct patient record", as
     await createWalkIn({ body: { ...body, create_new_confirmed: true }, user: { user_id: 3 } }, res);
     assert.equal(res.statusCode, 201);
     assert.equal(created, 2);
+
+    duplicate = false;
+    for (const [date_of_birth, expectedType] of [["1966-10-26", "regular"], ["1966-10-25", "priority"], ["1966-10-24", "priority"]]) {
+      patientUpdates.length = 0;
+      res = response();
+      await createWalkIn({ body: { ...body, full_name: undefined, first_name: " Juan  Pedro ", last_name: " Dela Cruz ", date_of_birth }, user: { user_id: 3 } }, res);
+      assert.equal(res.statusCode, 201);
+      assert.equal(patientInput.first_name, "Juan Pedro");
+      assert.equal(patientInput.last_name, "Dela Cruz");
+      assert.equal(queueInput.walk_in_name, "Juan Pedro Dela Cruz");
+      assert.equal(queueInput.type, expectedType);
+      assert.equal(patientUpdates.some(update => update.values[0] === "senior"), expectedType === "priority");
+    }
+
+    patientUpdates.length = 0;
+    res = response();
+    await createWalkIn({ body: { ...body, patient_id: 12, date_of_birth: "1966-10-25", type: "priority" }, user: { user_id: 3 } }, res);
+    assert.equal(res.statusCode, 201);
+    assert.equal(queueInput.type, "priority");
+    assert.equal(patientUpdates.at(-1).values[8], "senior");
+
+    for (const now of ["2028-02-28T04:00:00Z", "2028-02-29T04:00:00Z"]) {
+      t.mock.timers.setTime(Date.parse(now));
+      res = response();
+      await createWalkIn({ body: { ...body, date_of_birth: "1968-02-29" }, user: { user_id: 3 } }, res);
+      assert.equal(res.statusCode, 201);
+      assert.equal(queueInput.type, now.startsWith("2028-02-29") ? "priority" : "regular");
+    }
+
+    for (const invalid of [{ first_name: "Ana", last_name: "" }, { first_name: "x".repeat(101), last_name: "Santos" }, { services: [] }]) {
+      res = response();
+      await createWalkIn({ body: { ...body, ...invalid }, user: { user_id: 3 } }, res);
+      assert.equal(res.statusCode, 400);
+    }
   } finally {
     Object.assign(pool, { getConnection: originals.getConnection });
     Object.assign(Patient, { createWalkIn: originals.createWalkIn, audit: originals.audit });

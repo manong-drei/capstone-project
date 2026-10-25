@@ -6,10 +6,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { ROUTES } from "./constants/routes";
 import { ROLES } from "./constants/roles";
+import { PageLoading } from "./components/common/LoadingState";
 
 // Pages
 const CinematicLandingPage = lazy(
@@ -29,18 +30,7 @@ function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <p style={{ color: "#9ca3af", fontSize: "14px" }}>Loading...</p>
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (!user) return <Navigate to={ROUTES.LOGIN} replace />;
@@ -72,10 +62,11 @@ function RoleRedirect() {
   return <Navigate to={destinations[user.role] ?? ROUTES.LOGIN} replace />;
 }
 
-export default function App() {
+function AppRoutes() {
+  const { pathname } = useLocation();
+
   return (
-    <BrowserRouter>
-      <Suspense fallback={null}>
+      <Suspense key={pathname} fallback={<PageLoading />}>
         <Routes>
           {/* Public routes */}
           <Route path={ROUTES.HOME} element={<CinematicLandingPage />} />
@@ -168,6 +159,9 @@ export default function App() {
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>
       </Suspense>
-    </BrowserRouter>
   );
+}
+
+export default function App() {
+  return <BrowserRouter><AppRoutes /></BrowserRouter>;
 }

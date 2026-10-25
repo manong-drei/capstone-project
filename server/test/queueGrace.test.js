@@ -61,7 +61,7 @@ function fixture() {
         if (sql.startsWith('UPDATE appointments')) return [{ affectedRows: 1 }];
         if (sql.startsWith('SELECT category')) return [[...row ? [{ category: row.category }] : []]];
         if (sql.startsWith('SELECT *, TIMESTAMPDIFF')) return [[{ ...row,
-          call_ready: now - new Date(row.last_called_at) >= 30_000,
+          call_ready: now - new Date(row.last_called_at) >= 15_000,
           expired: row.grace_expires_at && new Date(row.grace_expires_at).getTime() <= now,
           is_today: row.created_at.toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10),
         }]];
@@ -99,16 +99,21 @@ function fixture() {
   };
 }
 
-test('two calls enforce both 30-second waits; skip starts one grace window and calls next', async () => {
+test('two calls enforce both 15-second waits; skip starts one grace window and calls next', async () => {
   const f = fixture();
   try {
     assert.equal((await Queue.callNext()).status, 'called');
     await assert.rejects(Queue.recall(1), { status: 409 });
     await assert.rejects(Queue.skip(1), { status: 409 });
-    f.advance(30_000);
+    assert.ok(f.statements.some(sql => sql.includes('>= 15000000 AS call_ready')));
+    f.advance(14_999);
+    await assert.rejects(Queue.recall(1), { status: 409 });
+    f.advance(1);
     assert.equal((await Queue.recall(1)).call_count, 2);
     await assert.rejects(Queue.skip(1), { status: 409 });
-    f.advance(30_000);
+    f.advance(14_999);
+    await assert.rejects(Queue.skip(1), { status: 409 });
+    f.advance(1);
     const result = await Queue.skip(1);
     assert.equal(result.queue.status, 'missed');
     assert.equal(result.queue.grace_expires_at - result.queue.missed_at, 600_000);
@@ -189,7 +194,7 @@ test('a failed prescription rolls back the consultation and leaves the patient s
 test('timely return keeps the original ticket beyond expiry and a second miss is final', async () => {
   const f = fixture();
   try {
-    await Queue.callNext(); f.advance(30_000); await Queue.recall(1); f.advance(30_000); await Queue.skip(1);
+    await Queue.callNext(); f.advance(15_000); await Queue.recall(1); f.advance(15_000); await Queue.skip(1);
     f.advance(599_999);
     const returned = await Queue.returnPatient(1);
     assert.equal(returned.id, 1);
@@ -199,7 +204,7 @@ test('timely return keeps the original ticket beyond expiry and a second miss is
     assert.equal(f.rows()[0].status, 'waiting');
     await Queue.updateStatus(2, 'serving'); await Queue.updateStatus(2, 'done');
     assert.equal((await Queue.callNext()).id, 1);
-    f.advance(30_000); await Queue.recall(1); f.advance(30_000);
+    f.advance(15_000); await Queue.recall(1); f.advance(15_000);
     const second = await Queue.skip(1);
     assert.equal(second.queue.status, 'no_show');
     assert.equal(second.queue.grace_expires_at.getTime(), returned.grace_expires_at.getTime());
@@ -211,7 +216,7 @@ test('timely return keeps the original ticket beyond expiry and a second miss is
 test('return at the deadline commits no-show; worker closes overdue tickets, including yesterday', async () => {
   const f = fixture();
   try {
-    await Queue.callNext(); f.advance(30_000); await Queue.recall(1); f.advance(30_000); await Queue.skip(1);
+    await Queue.callNext(); f.advance(15_000); await Queue.recall(1); f.advance(15_000); await Queue.skip(1);
     f.advance(600_000);
     assert.deepEqual(await Queue.returnPatient(1), { expired: true });
     assert.equal(f.rows()[0].status, 'no_show');
@@ -228,7 +233,7 @@ test('simultaneous call and skip requests serialize; failure rolls back both ski
     const calls = await Promise.all([Queue.callNext(), Queue.callNext()]);
     assert.equal(calls.filter(q => q?.status === 'called').length, 1);
     assert.equal(calls.filter(q => q?.conflict).length, 1);
-    f.advance(30_000); await Queue.recall(1); f.advance(30_000);
+    f.advance(15_000); await Queue.recall(1); f.advance(15_000);
     f.failCall();
     await assert.rejects(Queue.skip(1), /Simulated call failure/);
     assert.equal(f.rows()[0].status, 'called');
@@ -236,7 +241,7 @@ test('simultaneous call and skip requests serialize; failure rolls back both ski
   } finally { f.close(); }
   const second = fixture();
   try {
-    await Queue.callNext(); second.advance(30_000); await Queue.recall(1); second.advance(30_000);
+    await Queue.callNext(); second.advance(15_000); await Queue.recall(1); second.advance(15_000);
     const skips = await Promise.allSettled([Queue.skip(1), Queue.skip(1)]);
     assert.equal(skips.filter(result => result.status === 'fulfilled').length, 1);
     assert.equal(second.rows().filter(q => q.status === 'called').length, 1);
@@ -247,7 +252,7 @@ test('skipping the last waiting patient succeeds with no next ticket', async () 
   const f = fixture();
   try {
     f.rows().splice(1);
-    await Queue.callNext(); f.advance(30_000); await Queue.recall(1); f.advance(30_000);
+    await Queue.callNext(); f.advance(15_000); await Queue.recall(1); f.advance(15_000);
     assert.equal((await Queue.skip(1)).next_queue, null);
   } finally { f.close(); }
 });
@@ -255,7 +260,7 @@ test('skipping the last waiting patient succeeds with no next ticket', async () 
 test('cancellation cannot bypass expiry while waiting for the worker', async () => {
   const f = fixture();
   try {
-    await Queue.callNext(); f.advance(30_000); await Queue.recall(1); f.advance(30_000); await Queue.skip(1);
+    await Queue.callNext(); f.advance(15_000); await Queue.recall(1); f.advance(15_000); await Queue.skip(1);
     f.advance(600_000);
     assert.deepEqual(await Queue.updateStatus(1, 'cancelled', 'Leaving', { patientOnly: true }), { expired: true });
     assert.equal(f.rows()[0].status, 'no_show');

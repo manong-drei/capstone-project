@@ -1,6 +1,6 @@
-import { useState } from "react";
-import StaffManager from "./StaffManager";
-import PatientManager from "./PatientManager";
+import { lazy, Suspense, useState } from "react";
+const StaffManager = lazy(() => import("./StaffManager"));
+const PatientManager = lazy(() => import("./PatientManager"));
 
 const BLUE = "#1a3a8f";
 
@@ -37,7 +37,9 @@ export default function AdminStaffTab() {
           ))}
         </div>
       </div>
-      {accountTab === "Staff" ? <StaffManager /> : <PatientManager />}
+      <Suspense fallback={<p role="status" style={{ minHeight: "280px" }}>Loading accounts…</p>}>
+        {accountTab === "Staff" ? <StaffManager /> : <PatientManager />}
+      </Suspense>
     </div>
   );
 }

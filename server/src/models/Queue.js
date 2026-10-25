@@ -248,7 +248,7 @@ const Queue = {
       if (!row) { await conn.rollback(); return null; }
       await Queue.lockCategory(row.category, conn);
       const [[ticket]] = await conn.query(`SELECT *,
-        TIMESTAMPDIFF(MICROSECOND, last_called_at, NOW(3)) >= 30000000 AS call_ready,
+        TIMESTAMPDIFF(MICROSECOND, last_called_at, NOW(3)) >= 15000000 AS call_ready,
         grace_expires_at <= NOW(3) AS expired, DATE(created_at) = CURDATE() AS is_today
         FROM queues WHERE id = ? FOR UPDATE`, [id]);
       if (ticket.status === 'missed' && ticket.expired) {
@@ -280,7 +280,7 @@ const Queue = {
 
   recall: id => Queue._withTicket(id, async (ticket, conn) => {
     if (ticket.status !== 'called' || ticket.call_count !== 1 || !ticket.call_ready) {
-      throw conflict('Call again is available 30 seconds after the first call.');
+      throw conflict('Call again is available 15 seconds after the first call.');
     }
     await conn.query(`UPDATE queues SET call_count = 2, last_called_at = NOW(3), updated_at = NOW() WHERE id = ?`, [id]);
     return Queue._fetchById(id, conn);
@@ -288,7 +288,7 @@ const Queue = {
 
   skip: id => Queue._withTicket(id, async (ticket, conn) => {
     if (ticket.status !== 'called' || ticket.call_count < 2 || !ticket.call_ready) {
-      throw conflict('Call the patient twice and wait 30 seconds after the second call before skipping.');
+      throw conflict('Call the patient twice and wait 15 seconds after the second call before skipping.');
     }
     if (ticket.returned_at) {
       await conn.query(`UPDATE queues SET status = 'no_show', status_reason = ?, updated_at = NOW() WHERE id = ?`,

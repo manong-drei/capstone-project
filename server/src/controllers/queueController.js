@@ -1,4 +1,4 @@
-const { isValid, parseISO } = require("date-fns");
+const { differenceInYears, isValid, parseISO } = require("date-fns");
 const Queue = require("../models/Queue");
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
@@ -171,10 +171,14 @@ const createQueue = async (req, res) => {
 };
 
 const createWalkIn = async (req, res) => {
-  const { full_name, middle_name, suffix, date_of_birth, gender, contact, address, type, services, category, patient_id, create_new_confirmed, priority_category } = req.body;
+  const { first_name, last_name, full_name, middle_name, suffix, date_of_birth, gender, contact, address, type, services, category, patient_id, create_new_confirmed, priority_category } = req.body;
   const queueCategory = category === "general" ? "general" : "dental";
   const name = typeof full_name === "string" ? full_name.trim().replace(/\s+/g, " ") : "";
-  const names = name ? splitName(name) : { first_name: "", last_name: "" };
+  const normalizeName = (part) => typeof part === "string" ? part.trim().replace(/\s+/g, " ") : "";
+  const names = first_name !== undefined || last_name !== undefined
+    ? { first_name: normalizeName(first_name), last_name: normalizeName(last_name) }
+    : name ? splitName(name) : { first_name: "", last_name: "" };
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
   let normalizedSuffix;
   let normalizedMiddleName;
   try {
@@ -187,7 +191,7 @@ const createWalkIn = async (req, res) => {
   let effectiveMiddleName = normalizedMiddleName;
   const phone = normalizePhilippineMobilePhone(contact);
   if (!names.first_name || !names.last_name || names.first_name.length > 100 || names.last_name.length > 100) return res.status(400).json({ success: false, message: "A first and last name of up to 100 characters each are required." });
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth || "") || !isValid(parseISO(date_of_birth)) || new Date(date_of_birth) > new Date()) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth || "") || !isValid(parseISO(date_of_birth)) || date_of_birth > today) {
     return res.status(400).json({ success: false, message: "A valid date of birth is required." });
   }
   if (!["male", "female", "other"].includes(gender)) return res.status(400).json({ success: false, message: "Select a valid gender." });
@@ -196,7 +200,9 @@ const createWalkIn = async (req, res) => {
   const barangay = address.trim().replace(/^Barangay\s+/i, "").replace(/,\s*Bago City$/i, "");
   if (!barangay) return res.status(400).json({ success: false, message: "A valid address is required." });
   if (priority_category && !["senior", "pwd", "pregnant"].includes(priority_category)) return res.status(400).json({ success: false, message: "Invalid priority category." });
-  if (type === "priority" && !priority_category) return res.status(400).json({ success: false, message: "A priority category is required." });
+  const isSenior = differenceInYears(parseISO(today), parseISO(date_of_birth)) >= 60;
+  const priorityCategory = isSenior ? "senior" : priority_category;
+  if (type === "priority" && !priorityCategory) return res.status(400).json({ success: false, message: "A priority category is required." });
   if (patient_id != null && (!Number.isSafeInteger(Number(patient_id)) || Number(patient_id) <= 0)) return res.status(400).json({ success: false, message: "Invalid patient." });
 
   const selectedServices = queueCategory === "general" ? [GENERAL_SERVICE_ID] : Array.isArray(services) ? [...new Set(services)] : [];
@@ -244,14 +250,14 @@ const createWalkIn = async (req, res) => {
       effectiveMiddleName = middle_name === undefined ? existing.middle_name : normalizedMiddleName;
       const { first_name, last_name } = names;
       const changes = {};
-      for (const [key, value] of Object.entries({ first_name, middle_name: effectiveMiddleName, last_name, suffix: effectiveSuffix, date_of_birth, gender: gender[0].toUpperCase() + gender.slice(1), contact_number: phone, barangay, priority_category: priority_category || existing.priority_category })) {
+      for (const [key, value] of Object.entries({ first_name, middle_name: effectiveMiddleName, last_name, suffix: effectiveSuffix, date_of_birth, gender: gender[0].toUpperCase() + gender.slice(1), contact_number: phone, barangay, priority_category: priorityCategory || existing.priority_category })) {
         const old = existing[key] instanceof Date ? existing[key].toISOString().slice(0, 10) : existing[key];
         if (String(old ?? "") !== String(value ?? "")) changes[key] = { from: old, to: value };
       }
       if (Object.keys(changes).length) {
         await connection.query(
           "UPDATE patients SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?, date_of_birth = ?, gender = ?, contact_number = ?, barangay = ?, priority_category = ? WHERE patient_id = ?",
-          [first_name, effectiveMiddleName ?? null, last_name, effectiveSuffix ?? null, date_of_birth, gender, phone, barangay, priority_category || existing.priority_category, patientId],
+          [first_name, effectiveMiddleName ?? null, last_name, effectiveSuffix ?? null, date_of_birth, gender, phone, barangay, priorityCategory || existing.priority_category, patientId],
         );
         await Patient.audit(patientId, req.user.user_id, "update", changes, connection);
       }
@@ -265,7 +271,7 @@ const createWalkIn = async (req, res) => {
       );
       if (likely.length && create_new_confirmed !== true) throw httpError(409, "Possible existing patient found. Select their record or explicitly confirm a new record.");
       patientId = await Patient.createWalkIn({ ...names, middle_name: normalizedMiddleName, suffix: normalizedSuffix, date_of_birth, gender, contact_number: phone, barangay }, connection);
-      if (priority_category) await connection.query("UPDATE patients SET priority_category = ? WHERE patient_id = ?", [priority_category, patientId]);
+      if (priorityCategory) await connection.query("UPDATE patients SET priority_category = ? WHERE patient_id = ?", [priorityCategory, patientId]);
       await Patient.audit(patientId, req.user.user_id, "create", likely.length ? { duplicate_override: true, possible_patient_ids: likely.map((p) => p.patient_id) } : null, connection);
     }
     const [[active]] = await connection.query(
@@ -274,7 +280,7 @@ const createWalkIn = async (req, res) => {
     );
     if (active) throw httpError(409, "This patient already has an active queue today.");
 
-    const queueType = type === "priority" ? "priority" : "regular";
+    const queueType = isSenior || type === "priority" ? "priority" : "regular";
     const queue = await Queue.create({
       patient_id: patientId,
       is_walk_in: true,

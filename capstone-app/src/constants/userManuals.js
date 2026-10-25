@@ -104,8 +104,8 @@ export const USER_MANUALS = {
       {
         id: "doctor-missed", title: "Handle absent and returning patients", summary: "Follow the timed call controls so every patient has the same opportunity to respond.",
         steps: [
-          "If the called patient is absent, wait for the 30-second countdown to finish, then select “Call again”. Each call is announced twice.",
-          "After the second call, wait another 30 seconds. If still absent, select “Skip and call next”.",
+          "If the called patient is absent, wait for the 15-second countdown to finish, then select “Call again”. Each call is announced twice.",
+          "After the second call, wait another 15 seconds. If still absent, select “Skip and call next”.",
           "Check “Missed patients · 10-minute return window”. If the patient arrives before the listed deadline, select “Patient returned” only after confirming physical presence.",
           "The returned ticket waits for the next opening without interrupting the current patient. Expiry or a second missed turn after returning ends it as No-show.",
         ],
@@ -166,8 +166,8 @@ export const USER_MANUALS = {
         steps: [
           "In “Register dental walk-in”, use “Find an existing patient”. Enter at least two name characters or any four consecutive digits from the mobile number.",
           "Compare the name, birthday, and partly hidden phone number, then select the correct patient. Use “Open patient profile” to review the record or “Clear selection” to choose again.",
-          "If the matches are different people, verify them before choosing “I checked these records; create a new patient.” Complete Full name, Date of birth, Gender, Barangay, and Confirmed mobile number. The form supplies +63; enter ten digits starting with 9.",
-          "Choose one or two “Dental services”. Select “Regular” or “Priority”; Priority requires a category: Senior citizen (60+), PWD (Person with Disability), or Pregnant.",
+          "If the matches are different people, verify them before choosing “I checked these records; create a new patient.” Complete First name, Last name, Date of birth, Gender, Barangay, and Confirmed mobile number. The form supplies +63; enter ten digits starting with 9.",
+          "Choose one or two “Dental services” at the top of the form to enable registration. Senior Citizen priority is assigned automatically from the patient's 60th birthday. For other priority patients, select “Priority” and the appropriate category: PWD (Person with Disability) or Pregnant.",
           "Select “Register and assign dental queue”. Give the patient the assigned number and relay the exact SMS or stay-nearby instructions shown in the success message.",
         ],
         note: "Registration can be blocked by missing details, an existing active ticket, an unavailable dentist, or full walk-in capacity. Read the message and resolve the cause before trying again.",
@@ -185,8 +185,8 @@ export const USER_MANUALS = {
       {
         id: "staff-missed", title: "Handle missed calls and returns", summary: "Use the call timers and the patient's return deadline.",
         steps: [
-          "After the first call, wait 30 seconds before selecting “Call again”. Each call is announced twice.",
-          "After the second call, wait another 30 seconds before selecting “Skip and call next”.",
+          "After the first call, wait 15 seconds before selecting “Call again”. Each call is announced twice.",
+          "After the second call, wait another 15 seconds before selecting “Skip and call next”.",
           "Look under “Missed patients · 10-minute return window”. If the patient arrives before the deadline, select “Patient returned” after confirming presence.",
           "Explain that the same ticket waits for the next opening. A return does not interrupt a patient already called or serving. An expired window or another missed turn after returning ends as No-show.",
         ],
@@ -216,14 +216,14 @@ export const USER_MANUALS = {
         steps: [
           "Select “Open dental monitor”. It opens the display in a separate browser tab.",
           "Use the announcement control on the monitor to enable voice announcements. Browser support and a suitable voice are required.",
-          "If audio is unavailable, follow the recovery message and continue using the visible ticket display. The monitor refreshes about every 10 seconds; the staff dashboard refreshes about every 15 seconds.",
+          "If audio is unavailable, follow the recovery message and continue using the visible ticket display. Successful queue actions trigger an immediate monitor refresh in the same browser. Other devices check for changes about every second. The staff dashboard refreshes about every 15 seconds.",
         ],
       },
     ],
     screen: {
       src: "/assets/manual/staff-registration.png", alt: "Staff walk-in registration example showing up to two dental services, Regular or Priority queue type, and Register and assign dental queue.",
-      description: "This is the final part of the walk-in form. Confirm patient details above it before assigning a ticket.",
-      labels: ["Dental services: choose one or two requested services.", "Queue type: select Regular or Priority; a priority selection also needs the patient's category.", "Register and assign dental queue: submits the visit. Read the confirmation before handing over the ticket."],
+      description: "Choose services at the top of the walk-in form and confirm patient details before assigning a ticket.",
+      labels: ["Dental services: choose one or two requested services.", "Queue type: Senior Citizen priority is automatic for patients aged 60 or older; other priority patients need a category.", "Register and assign dental queue: submits the visit after a service is selected. Read the confirmation before handing over the ticket."],
     },
     troubleshooting: [
       ["No patient match appears.", "Use at least two name characters or four consecutive mobile digits. Check the spelling or number with the patient. Review possible matches before confirming a new record."],

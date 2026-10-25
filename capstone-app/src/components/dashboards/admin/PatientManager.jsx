@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/common/AppIcons";
 import api from "@/services/api";
@@ -195,6 +195,7 @@ export default function PatientManager() {
   const [fetchError, setFetchError] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
+  const [refresh, setRefresh] = useState(0);
   const { toasts, dismissToast, showToast, showSmsToast, trackSmsStatuses } = useSmsToasts();
 
   const replacePassword = async (patient) => {
@@ -203,12 +204,15 @@ export default function PatientManager() {
     try {
       const result = await api.post(`/admin/patients/${patient.user_id}/temporary-password`, { identity_confirmed: true });
       showSmsToast({ id: result.sms_job_id, state: result.sms_status, label: `Replacement password SMS for ${patient.full_name}` });
-      await fetchPatients(true);
+      setRefresh((value) => value + 1);
     } catch (err) { showToast(`Unable to request replacement password SMS. ${err.message}`, "error"); }
     finally { setSmsBusy(false); }
   };
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [totalPatients, setTotalPatients] = useState(0);
+  const requestId = useRef(0);
   const [confirm, setConfirm] = useState({
     open: false,
     userId: null,
@@ -228,13 +232,20 @@ export default function PatientManager() {
     priority_category: "",
   });
 
-  const fetchPatients = useCallback(async (silent = false) => {
+  const fetchPatients = useCallback(async (silent = false, signal) => {
+    const id = ++requestId.current;
     if (!silent) setLoading(true);
     setFetchError("");
     try {
-      const data = await api.get("/admin/patients");
+      const data = await api.get("/admin/patients", {
+        params: { page: currentPage, limit: PATIENTS_PER_PAGE, search: debouncedSearch, includeInactive: showInactive },
+        signal,
+      });
+      if (signal?.aborted || id !== requestId.current) return;
       const list = data?.patients ?? [];
       setPatients(list);
+      setTotalPatients(data.pagination.total);
+      setCurrentPage(data.pagination.page);
       trackSmsStatuses(list.map((patient) => ({
         id: patient.sms_job_id,
         state: patient.sms_state,
@@ -242,18 +253,32 @@ export default function PatientManager() {
         label: `Temporary password SMS for ${patient.full_name}`,
       })));
     } catch (err) {
+      if (signal?.aborted || id !== requestId.current) return;
       setFetchError(err.message || "Failed to load patient accounts.");
       if (!silent) setPatients([]);
     } finally {
-      if (!silent) setLoading(false);
+      if (!signal?.aborted && id === requestId.current) setLoading(false);
     }
-  }, [trackSmsStatuses]);
+  }, [trackSmsStatuses, currentPage, debouncedSearch, showInactive]);
 
   useEffect(() => {
-    fetchPatients();
-    const interval = setInterval(() => fetchPatients(true), 15_000);
-    return () => clearInterval(interval);
-  }, [fetchPatients]);
+    const controller = new AbortController();
+    fetchPatients(false, controller.signal);
+    const interval = setInterval(() => fetchPatients(true, controller.signal), 15_000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [fetchPatients, refresh]);
+
+  useEffect(() => {
+    if (search.trim() === debouncedSearch) return;
+    const timeout = setTimeout(() => {
+      setCurrentPage(1);
+      setDebouncedSearch(search.trim());
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [search, debouncedSearch]);
 
   const handleChange = (field, value) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -287,7 +312,7 @@ export default function PatientManager() {
         gender: "",
         priority_category: "",
       });
-      fetchPatients();
+      setRefresh((value) => value + 1);
     } catch (err) {
       setFormError(err.message);
       showToast(`Unable to request the temporary password SMS. ${err.message}`, "error");
@@ -313,39 +338,17 @@ export default function PatientManager() {
     closeConfirm();
     try {
       await api.patch(`/admin/patients/${userId}/${action}`);
-      fetchPatients();
+      setRefresh((value) => value + 1);
     } catch (err) {
       alert(err.message);
     }
   };
 
-  const filtered = patients.filter((p) => {
-    if (!showInactive && !p.is_active) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return (
-        (p.full_name || "").toLowerCase().includes(q) ||
-        getNameFields(p).map(([, value]) => value).join(" ").toLowerCase().includes(q) ||
-        (p.contact_number || p.phone || "").includes(q) ||
-        (p.barangay || "").toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, showInactive]);
-
   const totalPages = Math.max(
     1,
-    Math.ceil(filtered.length / PATIENTS_PER_PAGE),
+    Math.ceil(totalPatients / PATIENTS_PER_PAGE),
   );
   const safePage = Math.min(currentPage, totalPages);
-  const paginated = filtered.slice(
-    (safePage - 1) * PATIENTS_PER_PAGE,
-    safePage * PATIENTS_PER_PAGE,
-  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -407,7 +410,7 @@ export default function PatientManager() {
             <input
               type="checkbox"
               checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
+              onChange={(e) => { setCurrentPage(1); setShowInactive(e.target.checked); }}
               style={{ cursor: "pointer" }}
             />
             Show inactive
@@ -649,6 +652,7 @@ export default function PatientManager() {
             fontFamily: "inherit",
           }}
           placeholder="Search by name, phone number, or barangay..."
+          maxLength={150}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -706,7 +710,7 @@ export default function PatientManager() {
               {fetchError}
             </p>
             <button
-              onClick={fetchPatients}
+              onClick={() => fetchPatients()}
               style={{
                 padding: "7px 16px",
                 borderRadius: "8px",
@@ -720,7 +724,7 @@ export default function PatientManager() {
               Retry
             </button>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : patients.length === 0 ? (
           <div
             style={{
               padding: "24px",
@@ -736,7 +740,7 @@ export default function PatientManager() {
         ) : (
           <>
             {/* Desktop rows */}
-            {paginated.map((patient) => {
+            {patients.map((patient) => {
               const sb = statusBadge(patient.is_active);
               const isInactive = !patient.is_active;
               return (
@@ -818,7 +822,7 @@ export default function PatientManager() {
 
             {/* Mobile cards */}
             <div className="pm-cards-mobile">
-              {paginated.map((patient) => {
+              {patients.map((patient) => {
                 const sb = statusBadge(patient.is_active);
                 const isInactive = !patient.is_active;
                 return (
@@ -915,7 +919,7 @@ export default function PatientManager() {
         )}
 
         {/* Pagination controls */}
-        {!loading && !fetchError && filtered.length > 0 && (
+        {!loading && !fetchError && patients.length > 0 && (
           <div
             style={{
               display: "flex",
@@ -930,8 +934,8 @@ export default function PatientManager() {
           >
             <span style={{ fontSize: "12px", color: "#6b7280" }}>
               Showing {(safePage - 1) * PATIENTS_PER_PAGE + 1}–
-              {Math.min(safePage * PATIENTS_PER_PAGE, filtered.length)} of{" "}
-              {filtered.length}
+              {Math.min(safePage * PATIENTS_PER_PAGE, totalPatients)} of{" "}
+              {totalPatients}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <button

@@ -11,6 +11,7 @@ import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
+import { DashboardSkeleton } from "@/components/common/LoadingState";
 import UserManual from "@/components/common/UserManual";
 import WalkInForm from "@/components/dashboards/staff/WalkInForm";
 import AccountRecoverySearch from "@/components/dashboards/staff/AccountRecoverySearch";
@@ -144,6 +145,7 @@ export default function StaffDashboard() {
             <a href={ROUTES.GENERAL_QUEUE_MONITOR} target="_blank" rel="opener" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><Monitor size={16} aria-hidden="true" />Open dental monitor<span className="sr-only"> (new tab)</span></a>
           </div>
         </div>
+        {loading ? <DashboardSkeleton /> : <>
         <section aria-label="Today's dental queue summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.label} className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -161,6 +163,7 @@ export default function StaffDashboard() {
             loading={loading || calling} />
           <WalkInForm onSuccess={fetchQueue} />
         </div>
+        </>}
         <p className="flex flex-wrap items-center justify-center gap-2 pb-2 text-xs text-slate-500">
           <span className={`h-2 w-2 rounded-full ${error ? "bg-amber-500" : "bg-emerald-500"}`} aria-hidden="true" />
           {error ? "Refresh unavailable" : "Auto-refresh every 15 seconds"}

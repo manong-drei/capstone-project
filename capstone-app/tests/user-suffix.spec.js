@@ -21,7 +21,8 @@ async function mockUsers(page, role = "admin") {
   const patient = { patient_id: 20, first_name: "Returning", middle_name: "Cruz", last_name: "Patient", suffix: "Sr.", date_of_birth: "1960-01-01", gender: "Male", barangay: "Abuanan", contact_number: "09123456789", masked_contact: "*******6789", visits: [] };
   await page.route("**/api/**", route => {
     const request = route.request();
-    const path = new URL(request.url()).pathname;
+    const url = new URL(request.url());
+    const path = url.pathname;
     if (request.method() !== "GET") {
       const data = request.postDataJSON();
       state.writes.push({ path, data });
@@ -38,7 +39,12 @@ async function mockUsers(page, role = "admin") {
       "/api/doctor": { data: [] },
       "/api/appointments": { data: [] },
       "/api/admin/staff": { staff: state.staff },
-      "/api/admin/patients": { patients: state.patients },
+      "/api/admin/patients": (() => {
+        const search = (url.searchParams.get("search") || "").toLowerCase();
+        const patients = state.patients.filter(patient =>
+          [patient.full_name, patient.contact_number, patient.phone, patient.barangay].some(value => value?.toLowerCase().includes(search)));
+        return { patients, pagination: { page: 1, limit: 10, total: patients.length, totalPages: 1 } };
+      })(),
       "/api/queue": [],
       "/api/patients/search": { data: [patient] },
       "/api/patients/20": { data: patient },

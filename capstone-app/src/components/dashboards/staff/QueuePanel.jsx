@@ -1,9 +1,15 @@
-import { CheckCircle2, Clock3, ListOrdered, LoaderCircle, Megaphone, ShieldCheck, Users } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, ListOrdered, LoaderCircle, Megaphone, ShieldCheck, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
 import QueueRecovery from "@/components/common/QueueRecovery";
 
 export default function QueuePanel({ currentServing, nextQueue, onCallNext, missedQueues, onQueueAction, onCancelQueue, loading }) {
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(nextQueue.length / 5));
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * 5;
+  if (page > pageCount) setPage(pageCount);
   const finishOnly = currentServing?.status === 'serving' && !nextQueue.length;
   return (
     <section id="dental-queue" aria-labelledby="dental-queue-title" className="scroll-mt-24 space-y-4">
@@ -31,15 +37,21 @@ export default function QueuePanel({ currentServing, nextQueue, onCallNext, miss
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4"><Clock3 size={18} className="text-blue-700" aria-hidden="true" /><h3 className="text-sm font-semibold text-slate-900">Up next</h3><span className="ml-auto text-xs text-slate-500">Serving order</span></div>
         {!nextQueue.length ? <div className="flex flex-col items-center gap-2 px-5 py-8 text-sm text-slate-500"><Users size={28} className="text-slate-300" aria-hidden="true" />{loading ? "Loading patients…" : "No patients waiting"}</div> :
-          <ol className="divide-y divide-slate-100">{nextQueue.slice(0, 5).map((queue, index) => (
+          <ol start={start + 1} className="divide-y divide-slate-100">{nextQueue.slice(start, start + 5).map((queue, index) => (
             <li key={queue.id} className="flex items-center gap-3 px-5 py-4 transition hover:bg-slate-50">
-              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${index === 0 ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{index + 1}</span>
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${start + index === 0 ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{start + index + 1}</span>
               <div className="min-w-0 flex-1"><p className="text-sm font-bold text-[#1a3a8f]">{queue.queue_number}</p>{queue.patient_id ? <Link to={`/staff/patients/${queue.patient_id}`} className="block truncate text-xs text-slate-600 underline-offset-2 hover:text-blue-700 hover:underline">{getQueueDisplayName(queue)}</Link> : <p className="truncate text-xs text-slate-600">{getQueueDisplayName(queue)}</p>}<p className="mt-1 text-[10px] text-slate-400">{queue.is_walk_in ? "Walk-in" : "Registered patient"}</p></div>
               <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${queue.type === "priority" ? "bg-orange-50 text-orange-700" : "bg-slate-100 text-slate-600"}`}>{queue.type === "priority" ? "Priority" : "Regular"}</span>
               <button type="button" onClick={() => onCancelQueue(queue.id)} disabled={loading} aria-label={`Cancel queue ${queue.queue_number}`} className="rounded-lg px-2 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50">Cancel</button>
             </li>
           ))}</ol>}
-        {nextQueue.length > 5 && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">{nextQueue.length - 5} more patients waiting</p>}
+        {nextQueue.length > 0 && <nav aria-label="Up next pagination" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3">
+          <p aria-live="polite" className="text-xs text-slate-500">{start + 1}–{Math.min(start + 5, nextQueue.length)} of {nextQueue.length} waiting · Page {currentPage} of {pageCount}</p>
+          <div className="flex gap-2">
+            <button type="button" aria-label="Previous queue page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-slate-200 p-2 text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16} aria-hidden="true" /></button>
+            <button type="button" aria-label="Next queue page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-slate-200 p-2 text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={16} aria-hidden="true" /></button>
+          </div>
+        </nav>}
       </div>
     </section>
   );

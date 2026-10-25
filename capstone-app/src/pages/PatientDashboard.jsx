@@ -14,6 +14,7 @@ import * as patientService from "@/services/patientService";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
+import { DashboardSkeleton } from "@/components/common/LoadingState";
 import UserManual from "@/components/common/UserManual";
 import Icon from "@/components/common/AppIcons";
 import GetQueueModal from "@/components/dashboards/patient/GetQueueModal";
@@ -99,6 +100,7 @@ export default function PatientDashboard() {
   const { queue, loading, error, fetchMyQueue, submitQueue } = useQueue();
 
   const [activeTab, setActiveTab] = useState("home");
+  const [initialLoading, setInitialLoading] = useState(true);
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -158,16 +160,15 @@ export default function PatientDashboard() {
   };
 
   useEffect(() => {
-    fetchMyQueue();
-    fetchQueueStatus();
-    fetchDoctorAvailability();
-    fetchPriorityEligibility();
+    let active = true;
+    Promise.all([fetchMyQueue(), fetchQueueStatus(), fetchDoctorAvailability(), fetchPriorityEligibility()])
+      .finally(() => { if (active) setInitialLoading(false); });
     const interval = setInterval(() => {
       fetchMyQueue();
       fetchQueueStatus();
       fetchDoctorAvailability();
     }, 15_000);
-    return () => clearInterval(interval);
+    return () => { active = false; clearInterval(interval); };
   }, [fetchMyQueue]);
 
   useEffect(() => {
@@ -414,7 +415,7 @@ export default function PatientDashboard() {
       </nav>
 
       {/* ── Tab Content ── */}
-      {activeTab === "home" && (
+      {activeTab === "home" && (initialLoading ? <DashboardSkeleton hero /> :
         <PatientHomeTab
           queueStatus={queueStatus}
           doctorAvailability={doctorAvailability}

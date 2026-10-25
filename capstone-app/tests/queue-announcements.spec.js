@@ -46,6 +46,45 @@ async function mockMonitor(page, supported = true) {
 
 const spokenTickets = (page) => page.evaluate(() => window.announcements);
 
+test('monitor fetches and announces a new call within one second when browser messaging is unavailable', async ({ page }) => {
+  const state = await mockMonitor(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'BroadcastChannel', { configurable: true, value: undefined });
+  });
+  await page.goto('/general-queue-monitor');
+  await page.getByRole('button', { name: 'Enable announcements' }).click();
+  const initialPolls = state.polls;
+  Object.assign(state.queues[0], { status: 'called', last_called_at: '2026-10-10T09:00:00+08:00' });
+  await page.clock.fastForward(1_000);
+  await expect(page.getByRole('region', { name: 'Current ticket' }).getByText('Q01', { exact: true })).toBeVisible();
+  await expect.poll(() => spokenTickets(page)).toHaveLength(2);
+  expect(state.polls).toBeGreaterThan(initialPolls);
+  await page.clock.fastForward(5_000);
+  expect(await spokenTickets(page)).toHaveLength(2);
+});
+
+test('monitor coalesces refreshes during a slow request and fetches the latest queue afterward', async ({ page }) => {
+  const state = await mockMonitor(page);
+  await page.goto('/general-queue-monitor');
+  await expect(page.getByText('Q01', { exact: true })).toBeVisible();
+  let held;
+  let requests = 0;
+  const oldQueue = JSON.stringify(state.queues);
+  await page.route('**/api/queue?category=dental', route => {
+    requests++;
+    if (requests === 1) held = route;
+    else return route.fallback();
+  });
+  await page.clock.fastForward(1_000);
+  await expect.poll(() => Boolean(held)).toBe(true);
+  Object.assign(state.queues[0], { status: 'called', last_called_at: '2026-10-10T09:00:01+08:00' });
+  await page.clock.runFor(3_000);
+  expect(requests).toBe(1);
+  await held.fulfill({ contentType: 'application/json', body: oldQueue });
+  await expect(page.getByRole('region', { name: 'Current ticket' }).getByText('Q01', { exact: true })).toBeVisible();
+  expect(requests).toBe(2);
+});
+
 for (const viewport of [{ width: 1440, height: 640 }, { width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
   test(`monitor follows the concept layout at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
     const state = await mockMonitor(page);
@@ -150,7 +189,7 @@ test('skipped tickets show only recoverable numbers, expire locally, and leave t
   await page.clock.runFor(1_000);
   await expect(skipped.getByText('P04', { exact: true })).toHaveCount(0);
   await expect(skipped.getByRole('listitem')).toHaveCount(1);
-  expect(state.polls).toBe(pollsBeforeExpiry);
+  expect(state.polls).toBeGreaterThan(pollsBeforeExpiry);
   expect(state.queues.find(queue => queue.id === 4).status).toBe('missed');
 
   state.queues.find(queue => queue.id === 3).status = 'waiting';

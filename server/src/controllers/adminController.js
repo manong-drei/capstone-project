@@ -5,6 +5,7 @@ const User = require("../models/User");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
 const { enqueuePassword, wakeWorker } = require('../services/smsNotifications');
+const { parsePagination } = require("../utils/pagination");
 
 /** GET /api/admin/overview — live stats for the admin dashboard */
 const getOverview = async (req, res) => {
@@ -444,21 +445,48 @@ const updateStaff = async (req, res) => {
 /** GET /api/admin/patients */
 const getPatients = async (req, res) => {
   try {
+    const { page: requestedPage, limit } = parsePagination(req.query);
+    const search = req.query?.search ?? "";
+    const includeInactive = req.query?.includeInactive ?? "false";
+    if (typeof search !== "string" || search.length > 150 || !["true", "false"].includes(includeInactive)) {
+      return res.status(400).json({ success: false, message: "Invalid patient search or account status filter." });
+    }
+    let where = "u.role = 'patient'";
+    const values = [];
+    if (includeInactive !== "true") where += " AND u.is_active = 1";
+    if (search.trim()) {
+      const pattern = `%${search.trim().replace(/[!%_]/g, "!$&")}%`;
+      where += ` AND (
+        CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')) LIKE ? ESCAPE '!'
+        OR CONCAT_WS(' ', p.last_name, p.first_name, CONCAT(LEFT(NULLIF(TRIM(p.middle_name), ''), 1), '.'), p.suffix) LIKE ? ESCAPE '!'
+        OR COALESCE(NULLIF(p.contact_number, ''), u.phone, '') LIKE ? ESCAPE '!'
+        OR p.barangay LIKE ? ESCAPE '!'
+      )`;
+      values.push(pattern, pattern, pattern, pattern);
+    }
+    const [[{ total }]] = await pool.query(`
+      SELECT COUNT(*) AS total FROM users u
+      JOIN patients p ON u.user_id = p.user_id WHERE ${where}
+    `, values);
+    const totalPages = Math.max(1, Math.ceil(Number(total) / limit));
+    const page = Math.min(requestedPage, totalPages);
     const [rows] = await pool.query(`
-      SELECT u.user_id, u.email, u.phone, u.is_active, u.must_change_password,
+      SELECT u.user_id, u.phone, u.is_active, u.must_change_password,
        (SELECT j.id FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_job_id,
        (SELECT j.state FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_state,
        (SELECT j.provider_status FROM sms_jobs j WHERE j.user_id = u.user_id AND j.purpose = 'temporary_password' ORDER BY j.id DESC LIMIT 1) AS sms_provider_status,
        p.patient_id, p.first_name, p.middle_name, p.last_name, p.suffix,
        CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')) AS full_name, p.contact_number,
-       p.barangay, p.city, p.gender, p.date_of_birth
+       p.barangay
       FROM   users u
       JOIN   patients p ON u.user_id = p.user_id
-      WHERE  u.role = 'patient'
-      ORDER BY p.first_name ASC, p.last_name ASC
-    `);
-    res.json({ success: true, patients: rows });
+      WHERE ${where}
+      ORDER BY p.first_name ASC, p.last_name ASC, p.patient_id ASC
+      LIMIT ? OFFSET ?
+    `, [...values, limit, (page - 1) * limit]);
+    res.json({ success: true, patients: rows, pagination: { page, limit, total: Number(total), totalPages } });
   } catch (err) {
+    if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
     console.error("getPatients error:", err);
     res.status(500).json({ success: false, message: "Server error." });
   }
