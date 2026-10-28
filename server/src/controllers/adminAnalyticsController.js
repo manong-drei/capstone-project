@@ -41,18 +41,16 @@ const getBohcForecast = async (req, res) => {
       fs.readFile(forecastFile, "utf8"),
       fs.readFile(historyFile, "utf8"),
     ]);
+    const numericFields = [
+      "baseline_year", "baseline_recipients", "forecast_year", "horizon",
+      "forecast_recipients", "lower_95", "upper_95", "backtest_count", "synthetic_years_in_training",
+    ];
+    const scoreFields = ["backtest_mae", "backtest_rmse", "backtest_mape_pct", "naive_last_year_mae"];
     const forecasts = parseForecastCsv(csv).map((row) => ({
       ...row,
-      actual_2025: Number(row.actual_2025),
-      forecast_2026: Number(row.forecast_2026),
-      lower_95: Number(row.lower_95),
-      upper_95: Number(row.upper_95),
-      backtest_mae: Number(row.backtest_mae),
+      ...Object.fromEntries(numericFields.map((field) => [field, row[field]?.trim() ? Number(row[field]) : NaN])),
+      ...Object.fromEntries(scoreFields.map((field) => [field, row[field]?.trim() ? Number(row[field]) : null])),
     }));
-
-    if (forecasts.length !== 7 || forecasts.some((row) => !Number.isFinite(row.forecast_2026))) {
-      return res.status(503).json({ success: false, message: "Forecast results are incomplete." });
-    }
     const history = parseForecastCsv(historyCsv).map((row) => ({
       year: Number(row.reporting_year),
       age_group: row.age_group,
@@ -61,6 +59,23 @@ const getBohcForecast = async (req, res) => {
     }));
     if (history.some((row) => !Number.isInteger(row.year) || !Number.isFinite(row.recipients))) {
       return res.status(503).json({ success: false, message: "Historical results are incomplete." });
+    }
+    const baselineYear = Math.max(...history.filter((row) => !row.is_synthetic).map((row) => row.year));
+    const baseline = history.filter((row) => row.year === baselineYear && !row.is_synthetic);
+    if (
+      baseline.length !== 7 || new Set(baseline.map((row) => row.age_group)).size !== 7 ||
+      forecasts.length !== 21 || new Set(forecasts.map((row) => `${row.age_group}:${row.horizon}`)).size !== 21 ||
+      forecasts.some((row) =>
+        numericFields.some((field) => !Number.isFinite(row[field]) || row[field] < 0) ||
+        scoreFields.some((field) => row[field] != null && (!Number.isFinite(row[field]) || row[field] < 0)) ||
+        ![1, 2, 3].includes(row.horizon) || row.forecast_year !== baselineYear + row.horizon ||
+        row.baseline_year !== baselineYear ||
+        !baseline.some((actual) => actual.age_group === row.age_group && actual.recipients === row.baseline_recipients) ||
+        !Number.isInteger(row.backtest_count) || row.backtest_count < 1 ||
+        row.lower_95 > row.forecast_recipients || row.upper_95 < row.forecast_recipients
+      )
+    ) {
+      return res.status(503).json({ success: false, message: "Forecast results are incomplete." });
     }
     res.set("Cache-Control", "no-store");
     return res.json({ success: true, forecasts, history });

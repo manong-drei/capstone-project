@@ -159,7 +159,7 @@ export function CinematicHero() {
           <span>More living.</span>
         </h1>
         <p className="mx-auto mt-7 max-w-lg text-base leading-relaxed text-blue-50 sm:text-lg">
-          Your time matters. Get your queue number, follow your turn, and make
+          Your time matters. Get your queue ticket, follow your turn, and make
           room for what matters most.
         </p>
         <div className="mt-9 inline-flex items-center gap-2 rounded-full border border-white/25 bg-[#1a3a8f]/60 px-4 py-2 text-xs text-white">

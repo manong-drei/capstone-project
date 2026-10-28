@@ -1,9 +1,9 @@
 """Train one small annual ARIMA model per BOHC age group.
 
 Install once with: python -m pip install pandas statsmodels
-Put bohc_modeling_dataset.csv beside this script, then run: python train_bohc_arima.py
+Put bohc_modeling_dataset.csv beside this script, then run: python arima.py
 
-The synthetic 2014-2019 rows are teaching placeholders, not facility records.
+The synthetic 2012-2019 rows are teaching placeholders, not facility records.
 Forecasts and scores are demonstrations because synthetic history is included.
 """
 
@@ -26,7 +26,7 @@ DATA_FILE = Path(__file__).with_name("bohc_modeling_dataset.csv")
 FORECAST_FILE = Path(__file__).with_name("bohc_arima_forecasts.csv")
 BACKTEST_FILE = Path(__file__).with_name("bohc_arima_backtest.csv")
 ORDERS = list(product((0, 1), repeat=3))  # small p, d, q values for a short annual series
-VALIDATION_YEARS = range(2022, 2026)
+FORECAST_STEPS = 3
 
 
 def load_data(path):
@@ -47,13 +47,13 @@ def load_data(path):
         raise ValueError("Each year and age group must have exactly one row.")
 
     groups = data["age_group"].drop_duplicates().tolist()
-    expected_years = list(range(2014, 2026))
+    expected_years = list(range(2012, 2026))
     for group in groups:
         series = data.loc[data["age_group"] == group].sort_values("reporting_year")
         if series["reporting_year"].tolist() != expected_years:
-            raise ValueError(f"{group} must have one observation for every year from 2014 to 2025.")
+            raise ValueError(f"{group} must have one observation for every year from 2012 to 2025.")
         if series.loc[series["reporting_year"] < 2020, "is_synthetic"].ne(True).any():
-            raise ValueError(f"{group}: years 2014-2019 must be labeled synthetic.")
+            raise ValueError(f"{group}: years 2012-2019 must be labeled synthetic.")
         if series.loc[series["reporting_year"] >= 2020, "is_synthetic"].ne(False).any():
             raise ValueError(f"{group}: years 2020-2025 must be labeled actual.")
     if len(groups) != 7:
@@ -78,11 +78,56 @@ def fit_lowest_aic(values):
     return min(candidates, key=lambda item: (item[0], item[1]))[1:]
 
 
-def predict_one(values, order):
-    fitted = ARIMA(values, order=order).fit()
-    prediction = fitted.get_forecast(steps=1)
-    interval = prediction.conf_int(alpha=0.05)[0]
-    return float(prediction.predicted_mean[0]), float(interval[0]), float(interval[1])
+def forecast_steps(fitted, steps):
+    prediction = fitted.get_forecast(steps=steps)
+    intervals = prediction.conf_int(alpha=0.05)
+    return [
+        {
+            "horizon": index + 1,
+            "forecast_recipients": max(0, round(float(value))),
+            "lower_95": max(0, round(float(interval[0]))),
+            "upper_95": max(0, round(float(interval[1]))),
+        }
+        for index, (value, interval) in enumerate(zip(prediction.predicted_mean, intervals))
+    ]
+
+
+def backtest_forecasts(series):
+    rows = []
+    last_year = int(series.index.max())
+    # Synthetic backcasts use 2020-2021, so every training window must include both.
+    for origin in range(2021, last_year):
+        train = series.loc[series.index <= origin].to_numpy(dtype=float)
+        order, fitted = fit_lowest_aic(train)
+        for prediction in forecast_steps(fitted, min(FORECAST_STEPS, last_year - origin)):
+            year = origin + prediction["horizon"]
+            rows.append({
+                "training_end_year": origin,
+                "validation_year": year,
+                "actual_recipients": int(series.loc[year]),
+                **prediction,
+                "arima_order": str(order),
+                "naive_last_year": int(train[-1]),
+            })
+    return rows
+
+
+def validation_scores(rows):
+    errors = [row["actual_recipients"] - row["forecast_recipients"] for row in rows]
+    naive_errors = [row["actual_recipients"] - row["naive_last_year"] for row in rows]
+    nonzero = [row for row in rows if row["actual_recipients"] != 0]
+    years = [row["validation_year"] for row in rows]
+    return {
+        "backtest_years": f"{min(years)}-{max(years)}",
+        "backtest_count": len(rows),
+        "backtest_mae": round(sum(abs(error) for error in errors) / len(errors), 2),
+        "backtest_rmse": round(sqrt(sum(error * error for error in errors) / len(errors)), 2),
+        "backtest_mape_pct": round(
+            sum(abs(row["actual_recipients"] - row["forecast_recipients"]) / row["actual_recipients"] for row in nonzero)
+            / len(nonzero) * 100, 2
+        ) if nonzero else None,
+        "naive_last_year_mae": round(sum(abs(error) for error in naive_errors) / len(naive_errors), 2),
+    }
 
 
 def main():
@@ -96,58 +141,29 @@ def main():
         group_data = data.loc[data["age_group"] == group].sort_values("reporting_year")
         series = group_data.set_index("reporting_year")["total_recipients"]
 
-        for year in VALIDATION_YEARS:
-            train = series.loc[series.index < year].to_numpy(dtype=float)
-            actual = float(series.loc[year])
-            order, _ = fit_lowest_aic(train)
-            forecast, lower, upper = predict_one(train, order)
-            backtests.append({
+        group_backtests = backtest_forecasts(series)
+        backtests.extend({"age_group": group, **row} for row in group_backtests)
+        order, fitted = fit_lowest_aic(series.to_numpy(dtype=float))
+        baseline_year = int(series.index.max())
+        for prediction in forecast_steps(fitted, FORECAST_STEPS):
+            summaries.append({
                 "age_group": group,
-                "validation_year": year,
-                "actual_recipients": int(actual),
-                "forecast_recipients": max(0, round(forecast)),
-                "lower_95": max(0, round(lower)),
-                "upper_95": max(0, round(upper)),
-                "arima_order": str(order),
-                "naive_last_year": int(train[-1]),
+                "baseline_year": baseline_year,
+                "baseline_recipients": int(series.loc[baseline_year]),
+                "forecast_year": baseline_year + prediction["horizon"],
+                **prediction,
+                "selected_arima_order": str(order),
+                **validation_scores([row for row in group_backtests if row["horizon"] == prediction["horizon"]]),
+                "synthetic_years_in_training": int(group_data["is_synthetic"].sum()),
+                "interpretation": "Demonstration only: training includes synthetic historical values",
             })
-
-        values = series.to_numpy(dtype=float)
-        order, fitted = fit_lowest_aic(values)
-        prediction = fitted.get_forecast(steps=1)
-        forecast = float(prediction.predicted_mean[0])
-        interval = prediction.conf_int(alpha=0.05)[0]
-        actual_2025 = float(series.loc[2025])
-        group_backtests = [row for row in backtests if row["age_group"] == group]
-        errors = [row["actual_recipients"] - row["forecast_recipients"] for row in group_backtests]
-        naive_errors = [row["actual_recipients"] - row["naive_last_year"] for row in group_backtests]
-        nonzero = [row for row in group_backtests if row["actual_recipients"] != 0]
-        mape = (
-            sum(abs(row["actual_recipients"] - row["forecast_recipients"]) / row["actual_recipients"] for row in nonzero)
-            / len(nonzero) * 100
-            if nonzero else None
-        )
-        summaries.append({
-            "age_group": group,
-            "actual_2025": int(actual_2025),
-            "forecast_2026": max(0, round(forecast)),
-            "lower_95": max(0, round(float(interval[0]))),
-            "upper_95": max(0, round(float(interval[1]))),
-            "selected_arima_order": str(order),
-            "backtest_years": "2022-2025",
-            "backtest_mae": round(sum(abs(error) for error in errors) / len(errors), 2),
-            "backtest_rmse": round(sqrt(sum(error * error for error in errors) / len(errors)), 2),
-            "backtest_mape_pct": round(mape, 2) if mape is not None else None,
-            "naive_last_year_mae": round(sum(abs(error) for error in naive_errors) / len(naive_errors), 2),
-            "synthetic_years_in_training": 6,
-            "interpretation": "Demonstration only: training includes synthetic historical values",
-        })
 
     pd.DataFrame(summaries).to_csv(FORECAST_FILE, index=False)
     pd.DataFrame(backtests).to_csv(BACKTEST_FILE, index=False)
     print(f"Saved forecasts: {FORECAST_FILE.name}")
     print(f"Saved actual-year backtests: {BACKTEST_FILE.name}")
-    print("Each model uses 2014-2025, including six synthetic rows; accuracy scores are demonstrations.")
+    print("Each model uses 2012-2025, including eight synthetic rows; accuracy scores are demonstrations.")
+    print("Forecasts cover 2026-2028; validation has four 1-year, three 2-year, and two 3-year tests per age group.")
 
 
 if __name__ == "__main__":

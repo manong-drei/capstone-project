@@ -306,11 +306,11 @@ export const USER_MANUALS = {
       {
         id: "admin-statistics", title: "Understand statistics and predictions", summary: "Read recorded service data separately from the demonstration forecast.",
         steps: [
-          "Open “Statistics/Analytics”. Use “Year” to select an available historical year or “2026 prediction”.",
-          "Read the chart legend: green shows 2025 actual data, blue shows the 2026 prediction, and the dashed gray range shows the estimate's uncertainty.",
-          "Review “2026 forecast breakdown”, “Model performance by age group”, and “How to read these predictions” alongside the chart.",
+          "Open “Statistics/Analytics”. Review “Three-year demand forecast” for 2026, 2027, and 2028 totals, then use “Year” to select a prediction or a historical year.",
+          "Read the age-group chart legend: green shows 2025 actual data, blue shows the selected year's prediction, and dashed gray lines show its uncertainty.",
+          "Review the selected year's “forecast breakdown” and “Model performance by age group”. Scores are evaluated separately for one-, two-, and three-year predictions, with four, three, and two validation forecasts per age group respectively.",
         ],
-        note: "BOHC means Basic Oral Health Care. The screen labels this a “Demonstration forecast” and includes sample history created for teaching. Predictions and accuracy scores are examples; do not treat them as official facility totals or guaranteed demand.",
+        note: "BOHC means Basic Oral Health Care. The “Demonstration forecast” uses synthetic 2012–2019 history and recorded 2020–2025 totals. All three prediction years use the same historical baseline; later predictions are not actual records. Validation samples are small and do not guarantee future accuracy or demand.",
       },
     ],
     screen: {

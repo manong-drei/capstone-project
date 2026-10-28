@@ -16,12 +16,14 @@
 .ar-scroll { max-width: 100%; margin-top: 16px; overflow-x: auto; border-radius: 8px; }
 .ar-scroll:focus-visible, .ar-year select:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
 .ar-chart { min-width: 620px; height: 340px; }
+.ar-trend-chart { min-width: 280px; height: 260px; }
 .ar-chart-key { margin-top: 10px; }
 .ar-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
 .ar-table caption { padding: 0 0 10px; text-align: left; color: #64748b; font-size: 12px; }
 .ar-table th, .ar-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; white-space: nowrap; }
 .ar-table thead th { background: #f1f5f9; color: #475569; font-weight: 600; }
 .ar-table th:first-child { min-width: 190px; text-align: left; white-space: normal; }
+.ar-trend-table th:first-child { min-width: 0; }
 .ar-table tbody th { font-weight: 500; }
 .ar-table tbody tr:hover { background: #f8fafc; }
 .ar-table tfoot { background: #eef2ff; color: #1a3a8f; font-weight: 700; }

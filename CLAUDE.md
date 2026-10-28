@@ -322,7 +322,9 @@ python -m pip install pandas statsmodels
 python src/analytics/arima.py
 ```
 
-The input is `src/analytics/bohc_modeling_dataset.csv`; outputs are `bohc_arima_forecasts.csv` and `bohc_arima_backtest.csv`. The 2014–2019 history is synthetic teaching data; 2020–2025 rows are labeled actual. Preserve synthetic labels and present forecasts/scores as demonstrations.
+The input is `src/analytics/bohc_modeling_dataset.csv`; outputs are `bohc_arima_forecasts.csv` (21 rows: seven age groups × 2026–2028) and `bohc_arima_backtest.csv` (63 validation rows). Forecast rows use `baseline_year`, `baseline_recipients`, `forecast_year`, `horizon`, and `forecast_recipients`; each horizon has its own intervals and validation scores. The API rejects missing/duplicate horizon/group combinations and mismatched baselines. Reports has a three-year total-demand chart and year selection for age-group forecasts, intervals, and performance.
+
+Each age group has eight synthetic teaching observations from 2012–2019 and six observations labeled actual from 2020–2025. Synthetic totals use a linear backcast from 2020–2021, rounded and clipped at zero; validation therefore starts with training through 2021. Expanding training windows ending in 2021–2024 produce four one-year, three two-year, and two three-year tests per age group, scored separately. Every forecast uses only observations through its training cutoff; the last observed count is the baseline at every horizon. Blank male/female counts in actual rows mean zero recipients; annual totals remain the forecasting input. Preserve synthetic labels and present forecasts/scores as demonstrations. Run the model checks with `python -m unittest discover -s src/analytics -p test_arima.py` from `server/`, in addition to backend tests and `tests/admin-reports.spec.js` in the frontend.
 
 ## API Map and Implementation Patterns
 
