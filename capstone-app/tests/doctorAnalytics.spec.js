@@ -63,7 +63,7 @@ const rowCells = (table, barangay) => table.locator("tbody tr").filter({ has: ta
 
 test("completed visits remain separate from optional manual entries and failed saves preserve inputs", async ({ page }) => {
   const fixture = await openAnalytics(page);
-  await expect(page.getByRole("button", { name: "Daily barangay entries" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page).toHaveURL(/\/doctor\/analytics$/);
   await expect(page.getByRole("heading", { name: "Manual clinical entries" })).toHaveCount(0);
   expect(fixture.requests.filter(({ path }) => path === "/api/doctor/daily-report")).toHaveLength(0);
   await expect(page.getByText("11 completed visits · Male 5 · Female 1 · Other 2 · Unknown sex 3", { exact: true })).toBeVisible();
@@ -75,6 +75,7 @@ test("completed visits remain separate from optional manual entries and failed s
   await expect(rowCells(clinicalTable(page), "Abuanan").first()).toHaveText("");
 
   await page.getByRole("button", { name: "Daily barangay entries" }).click();
+  await expect(page).toHaveURL(/\/doctor\/reports\/daily\?date=2026-10-06$/);
   const male = page.getByRole("textbox", { name: /Abuanan, Orally fit children.*Male/ });
   const seniorFemale = page.getByRole("textbox", { name: /Abuanan, Senior citizens.*Female/ });
   await expect(male).toBeEnabled();
@@ -82,8 +83,8 @@ test("completed visits remain separate from optional manual entries and failed s
   await seniorFemale.fill("1");
   await expect(page.getByLabel("Report date", { exact: true })).toBeDisabled();
   await expect(page.getByLabel("Entry date", { exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "This week", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Daily barangay entries" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "This week", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Daily barangay entries" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Download Excel" })).toBeDisabled();
 
   fixture.failSave = true;
@@ -107,7 +108,7 @@ test("completed visits remain separate from optional manual entries and failed s
   await page.getByRole("button", { name: "Save entries", exact: true }).click();
   await expect(page.getByText("Saved for this date", { exact: true })).toBeVisible();
   expect(fixture.saved.get("2026-10-05")[0][23]).toBe(4);
-  await page.getByRole("button", { name: "Daily barangay entries" }).click();
+  await page.getByRole("button", { name: "Back to analytics", exact: true }).click();
 
   await page.reload();
   await page.getByRole("button", { name: "Analytics", exact: true }).first().click();

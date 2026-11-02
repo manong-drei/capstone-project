@@ -1,6 +1,6 @@
 import { CalendarDays, Stethoscope } from "lucide-react";
 
-export default function StaffHeroBanner({ identity, doctorAvailable }) {
+export default function StaffHeroBanner({ identity, doctorAvailable, doctorLeaveEnd }) {
   return (
     <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a3a8f] via-[#1e4db7] to-blue-600 p-6 text-white shadow-sm sm:p-8">
       <div className="pointer-events-none absolute -right-10 -top-24 h-72 w-72 rounded-full border-[40px] border-white/5" aria-hidden="true" />
@@ -15,7 +15,7 @@ export default function StaffHeroBanner({ identity, doctorAvailable }) {
           <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 font-medium">
             <Stethoscope size={16} aria-hidden="true" />
             <span className={`h-2 w-2 rounded-full ${doctorAvailable === null ? "bg-slate-300" : doctorAvailable ? "bg-emerald-300" : "bg-amber-300"}`} aria-hidden="true" />
-            {doctorAvailable === null ? "Dentist availability unknown" : doctorAvailable ? "Dentist available today" : "Dentist unavailable today"}
+            {doctorLeaveEnd ? `Dentist on leave through ${new Date(`${doctorLeaveEnd}T00:00:00+08:00`).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" })}` : doctorAvailable === null ? "Dentist availability unknown" : doctorAvailable ? "Dentist available today" : "Dentist unavailable today"}
           </p>
         </div>
       </div>

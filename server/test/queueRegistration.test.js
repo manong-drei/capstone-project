@@ -48,6 +48,7 @@ async function fixture(run) {
       if (sql.includes('todayQueueCount')) return [[{ todayQueueCount: 0 }]];
       if (sql.includes('FROM doctors')) return [[{ doctor_id: 1 }]];
       if (sql.includes('FROM daily_doctor_settings')) return [[{ appointment_limit: 20, is_available: 1 }]];
+      if (sql.includes('FROM doctor_leaves')) return [[]];
       if (sql.includes('AS booked')) return [[{ booked: 0 }]];
       if (sql.includes('INSERT INTO appointments')) { state.writes.push('appointment'); return [{ insertId: 2 }]; }
       throw new Error(`Unexpected SQL: ${sql}`);

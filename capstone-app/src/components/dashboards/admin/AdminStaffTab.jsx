@@ -1,4 +1,6 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ROUTES } from "@/constants/routes";
 const StaffManager = lazy(() => import("./StaffManager"));
 const PatientManager = lazy(() => import("./PatientManager"));
 
@@ -9,7 +11,9 @@ const BLUE = "#1a3a8f";
  * Account management tab with Staff / Patients sub-toggle.
  */
 export default function AdminStaffTab() {
-  const [accountTab, setAccountTab] = useState("Staff");
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const accountTab = pathname === ROUTES.ADMIN_PATIENT_ACCOUNTS ? "Patients" : "Staff";
 
   return (
     <div className="ad-tab-pad" style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
@@ -23,7 +27,7 @@ export default function AdminStaffTab() {
               key={t}
               type="button"
               aria-pressed={accountTab === t}
-              onClick={() => setAccountTab(t)}
+              onClick={() => navigate(t === "Patients" ? ROUTES.ADMIN_PATIENT_ACCOUNTS : ROUTES.ADMIN_STAFF_ACCOUNTS)}
               className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
               style={{
                 padding: "6px 16px", borderRadius: "8px", border: "none", cursor: "pointer",

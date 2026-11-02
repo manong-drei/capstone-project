@@ -4,6 +4,7 @@ const pool = require('../src/config/db');
 const Queue = require('../src/models/Queue');
 const sms = require('../src/utils/sms');
 const notifications = require('../src/services/smsNotifications');
+const recovery = require('../src/services/passwordRecovery');
 
 test('rollout suppresses first five; crossings, threshold jumps and restart create one job per eligible ticket', async () => {
   const saved = { getConnection: pool.getConnection, project: Queue.projectWaiting, lock: Queue.lockCategory, key: process.env.SMS_ENCRYPTION_KEY };
@@ -164,7 +165,8 @@ test('status polling updates delivery status and never resubmits after a polling
   } finally { sms.getSMSStatus = saved.status; sms.sendSMS = saved.send; }
 });
 
-test('worker excludes another instance and converts interrupted claims to unknown without sending again', async () => {
+test('worker excludes another instance and converts interrupted claims to unknown without sending again', async t => {
+  t.mock.method(recovery, 'reconcile', async () => {});
   const saved = { getConnection: pool.getConnection, project: Queue.projectWaiting, lock: Queue.lockCategory };
   let acquired = 0;
   let recovered = false;

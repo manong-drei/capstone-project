@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const audit = require("../services/auditLog");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
@@ -27,10 +28,15 @@ async function updateSettings(req, res) {
       });
   }
   try {
-    await pool.query(
-      "UPDATE sms_settings SET threshold = ?, updated_by = ?, updated_at = NOW() WHERE id = 1",
-      [threshold, req.user.user_id],
-    );
+    await audit.transaction(async connection => {
+      const [[before]] = await connection.query('SELECT threshold FROM sms_settings WHERE id = 1 FOR UPDATE');
+      if (!before) throw new Error('SMS settings unavailable.');
+      await connection.query(
+        "UPDATE sms_settings SET threshold = ?, updated_by = ?, updated_at = NOW() WHERE id = 1",
+        [threshold, req.user.user_id]);
+      await audit.write(req, { action: 'sms.threshold_changed', target_type: 'sms_settings', target_id: 1,
+        details: { changes: { threshold: { from: before.threshold, to: threshold } } } }, connection);
+    });
     wakeWorker();
     res.json({ success: true, data: { threshold } });
   } catch {
@@ -122,6 +128,8 @@ async function replacePassword(req, res) {
       "INSERT INTO sms_password_audit (user_id, actor_user_id, credential_version) VALUES (?, ?, ?)",
       [userId, req.user.user_id, version],
     );
+    await audit.write(req, { action: 'password.replaced', target_type: 'user', target_id: userId,
+      details: { patient_id: patient.patient_id, method: 'sms' } }, conn);
     await conn.commit();
     wakeWorker();
     res

@@ -29,6 +29,7 @@ const INDIGO = "#4f46e5";
  */
 export default function DoctorHomeTab({
   isAvailable,
+  approvedLeave,
   availLoading,
   onToggleAvailability,
   capacityCollapsed,
@@ -164,7 +165,9 @@ export default function DoctorHomeTab({
                 Today's Availability
               </p>
               <p style={{ margin: 0, fontSize: "11px", color: "#9ca3af" }}>
-                {isAvailable
+                {approvedLeave
+                  ? `On approved leave through ${new Date(`${approvedLeave.end_date}T00:00:00+08:00`).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" })}`
+                  : isAvailable
                   ? "You are currently marked as available"
                   : "You are currently marked as unavailable"}
               </p>
@@ -172,7 +175,7 @@ export default function DoctorHomeTab({
           </div>
           <button
             onClick={() => !availLoading && onToggleAvailability(!isAvailable)}
-            disabled={availLoading}
+            disabled={availLoading || !!approvedLeave}
             style={{
               padding: "8px 20px",
               borderRadius: "99px",
@@ -181,13 +184,15 @@ export default function DoctorHomeTab({
               color: "#fff",
               fontSize: "13px",
               fontWeight: 700,
-              cursor: availLoading ? "not-allowed" : "pointer",
+              cursor: availLoading || approvedLeave ? "not-allowed" : "pointer",
               opacity: availLoading ? 0.7 : 1,
               flexShrink: 0,
               transition: "background 0.2s",
             }}
           >
-            {availLoading
+            {approvedLeave
+              ? "On leave"
+              : availLoading
               ? "Saving..."
               : isAvailable
                 ? "Available"

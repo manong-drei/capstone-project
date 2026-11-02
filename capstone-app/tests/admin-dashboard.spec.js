@@ -89,6 +89,75 @@ for (const width of [1440, 768, 375]) {
   });
 }
 
+for (const width of [1440, 375]) {
+  test(`today's tickets pagination handles navigation and live updates at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const responses = await mockAdmin(page);
+    const makeTicket = (id) => ({
+      id, category: 'dental', queue_number: `WQ${id}`, full_name: `Patient ${id}`,
+      status: id === 1 ? 'called' : 'waiting', type: 'regular', is_walk_in: 1,
+    });
+    responses['/api/queue'] = [
+      ...Array.from({ length: 12 }, (_, index) => makeTicket(index + 1)),
+      { ...makeTicket(99), category: 'general' },
+    ];
+    let fail = false;
+    await page.route('**/api/queue', route => fail
+      ? route.fulfill({ status: 503, json: { message: 'Queue connection unavailable.' } })
+      : route.fulfill({ json: responses['/api/queue'] }));
+    await page.clock.install();
+    await page.goto('/admin');
+    const monitor = page.getByRole('region', { name: 'Live queue monitor', exact: true });
+    const pagination = monitor.getByRole('navigation', { name: "Today's tickets pagination" });
+    const rows = monitor.getByRole('region', { name: "Today's queue tickets", exact: true }).getByRole('listitem');
+    const previous = pagination.getByRole('button', { name: 'Previous', exact: true });
+    const next = pagination.getByRole('button', { name: 'Next', exact: true });
+    const refresh = monitor.getByRole('button', { name: 'Refresh live queue', exact: true });
+    await expect(pagination).toContainText('Showing 1–5 of 12');
+    await expect(pagination).toContainText('Page 1 of 3');
+    await expect(rows).toHaveCount(5);
+    await expect(previous).toBeDisabled();
+    await next.click();
+    await expect(pagination).toContainText('Showing 6–10 of 12');
+    await expect(rows.first()).toContainText('WQ6');
+    await next.click();
+    await expect(pagination).toContainText('Showing 11–12 of 12');
+    await expect(rows).toHaveCount(2);
+    await expect(next).toBeDisabled();
+    await expect(monitor.getByRole('region', { name: 'Dental live queue', exact: true })).toContainText('11 waiting');
+    await previous.click();
+    responses['/api/queue'].push(makeTicket(13));
+    await page.clock.runFor(15_000);
+    await expect(pagination).toContainText('Showing 6–10 of 13');
+    await expect(pagination).toContainText('Page 2 of 3');
+    await pagination.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`tickets-pagination-${width}.png`), animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+
+    fail = true;
+    await refresh.click();
+    await expect(monitor.getByRole('alert')).toContainText('Showing the last successful update.');
+    await expect(pagination).toContainText('Page 2 of 3');
+    await expect(rows).toHaveCount(5);
+    fail = false;
+    responses['/api/queue'] = [makeTicket(1), makeTicket(2)];
+    await refresh.click();
+    await expect(pagination).toContainText('Showing 1–2 of 2');
+    await expect(pagination).toContainText('Page 1 of 1');
+    await expect(previous).toBeDisabled();
+    await expect(next).toBeDisabled();
+    await expect(rows).toHaveCount(2);
+    responses['/api/queue'] = [];
+    await refresh.click();
+    await expect(monitor.getByText('No dental tickets today', { exact: true })).toBeVisible();
+    await expect(pagination).toHaveCount(0);
+    responses['/api/queue'] = Array.from({ length: 6 }, (_, index) => makeTicket(index + 1));
+    await refresh.click();
+    await expect(pagination).toContainText('Page 1 of 2');
+    await expect(rows).toHaveCount(5);
+  });
+}
+
 test('live monitor distinguishes loading and failure, retains the last update, and stops polling off the overview', async ({ page }) => {
   const responses = await mockAdmin(page);
   await page.clock.install();

@@ -5,12 +5,13 @@ import { useAuth } from "@/hooks/useAuth";
 import * as authService from "@/services/authService";
 import DevLoginPanel from "@/components/common/DevLoginPanel";
 import TermsPrivacyModal from "@/components/common/TermsPrivacyModal";
+import PasswordRecoveryDialog from "@/components/common/PasswordRecoveryDialog";
 
 /* ── Shared class names (used more than once below) ───────────────────── */
 const LABEL_CLASSES = "block text-xs font-semibold mb-1 text-gray-700";
 
 const INPUT_CLASSES =
-  "w-full px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 placeholder-gray-300 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400";
+  "w-full px-3 py-2 sm:py-2.5 rounded-lg border border-gray-300 text-sm text-gray-700 placeholder-gray-300 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400";
 
 const TERMS_LINK_CLASSES = "cursor-pointer text-blue-500 hover:underline";
 
@@ -36,25 +37,6 @@ const Navbar = () => {
     </nav>
   );
 };
-
-/* ── Password recovery instructions (shown when "Forgot password?" is clicked) ── */
-const PasswordRecoveryHelp = () => (
-  <div
-    id="recovery-help"
-    className="mt-3 rounded-lg bg-blue-50 p-4 text-sm leading-relaxed text-slate-700"
-  >
-    <h3 className="mb-3 text-sm font-semibold text-blue-900">
-      Password Recovery Steps
-    </h3>
-    <ul className="list-disc space-y-1 pl-3">
-      <li>Visit the clinic reception.</li>
-      <li>Verify your name, phone number, address, and birthday.</li>
-      <li>Receive a temporary password.</li>
-      <li>Valid for 30 minutes and one login only.</li>
-      <li>Set a new password after logging in.</li>
-    </ul>
-  </div>
-);
 
 /* ── LoginPage ──────────────────────────────────────────────────────────── */
 const LoginPage = () => {
@@ -110,13 +92,13 @@ const LoginPage = () => {
 
       {/* Hero background + centered card */}
       <div className="flex-1 flex items-center justify-center px-4 py-8 bg-[url('/assets/BGHero.webp')] bg-cover bg-center bg-no-repeat">
-        <div className="w-full max-w-sm bg-white rounded-2xl px-8 py-9 shadow-[0_8px_40px_rgba(0,0,0,0.13)]">
+        <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg bg-white rounded-2xl px-8 py-9 sm:px-10 sm:py-11 lg:px-12 lg:py-12 shadow-[0_8px_40px_rgba(0,0,0,0.13)]">
           {/* Heading */}
-          <div className="text-center mb-6">
-            <h2 className="font-bold mb-1 text-xl tracking-[-0.01em] text-gray-900">
+          <div className="text-center mb-6 sm:mb-7">
+            <h2 className="font-bold mb-1 text-xl sm:text-2xl tracking-[-0.01em] text-gray-900">
               Welcome!
             </h2>
-            <p className="text-xs leading-snug px-2 text-gray-500">
+            <p className="text-xs sm:text-sm leading-snug px-2 text-gray-500">
               Login with your Account and stay Connected With Your Health
             </p>
           </div>
@@ -128,7 +110,7 @@ const LoginPage = () => {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
             {/* Phone field */}
             <div>
               <label className={LABEL_CLASSES}>Phone Number:</label>
@@ -176,11 +158,11 @@ const LoginPage = () => {
                 onClick={() => setShowRecoveryHelp((visible) => !visible)}
                 aria-expanded={showRecoveryHelp}
                 aria-controls="recovery-help"
+                aria-haspopup="dialog"
                 className="font-semibold text-blue-700 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600"
               >
                 Forgot password?
               </button>
-              {showRecoveryHelp && <PasswordRecoveryHelp />}
             </div>
 
             {/* Terms and privacy links */}
@@ -207,7 +189,7 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-full text-white font-semibold text-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed bg-gradient-to-r from-[#1e4db7] to-blue-600"
+              className="w-full py-2.5 sm:py-3 rounded-full text-white font-semibold text-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed bg-gradient-to-r from-[#1e4db7] to-blue-600"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -224,6 +206,9 @@ const LoginPage = () => {
         </div>
       </div>
       {/* ── Terms & Privacy Modal ── */}
+      {showRecoveryHelp && (
+        <PasswordRecoveryDialog onClose={() => setShowRecoveryHelp(false)} />
+      )}
       <TermsPrivacyModal
         open={showTerms}
         onClose={() => setShowTerms(false)}

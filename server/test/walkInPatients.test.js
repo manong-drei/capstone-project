@@ -32,6 +32,7 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
       if (sql.includes("RELEASE_LOCK")) return [[{ released: 1 }]];
       if (sql.includes("FROM doctors")) return [[{ doctor_id: 1 }]];
       if (sql.includes("FROM daily_doctor_settings")) return [[{ walk_in_limit: 5, is_available: 1 }]];
+      if (sql.includes("FROM doctor_leaves")) return [[]];
       if (sql.includes("walkinToday")) return [[{ walkinToday: 0 }]];
       if (sql.includes("FROM patients WHERE patient_id")) return [[{
         patient_id: 12, first_name: "Ana", last_name: "Santos", date_of_birth: "1990-01-01",

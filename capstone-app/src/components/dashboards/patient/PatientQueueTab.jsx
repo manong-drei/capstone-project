@@ -21,6 +21,9 @@ export default function PatientQueueTab({
   queue,
   loading,
   error,
+  queueStatus,
+  queueStatusError,
+  queueStatusLoaded,
   onGetQueue,
   onCancelQueue,
   onBack,
@@ -56,6 +59,27 @@ export default function PatientQueueTab({
             My Queue
           </h2>
         </div>
+        <section aria-labelledby="patient-queue-line-title" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 id="patient-queue-line-title" className="text-lg font-bold text-slate-900">Current dental queue line</h3>
+          <p className="mt-1 text-sm text-slate-500">Updates every 15 seconds. Tickets follow the clinic's service order.</p>
+          {queueStatusError ? <p role="alert" className="mt-4 text-sm text-red-700">{queueStatusError}</p>
+            : !queueStatusLoaded ? <p role="status" className="mt-4 text-sm text-slate-500">Loading queue line…</p>
+            : <>
+              <div className="my-4 grid grid-cols-2 gap-3" aria-live="polite">
+                <div className="rounded-xl bg-blue-50 p-3"><p className="text-xs text-blue-700">{queueStatus.current_status === "called" ? "Now calling" : "Now serving"}</p><p className="mt-1 text-xl font-bold text-blue-900">{queueStatus.now_serving || "—"}</p></div>
+                <div className="rounded-xl bg-orange-50 p-3"><p className="text-xs text-orange-700">Next in queue</p><p className="mt-1 text-xl font-bold text-orange-900">{queueStatus.next_queuing || "—"}</p></div>
+              </div>
+              {queueStatus.line?.length ? <ol aria-label="Current queue line" className="space-y-2">
+                {queueStatus.line.map((ticket, index) => {
+                  const isMine = hasActiveQueue && ticket.queue_number === queue.queue_number;
+                  return <li key={ticket.queue_number} aria-current={isMine ? "true" : undefined} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 ${isMine ? "border-blue-300 bg-blue-50" : "border-slate-200"}`}>
+                    <span className="font-semibold text-slate-900"><span className="mr-3 text-sm font-normal text-slate-500">{index + 1}.</span>{ticket.queue_number}{isMine && <span className="ml-2 text-sm text-blue-700">Your ticket</span>}</span>
+                    <span className="text-sm text-slate-600">{ticket.status === "called" ? "Now calling" : ticket.status === "serving" ? "Now serving" : "Waiting"}</span>
+                  </li>;
+                })}
+              </ol> : <p className="text-sm text-slate-500">No active tickets in the queue.</p>}
+            </>}
+        </section>
         {loading && <p style={{ color: "#9ca3af" }}>Loading...</p>}
         {error && <p style={{ color: "#dc2626" }}>{error}</p>}
         {!loading && !hasActiveQueue && (

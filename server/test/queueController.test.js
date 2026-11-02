@@ -19,6 +19,7 @@ test("registration assigns source from the endpoint and counts appointment and w
       if (sql.includes("todayQueueCount")) return [[{ todayQueueCount: 0 }]];
       if (sql.includes("FROM doctors")) return [[{ doctor_id: 1 }]];
       if (sql.includes("FROM daily_doctor_settings")) return [[{ is_available: 1, appointment_limit: 10, walk_in_limit: 5 }]];
+      if (sql.includes("FROM doctor_leaves")) return [[]];
       if (sql.includes("SELECT appointment_id")) return [[{ appointment_id: 1 }]];
       if (sql.includes("walkinToday")) return [[{ walkinToday: 0 }]];
       if (sql.includes("FROM queues WHERE patient_id")) return [[]];

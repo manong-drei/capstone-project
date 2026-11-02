@@ -116,12 +116,19 @@ test('replacement requires identity confirmation and pending activation, invalid
 });
 
 test('actual admin route middleware denies patients and enforces threshold validation', async () => {
-  const saved = { find: User.findById, query: pool.query, secret: process.env.JWT_SECRET };
+  const saved = { find: User.findById, query: pool.query, connection: pool.getConnection, secret: process.env.JWT_SECRET };
   process.env.JWT_SECRET = 'test-only-secret';
   const writes = [];
   let role = 'patient';
   User.findById = async () => ({ user_id: 4, role, is_active: 1, credential_version: 1, must_change_password: 0 });
-  pool.query = async (sql, values) => { if (values) writes.push(values); return [[{ threshold: 5 }]]; };
+  pool.query = async sql => sql.includes('FROM staff') ? [[{ name: 'Test Admin' }]] : [[{ threshold: 5 }]];
+  pool.getConnection = async () => ({
+    async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
+    async query(sql, values) {
+      if (sql.startsWith('UPDATE sms_settings')) writes.push(values);
+      return [[{ threshold: 5 }]];
+    },
+  });
   const dispatch = async (path, method, body = {}) => {
     const route = adminRouter.stack.find(layer => layer.route?.path === path && layer.route.methods[method.toLowerCase()]).route;
     const token = jwt.sign({ user_id: 4, role: 'admin', credential_version: 1, purpose: 'session' }, process.env.JWT_SECRET);
@@ -145,7 +152,7 @@ test('actual admin route middleware denies patients and enforces threshold valid
     assert.equal((await dispatch('/sms-settings', 'PUT', { threshold: 7 })).statusCode, 200);
     assert.deepEqual(writes, [[7, 4]]);
   } finally {
-    User.findById = saved.find; pool.query = saved.query;
+    User.findById = saved.find; pool.query = saved.query; pool.getConnection = saved.connection;
     if (saved.secret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = saved.secret;
   }
 });

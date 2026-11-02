@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import StatusBadge from "@/components/common/StatusBadge";
 import { getAllAppointments } from "@/services/appointmentService";
 
@@ -38,7 +39,12 @@ const formatServices = (appt) => {
 };
 
 export default function AdminPatientsHistoryTab() {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentPage = Math.max(1, parseInt(searchParams.get("page"), 10) || 1);
+  const setCurrentPage = useCallback((page, options) => setSearchParams((current) => {
+    if (page === 1) current.delete("page"); else current.set("page", page);
+    return current;
+  }, options), [setSearchParams]);
   const [result, setResult] = useState({ data: [], summary: {}, pagination: {} });
   const [apptLoading, setApptLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,13 +56,13 @@ export default function AdminPatientsHistoryTab() {
       .then((response) => {
         if (!controller.signal.aborted) {
           setResult(response);
-          setCurrentPage(response.pagination.page);
+          if (response.pagination.page !== currentPage) setCurrentPage(response.pagination.page, { replace: true });
         }
       })
       .catch((err) => { if (!controller.signal.aborted) setError(err.message); })
       .finally(() => { if (!controller.signal.aborted) setApptLoading(false); });
     return () => controller.abort();
-  }, [currentPage, retry]);
+  }, [currentPage, retry, setCurrentPage]);
 
   const appointments = result.data;
   const totalPages = result.pagination.totalPages ?? 1;

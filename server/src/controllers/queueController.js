@@ -2,6 +2,8 @@ const { differenceInYears, isValid, parseISO } = require("date-fns");
 const Queue = require("../models/Queue");
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
+const DoctorLeave = require("../models/DoctorLeave");
+const { clinicToday } = require("../utils/clinicDate");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
@@ -125,6 +127,7 @@ const createQueue = async (req, res) => {
       "SELECT doctor_id FROM doctors ORDER BY doctor_id ASC LIMIT 1 FOR UPDATE",
     );
     if (!doctor) throw httpError(409, "No dentist is available today.");
+    await DoctorLeave.assertAvailable(doctor.doctor_id, clinicToday(), connection);
 
     const [[settings]] = await connection.query(
       `SELECT appointment_limit, is_available FROM daily_doctor_settings
@@ -225,6 +228,7 @@ const createWalkIn = async (req, res) => {
         "SELECT doctor_id FROM doctors ORDER BY doctor_id ASC LIMIT 1 FOR UPDATE",
       );
       if (!doctor) throw httpError(409, "No dentist is available today.");
+      await DoctorLeave.assertAvailable(doctor.doctor_id, clinicToday(), connection);
 
       const [[settings]] = await connection.query(
         `SELECT walk_in_limit, is_available FROM daily_doctor_settings
@@ -259,7 +263,7 @@ const createWalkIn = async (req, res) => {
           "UPDATE patients SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?, date_of_birth = ?, gender = ?, contact_number = ?, barangay = ?, priority_category = ? WHERE patient_id = ?",
           [first_name, effectiveMiddleName ?? null, last_name, effectiveSuffix ?? null, date_of_birth, gender, phone, barangay, priorityCategory || existing.priority_category, patientId],
         );
-        await Patient.audit(patientId, req.user.user_id, "update", changes, connection);
+        await Patient.audit(patientId, req.user.user_id, "update", changes, connection, req);
       }
     } else {
       const [likely] = await connection.query(
@@ -272,7 +276,7 @@ const createWalkIn = async (req, res) => {
       if (likely.length && create_new_confirmed !== true) throw httpError(409, "Possible existing patient found. Select their record or explicitly confirm a new record.");
       patientId = await Patient.createWalkIn({ ...names, middle_name: normalizedMiddleName, suffix: normalizedSuffix, date_of_birth, gender, contact_number: phone, barangay }, connection);
       if (priorityCategory) await connection.query("UPDATE patients SET priority_category = ? WHERE patient_id = ?", [priorityCategory, patientId]);
-      await Patient.audit(patientId, req.user.user_id, "create", likely.length ? { duplicate_override: true, possible_patient_ids: likely.map((p) => p.patient_id) } : null, connection);
+      await Patient.audit(patientId, req.user.user_id, "create", likely.length ? { duplicate_override: true, possible_patient_ids: likely.map((p) => p.patient_id) } : null, connection, req);
     }
     const [[active]] = await connection.query(
       "SELECT id FROM queues WHERE patient_id = ? AND DATE(created_at) = CURDATE() AND status IN ('waiting', 'called', 'serving', 'missed') LIMIT 1",
@@ -293,7 +297,7 @@ const createWalkIn = async (req, res) => {
       walk_in_gender: gender === "other" ? null : gender,
       walk_in_contact: phone,
     }, connection);
-    await Patient.audit(patientId, req.user.user_id, "queue", { queue_id: queue.id }, connection);
+    await Patient.audit(patientId, req.user.user_id, "queue", { queue_id: queue.id, category: queueCategory }, connection, req);
     await connection.commit();
     wakeWorker();
     res.status(201).json({ success: true, queue });
@@ -354,7 +358,7 @@ const updateStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "A reason is required for cancellation." });
     }
 
-    const updated = await Queue.updateStatus(id, status, status === 'cancelled' ? String(reason).trim() : null);
+    const updated = await Queue.updateStatus(id, status, status === 'cancelled' ? String(reason).trim() : null, { auditRequest: req });
     if (updated?.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
     if (!updated) {
       return res
@@ -362,7 +366,7 @@ const updateStatus = async (req, res) => {
         .json({ success: false, message: "Queue entry not found." });
     }
 
-    if (status === "cancelled" && updated.patient_id && !updated.is_walk_in) {
+    if (req.auditActor?.role !== 'admin' && status === "cancelled" && updated.patient_id && !updated.is_walk_in) {
       const db = require("../config/db");
       await db.query(
         `UPDATE appointments
@@ -373,7 +377,7 @@ const updateStatus = async (req, res) => {
     }
 
     // When a registered patient's queue is done, mark their appointment as completed
-    if (status === "done" && updated.patient_id && !updated.is_walk_in) {
+    if (req.auditActor?.role !== 'admin' && status === "done" && updated.patient_id && !updated.is_walk_in) {
       const db = require("../config/db");
       await db.query(
         `UPDATE appointments

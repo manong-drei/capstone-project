@@ -1,4 +1,6 @@
 import { createElement, useEffect, useState } from "react";
+import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
+import { ROUTES } from "@/constants/routes";
 import {
   ArrowLeft, BarChart3, CalendarDays, CalendarRange, CheckCircle2,
   CircleAlert, ClipboardPenLine, Clock3, Download, Footprints,
@@ -88,18 +90,20 @@ function CompletedTable({ rows }) {
   </tbody></table>;
 }
 
-export default function DoctorAnalyticsTab({ onBack }) {
+export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
   const { user } = useAuth();
-  const [period, setPeriod] = useState("today");
-  const [anchorDate, setAnchorDate] = useState("");
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const period = dailyEntry ? "today" : PERIODS.find(({ value }) => value === searchParams.get("period"))?.value || "today";
+  const anchorDate = searchParams.get("date") || "";
   const [today, setToday] = useState("");
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [manualData, setManualData] = useState(emptyReport);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState("");
+  const manualOpen = dailyEntry;
+  const selectedDate = anchorDate || today;
   const [entryBarangay, setEntryBarangay] = useState(0);
   const [manualDate, setManualDate] = useState("");
   const [manualLoading, setManualLoading] = useState(false);
@@ -114,17 +118,26 @@ export default function DoctorAnalyticsTab({ onBack }) {
   const [reportError, setReportError] = useState("");
   const [reportRetry, setReportRetry] = useState(0);
   const [reportPage, setReportPage] = useState(1);
+  const blocker = useBlocker(dirty || saving);
   const query = new URLSearchParams({ period, ...(anchorDate ? { date: anchorDate } : {}) }).toString();
+
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+    if (!saving && window.confirm("Discard unsaved barangay entries?")) {
+      setDirty(false);
+      blocker.proceed();
+    } else blocker.reset();
+  }, [blocker, saving]);
 
   useEffect(() => {
     let active = true;
     const load = async () => {
+      setLoading(true);
       try {
         const data = await api.get(`/doctor/analytics?${query}`);
         if (active) {
           setStats(data);
           setToday(data.report_date);
-          setSelectedDate((date) => date || data.report_date);
           setError("");
         }
       } catch (err) {
@@ -162,6 +175,7 @@ export default function DoctorAnalyticsTab({ onBack }) {
   useEffect(() => {
     let active = true;
     const load = async () => {
+      setReportLoading(true);
       try {
         const response = await api.get(`/doctor/report?${query}`);
         if (active) { setReport({ ...response, data: sumReports(response.reports) }); setReportError(""); }
@@ -185,8 +199,7 @@ export default function DoctorAnalyticsTab({ onBack }) {
 
   const selectPeriod = (value) => {
     if (value === period) return;
-    setPeriod(value);
-    if (value === "today") setSelectedDate(anchorDate || today);
+    setSearchParams((current) => { current.set("period", value); return current; });
     setStats(null);
     setReport(null);
     setLoading(true);
@@ -196,8 +209,7 @@ export default function DoctorAnalyticsTab({ onBack }) {
     setReportError("");
   };
   const changeRange = (date) => {
-    setAnchorDate(date);
-    if (period === "today") setSelectedDate(date || today);
+    setSearchParams((current) => { if (date) current.set("date", date); else current.delete("date"); return current; });
     setStats(null);
     setReport(null);
     setLoading(true);
@@ -260,16 +272,16 @@ export default function DoctorAnalyticsTab({ onBack }) {
     <main className="da-page">
       <div className="da-top">
         <div className="da-title"><span className="da-title-icon"><BarChart3 size={23} /></span><div>
-          <p className="da-eyebrow">Dental service</p><h1>Doctor Analytics</h1>
+          <p className="da-eyebrow">Dental service</p><h1>{dailyEntry ? "Daily barangay entries" : "Doctor Analytics"}</h1>
         </div></div>
-        <button className="da-back" type="button" onClick={() => { if (!dirty || window.confirm("Discard unsaved barangay entries?")) onBack(); }}><ArrowLeft size={17} /> Back to dashboard</button>
+        <button className="da-back" type="button" onClick={() => dailyEntry ? navigate(ROUTES.DOCTOR_ANALYTICS) : onBack()}><ArrowLeft size={17} /> {dailyEntry ? "Back to analytics" : "Back to dashboard"}</button>
       </div>
 
-      <div className="da-periods" role="group" aria-label="Analytics period">
+      {!dailyEntry && <div className="da-periods" role="group" aria-label="Analytics period">
         {PERIODS.map(({ value, label, icon }) => <button
           key={value} className="da-period" type="button" aria-pressed={period === value}
           disabled={dirty || saving} onClick={() => selectPeriod(value)}>{createElement(icon, { size: 16 })} {label}</button>)}
-      </div>
+      </div>}
       <label className="da-field da-month-picker">{period === "monthly" ? "Report month" : period === "weekly" ? "Week containing" : "Report date"}
         <input className="da-input" type={period === "monthly" ? "month" : "date"} value={period === "monthly" ? (anchorDate || today).slice(0, 7) : anchorDate || today} max={period === "monthly" ? today.slice(0, 7) : today} disabled={!today || dirty || saving} onChange={(event) => changeRange(period === "monthly" && event.target.value ? `${event.target.value}-01` : event.target.value)} />
       </label>
@@ -278,7 +290,7 @@ export default function DoctorAnalyticsTab({ onBack }) {
       {error && <div className="da-alert" role="alert"><CircleAlert size={17} /> {error}
         <button type="button" onClick={() => { setLoading(true); setRetry((value) => value + 1); }}>Retry</button></div>}
 
-      {stats && <>
+      {stats && !dailyEntry && <>
         <div className="da-metrics">
           {METRICS.filter(({ key }) => period === "today" || (key !== "waiting" && key !== "serving")).map(({ key, label, icon, color, bg }) => <div className="da-metric" key={key}>
             <span className="da-metric-icon" style={{ "--metric-color": color, "--metric-bg": bg }}>{createElement(icon, { size: 19 })}</span>
@@ -302,8 +314,8 @@ export default function DoctorAnalyticsTab({ onBack }) {
       </>}
 
         <section className="da-card">
-          <button className="da-button da-button-secondary" type="button" aria-expanded={manualOpen} aria-controls="da-manual-entries" disabled={!selectedDate || dirty || saving} onClick={() => setManualOpen((open) => !open)}><ClipboardPenLine size={17} /> Daily barangay entries</button>
-          <p className="da-muted">Open when you need to add manual clinical counts for cases missing from the system. Automatic completed-visit counts remain separate.</p>
+          {!dailyEntry && <><button className="da-button da-button-secondary" type="button" disabled={!selectedDate || dirty || saving} onClick={() => navigate(`${ROUTES.DOCTOR_DAILY_REPORT}?date=${anchorDate || today}`)}><ClipboardPenLine size={17} /> Daily barangay entries</button>
+          <p className="da-muted">Open when you need to add manual clinical counts for cases missing from the system. Automatic completed-visit counts remain separate.</p></>}
           {manualOpen && <div id="da-manual-entries">
           <div className="da-section-head da-report-head">
             <div className="da-section-heading"><span className="da-section-icon"><ClipboardPenLine size={21} /></span><div>
@@ -326,7 +338,7 @@ export default function DoctorAnalyticsTab({ onBack }) {
           </details>}
           <form onSubmit={saveReport}>
             <div className="da-entry-controls">
-              <label className="da-field">Entry date<input className="da-input" type="date" value={selectedDate} max={today} disabled={dirty || saving} onChange={(event) => { setSelectedDate(event.target.value); setManualDate(""); }} /></label>
+              <label className="da-field">Entry date<input className="da-input" type="date" value={selectedDate} max={today} disabled={dirty || saving} onChange={(event) => { changeRange(event.target.value); setManualDate(""); }} /></label>
               <label className="da-field">Barangay<select className="da-input" value={entryBarangay} onChange={(event) => setEntryBarangay(Number(event.target.value))}>{BARANGAYS.map((barangay, index) => <option key={barangay} value={index}>{barangay}</option>)}</select></label>
             </div>
             <h3 className="da-subhead">{BARANGAYS[entryBarangay]} · {selectedDate}</h3>

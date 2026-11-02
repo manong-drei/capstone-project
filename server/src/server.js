@@ -55,6 +55,8 @@ if (process.env.NODE_ENV === "development") {
   app.use(devBypass);
 }
 
+app.use("/api", require("./middleware/auditRequest"));
+
 // ── Routes ─────────────────────────────────────────────────────────────────
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/patients", patientRoutes);

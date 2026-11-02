@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   PieChart,
   Pie,
@@ -13,7 +13,6 @@ import {
 import StatusBadge from "@/components/common/StatusBadge";
 import { Skeleton } from "@/components/common/LoadingState";
 import AdminLiveQueueMonitor from "./AdminLiveQueueMonitor";
-const AdminStaffTab = lazy(() => import("./AdminStaffTab"));
 
 const BLUE = "#1a3a8f";
 const BLUE2 = "#1e4db7";
@@ -152,18 +151,6 @@ export default function AdminOverviewTab({
   initialAppointmentsLoading,
 }) {
   const [volumeTab, setVolumeTab] = useState("Monthly");
-  const accountsRef = useRef(null);
-  const [showAccounts, setShowAccounts] = useState(false);
-  useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setShowAccounts(true);
-        observer.disconnect();
-      }
-    }, { rootMargin: "200px" });
-    observer.observe(accountsRef.current);
-    return () => observer.disconnect();
-  }, []);
   const dentalAges = (overview?.dentalAgeGroups ?? [])
     .map((row) => ({
       name: row.age_group,
@@ -650,7 +637,7 @@ export default function AdminOverviewTab({
                     .join(" ")}
                 </span>
                 <StatusBadge
-                  status={d.is_available ? "available" : "on_leave"}
+                  status={d.leave_end ? "on_leave" : d.is_available ? "available" : "unavailable"}
                 />
               </div>
             ))}
@@ -810,12 +797,6 @@ export default function AdminOverviewTab({
         )}
       </div>
 
-      {/* Account Management */}
-      <div ref={accountsRef} role="region" aria-label="Overview account management" style={{ minHeight: "300px" }}>
-        {showAccounts && <Suspense fallback={<p role="status">Loading accounts…</p>}>
-          <AdminStaffTab />
-        </Suspense>}
-      </div>
     </div>
   );
 }

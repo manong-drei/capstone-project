@@ -5,6 +5,28 @@ const pool = require("../src/config/db");
 
 test.after(() => pool.end());
 
+test("the patient queue line keeps projected ticket order and excludes private record fields", async () => {
+  const original = Queue.findTodayActive;
+  Queue.findTodayActive = async () => [
+    { queue_number: 'Q01', status: 'serving', full_name: 'Other Patient', contact_number: '09123456789' },
+    { queue_number: 'P02', status: 'waiting', patient_id: 9, services: ['PRIVATE'] },
+    { queue_number: 'AQ11', status: 'waiting', patient_id: 11 },
+    { queue_number: 'Q03', status: 'missed' },
+    { queue_number: 'Q04', status: 'done' },
+    { queue_number: 'Q05', status: 'no_show' },
+  ];
+  try {
+    const status = await Queue.getPublicStatus({ category: 'dental' });
+    assert.deepEqual(status.line, [
+      { queue_number: 'Q01', status: 'serving' },
+      { queue_number: 'P02', status: 'waiting' },
+      { queue_number: 'AQ11', status: 'waiting' },
+    ]);
+    assert.equal(status.now_serving, 'Q01');
+    assert.equal(status.next_queuing, 'P02');
+  } finally { Queue.findTodayActive = original; }
+});
+
 test("ticket prefixes use independent daily dental counters and one general counter", async () => {
   for (const [category, type, is_walk_in, prefix, sequenceType] of [
     ["dental", "regular", true, "Q", "walk_in_regular"],

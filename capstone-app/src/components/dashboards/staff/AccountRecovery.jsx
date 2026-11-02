@@ -54,6 +54,7 @@ export default function AccountRecovery({ patient, onRecovered }) {
 
   return <section aria-labelledby="account-recovery-title" className="mt-6 rounded-xl border border-blue-200 bg-white p-5 text-slate-700">
     <h2 id="account-recovery-title" className="text-lg font-bold text-[#1a3a8f]">Account recovery</h2>
+    <p className="mt-2 text-sm">Patients can reset their password using “Forgot password?” and an SMS code. Use this in-person fallback when they cannot access their registered number or receive a code.</p>
     {!eligible && <p className="mt-2 text-sm">Recovery requires an active patient account and a complete identity record. Ask an admin to resolve missing details or account status.</p>}
     {!open && <button type="button" disabled={!eligible} onClick={() => setOpen(true)} className={`${buttonClass} mt-3`}>Start account recovery</button>}
     {open && <>

@@ -3,6 +3,7 @@ const Queue = require('../models/Queue');
 const { alertState } = require('../utils/queueOrder');
 const { normalizePhilippineMobilePhone } = require('../utils/phone');
 const sms = require('../utils/sms');
+const recovery = require('./passwordRecovery');
 
 async function enqueuePassword(connection, userId, patientId, phone, password, version = 1) {
   const message = `E-KALUSUGAN: Your temporary password is ${password}. Valid for 72 hours and one login. Change it after login. Do not share or reply.`;
@@ -83,6 +84,15 @@ async function submitOne(conn) {
       if (!valid) { await cancelJob(conn, job.id); await conn.commit(); return; }
       await conn.query(`UPDATE users SET temp_password_expires_at = COALESCE(temp_password_expires_at, DATE_ADD(NOW(), INTERVAL 72 HOUR)) WHERE user_id = ?`, [job.user_id]);
       message = sms.decryptPayload(job.payload);
+    } else if (job.purpose === 'password_recovery') {
+      const [[user]] = await conn.query('SELECT *, NOW(3) AS db_now FROM users WHERE user_id = ? FOR UPDATE', [job.user_id]);
+      const [[request]] = await conn.query('SELECT * FROM password_recoveries WHERE id = ? FOR UPDATE', [job.recovery_id]);
+      const [[patient]] = await conn.query('SELECT patient_id FROM patients WHERE patient_id = ? AND user_id = ? AND archived_into_patient_id IS NULL', [job.patient_id, job.user_id]);
+      const valid = request && user && patient && request.status === 'pending' && request.expires_at > user.db_now &&
+        user.is_active && user.role === 'patient' && user.credential_version === request.credential_version &&
+        user.user_id === request.user_id && request.phone === job.recipient && user.phone === job.recipient;
+      if (!valid) { await cancelJob(conn, job.id); await conn.commit(); return; }
+      message = sms.decryptPayload(job.payload);
     } else {
       let [[queue]] = await conn.query('SELECT * FROM queues WHERE id = ?', [job.queue_id]);
       if (!queue || queue.patient_id !== job.patient_id) { await cancelJob(conn, job.id); await conn.commit(); return; }
@@ -148,6 +158,7 @@ async function tick() {
     const [[lock]] = await conn.query("SELECT GET_LOCK('sms_notifications_worker', 0) AS acquired");
     locked = lock.acquired === 1;
     if (!locked) return;
+    await recovery.reconcile();
     await conn.query(`UPDATE sms_jobs SET state = 'unknown', payload = NULL, last_error = 'worker_interrupted'
       WHERE state = 'submitting' AND updated_at < DATE_SUB(NOW(), INTERVAL 60 SECOND)`);
     await reconcileCategory('dental');

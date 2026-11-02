@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AlertCircle, CheckCircle2, Clock3, Monitor, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
@@ -20,6 +20,9 @@ import useSmsToasts from "@/hooks/useSmsToasts";
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const recoveryPage = pathname === ROUTES.STAFF_ACCOUNT_RECOVERY;
+  const walkInPage = pathname === ROUTES.STAFF_WALK_IN;
   const { logout } = useAuth();
   const { identity } = useDashboardIdentity();
   const [queues, setQueues] = useState([]);
@@ -28,8 +31,8 @@ export default function StaffDashboard() {
   const [error, setError] = useState("");
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [doctorAvailable, setDoctorAvailable] = useState(null);
+  const [doctorLeaveEnd, setDoctorLeaveEnd] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [showRecoverySearch, setShowRecoverySearch] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const { toasts, dismissToast, trackSmsStatuses } = useSmsToasts();
 
@@ -60,8 +63,10 @@ export default function StaffDashboard() {
       // Registration uses the dentist with the lowest ID.
       const dentist = [...(data?.data ?? [])].sort((a, b) => a.doctor_id - b.doctor_id)[0];
       setDoctorAvailable(dentist ? Boolean(Number(dentist.is_available)) : null);
+      setDoctorLeaveEnd(dentist?.leave_end ?? null);
     } catch {
       setDoctorAvailable(null);
+      setDoctorLeaveEnd(null);
     }
   }, []);
 
@@ -129,6 +134,10 @@ export default function StaffDashboard() {
     { label: "Completed today", value: queues.filter((queue) => queue.status === "done").length, icon: CheckCircle2, color: "bg-emerald-50 text-emerald-700" },
   ];
 
+  if (![ROUTES.STAFF_DASHBOARD, ROUTES.STAFF_ACCOUNT_RECOVERY, ROUTES.STAFF_WALK_IN].includes(pathname)) {
+    return <Navigate to={ROUTES.STAFF_DASHBOARD} replace />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
       <ToastNotifications toasts={toasts} onDismiss={dismissToast} />
@@ -136,16 +145,17 @@ export default function StaffDashboard() {
       <StaffNavbar identity={identity} onHelp={() => setShowManual(true)} onLogout={() => { logout(); navigate(ROUTES.LOGIN); }} />
       <QueueReasonModal request={queueReasonRequest} onClose={() => setQueueReasonRequest(null)} onSubmit={submitQueueReason} />
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <StaffHeroBanner identity={identity} doctorAvailable={doctorAvailable} />
+        <StaffHeroBanner identity={identity} doctorAvailable={doctorAvailable} doctorLeaveEnd={doctorLeaveEnd} />
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-[#1a3a8f]">Dental queue management</h2>
+          <div>{(recoveryPage || walkInPage) && <Link to={ROUTES.STAFF_DASHBOARD} className="mb-2 block text-sm text-blue-700">← Back to queue management</Link>}<h2 className="text-lg font-bold text-[#1a3a8f]">{recoveryPage ? "Account recovery" : walkInPage ? "Walk-in registration" : "Dental queue management"}</h2></div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setShowRecoverySearch((visible) => !visible)} aria-expanded={showRecoverySearch} aria-controls="account-recovery-search" className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-xs font-semibold text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600"><ShieldCheck size={16} aria-hidden="true" />Account recovery</button>
+            {!recoveryPage && <button type="button" onClick={() => navigate(ROUTES.STAFF_ACCOUNT_RECOVERY)} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-xs font-semibold text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600"><ShieldCheck size={16} aria-hidden="true" />Account recovery</button>}
+            {!walkInPage && <button type="button" onClick={() => navigate(ROUTES.STAFF_WALK_IN)} className="rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-xs font-semibold text-blue-800 hover:bg-blue-50">Walk-in registration</button>}
             <button type="button" onClick={refresh} disabled={loading || calling} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50"><RefreshCw size={16} aria-hidden="true" />Refresh</button>
             <a href={ROUTES.GENERAL_QUEUE_MONITOR} target="_blank" rel="opener" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><Monitor size={16} aria-hidden="true" />Open dental monitor<span className="sr-only"> (new tab)</span></a>
           </div>
         </div>
-        {loading ? <DashboardSkeleton /> : <>
+        {recoveryPage ? <AccountRecoverySearch /> : walkInPage ? <WalkInForm onSuccess={fetchQueue} doctorLeaveEnd={doctorLeaveEnd} /> : loading ? <DashboardSkeleton /> : <>
         <section aria-label="Today's dental queue summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.label} className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -155,13 +165,12 @@ export default function StaffDashboard() {
           ))}
         </section>
         {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><p>{error} Displayed queue information may be outdated.</p></div>}
-        {showRecoverySearch && <AccountRecoverySearch />}
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           <QueuePanel currentServing={currentServing} nextQueue={waiting} onCallNext={handleCallNext}
             missedQueues={queues.filter(queue => queue.status === 'missed')} onQueueAction={handleQueueAction}
             onCancelQueue={(id) => setQueueReasonRequest({ title: "Reason for cancellation", reasons: CANCELLATION_REASONS, id, status: "cancelled" })}
             loading={loading || calling} />
-          <WalkInForm onSuccess={fetchQueue} />
+          <WalkInForm onSuccess={fetchQueue} doctorLeaveEnd={doctorLeaveEnd} />
         </div>
         </>}
         <p className="flex flex-wrap items-center justify-center gap-2 pb-2 text-xs text-slate-500">

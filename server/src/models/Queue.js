@@ -1,3 +1,4 @@
+const audit = require("../services/auditLog");
 const pool = require("../config/db");
 const { projectQueue, alertState } = require('../utils/queueOrder');
 const conflict = message => Object.assign(new Error(message), { status: 409 });
@@ -264,7 +265,7 @@ const Queue = {
     finally { conn.release(); }
   },
 
-  updateStatus: (id, status, statusReason = null, { patientOnly = false } = {}) => Queue._withTicket(id, async (ticket, conn) => {
+  updateStatus: (id, status, statusReason = null, { patientOnly = false, auditRequest } = {}) => Queue._withTicket(id, async (ticket, conn) => {
       if (status === 'done' && ticket.status === 'done' && !patientOnly) return Queue._fetchById(id, conn);
       const allowed = status === 'serving' ? ticket.status === 'called' && !patientOnly
         : status === 'done' ? ticket.status === 'serving' && !patientOnly
@@ -275,6 +276,21 @@ const Queue = {
         `UPDATE queues SET status = ?, status_reason = ?, updated_at = NOW() WHERE id = ?`,
         [status, statusReason, id],
       );
+      const appointments = [];
+      if (auditRequest?.auditActor?.role === 'admin' && ticket.patient_id && !ticket.is_walk_in && ['cancelled', 'done'].includes(status)) {
+        const dateClause = status === 'cancelled' ? 'DATE(?)' : 'CURDATE()';
+        const args = status === 'cancelled' ? [ticket.patient_id, ticket.created_at] : [ticket.patient_id];
+        const [rows] = await conn.query(`SELECT appointment_id, status FROM appointments
+          WHERE patient_id = ? AND appointment_date = ${dateClause} AND status IN ('pending', 'confirmed') FOR UPDATE`, args);
+        const nextStatus = status === 'done' ? 'completed' : 'cancelled';
+        for (const row of rows) {
+          await conn.query('UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?', [nextStatus, row.appointment_id]);
+          appointments.push({ appointment_id: row.appointment_id, from: row.status, to: nextStatus });
+        }
+      }
+      await audit.write(auditRequest, { action: 'queue.status_changed', target_type: 'queue', target_id: id,
+        reason: statusReason, details: { patient_id: ticket.patient_id, appointments,
+          changes: { status: { from: ticket.status, to: status } } } }, conn);
       return Queue._fetchById(id, conn);
   }),
 
@@ -324,7 +340,7 @@ const Queue = {
     }
   },
 
-  // Public status cards: now-serving and next-waiting queue + names
+  // Public status cards and the projected ticket line without patient record fields.
   getPublicStatus: async ({ category } = {}) => {
     const rows = await Queue.findTodayActive({ category });
     const serving = rows.find((r) => ['called', 'serving'].includes(r.status));
@@ -335,6 +351,8 @@ const Queue = {
       current_status: serving?.status ?? null,
       next_queuing: waiting?.queue_number ?? null,
       next_queuing_name: waiting?.full_name ?? null,
+      line: rows.filter((row) => ['called', 'serving', 'waiting'].includes(row.status))
+        .map(({ queue_number, status }) => ({ queue_number, status })),
     };
   },
 

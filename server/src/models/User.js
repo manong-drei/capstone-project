@@ -3,6 +3,7 @@
  */
 
 const pool = require("../config/db");
+const audit = require("../services/auditLog");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { sessionResponse } = require("../utils/authSession");
@@ -28,7 +29,9 @@ const User = {
 */
   findById: async (user_id) => {
     const [rows] = await pool.query(
-      "SELECT user_id, phone, role, is_active, created_at, must_change_password, credential_version FROM users WHERE user_id = ?",
+      `SELECT u.user_id, u.phone, u.role, u.is_active, u.created_at, u.must_change_password, u.credential_version,
+          CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name, NULLIF(s.suffix, '')) AS audit_name
+         FROM users u LEFT JOIN staff s ON s.user_id = u.user_id AND u.role = 'admin' WHERE u.user_id = ?`,
       [user_id],
     );
     return rows[0] || null;
@@ -56,17 +59,21 @@ const User = {
     return String(crypto.randomInt(0, 1000000)).padStart(6, "0");
   },
 
-  updatePassword: async (user_id, newPassword, version) => {
+  updatePassword: async (user_id, newPassword, version, req) => {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(newPassword, salt);
-    const [result] = await pool.query(
-      `UPDATE users SET password_hash = ?, must_change_password = 0,
-       temp_password_expires_at = NULL, temp_password_used_at = NULL,
-       credential_version = credential_version + 1, login_failures = 0, login_locked_until = NULL
-       WHERE user_id = ? AND credential_version = ? AND is_active = 1`,
-      [password_hash, user_id, version],
-    );
-    return result.affectedRows === 1;
+    const change = async connection => {
+      const [result] = await connection.query(
+        `UPDATE users SET password_hash = ?, must_change_password = 0,
+         temp_password_expires_at = NULL, temp_password_used_at = NULL,
+         credential_version = credential_version + 1, login_failures = 0, login_locked_until = NULL
+         WHERE user_id = ? AND credential_version = ? AND is_active = 1`,
+        [password_hash, user_id, version]);
+      if (result.affectedRows !== 1) return false;
+      await audit.write(req, { action: 'password.changed', target_type: 'user', target_id: user_id }, connection);
+      return true;
+    };
+    return req?.auditActor?.role === 'admin' ? audit.transaction(change) : change(pool);
   },
 
   authenticate: async (phone, password) => {

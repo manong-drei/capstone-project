@@ -1,9 +1,13 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const audit = require("../services/auditLog");
 
 module.exports = async (req, res, next) => {
   // devBypass already authenticated this request in development mode.
-  if (req.devBypass) return next();
+  if (req.devBypass) {
+    await audit.setActor(req, req.user, true);
+    return next();
+  }
 
   const header = req.headers["authorization"];
   if (!header || !header.startsWith("Bearer ")) {
@@ -18,8 +22,10 @@ module.exports = async (req, res, next) => {
       process.env.NODE_ENV === "development" &&
       req.user.purpose === "development" &&
       ["patient", "doctor", "staff", "admin"].includes(req.user.role)
-    )
+    ) {
+      await audit.setActor(req, req.user, true);
       return next();
+    }
     const user = await User.findById(req.user.user_id);
     if (
       !user ||
@@ -36,6 +42,7 @@ module.exports = async (req, res, next) => {
     }
     req.user.role = user.role;
     req.user.phone = user.phone;
+    await audit.setActor(req, user);
     const setup = req.user.purpose === "password_setup";
     if (user.must_change_password || setup) {
       const allowed =

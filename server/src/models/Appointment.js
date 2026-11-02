@@ -1,3 +1,4 @@
+const audit = require("../services/auditLog");
 const pool = require("../config/db");
 
 const Appointment = {
@@ -175,7 +176,16 @@ const Appointment = {
   },
 
   // Update appointment status
-  updateStatus: async (appointment_id, status) => {
+  updateStatus: async (appointment_id, status, req) => {
+    if (req?.auditActor?.role === 'admin') return audit.transaction(async connection => {
+      const [[before]] = await connection.query('SELECT status FROM appointments WHERE appointment_id = ? FOR UPDATE', [appointment_id]);
+      if (!before) return null;
+      await connection.query('UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?', [status, appointment_id]);
+      await audit.write(req, { action: 'appointment.status_changed', target_type: 'appointment', target_id: appointment_id,
+        details: { changes: { status: { from: before.status, to: status } } } }, connection);
+      const [[updated]] = await connection.query('SELECT * FROM appointments WHERE appointment_id = ?', [appointment_id]);
+      return updated;
+    });
     await pool.query(
       `UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?`,
       [status, appointment_id],

@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const audit = require("../services/auditLog");
 const bcrypt = require("bcryptjs");
 const Queue = require("../models/Queue");
 const User = require("../models/User");
@@ -204,6 +205,8 @@ const createStaff = async (req, res) => {
         );
       }
 
+      await audit.write(req, { action: 'account.created', target_type: 'user', target_id: user_id,
+        details: { assigned_role: role, phone: normalizedPhone } }, conn);
       await conn.commit();
       res
         .status(201)
@@ -245,66 +248,35 @@ const createStaff = async (req, res) => {
   }
 };
 
-/** PATCH /api/admin/staff/:user_id/deactivate */
-const deactivateStaff = async (req, res) => {
+// Read the old state under the same lock used by the account change and its audit event.
+const changeAccountState = (patient, active) => async (req, res) => {
   try {
-    const { user_id } = req.params;
-
-    const [[user]] = await pool.query(
-      "SELECT user_id, role FROM users WHERE user_id = ?",
-      [user_id],
-    );
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found." });
-    }
-
-    if (user.role === "admin" && user.user_id === req.user.user_id) {
-      return res.status(403).json({
-        success: false,
-        message: "You cannot deactivate your own account.",
-      });
-    }
-
-    await pool.query("UPDATE users SET is_active = 0 WHERE user_id = ?", [
-      user_id,
-    ]);
-
-    res.json({ success: true, message: "Staff account deactivated." });
-  } catch (err) {
-    console.error("deactivateStaff error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    const userId = Number(req.params.user_id);
+    if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(400).json({ success: false, message: 'Invalid account ID.' });
+    await audit.transaction(async connection => {
+      const [[user]] = await connection.query(
+        "SELECT user_id, role, is_active FROM users WHERE user_id = ? FOR UPDATE", [userId]);
+      if (!user || (patient ? user.role !== 'patient' : !['admin', 'staff', 'doctor'].includes(user.role))) {
+        throw Object.assign(new Error('Account not found.'), { status: 404 });
+      }
+      if (!active && user.role === 'admin' && user.user_id === req.user.user_id) {
+        throw Object.assign(new Error('You cannot deactivate your own account.'), { status: 403 });
+      }
+      await connection.query('UPDATE users SET is_active = ? WHERE user_id = ?', [active, userId]);
+      await audit.write(req, { action: active ? 'account.reactivated' : 'account.deactivated',
+        target_type: 'user', target_id: userId,
+        details: { assigned_role: user.role, changes: { is_active: { from: user.is_active, to: active } } } }, connection);
+    });
+    res.json({ success: true, message: `${patient ? 'Patient' : 'Staff'} account ${active ? 'reactivated' : 'deactivated'}.` });
+  } catch (error) {
+    if (!error.status) console.error('Account status change failed.');
+    res.status(error.status || 500).json({ success: false, message: error.status ? error.message : 'Unable to change account status.' });
   }
 };
-
-/** PATCH /api/admin/staff/:user_id/reactivate */
-const reactivateStaff = async (req, res) => {
-  try {
-    const { user_id } = req.params;
-
-    const [[user]] = await pool.query(
-      "SELECT user_id, role FROM users WHERE user_id = ?",
-      [user_id],
-    );
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found." });
-    }
-
-    await pool.query("UPDATE users SET is_active = 1 WHERE user_id = ?", [
-      user_id,
-    ]);
-
-    res.json({ success: true, message: "Staff account reactivated." });
-  } catch (err) {
-    console.error("reactivateStaff error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
-  }
-};
+const deactivateStaff = changeAccountState(false, 0);
+const reactivateStaff = changeAccountState(false, 1);
+const deactivatePatient = changeAccountState(true, 0);
+const reactivatePatient = changeAccountState(true, 1);
 
 /** PUT /api/admin/staff/:user_id */
 const updateStaff = async (req, res) => {
@@ -333,6 +305,12 @@ const updateStaff = async (req, res) => {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
+      const [[before]] = await conn.query(`SELECT u.phone, u.email,
+        COALESCE(d.first_name, s.first_name) AS first_name, COALESCE(d.middle_name, s.middle_name) AS middle_name,
+        COALESCE(d.last_name, s.last_name) AS last_name, COALESCE(d.suffix, s.suffix) AS suffix,
+        d.license_number, s.position FROM users u
+        LEFT JOIN doctors d ON d.user_id = u.user_id LEFT JOIN staff s ON s.user_id = u.user_id
+        WHERE u.user_id = ? FOR UPDATE`, [user_id]);
 
       if (email || phone) {
         const fields = [];
@@ -422,6 +400,12 @@ const updateStaff = async (req, res) => {
         }
       }
 
+      const candidate = { first_name, last_name, middle_name: normalizedMiddleName, suffix: normalizedSuffix,
+        phone: normalizedPhone, email, ...(user.role === 'doctor' ? { license_number } : user.role === 'staff' ? { position } : {}) };
+      const changed = Object.entries(candidate).filter(([key, value]) =>
+        (['middle_name', 'suffix'].includes(key) ? req.body[key] !== undefined : !!value) && String(before[key] ?? '') !== String(value ?? ''));
+      await audit.write(req, { action: 'account.updated', target_type: 'user', target_id: user_id,
+        details: { changed_fields: changed.map(([key]) => key), changes: Object.fromEntries(changed.map(([key, value]) => [key, { from: before[key], to: value }])) } }, conn);
       await conn.commit();
       res.json({ success: true, message: "Staff account updated." });
     } catch (innerErr) {
@@ -609,6 +593,10 @@ const createPatient = async (req, res) => {
       );
 
       const sms_job_id = await enqueuePassword(conn, user_id, patientResult.insertId, normalizedPhone, tempPassword);
+      await audit.write(req, { action: 'account.created', target_type: 'user', target_id: user_id,
+        details: { assigned_role: 'patient', patient_id: patientResult.insertId, phone: normalizedPhone } }, conn);
+      await audit.write(req, { action: 'password.issued', target_type: 'user', target_id: user_id,
+        details: { method: 'sms', patient_id: patientResult.insertId } }, conn);
       await conn.commit();
       wakeWorker();
 
@@ -635,56 +623,6 @@ const createPatient = async (req, res) => {
         .status(409)
         .json({ success: false, message: "Phone number already in use." });
     }
-    res.status(500).json({ success: false, message: "Server error." });
-  }
-};
-
-/** PATCH /api/admin/patients/:user_id/deactivate */
-const deactivatePatient = async (req, res) => {
-  try {
-    const { user_id } = req.params;
-
-    const [[user]] = await pool.query(
-      "SELECT user_id FROM users WHERE user_id = ? AND role = 'patient'",
-      [user_id],
-    );
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Patient not found." });
-    }
-
-    await pool.query("UPDATE users SET is_active = 0 WHERE user_id = ?", [
-      user_id,
-    ]);
-    res.json({ success: true, message: "Patient account deactivated." });
-  } catch (err) {
-    console.error("deactivatePatient error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
-  }
-};
-
-/** PATCH /api/admin/patients/:user_id/reactivate */
-const reactivatePatient = async (req, res) => {
-  try {
-    const { user_id } = req.params;
-
-    const [[user]] = await pool.query(
-      "SELECT user_id FROM users WHERE user_id = ? AND role = 'patient'",
-      [user_id],
-    );
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Patient not found." });
-    }
-
-    await pool.query("UPDATE users SET is_active = 1 WHERE user_id = ?", [
-      user_id,
-    ]);
-    res.json({ success: true, message: "Patient account reactivated." });
-  } catch (err) {
-    console.error("reactivatePatient error:", err);
     res.status(500).json({ success: false, message: "Server error." });
   }
 };

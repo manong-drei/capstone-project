@@ -110,7 +110,10 @@ test('staff, doctor, and admin edits can change or clear names while omission pr
   t.mock.method(pool, 'query', async () => [[{ user_id: 7, role }]]);
   t.mock.method(pool, 'getConnection', async () => ({
     async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
-    async query(sql, values) { writes.push({ sql, values }); return [{}]; },
+    async query(sql, values) {
+      if (sql.startsWith('SELECT u.phone')) return [[{ first_name: 'Old', middle_name: null, suffix: null, phone: '09123456780' }]];
+      writes.push({ sql, values }); return [{}];
+    },
   }));
   for (role of ['staff', 'doctor', 'admin']) {
     for (const [body, expected] of [

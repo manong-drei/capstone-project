@@ -16,6 +16,7 @@ import { formatQueueTime, getQueueDisplayName } from "@/utils/queueDisplay";
 
 const SERVICE_CATEGORY = "dental";
 const POLL_INTERVAL_MS = 15_000;
+const TICKETS_PER_PAGE = 5;
 const ACTIVE_STATUSES = [
   QUEUE_STATUS.WAITING,
   QUEUE_STATUS.CALLED,
@@ -148,6 +149,7 @@ function TicketRow({ queue, cancelDisabled, onCancel }) {
 
 export default function AdminLiveQueueMonitor() {
   const [queues, setQueues] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [error, setError] = useState(null);
@@ -161,7 +163,11 @@ export default function AdminLiveQueueMonitor() {
       if (signal?.aborted) return;
       const list = Array.isArray(data) ? data : [];
       // The API may still return legacy non-dental tickets; only dental is in scope.
-      setQueues(list.filter((queue) => queue.category === SERVICE_CATEGORY));
+      const nextQueues = list.filter((queue) => queue.category === SERVICE_CATEGORY);
+      setQueues(nextQueues);
+      setCurrentPage((page) =>
+        Math.min(page, Math.max(1, Math.ceil(nextQueues.length / TICKETS_PER_PAGE))),
+      );
       setUpdatedAt(new Date());
       setError(null);
     } catch (err) {
@@ -205,6 +211,9 @@ export default function AdminLiveQueueMonitor() {
   };
 
   const initialLoading = loading && !updatedAt;
+  const totalPages = Math.max(1, Math.ceil(queues.length / TICKETS_PER_PAGE));
+  const firstTicketIndex = (currentPage - 1) * TICKETS_PER_PAGE;
+  const pageTickets = queues.slice(firstTicketIndex, firstTicketIndex + TICKETS_PER_PAGE);
 
   return (
     <section
@@ -323,7 +332,7 @@ export default function AdminLiveQueueMonitor() {
                   <span className="text-right">Action</span>
                 </div>
                 <ul className="divide-y divide-slate-100">
-                  {queues.map((queue) => (
+                  {pageTickets.map((queue) => (
                     <TicketRow
                       key={queue.id}
                       queue={queue}
@@ -338,6 +347,35 @@ export default function AdminLiveQueueMonitor() {
         )
       )}
       </div>
+      {updatedAt && queues.length > 0 && (
+        <nav
+          aria-label="Today's tickets pagination"
+          className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-xs sm:px-5"
+        >
+          <p aria-live="polite" className="text-slate-500">
+            Showing {firstTicketIndex + 1}–{Math.min(firstTicketIndex + TICKETS_PER_PAGE, queues.length)} of {queues.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage <= 1}
+              className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+            >
+              Previous
+            </button>
+            <span className="whitespace-nowrap text-slate-600">Page {currentPage} of {totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={currentPage >= totalPages}
+              className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
+      )}
     </section>
   );
 }

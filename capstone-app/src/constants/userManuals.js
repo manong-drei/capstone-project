@@ -59,7 +59,7 @@ export const USER_MANUALS = {
       ["I missed my call.", "Report to staff before your displayed 10-minute deadline. Staff can confirm a return within this window. A No-show ticket cannot be revived; ask staff about your next eligible option."],
       ["I did not receive a text message.", "Read the notice on your ticket. Some tickets receive no queue SMS because they started close to the front. Messages may also be delayed. Follow the on-screen queue and ask staff if your registered number needs checking."],
       ["The screen has stopped updating.", "Check your internet connection. Reload the page and check your existing ticket before attempting another registration. If the problem continues, ask reception to confirm your ticket."],
-      ["I forgot my password or the temporary one expired.", "Select “Forgot password?” on the sign-in page and visit reception. Be ready to verify your name, registered phone, address, and birthday. An in-person recovery password lasts 30 minutes and works once; then finish setting your new password within 15 minutes."],
+      ["I forgot my password or the temporary one expired.", "Select “Forgot password?” on the sign-in page, enter your registered mobile number, and request a four-digit SMS code. The code lasts five minutes and allows three incorrect attempts. Resend is available after 60 seconds; only the newest code works. After verification, set a new password within five minutes and return to login. If you cannot access your number, visit reception for verified in-person recovery."],
     ],
     support: "Visit clinic reception for ticket, account, or record assistance.",
     faqs: [
@@ -67,7 +67,7 @@ export const USER_MANUALS = {
       ["How do I get priority status?", "Priority is applied automatically when your profile has a valid approved category. Ask clinic staff to review your eligibility; there is no patient priority selector."],
       ["Why did a higher ticket number go first?", "Appointment and walk-in tickets use separate counters. Priority and confirmed returns also affect serving order. Follow the displayed queue rather than comparing the number alone."],
       ["Does this ticket reserve a future date?", "The ticket request is for today's dental visit. It is not a future-date booking form."],
-      ["Can I recover my account by text?", "The sign-in recovery instructions direct you to reception for identity verification. Staff issue an in-person recovery password. Keep this password private and use it promptly."],
+      ["Can I recover my account by text?", "Yes. Select “Forgot password?” and enter the mobile number registered to your patient account. Use the SMS code to verify your number, then set a new password. You can request at most three codes per number in 15 minutes. Never share your code. Clinic reception remains available if SMS recovery is unavailable."],
     ],
     conclusion: "You are ready to request an eligible ticket, follow its status, and report to staff when called. Keep your ticket number handy and contact reception when a message or record needs clarification.",
   },
@@ -84,11 +84,20 @@ export const USER_MANUALS = {
       {
         id: "daily-capacity", title: "Set availability and daily capacity", summary: "Availability saves immediately; capacity changes need “Apply”.",
         steps: [
-          "Under “Today's Availability”, select “Available” or “Unavailable” to change your status. Wait for saving to finish.",
+          "Under “Today's Availability”, select “Available” or “Unavailable” to change your status. Wait for saving to finish. Approved leave shows “On leave” and prevents switching availability on during its dates.",
           "Open “Daily Capacity” if collapsed. Adjust “Appointment Limit” from 0 to 10 and “Walk-In Capacity” from 0 to 30.",
           "Select “Apply” and look for “Saved ✓”. If “Lower Appointment Limit?” appears, review the existing booked count before selecting “Continue”. Existing bookings remain.",
         ],
         note: "Walk-In Capacity of 0 means “Not set”, so it does not set a zero-patient limit. Recheck the date and settings when starting a new day.",
+      },
+      {
+        id: "doctor-leave", title: "Request planned leave", summary: "Leave dates require admin approval; daily availability and capacity changes do not.",
+        steps: [
+          "Open “Leave Requests”, enter the start and end dates, and optionally add a reason. The end date is included and all dates use Philippine time.",
+          "Select “Submit leave request”. Pending requests leave availability unchanged. Use “Refresh leave requests” to check the admin decision and review note.",
+          "Use “Withdraw request” while it is pending. For approved dates that need changing, contact an admin. Approved leave blocks new appointments and dental walk-ins; normal daily settings apply again after it ends or is cancelled.",
+        ],
+        note: "Existing appointments and queue tickets remain for staff follow-up. Leave does not erase clinical history or change saved daily capacity.",
       },
       {
         id: "consultation", title: "Call a patient and save a consultation", summary: "Use the current dental queue to move from a call to a completed visit.",
@@ -122,10 +131,11 @@ export const USER_MANUALS = {
         note: "A barangay is the local community used to group the report. BOHC means Basic Oral Health Care. Completed visits do not establish clinical outcomes; use the clinic's reporting definitions when entering these counts. Exports are blocked for loading errors, unsaved changes, or a period with no completed visits or saved counts.",
       },
       {
-        id: "doctor-history", title: "Review appointment history", summary: "Find recorded visits without changing their details.",
+        id: "doctor-history", title: "Review patient history and consultation notes", summary: "Review appointments and walk-ins without changing saved consultations.",
         steps: [
-          "Open “Appointment History” and choose “Today” or “All”.",
-          "Review dates, patients, services, and statuses. On a desktop, select a table heading such as “Date” or “Patient Name” to sort.",
+          "Open “Patient History” and choose “Today” or “All”. Appointments and walk-ins have a visit-type label.",
+          "Search by patient name or ticket number and filter by visit type. Use “Sort by” and the direction arrow, or select a desktop table heading, to sort. “Previous” and “Next” move through ten-visit pages.",
+          "Select “View Notes” to read your saved consultation notes, diagnosis, and prescriptions. Visits without a saved consultation show “No notes recorded”. Close the window or press Esc to return to history.",
           "Use the back control to return to the dashboard. If report entries are unsaved, review the prompt before discarding them.",
         ],
       },
@@ -167,8 +177,8 @@ export const USER_MANUALS = {
           "In “Register dental walk-in”, use “Find an existing patient”. Enter at least two name characters or any four consecutive digits from the mobile number.",
           "Compare the name, birthday, and partly hidden phone number, then select the correct patient. Use “Open patient profile” to review the record or “Clear selection” to choose again.",
           "If the matches are different people, verify them before choosing “I checked these records; create a new patient.” Complete First name, Last name, Date of birth, Gender, Barangay, and Confirmed mobile number. The form supplies +63; enter ten digits starting with 9.",
-          "Choose one or two “Dental services” at the top of the form to enable registration. Senior Citizen priority is assigned automatically from the patient's 60th birthday. For other priority patients, select “Priority” and the appropriate category: PWD (Person with Disability) or Pregnant.",
-          "Select “Register and assign dental queue”. Give the patient the assigned number and relay the exact SMS or stay-nearby instructions shown in the success message.",
+          "Choose one or two “Dental services” at the top of the form. Complete the fields marked with an asterisk (*). Senior Citizen priority is assigned automatically from the patient's 60th birthday. For other priority patients, select “Priority” and the appropriate category: PWD (Person with Disability) or Pregnant.",
+          "Select “Register and assign dental queue”. Missing or invalid fields show a message, and focus moves to the first one. Correct the highlighted fields and submit again. Once registered, give the patient the assigned number and relay the exact SMS or stay-nearby instructions shown in the success message.",
         ],
         note: "Registration can be blocked by missing details, an existing active ticket, an unavailable dentist, or full walk-in capacity. Read the message and resolve the cause before trying again.",
       },
@@ -192,7 +202,7 @@ export const USER_MANUALS = {
         ],
       },
       {
-        id: "staff-recovery", title: "Help a patient recover their account", summary: "Recover access only after verifying the patient in person.",
+        id: "staff-recovery", title: "Help a patient recover their account", summary: "Patients can first use “Forgot password?” for SMS recovery. Use this fallback only after verifying the patient in person.",
         steps: [
           "Select “Account recovery”, search for the patient, and open the matching profile. Select “Start account recovery” if available.",
           "Complete all six Identity verification checks: patient presence, first name, last name, registered phone, address, and birthday. Stop if any detail differs.",
@@ -264,6 +274,15 @@ export const USER_MANUALS = {
         note: "Doctors and Patients History are viewing screens here. Doctor availability is changed by the doctor. Cancelled tickets may no longer appear in the active queue list.",
       },
       {
+        id: "admin-leave", title: "Review doctor leave requests", summary: "Admin approval applies to leave only.",
+        steps: [
+          "Open “Leave Requests”, choose a status, and select “Review request” for the relevant doctor.",
+          "Review the dates, reason, affected appointments and active queue tickets. If any are affected, acknowledge responsibility for staff follow-up before approving. Approval keeps those existing records in place.",
+          "Optionally enter a review note, then select “Approve leave” or “Reject request”. The doctor can read the decision and note. Refresh the review if the affected records changed.",
+          "To revoke approved leave, open its review and select “Cancel approved leave”. The doctor's saved daily availability rules resume. Daily availability and capacity changes do not need approval.",
+        ],
+      },
+      {
         id: "admin-staff", title: "Create and manage staff accounts", summary: "Manage doctor, staff, and administrator access in Accounts.",
         steps: [
           "Open “Accounts”, choose “Staff”, then select “Add Staff”.",
@@ -285,7 +304,7 @@ export const USER_MANUALS = {
         note: "A replacement makes the previous temporary password and any open password-setup session unusable. If the SMS status is unknown, verify the text-message provider's history before issuing another password.",
       },
       {
-        id: "admin-recovery", title: "Assist with in-person account recovery", summary: "Use this when a verified patient needs to regain access.",
+        id: "admin-recovery", title: "Assist with in-person account recovery", summary: "Patients can recover through “Forgot password?” and SMS. Use this fallback when a verified patient cannot complete that flow; review SMS recovery requests and completion in Audit Logs.",
         steps: [
           "From patient account management, select “Account recovery” to open the patient's profile, then “Start account recovery”.",
           "Verify the patient is physically present and confirm first name, last name, registered phone, address, and birthday. Stop if any detail does not match.",

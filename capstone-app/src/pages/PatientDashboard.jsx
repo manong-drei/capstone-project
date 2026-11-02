@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { useQueue } from "@/hooks/useQueue";
@@ -24,6 +24,11 @@ import PatientQueueTab from "@/components/dashboards/patient/PatientQueueTab";
 import PatientAppointmentsTab from "@/components/dashboards/patient/PatientAppointmentsTab";
 
 const ORANGE = "#f97316";
+const PATIENT_PAGES = {
+  home: ROUTES.PATIENT_DASHBOARD,
+  appointments: ROUTES.PATIENT_APPOINTMENT_HISTORY,
+  queue: ROUTES.PATIENT_MY_QUEUE,
+};
 
 const DENTAL_SUBSERVICE_LABEL_BY_ID = DENTAL_SERVICES.reduce((acc, s) => {
   acc[s.id] = s.label;
@@ -95,11 +100,13 @@ const mobileMenuBtn = {
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { logout } = useAuth();
   const { identity } = useDashboardIdentity();
   const { queue, loading, error, fetchMyQueue, submitQueue } = useQueue();
 
-  const [activeTab, setActiveTab] = useState("home");
+  const activeTab = Object.keys(PATIENT_PAGES).find((tab) => PATIENT_PAGES[tab] === pathname);
+  const setActiveTab = (tab) => navigate(PATIENT_PAGES[tab]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
@@ -113,7 +120,10 @@ export default function PatientDashboard() {
     next_queuing: null,
     next_queuing_name: null,
   });
+  const [queueStatusError, setQueueStatusError] = useState("");
+  const [queueStatusLoaded, setQueueStatusLoaded] = useState(false);
   const [doctorAvailability, setDoctorAvailability] = useState(null);
+  const [doctorLeaveEnd, setDoctorLeaveEnd] = useState(null);
   const [priorityEligible, setPriorityEligible] = useState(false);
 
   const fetchPriorityEligibility = async () => {
@@ -139,8 +149,11 @@ export default function PatientDashboard() {
           next_queuing_name: null,
         },
       );
+      setQueueStatusError("");
     } catch {
-      /* silently ignore */
+      setQueueStatusError("Unable to refresh the current queue line. Retrying automatically.");
+    } finally {
+      setQueueStatusLoaded(true);
     }
   };
 
@@ -149,11 +162,12 @@ export default function PatientDashboard() {
       const doctors = (await api.get("/doctor"))?.data ?? [];
       if (!doctors.length) {
         setDoctorAvailability(null);
+        setDoctorLeaveEnd(null);
         return;
       }
-      setDoctorAvailability(
-        doctors.some((d) => Number(d?.is_available ?? 1) !== 0) ? 1 : 0,
-      );
+      const dentist = [...doctors].sort((a, b) => a.doctor_id - b.doctor_id)[0];
+      setDoctorAvailability(Number(dentist.is_available ?? 1) !== 0 ? 1 : 0);
+      setDoctorLeaveEnd(dentist.leave_end ?? null);
     } catch {
       /* silently ignore */
     }
@@ -230,6 +244,8 @@ export default function PatientDashboard() {
         .filter(Boolean)
         .join(" | ")
     : "-";
+
+  if (!activeTab) return <Navigate to={ROUTES.PATIENT_DASHBOARD} replace />;
 
   return (
     <div
@@ -419,6 +435,7 @@ export default function PatientDashboard() {
         <PatientHomeTab
           queueStatus={queueStatus}
           doctorAvailability={doctorAvailability}
+          doctorLeaveEnd={doctorLeaveEnd}
           hasActiveQueue={hasActiveQueue}
           registrationMessage={queueStatus.registration_message}
           queue={queue}
@@ -427,15 +444,19 @@ export default function PatientDashboard() {
           onGetQueue={() => setShowQueueModal(true)}
           onCancelQueue={handleCancelQueue}
           onGoAppointments={() => setActiveTab("appointments")}
+          onGoQueue={() => setActiveTab("queue")}
         />
       )}
       {activeTab === "queue" && (
         <PatientQueueTab
           hasActiveQueue={hasActiveQueue}
-          registrationMessage={queueStatus.registration_message}
+          registrationMessage={queueStatus.registration_message || (doctorLeaveEnd ? "The dentist is on leave. Please approach clinic staff for assistance." : null)}
           queue={queue}
           loading={loading}
           error={error}
+          queueStatus={queueStatus}
+          queueStatusError={queueStatusError}
+          queueStatusLoaded={queueStatusLoaded}
           onGetQueue={() => setShowQueueModal(true)}
           onCancelQueue={handleCancelQueue}
           onBack={() => setActiveTab("home")}

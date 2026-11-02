@@ -3,11 +3,11 @@ import { createTestToken } from "./helpers/auth";
 
 test.use({ timezoneId: "America/Los_Angeles" });
 
-const appointments = [
-  { appointment_id: 1, appointment_date: "2026-10-24T16:00:00.000Z", patient_full_name: "Timestamp Today Patient" },
-  { appointment_id: 2, appointment_date: "2026-10-25", patient_full_name: "Date Today Patient" },
-  { appointment_id: 3, appointment_date: "2026-10-23T16:00:00.000Z", patient_full_name: "Previous Patient" },
-  { appointment_id: 4, appointment_date: "2026-10-25T16:00:00.000Z", patient_full_name: "Next Patient" },
+const visits = [
+  { visit_id: 'queue-1', visit_type: 'appointment', visit_date: "2026-10-24T16:00:00.000Z", patient_full_name: "Timestamp Today Patient", status: 'done' },
+  { visit_id: 'queue-2', visit_type: 'walk_in', visit_date: "2026-10-25", patient_full_name: "Date Today Patient", status: 'done' },
+  { visit_id: 'queue-3', visit_type: 'walk_in', visit_date: "2026-10-23T16:00:00.000Z", patient_full_name: "Previous Patient", status: 'done' },
+  { visit_id: 'appointment-4', visit_type: 'appointment', visit_date: "2026-10-25T16:00:00.000Z", patient_full_name: "Next Patient", status: 'confirmed' },
 ];
 
 async function openHistory(page, now) {
@@ -23,14 +23,15 @@ async function openHistory(page, now) {
       "/api/auth/profile": { data: user },
       "/api/queue": [],
       "/api/doctor/daily-settings": { appointment_limit: 10, walk_in_limit: 5, booked_count: 0, walkin_count: 0, is_available: 1 },
-      "/api/appointments/doctor": { success: true, appointments },
+      "/api/doctor/patient-history": { success: true, visits },
     };
     return route.fulfill({ json: responses[new URL(route.request().url()).pathname] ?? {} });
   });
   await page.goto("/doctor");
   if (page.viewportSize().width <= 640) await page.getByRole("button", { name: "Toggle menu", exact: true }).click();
-  await page.getByRole("button", { name: "Appointment History", exact: true }).filter({ visible: true }).click();
-  await expect(page.getByText("Loading appointments...", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Patient History", exact: true }).filter({ visible: true }).click();
+  await expect(page.getByRole("heading", { name: "Patient History", exact: true })).toBeVisible();
+  await expect(page.getByText("Loading patient history...", { exact: true })).toHaveCount(0);
 }
 
 for (const width of [1440, 375]) {
@@ -46,8 +47,8 @@ for (const width of [1440, 375]) {
         await expect(page.getByText(name, { exact: true })).toHaveCount(0);
       }
       await page.getByRole("button", { name: "All", exact: true }).click();
-      for (const appointment of appointments) {
-        await expect(page.getByText(appointment.patient_full_name, { exact: true }).filter({ visible: true })).toBeVisible();
+      for (const visit of visits) {
+        await expect(page.getByText(visit.patient_full_name, { exact: true }).filter({ visible: true })).toBeVisible();
       }
       await page.getByRole("button", { name: "Today", exact: true }).click();
       await expect(page.getByText("Previous Patient", { exact: true })).toHaveCount(0);

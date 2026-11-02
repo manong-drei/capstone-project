@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { ROUTES } from "./constants/routes";
 import { ROLES } from "./constants/roles";
@@ -63,10 +63,8 @@ function RoleRedirect() {
 }
 
 function AppRoutes() {
-  const { pathname } = useLocation();
-
   return (
-      <Suspense key={pathname} fallback={<PageLoading />}>
+      <Suspense fallback={<PageLoading />}>
         <Routes>
           {/* Public routes */}
           <Route path={ROUTES.HOME} element={<CinematicLandingPage />} />
@@ -99,7 +97,7 @@ function AppRoutes() {
 
           {/* Protected: Patient */}
           <Route
-            path={ROUTES.PATIENT_DASHBOARD}
+            path={`${ROUTES.PATIENT_DASHBOARD}/*`}
             element={
               <ProtectedRoute allowedRoles={[ROLES.PATIENT]}>
                 <PatientDashboard />
@@ -109,7 +107,7 @@ function AppRoutes() {
 
           {/* Protected: Doctor */}
           <Route
-            path={ROUTES.DOCTOR_DASHBOARD}
+            path={`${ROUTES.DOCTOR_DASHBOARD}/*`}
             element={
               <ProtectedRoute allowedRoles={[ROLES.DOCTOR]}>
                 <DoctorDashboard />
@@ -119,7 +117,7 @@ function AppRoutes() {
 
           {/* Protected: Staff  ← NEW */}
           <Route
-            path={ROUTES.STAFF_DASHBOARD}
+            path={`${ROUTES.STAFF_DASHBOARD}/*`}
             element={
               <ProtectedRoute allowedRoles={[ROLES.STAFF]}>
                 <StaffDashboard />
@@ -137,7 +135,7 @@ function AppRoutes() {
 
           {/* Protected: Admin */}
           <Route
-            path={ROUTES.ADMIN_DASHBOARD}
+            path={`${ROUTES.ADMIN_DASHBOARD}/*`}
             element={
               <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
                 <AdminDashboard />
@@ -162,6 +160,8 @@ function AppRoutes() {
   );
 }
 
+const router = createBrowserRouter([{ path: "*", element: <AppRoutes /> }]);
+
 export default function App() {
-  return <BrowserRouter><AppRoutes /></BrowserRouter>;
+  return <RouterProvider router={router} />;
 }

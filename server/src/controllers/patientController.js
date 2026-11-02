@@ -14,7 +14,7 @@ const getMyProfile = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Patient profile not found." });
     }
-    await Patient.audit(profile.patient_id, req.user.user_id, "view");
+    await Patient.audit(profile.patient_id, req.user.user_id, "view", null, pool, req);
     res.status(200).json({ success: true, data: profile });
   } catch (err) {
     console.error("getMyProfile error:", err);
@@ -85,13 +85,13 @@ const getPatientById = async (req, res) => {
        FROM queues WHERE patient_id = ? ORDER BY created_at DESC, id DESC`,
       [patient.patient_id],
     );
-    await Patient.audit(patient.patient_id, req.user.user_id, "view");
     const user = patient.user_id ? await User.findById(patient.user_id) : null;
     const account = user?.role === "patient" ? {
       phone: user.phone,
       is_active: user.is_active,
       credential_version: user.credential_version,
     } : null;
+    await Patient.audit(patient.patient_id, req.user.user_id, "view", null, pool, req);
     res.status(200).json({ success: true, data: { ...patient, visits, account } });
   } catch (err) {
     console.error("getPatientById error:", err);
@@ -148,8 +148,8 @@ const mergePatient = async (req, res) => {
     if (active_count > 1) throw Object.assign(new Error("Resolve the patients' active queues before merging."), { status: 409 });
     await connection.query("UPDATE queues SET patient_id = ? WHERE patient_id = ?", [targetId, sourceId]);
     await connection.query("UPDATE patients SET archived_into_patient_id = ? WHERE patient_id = ?", [targetId, sourceId]);
-    await Patient.audit(sourceId, req.user.user_id, "merged_into", { target_patient_id: targetId }, connection);
-    await Patient.audit(targetId, req.user.user_id, "merged_from", { source_patient_id: sourceId }, connection);
+    await Patient.audit(sourceId, req.user.user_id, "merged_into", { target_patient_id: targetId }, connection, req);
+    await Patient.audit(targetId, req.user.user_id, "merged_from", { source_patient_id: sourceId }, connection, req);
     await connection.commit();
     res.json({ success: true, data: { patient_id: targetId } });
   } catch (err) {
@@ -220,7 +220,7 @@ const recoverAccount = async (req, res) => {
       verification: Object.fromEntries(RECOVERY_CHECKS.map((key) => [key, true])),
       credential_version: version,
       expires_at: expiresAt,
-    }, connection);
+    }, connection, req);
     await connection.commit();
     res.status(201).json({ success: true, data: {
       temp_password: password,

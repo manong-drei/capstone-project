@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const auditLog = require("../services/auditLog");
 const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
 
 const Patient = {
@@ -59,11 +60,29 @@ const Patient = {
     return result.insertId;
   },
 
-  audit: async (patient_id, actor_user_id, action, details = null, connection = pool) => {
-    await connection.query(
-      "INSERT INTO patient_audit (patient_id, actor_user_id, action, details) VALUES (?, ?, ?, ?)",
-      [patient_id, actor_user_id || null, action, details && JSON.stringify(details)],
-    );
+  audit: async (patient_id, actor_user_id, action, details = null, connection = pool, req) => {
+    const readOnly = ['view', 'search'].includes(action);
+    try {
+      await connection.query(
+        "INSERT INTO patient_audit (patient_id, actor_user_id, action, details) VALUES (?, ?, ?, ?)",
+        [patient_id, actor_user_id || null, action, details && JSON.stringify(details)]);
+    } catch (error) {
+      if (!readOnly) throw error;
+      console.error('Patient access audit recording failed.');
+    }
+    const actions = { view: 'patient.viewed', create: 'patient.created', update: 'patient.updated',
+      merged_into: 'patient.merged', account_recovery: 'account.recovered', queue: 'queue.registered' };
+    if (!actions[action]) return; // merged_from is the second legacy row for the same merge.
+    const event = { action: actions[action], target_type: action === 'queue' ? 'queue' : 'patient',
+      target_id: action === 'queue' ? details?.queue_id : patient_id,
+      details: action === 'update' ? { changed_fields: Object.keys(details || {}), changes: details }
+        : action === 'account_recovery' ? { method: 'in_person', user_id: details?.user_id }
+        : { ...details, patient_id } };
+    if (readOnly) await auditLog.bestEffort(req, event, connection);
+    else await auditLog.write(req, event, connection);
+    if (action === 'create' && details?.duplicate_override) {
+      await auditLog.write(req, { ...event, action: 'patient.duplicate_override' }, connection);
+    }
   },
 
   create: async (data) => {

@@ -4,6 +4,7 @@
 
 const User = require("../models/User");
 const pool = require("../config/db");
+const audit = require("../services/auditLog");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { sessionResponse } = require("../utils/authSession");
 
@@ -132,11 +133,24 @@ const login = async (req, res) => {
     }
     const session = await User.authenticate(normalizedPhone, password);
     if (!session) {
+      try {
+        const [[target]] = await pool.query('SELECT user_id, role FROM users WHERE phone = ? LIMIT 1', [normalizedPhone]);
+        if (target?.role === 'admin') await audit.bestEffort(req, { action: 'auth.login', target_type: 'user',
+          target_id: target.user_id, outcome: 'failed', reason: 'Invalid credentials or unavailable account',
+          force: true, details: { phone: normalizedPhone } });
+      } catch { console.error('Login audit lookup failed.'); }
       return res
         .status(401)
         .json({ success: false, message: "Invalid phone or password." });
     }
 
+    if (session.user.role === 'admin') {
+      let actor = session.user;
+      try { actor = await User.findById(session.user.user_id) || actor; }
+      catch { console.error('Login audit actor lookup failed.'); }
+      await audit.setActor(req, actor);
+      await audit.bestEffort(req, { action: 'auth.login', target_type: 'user', target_id: session.user.user_id });
+    }
     res.status(200).json({
       success: true,
       message: "Login successful.",
@@ -311,7 +325,7 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Choose a different password.' });
     }
     const session = sessionResponse({ ...user, must_change_password: 0, credential_version: user.credential_version + 1 });
-    if (!await User.updatePassword(user.user_id, newPassword, user.credential_version)) {
+    if (!await User.updatePassword(user.user_id, newPassword, user.credential_version, req)) {
       return res.status(401).json({ success: false, message: 'Session has changed. Please log in again.' });
     }
 

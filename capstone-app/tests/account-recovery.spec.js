@@ -57,19 +57,19 @@ async function verify(page) {
   for (const input of await inputs.all()) await input.check();
 }
 
-test("login explains in-person recovery without requesting account details", async ({ page }) => {
+test("login offers SMS recovery and explains the in-person fallback", async ({ page }) => {
   const state = await mockApp(page, { signedIn: false });
   await page.goto("/login");
   const help = page.getByRole("button", { name: "Forgot password?" });
   await expect(help).toHaveAttribute("aria-expanded", "false");
   await help.click();
-  await expect(page.getByRole("heading", { name: "Password Recovery Steps" })).toBeVisible();
-  await expect(page.locator("#recovery-help")).toContainText("Visit the clinic reception.");
-  await expect(page.locator("#recovery-help")).toContainText("Valid for 30 minutes and one login only.");
+  await expect(page.getByRole("heading", { name: "Recover your account" })).toBeVisible();
+  await expect(page.getByLabel("Registered mobile number")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Recover your account" })).toContainText("Visit clinic reception for identity verification");
   expect(state.recoveries).toHaveLength(0);
   expect(state.searches).toHaveLength(0);
-  await help.click();
-  await expect(page.locator("#recovery-help")).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close password recovery' }).click();
+  await expect(page.getByRole("dialog", { name: "Recover your account" })).toHaveCount(0);
 });
 
 test("staff searches, confirms all checks, cancels or issues once, and clears the password on close and navigation", async ({ page }) => {

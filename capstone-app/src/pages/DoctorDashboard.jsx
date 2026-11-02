@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { useQueue } from "@/hooks/useQueue";
 import { ROUTES } from "@/constants/routes";
 import { QUEUE_STATUS } from "@/constants/queue";
 import api from "@/services/api";
-import * as appointmentService from "@/services/appointmentService";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
@@ -17,9 +16,16 @@ import LimitWarningModal from "@/components/dashboards/doctor/LimitWarningModal"
 import DoctorHomeTab from "@/components/dashboards/doctor/DoctorHomeTab";
 import DoctorAnalyticsTab from "@/components/dashboards/doctor/DoctorAnalyticsTab";
 import DoctorAppointmentsTab from "@/components/dashboards/doctor/DoctorAppointmentsTab";
+import DoctorLeaveTab from "@/components/dashboards/doctor/DoctorLeaveTab";
 
 const INDIGO = "#4f46e5";
-const TODAY  = new Date().toISOString().split("T")[0];
+const DOCTOR_PAGES = {
+  home: ROUTES.DOCTOR_DASHBOARD,
+  analytics: ROUTES.DOCTOR_ANALYTICS,
+  history: ROUTES.DOCTOR_PATIENT_HISTORY,
+  leave: ROUTES.DOCTOR_LEAVE_REQUESTS,
+};
+const clinicToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
 const DOC_RESPONSIVE_CSS = `
   .dd-nav { padding: 10px 24px; }
@@ -53,11 +59,15 @@ const mobileMenuBtnStyle = {
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { logout } = useAuth();
   const { identity } = useDashboardIdentity();
   const { queues, loading, error, fetchAllQueues, updateStatus } = useQueue();
 
-  const [activeTab, setActiveTab]           = useState("home");
+  const activeTab = pathname === ROUTES.DOCTOR_DAILY_REPORT ? "analytics"
+    : matchPath(ROUTES.DOCTOR_CONSULTATION, pathname) ? "history"
+    : Object.keys(DOCTOR_PAGES).find((tab) => DOCTOR_PAGES[tab] === pathname);
+  const setActiveTab = (tab) => navigate(DOCTOR_PAGES[tab]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showManual, setShowManual] = useState(false);
@@ -78,19 +88,22 @@ export default function DoctorDashboard() {
   const [settingsSaved, setSettingsSaved]       = useState(false);
   const [isAvailable, setIsAvailable]           = useState(true);
   const [availLoading, setAvailLoading]         = useState(false);
+  const [approvedLeave, setApprovedLeave] = useState(null);
 
-  // Appointments tab
-  const [appointments, setAppointments] = useState([]);
-  const [apptLoading, setApptLoading]   = useState(false);
+  const [historyVisits, setHistoryVisits] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [historyRetry, setHistoryRetry] = useState(0);
 
   const fetchDailySettings = async () => {
     try {
-      const data = await api.get(`/doctor/daily-settings?date=${TODAY}`);
+      const data = await api.get(`/doctor/daily-settings?date=${clinicToday()}`);
       setAppointmentLimit(data.appointment_limit ?? 10);
       setWalkInLimit(data.walk_in_limit ?? 0);
       setBookedCount(data.booked_count ?? 0);
       setWalkInCount(data.walkin_count ?? 0);
       setIsAvailable(data.is_available !== 0);
+      setApprovedLeave(data.approved_leave ?? null);
     } catch (err) {
       if (import.meta.env.DEV) console.error("fetchDailySettings error:", err);
     }
@@ -99,7 +112,7 @@ export default function DoctorDashboard() {
   const persistSettings = async (apptLimit, wiLimit) => {
     setSettingsLoading(true);
     try {
-      await api.put("/doctor/daily-settings", { date: TODAY, appointment_limit: apptLimit, walk_in_limit: wiLimit, is_available: isAvailable ? 1 : 0 });
+      await api.put("/doctor/daily-settings", { date: clinicToday(), appointment_limit: apptLimit, walk_in_limit: wiLimit });
       setAppointmentLimit(apptLimit);
       setWalkInLimit(wiLimit);
       setSettingsSaved(true);
@@ -135,7 +148,7 @@ export default function DoctorDashboard() {
   const handleToggleAvailability = async (val) => {
     setAvailLoading(true);
     try {
-      await api.put("/doctor/daily-settings", { date: TODAY, appointment_limit: appointmentLimit, walk_in_limit: walkInLimit, is_available: val ? 1 : 0 });
+      await api.put("/doctor/daily-settings", { date: clinicToday(), appointment_limit: appointmentLimit, walk_in_limit: walkInLimit, is_available: val ? 1 : 0 });
       setIsAvailable(val);
     } catch (err) {
       alert(err.message || "Failed to update availability.");
@@ -149,29 +162,30 @@ export default function DoctorDashboard() {
     Promise.all([fetchAllQueues(), fetchDailySettings()])
       .finally(() => { if (active) setInitialLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [fetchAllQueues]);
 
   useEffect(() => {
     const interval = setInterval(() => { fetchAllQueues(); fetchDailySettings(); }, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchAllQueues]);
 
   useEffect(() => {
-    if (activeTab !== "appointments") return;
-    let cancelled = false;
+    if (activeTab !== "history") return;
+    const controller = new AbortController();
     (async () => {
-      setApptLoading(true);
+      setHistoryLoading(true);
+      setHistoryError("");
       try {
-        const data = await appointmentService.getDoctorAppointments();
-        if (!cancelled) setAppointments(data?.appointments ?? []);
-      } catch {
-        if (!cancelled) setAppointments([]);
+        const data = await api.get("/doctor/patient-history", { signal: controller.signal });
+        if (!controller.signal.aborted) setHistoryVisits(data.visits ?? []);
+      } catch (err) {
+        if (!controller.signal.aborted) setHistoryError(err.message);
       } finally {
-        if (!cancelled) setApptLoading(false);
+        if (!controller.signal.aborted) setHistoryLoading(false);
       }
     })();
-    return () => { cancelled = true; };
-  }, [activeTab]);
+    return () => controller.abort();
+  }, [activeTab, historyRetry]);
 
   const handleCallNext = async () => {
     if (servingQueue) { setServingPatient(servingQueue); setShowConsultModal(true); return; }
@@ -233,6 +247,8 @@ export default function DoctorDashboard() {
   const apptPercent   = appointmentLimit > 0 ? Math.min(100, Math.round((bookedCount / appointmentLimit) * 100)) : 0;
   const apptFull      = bookedCount >= appointmentLimit && appointmentLimit > 0;
 
+  if (!activeTab) return <Navigate to={ROUTES.DOCTOR_DASHBOARD} replace />;
+
   return (
     <div style={{ minHeight: "100vh", background: "#f3f4f6", display: "flex", flexDirection: "column" }}>
       <style>{DOC_RESPONSIVE_CSS}</style>
@@ -252,8 +268,8 @@ export default function DoctorDashboard() {
         </button>
 
         <div className="dd-nav-items-desktop" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          {[{ tab: "analytics", icon: "chart", label: "Analytics" }, { tab: "appointments", icon: "appointment", label: "Appointment History" }].map(({ tab, icon, label }) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{ display: "flex", alignItems: "center", gap: "6px", background: activeTab === tab ? "rgba(255,255,255,0.2)" : "none", border: "none", color: "white", fontSize: "13px", fontWeight: 500, cursor: "pointer", padding: "7px 12px", borderRadius: "8px" }}>
+          {[{ tab: "analytics", icon: "chart", label: "Analytics" }, { tab: "history", icon: "appointment", label: "Patient History" }, { tab: "leave", icon: "appointment", label: "Leave Requests" }].map(({ tab, icon, label }) => (
+            <button key={tab} aria-label={label} onClick={() => setActiveTab(tab)} style={{ display: "flex", alignItems: "center", gap: "6px", background: activeTab === tab ? "rgba(255,255,255,0.2)" : "none", border: "none", color: "white", fontSize: "13px", fontWeight: 500, cursor: "pointer", padding: "7px 12px", borderRadius: "8px" }}>
               <Icon name={icon} size={16} color="white" />
               <span className="dd-nav-btn-label">{label}</span>
             </button>
@@ -270,7 +286,7 @@ export default function DoctorDashboard() {
         {mobileMenuOpen && (
           <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#1e4db7", borderTop: "1px solid rgba(255,255,255,0.15)", padding: "8px 14px", display: "flex", flexDirection: "column", gap: "4px", zIndex: 50, boxShadow: "0 6px 14px rgba(0,0,0,0.18)" }}>
             <DashboardProfileMenu mobile identity={identity} onLogout={() => { setMobileMenuOpen(false); handleLogout(); }} accentColor={INDIGO} panelBg="rgba(255,255,255,0.1)" panelTextColor="#ffffff" panelMutedColor="rgba(255,255,255,0.72)" />
-            {[{ tab: "analytics", icon: "chart", label: "Analytics" }, { tab: "appointments", icon: "appointment", label: "Appointment History" }].map(({ tab, icon, label }) => (
+            {[{ tab: "analytics", icon: "chart", label: "Analytics" }, { tab: "history", icon: "appointment", label: "Patient History" }, { tab: "leave", icon: "appointment", label: "Leave Requests" }].map(({ tab, icon, label }) => (
               <button key={tab} onClick={() => { setActiveTab(tab); setMobileMenuOpen(false); }} style={mobileMenuBtnStyle}>
                 <Icon name={icon} size={16} color="white" /> {label}
               </button>
@@ -285,7 +301,7 @@ export default function DoctorDashboard() {
       {/* ── Tab Content ── */}
       {activeTab === "home" && (initialLoading ? <DashboardSkeleton hero /> :
         <DoctorHomeTab
-          isAvailable={isAvailable} availLoading={availLoading} onToggleAvailability={handleToggleAvailability}
+          isAvailable={isAvailable} approvedLeave={approvedLeave} availLoading={availLoading} onToggleAvailability={handleToggleAvailability}
           capacityCollapsed={capacityCollapsed} setCapacityCollapsed={setCapacityCollapsed}
           appointmentLimit={appointmentLimit} setAppointmentLimit={setAppointmentLimit}
           walkInLimit={walkInLimit} setWalkInLimit={setWalkInLimit}
@@ -303,15 +319,18 @@ export default function DoctorDashboard() {
       )}
       {activeTab === "analytics" && (
         <DoctorAnalyticsTab
+          dailyEntry={pathname === ROUTES.DOCTOR_DAILY_REPORT}
           onBack={() => setActiveTab("home")}
         />
       )}
-      {activeTab === "appointments" && (
+      {activeTab === "history" && (
         <DoctorAppointmentsTab
-          appointments={appointments} apptLoading={apptLoading}
+          visits={historyVisits} loading={historyLoading} error={historyError}
+          onRetry={() => setHistoryRetry((value) => value + 1)}
           onBack={() => setActiveTab("home")}
         />
       )}
+      {activeTab === "leave" && <DoctorLeaveTab onBack={() => { setActiveTab("home"); fetchDailySettings(); }} />}
 
       {/* ── Modals ── */}
       <ConsultationModal isOpen={showConsultModal} onClose={() => setShowConsultModal(false)} onSubmit={handleSaveConsultation} patient={servingPatient} loading={consultLoading} />

@@ -3,7 +3,10 @@ const Patient = require("../models/Patient");
 const Doctor = require("../models/Doctor");
 const Queue = require("../models/Queue");
 const pool = require("../config/db");
+const DoctorLeave = require("../models/DoctorLeave");
+const { clinicToday, validDate } = require("../utils/clinicDate");
 const { parsePagination } = require("../utils/pagination");
+const audit = require("../services/auditLog");
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -32,6 +35,7 @@ const getAllAppointments = async (req, res) => {
     const totalPages = Math.max(1, Math.ceil(summary.total / limit));
     const page = Math.min(requestedPage, totalPages);
     const appointments = await Appointment.findAll({ limit, offset: (page - 1) * limit });
+    await audit.bestEffort(req, { action: 'patient.history_viewed', target_type: 'patient_history' });
     res.json({
       success: true, count: appointments.length, data: appointments, summary,
       pagination: { page, limit, total: summary.total, totalPages },
@@ -74,12 +78,10 @@ const createAppointment = async (req, res) => {
       });
     }
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(appointment_date) || isNaN(new Date(appointment_date).getTime())) {
+    if (!validDate(appointment_date)) {
       return res.status(400).json({ success: false, message: "Invalid appointment_date format. Use YYYY-MM-DD." });
     }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (new Date(appointment_date) < today) {
+    if (appointment_date < clinicToday()) {
       return res.status(400).json({ success: false, message: "Appointment date cannot be in the past." });
     }
 
@@ -103,6 +105,7 @@ const createAppointment = async (req, res) => {
         [doctor_id],
       );
       if (!doctor) throw httpError(404, "Doctor not found.");
+      await DoctorLeave.assertAvailable(doctor_id, appointment_date, connection);
 
       const [[settings]] = await connection.query(
         `SELECT appointment_limit, is_available FROM daily_doctor_settings
@@ -172,7 +175,7 @@ const updateAppointmentStatus = async (req, res) => {
       }
     }
 
-    const updated = await Appointment.updateStatus(req.params.id, status);
+    const updated = await Appointment.updateStatus(req.params.id, status, req);
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error("updateAppointmentStatus error:", err);

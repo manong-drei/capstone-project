@@ -40,7 +40,7 @@ function toneFor(status) {
 const purposeLabel = (job) =>
   job.purpose === "queue_alert"
     ? `Queue alert #${job.queue_id}`
-    : `Account activation #${job.user_id}`;
+    : job.purpose === 'password_recovery' ? `Password recovery #${job.user_id}` : `Account activation #${job.user_id}`;
 
 const detailText = (job) =>
   job.state === "unknown"

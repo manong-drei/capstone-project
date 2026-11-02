@@ -31,6 +31,7 @@ function getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError) {
 export default function PatientHomeTab({
   queueStatus,
   doctorAvailability,
+  doctorLeaveEnd,
   hasActiveQueue,
   registrationMessage,
   queue,
@@ -39,6 +40,7 @@ export default function PatientHomeTab({
   onGetQueue,
   onCancelQueue,
   onGoAppointments,
+  onGoQueue,
 }) {
   const [showMap, setShowMap] = useState(false);
   const estimatedWait = getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError);
@@ -47,7 +49,9 @@ export default function PatientHomeTab({
   const availabilityLabel =
     doctorAvailability === null
       ? "Checking availability"
-      : doctorAvailable
+      : doctorLeaveEnd
+        ? "On leave"
+        : doctorAvailable
         ? "Available today"
         : "Unavailable today";
 
@@ -122,7 +126,7 @@ export default function PatientHomeTab({
             <button
               type="button"
               onClick={onGetQueue}
-              disabled={hasActiveQueue || !!registrationMessage}
+              disabled={hasActiveQueue || !!registrationMessage || !!doctorLeaveEnd}
               className="flex min-h-20 min-w-0 items-center rounded-2xl bg-[#f97316] px-3 py-4 text-left text-white shadow-md shadow-orange-500/30 transition hover:bg-[#ea6d10] focus:outline-none focus:ring-4 focus:ring-orange-200 disabled:cursor-not-allowed disabled:opacity-65 sm:min-h-16 sm:px-6"
             >
               <span className="min-w-0">
@@ -132,7 +136,9 @@ export default function PatientHomeTab({
                 <span className="mt-1 block text-[11px] leading-snug text-white/80 sm:text-xs">
                   {hasActiveQueue
                     ? "You already have an active queue"
-                    : registrationMessage
+                    : doctorLeaveEnd
+                      ? "Dentist on approved leave"
+                      : registrationMessage
                       ? "Registration closed"
                       : "Join the dental queue"}
                 </span>
@@ -172,10 +178,11 @@ export default function PatientHomeTab({
             aria-label="Patient information"
           >
             <InfoCard
-              title="My queue number"
+              title="My Queue"
               value={hasActiveQueue ? queue.queue_number : "—"}
-              detail={myQueueSubtitle}
+              detail={hasActiveQueue ? myQueueSubtitle : "View the current queue line"}
               accent={ORANGE}
+              onClick={onGoQueue}
             />
             <InfoCard
               title="Estimated wait"
@@ -189,7 +196,9 @@ export default function PatientHomeTab({
               detail={
                 doctorAvailability === null
                   ? "Please wait a moment"
-                  : doctorAvailable
+                  : doctorLeaveEnd
+                    ? `Through ${new Date(`${doctorLeaveEnd}T00:00:00+08:00`).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" })}. Please contact staff.`
+                    : doctorAvailable
                     ? "Ready to receive patients"
                     : "Please check again later"
               }

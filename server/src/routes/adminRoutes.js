@@ -18,6 +18,11 @@ const {
 } = require("../controllers/adminController");
 
 const adminOnly = [authenticate, authorize("admin")];
+const leave = require('../controllers/doctorLeaveController');
+router.get('/doctor-leaves', ...adminOnly, leave.listAll);
+router.get('/doctor-leaves/:id', ...adminOnly, leave.reviewDetails);
+router.patch('/doctor-leaves/:id', ...adminOnly, leave.decide);
+router.get("/audit-logs", ...adminOnly, require("../controllers/auditLogController").getAuditLogs);
 const smsController = require('../controllers/smsController');
 router.get('/sms-settings', ...adminOnly, smsController.getSettings);
 router.put('/sms-settings', ...adminOnly, smsController.updateSettings);

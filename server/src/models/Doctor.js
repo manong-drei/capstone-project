@@ -11,7 +11,10 @@ const Doctor = {
   findAll: async () => {
     const [rows] = await pool.query(`
       SELECT d.*, s.specialization_name,
-        COALESCE(dds.is_available, 1) AS is_available
+        IF(EXISTS(SELECT 1 FROM doctor_leaves l WHERE l.doctor_id = d.doctor_id
+          AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date), 0, COALESCE(dds.is_available, 1)) AS is_available,
+        (SELECT DATE_FORMAT(l.end_date, '%Y-%m-%d') FROM doctor_leaves l WHERE l.doctor_id = d.doctor_id
+          AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date LIMIT 1) AS leave_end
       FROM   doctors d
       LEFT   JOIN specializations s ON d.specialization_id = s.specialization_id
       LEFT   JOIN daily_doctor_settings dds
@@ -36,7 +39,10 @@ const Doctor = {
       SELECT d.doctor_id, d.first_name, d.middle_name, d.last_name, d.suffix, d.license_number,
         COALESCE(NULLIF(d.contact_number, ''), u.phone) AS contact_number,
         s.specialization_name, u.created_at AS date_added,
-        COALESCE(dds.is_available, 1) AS is_available
+        IF(EXISTS(SELECT 1 FROM doctor_leaves l WHERE l.doctor_id = d.doctor_id
+          AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date), 0, COALESCE(dds.is_available, 1)) AS is_available,
+        (SELECT DATE_FORMAT(l.end_date, '%Y-%m-%d') FROM doctor_leaves l WHERE l.doctor_id = d.doctor_id
+          AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date LIMIT 1) AS leave_end
       FROM doctors d
       LEFT JOIN users u ON u.user_id = d.user_id
       LEFT JOIN specializations s ON s.specialization_id = d.specialization_id

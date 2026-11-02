@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
@@ -8,12 +8,15 @@ import * as appointmentService from "@/services/appointmentService";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
 import AdminOverviewTab from "@/components/dashboards/admin/AdminOverviewTab";
+import AdminLiveQueueMonitor from "@/components/dashboards/admin/AdminLiveQueueMonitor";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
 const UserManual = lazy(() => import("@/components/common/UserManual"));
 const AdminReportsTab = lazy(() => import("@/components/dashboards/admin/AdminReportsTab"));
 const AdminDoctorsTab = lazy(() => import("@/components/dashboards/admin/AdminDoctorsTab"));
 const AdminPatientsHistoryTab = lazy(() => import("@/components/dashboards/admin/AdminPatientsHistoryTab"));
 const AdminNotificationsTab = lazy(() => import("@/components/dashboards/admin/AdminNotificationsTab"));
+const AdminAuditLogsTab = lazy(() => import("@/components/dashboards/admin/AdminAuditLogsTab"));
+const AdminLeaveRequestsTab = lazy(() => import("@/components/dashboards/admin/AdminLeaveRequestsTab"));
 const AdminStaffTab = lazy(() => import("@/components/dashboards/admin/AdminStaffTab"));
 
 const BLUE = "#1a3a8f";
@@ -175,20 +178,31 @@ const ADMIN_RESPONSIVE_CSS = `
 `;
 
 const sidebarItems = [
-  { label: "Dashboard", tab: "overview" },
-  { label: "Statistics/Analytics", tab: "reports" },
-  { label: "Doctors", tab: "doctors" },
-  { label: "Patients History", tab: "patientshistory" },
-  { label: "Notifications", tab: "notifications" },
-  { label: "Accounts", tab: "staff" },
+  { label: "Dashboard", tab: "overview", path: ROUTES.ADMIN_DASHBOARD },
+  { label: "Statistics/Analytics", tab: "reports", path: ROUTES.ADMIN_ANALYTICS },
+  { label: "Doctors", tab: "doctors", path: ROUTES.ADMIN_DOCTORS },
+  { label: "Leave Requests", tab: "leave", path: ROUTES.ADMIN_LEAVE_REQUESTS },
+  { label: "Patients History", tab: "patientshistory", path: ROUTES.ADMIN_PATIENT_HISTORY },
+  { label: "Notifications", tab: "notifications", path: ROUTES.ADMIN_NOTIFICATIONS },
+  { label: "Accounts", tab: "staff", path: ROUTES.ADMIN_STAFF_ACCOUNTS },
+  { label: "Audit Logs", tab: "auditlogs", path: ROUTES.ADMIN_AUDIT_LOGS },
+  { label: "Live Queue", tab: "queue", path: ROUTES.ADMIN_QUEUE },
+];
+const adminPages = [
+  ...sidebarItems,
+  { path: ROUTES.ADMIN_ACCOUNTS, tab: "staff" },
+  { path: ROUTES.ADMIN_PATIENT_ACCOUNTS, tab: "staff" },
+  { path: ROUTES.ADMIN_DOCTOR_RECORDS, tab: "doctors" },
+  { path: ROUTES.ADMIN_LEAVE_REVIEW, tab: "leave" },
 ];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { logout } = useAuth();
   const { identity } = useDashboardIdentity();
 
-  const [activeTab, setActiveTab] = useState("overview");
+  const activeTab = adminPages.find(({ path }) => matchPath(path, pathname))?.tab;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showManual, setShowManual] = useState(false);
 
@@ -286,9 +300,12 @@ export default function AdminDashboard() {
   };
 
   const selectTab = (tab) => {
-    setActiveTab(tab);
+    navigate(sidebarItems.find((item) => item.tab === tab).path);
     setSidebarOpen(false);
   };
+
+  if (pathname === ROUTES.ADMIN_ACCOUNTS) return <Navigate to={ROUTES.ADMIN_STAFF_ACCOUNTS} replace />;
+  if (!activeTab) return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
 
   return (
     <div className="ad-root">
@@ -447,11 +464,14 @@ export default function AdminDashboard() {
             <AdminReportsTab />
           )}
           {activeTab === "doctors" && <AdminDoctorsTab doctors={doctors} />}
+          {activeTab === "leave" && <AdminLeaveRequestsTab onChanged={fetchDoctors} />}
           {activeTab === "patientshistory" && (
             <AdminPatientsHistoryTab />
           )}
           {activeTab === "notifications" && <AdminNotificationsTab />}
           {activeTab === "staff" && <AdminStaffTab />}
+          {activeTab === "auditlogs" && <AdminAuditLogsTab />}
+          {activeTab === "queue" && <AdminLiveQueueMonitor />}
           </Suspense>
         </main>
       </div>

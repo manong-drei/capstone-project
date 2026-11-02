@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { generatePath, useMatch, useNavigate } from "react-router-dom";
+import { ROUTES } from "@/constants/routes";
 import StatusBadge from "@/components/common/StatusBadge";
 import api from "@/services/api";
 
@@ -14,7 +16,7 @@ function formatDate(value, includeTime = false) {
   });
 }
 
-function DoctorRecordsDialog({ doctor, onClose }) {
+function DoctorRecordsDialog({ doctorId, onClose }) {
   const dialogRef = useRef(null);
   const [records, setRecords] = useState(null);
   const [error, setError] = useState("");
@@ -35,11 +37,11 @@ function DoctorRecordsDialog({ doctor, onClose }) {
 
   useEffect(() => {
     let active = true;
-    api.get(`/doctor/${doctor.doctor_id}/records`)
+    api.get(`/doctor/${doctorId}/records`)
       .then((response) => { if (active) setRecords(response.data); })
       .catch((err) => { if (active) setError(err.message); });
     return () => { active = false; };
-  }, [doctor.doctor_id, attempt]);
+  }, [doctorId, attempt]);
 
   return (
     <dialog
@@ -52,7 +54,7 @@ function DoctorRecordsDialog({ doctor, onClose }) {
       <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white p-5 sm:p-6">
         <div className="min-w-0">
           <p className="mb-1 text-xs font-semibold text-slate-500">Doctor records</p>
-          <h2 id="doctor-records-title" className="break-words text-lg font-bold">Dr. {[doctor.first_name, doctor.middle_name, doctor.last_name, doctor.suffix].filter(Boolean).join(" ")}</h2>
+          <h2 id="doctor-records-title" className="break-words text-lg font-bold">{records ? `Dr. ${[records.doctor.first_name, records.doctor.middle_name, records.doctor.last_name, records.doctor.suffix].filter(Boolean).join(" ")}` : "Doctor records"}</h2>
         </div>
         <button type="button" onClick={onClose} aria-label="Close doctor records" autoFocus className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-700">
           <X size={20} aria-hidden="true" />
@@ -88,7 +90,7 @@ function DoctorRecordsDialog({ doctor, onClose }) {
                 ))}
                 <div>
                   <dt className="mb-1 text-xs text-slate-500">Today’s availability</dt>
-                  <dd><StatusBadge status={records.doctor.is_available ? "available" : "unavailable"} /></dd>
+                  <dd><StatusBadge status={records.doctor.leave_end ? "on_leave" : records.doctor.is_available ? "available" : "unavailable"} />{records.doctor.leave_end && <p className="mt-1 text-xs text-slate-500">Through {formatDate(records.doctor.leave_end)}</p>}</dd>
                 </div>
               </dl>
             </section>
@@ -137,11 +139,12 @@ function DoctorRecordsDialog({ doctor, onClose }) {
  *   doctors — array of doctor objects from /doctor
  */
 export default function AdminDoctorsTab({ doctors }) {
-  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const selectedDoctorId = useMatch(ROUTES.ADMIN_DOCTOR_RECORDS)?.params.id;
+  const navigate = useNavigate();
 
   return (
     <div className="ad-tab-pad" style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-      {selectedDoctor && <DoctorRecordsDialog key={selectedDoctor.doctor_id} doctor={selectedDoctor} onClose={() => setSelectedDoctor(null)} />}
+      {selectedDoctorId && <DoctorRecordsDialog key={selectedDoctorId} doctorId={selectedDoctorId} onClose={() => navigate(ROUTES.ADMIN_DOCTORS)} />}
       <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 700, color: "#1e293b" }}>
         Doctor Availability
       </h3>
@@ -171,10 +174,11 @@ export default function AdminDoctorsTab({ doctors }) {
                     {d.specialization_name}
                   </p>
                 )}
-                <StatusBadge status={d.is_available ? "available" : "unavailable"} />
+                <StatusBadge status={d.leave_end ? "on_leave" : d.is_available ? "available" : "unavailable"} />
+                {d.leave_end && <p className="mt-1 text-xs text-slate-500">Through {formatDate(d.leave_end)}</p>}
                 <button
                   type="button"
-                  onClick={() => setSelectedDoctor(d)}
+                  onClick={() => navigate(generatePath(ROUTES.ADMIN_DOCTOR_RECORDS, { id: d.doctor_id }))}
                   aria-label={`View records for Dr. ${[d.first_name, d.middle_name, d.last_name, d.suffix].filter(Boolean).join(" ")}`}
                   className="mt-4 block rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-700"
                 >

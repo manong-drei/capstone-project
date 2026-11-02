@@ -3,6 +3,10 @@
  */
 
 const Doctor = require("../models/Doctor");
+const DoctorHistory = require("../models/DoctorHistory");
+const DoctorLeave = require("../models/DoctorLeave");
+const { clinicToday, validDate } = require("../utils/clinicDate");
+const audit = require("../services/auditLog");
 const Queue = require("../models/Queue");
 const pool = require("../config/db");
 
@@ -183,7 +187,8 @@ const getReport = async (req, res) => {
 /** GET /api/doctor/daily-settings?date=YYYY-MM-DD */
 const getDailySettings = async (req, res) => {
   try {
-    const date = req.query.date || new Date().toISOString().split("T")[0];
+    const date = req.query.date || clinicToday();
+    if (!validDate(date)) return res.status(400).json({ success: false, message: "A valid date is required." });
     const doctor = await Doctor.findByUserId(req.user.user_id);
     if (!doctor)
       return res
@@ -207,12 +212,15 @@ const getDailySettings = async (req, res) => {
       [date],
     );
 
+    const approvedLeave = await DoctorLeave.findApproved(doctor.doctor_id, date);
     res.status(200).json({
       appointment_limit: settings?.appointment_limit ?? 10,
       walk_in_limit: settings?.walk_in_limit ?? 0,
       booked_count: booked_count ?? 0,
       walkin_count: walkin_count ?? 0,
-      is_available: settings?.is_available ?? 1,
+      is_available: approvedLeave ? 0 : (settings?.is_available ?? 1),
+      daily_is_available: settings?.is_available ?? 1,
+      approved_leave: approvedLeave,
     });
   } catch (err) {
     console.error("getDailySettings error:", err);
@@ -223,33 +231,11 @@ const getDailySettings = async (req, res) => {
 /** PUT /api/doctor/daily-settings */
 const upsertDailySettings = async (req, res) => {
   try {
-    const { date, appointment_limit, walk_in_limit, is_available = 1 } = req.body;
-
-    if (
-      appointment_limit === undefined ||
-      walk_in_limit === undefined ||
-      !date
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "date, appointment_limit, and walk_in_limit are required.",
-      });
-    }
-    if (appointment_limit > 10) {
-      return res.status(400).json({
-        success: false,
-        message: "Appointment limit cannot exceed 10.",
-      });
-    }
-    if (appointment_limit < 0 || walk_in_limit < 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Limits cannot be negative." });
-    }
-    if (walk_in_limit > 999) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Walk-in limit cannot exceed 999." });
+    const { date, appointment_limit, walk_in_limit, is_available } = req.body;
+    if (!validDate(date) || !Number.isInteger(appointment_limit) || appointment_limit < 0 || appointment_limit > 10 ||
+      !Number.isInteger(walk_in_limit) || walk_in_limit < 0 || walk_in_limit > 999 ||
+      (is_available !== undefined && ![0, 1, true, false].includes(is_available))) {
+      return res.status(400).json({ success: false, message: "Provide a valid date, appointment limit from 0 to 10, walk-in limit from 0 to 999, and valid availability." });
     }
 
     const doctor = await Doctor.findByUserId(req.user.user_id);
@@ -258,20 +244,23 @@ const upsertDailySettings = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Dentist profile not found." });
 
-    await pool.query(
-      `INSERT INTO daily_doctor_settings (doctor_id, date, appointment_limit, walk_in_limit, is_available)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         appointment_limit = VALUES(appointment_limit),
-         walk_in_limit     = VALUES(walk_in_limit),
-         is_available      = VALUES(is_available)`,
-      [doctor.doctor_id, date, appointment_limit, walk_in_limit, is_available ? 1 : 0],
-    );
+    await audit.transaction(async connection => {
+      await connection.query('SELECT doctor_id FROM doctors WHERE doctor_id = ? FOR UPDATE', [doctor.doctor_id]);
+      if (is_available === 1 || is_available === true) await DoctorLeave.assertAvailable(doctor.doctor_id, date, connection);
+      const availability = is_available === undefined ? null : Number(is_available);
+      await connection.query(
+        `INSERT INTO daily_doctor_settings (doctor_id, date, appointment_limit, walk_in_limit, is_available)
+         VALUES (?, ?, ?, ?, COALESCE(?, 1))
+         ON DUPLICATE KEY UPDATE appointment_limit = VALUES(appointment_limit),
+           walk_in_limit = VALUES(walk_in_limit), is_available = COALESCE(?, is_available)`,
+        [doctor.doctor_id, date, appointment_limit, walk_in_limit, availability, availability],
+      );
+    });
 
     res.status(200).json({ success: true, message: "Daily settings saved." });
   } catch (err) {
     console.error("upsertDailySettings error:", err);
-    res.status(500).json({ success: false, message: "Server error." });
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
   }
 };
 /** GET /api/doctors */
@@ -313,10 +302,44 @@ const getDoctorRecords = async (req, res) => {
     const doctor = await Doctor.findAdminProfile(id);
     if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found." });
     const availability = await Doctor.findAvailabilityRecords(id);
+    await audit.bestEffort(req, { action: 'doctor.viewed', target_type: 'doctor', target_id: id });
     res.status(200).json({ success: true, data: { doctor, availability } });
   } catch (err) {
     console.error("getDoctorRecords error:", err);
     res.status(500).json({ success: false, message: "Unable to load doctor records." });
+  }
+};
+
+/** GET /api/doctor/patient-history */
+const getPatientHistory = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    const doctor = await Doctor.findByUserId(req.user.user_id);
+    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    const visits = await DoctorHistory.findVisits(doctor.doctor_id);
+    res.json({ success: true, visits });
+  } catch (err) {
+    console.error("getPatientHistory error:", err);
+    res.status(500).json({ success: false, message: "Unable to load patient history." });
+  }
+};
+
+/** GET /api/doctor/consultations/:id */
+const getConsultation = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const id = Number(req.params.id);
+  if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({ success: false, message: "A valid consultation ID is required." });
+  }
+  try {
+    const doctor = await Doctor.findByUserId(req.user.user_id);
+    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    const consultation = await DoctorHistory.findConsultation(doctor.doctor_id, id);
+    if (!consultation) return res.status(404).json({ success: false, message: "Consultation not found." });
+    res.json({ success: true, data: consultation });
+  } catch (err) {
+    console.error("getConsultation error:", err);
+    res.status(500).json({ success: false, message: "Unable to load consultation notes." });
   }
 };
 
@@ -389,6 +412,8 @@ module.exports = {
   getAllDoctors,
   getDoctorById,
   getDoctorRecords,
+  getPatientHistory,
+  getConsultation,
   createConsultation,
   getDailySettings,
   upsertDailySettings,
