@@ -3,5 +3,7 @@ Thumbs.db
 *.log
 server/src/seedAdmin.js
 /documentations/
-
+/tests/
+/tmp/
+/outputs/
 /node_modules
