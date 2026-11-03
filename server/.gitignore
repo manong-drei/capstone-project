@@ -4,3 +4,4 @@ node_modules/
 .backups/
 server/src/seedAdmin.js
 server/src/seedDemoData.js
+/migrations/
