@@ -2,9 +2,9 @@
 
 Run `npm run migrate:queue-grace` from `server` before starting the updated backend and frontend together. The migration is safe to rerun and retains existing ticket statuses and timestamps. Existing serving tickets stay serving.
 
-Calling a ticket sets `called`. Staff or a doctor confirms physical presence to begin `serving`. Call again becomes available after 30 seconds; skipping requires another 30 seconds after the second call.
+Calling a ticket sets `called`. Staff or a doctor confirms physical presence to begin `serving`. Call again becomes available after 15 seconds; skipping requires another 15 seconds after the second call.
 
-The first skip creates a 10-minute return window and calls the next patient in one transaction. Staff-confirmed returns keep the same ticket and take the next opening, ordered by return time. They do not interrupt an already called or serving patient. A second missed turn ends as a final no-show.
+The first skip creates a 10-minute return window and calls the next patient in one transaction. Staff-confirmed returns keep the same ticket and use their return time to rejoin behind patients already waiting in the same priority group. Priority returns retain priority; regular returns do not pass waiting priority patients. Returns do not interrupt an already called or serving patient. A second missed turn ends as a final no-show. See [Queue ordering](QUEUE_ORDERING.md) for the shared selection algorithm.
 
 The backend sweeps expired missed tickets at startup and every five seconds, independently of SMS. Every ticket action also checks expiry under the category lock. Record arrivals before the deadline; recording a return afterward cannot revive a terminal ticket. The patient app and monitor show deadlines in Asia/Manila. No additional SMS is sent.
 

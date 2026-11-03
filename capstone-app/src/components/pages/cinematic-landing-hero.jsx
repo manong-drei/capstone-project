@@ -20,12 +20,14 @@ export function CinematicHero() {
       "(min-width: 1024px) and (min-height: 700px) and (prefers-reduced-motion: no-preference)",
       () => {
         const timeline = gsap.timeline({
+          defaults: { ease: "none" },
           scrollTrigger: {
             trigger: containerRef.current,
             start: "top 72px",
-            end: () => `+=${window.innerHeight * 2.5}`,
+            end: () => `+=${window.innerHeight * 2}`,
             pin: true,
-            scrub: 0.8,
+            anticipatePin: 1,
+            scrub: 0.35,
             invalidateOnRefresh: true,
           },
         });
@@ -33,22 +35,19 @@ export function CinematicHero() {
         timeline
           .to(".cinematic-intro", {
             opacity: 0,
-            scale: 1.08,
-            filter: "blur(12px)",
+            yPercent: -6,
             duration: 1,
           })
           .fromTo(
             cardRef.current,
-            { yPercent: 120, scale: 0.88 },
-            { yPercent: 0, scale: 1, duration: 1.4, ease: "power3.inOut" },
+            { yPercent: 110 },
+            { yPercent: 0, duration: 1.4 },
             0,
           )
           .from(
             ".cinematic-phone-wrap",
             {
-              y: 100,
-              rotationX: 25,
-              rotationY: -20,
+              y: 60,
               opacity: 0,
               duration: 1.2,
             },
@@ -61,10 +60,10 @@ export function CinematicHero() {
           )
           .from(
             ".cinematic-badge",
-            { y: 25, scale: 0.85, opacity: 0, stagger: 0.15, duration: 0.8 },
+            { y: 20, opacity: 0, stagger: 0.15, duration: 0.8 },
             1.5,
           )
-          .to({}, { duration: 1 });
+          .to({}, { duration: 0.4 });
       },
       containerRef,
     );
@@ -79,26 +78,32 @@ export function CinematicHero() {
         const rotateY = gsap.quickTo(phoneRef.current, "rotationY", {
           duration: 0.6,
         });
+        const sheenX = gsap.quickTo(".cinematic-sheen", "x", {
+          duration: 0.4,
+        });
+        const sheenY = gsap.quickTo(".cinematic-sheen", "y", {
+          duration: 0.4,
+        });
         const move = (event) => {
           const rect = card.getBoundingClientRect();
           const x = event.clientX - rect.left;
           const y = event.clientY - rect.top;
-          card.style.setProperty("--mouse-x", `${x}px`);
-          card.style.setProperty("--mouse-y", `${y}px`);
+          sheenX(x - rect.width / 2);
+          sheenY(y - rect.height * 0.3);
           rotateX((0.5 - y / rect.height) * 12);
           rotateY((x / rect.width - 0.5) * 12);
         };
         const reset = () => {
           rotateX(0);
           rotateY(0);
+          sheenX(0);
+          sheenY(0);
         };
         card.addEventListener("pointermove", move);
         card.addEventListener("pointerleave", reset);
         return () => {
           card.removeEventListener("pointermove", move);
           card.removeEventListener("pointerleave", reset);
-          card.style.removeProperty("--mouse-x");
-          card.style.removeProperty("--mouse-y");
         };
       },
       containerRef,
@@ -232,7 +237,6 @@ export function CinematicHero() {
                     doctorAvailability={1}
                     hasActiveQueue={false}
                     queue={null}
-                    myQueueSubtitle="No active queue"
                   />
                 </div>
                 <div className="cinematic-home-indicator" />

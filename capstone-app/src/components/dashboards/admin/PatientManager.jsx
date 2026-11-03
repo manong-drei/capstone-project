@@ -7,6 +7,22 @@ import useSmsToasts from "@/hooks/useSmsToasts";
 import { getNameFields } from "@/utils/nameDisplay";
 
 const PM_RESPONSIVE_CSS = `
+  :root { --pm-focus: #4f46e5; --pm-focus-ring: rgba(79, 70, 229, 0.15); }
+
+  .pm-form-grid input,
+  .pm-form-grid select,
+  .pm-search-input {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+  .pm-form-grid input:focus,
+  .pm-form-grid select:focus,
+  .pm-search-input:focus {
+    border-color: var(--pm-focus) !important;
+    box-shadow: 0 0 0 3px var(--pm-focus-ring);
+    background: #ffffff !important;
+    outline: none;
+  }
+
   .pm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .pm-table-row, .pm-table-head { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 48px 52px 110px minmax(100px, 1fr) 70px 150px; min-width: 950px; gap: 12px; }
   .pm-table-row > span { min-width: 0; overflow-wrap: anywhere; }
@@ -48,11 +64,31 @@ const PATIENTS_PER_PAGE = 10;
 
 function ActivationSMS({ patient, onReplace, busy }) {
   if (!patient.must_change_password) return null;
-  return <span style={{ display: 'block', fontSize: '12px', color: '#475569', marginTop: '5px' }}>
-    Activation SMS: {patient.sms_provider_status || patient.sms_state || 'Replacement required'}
-    {patient.is_active ? <button type="button" disabled={busy} onClick={() => onReplace(patient)}
-      style={{ display: 'block', marginTop: '4px', cursor: 'pointer' }}>Issue replacement password</button> : null}
-  </span>;
+  return (
+    <span
+      style={{
+        display: "block",
+        fontSize: "12px",
+        color: "#475569",
+        marginTop: "5px",
+      }}
+    >
+      Activation SMS:{" "}
+      {patient.sms_provider_status ||
+        patient.sms_state ||
+        "Replacement required"}
+      {patient.is_active ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onReplace(patient)}
+          style={{ display: "block", marginTop: "4px", cursor: "pointer" }}
+        >
+          Issue replacement password
+        </button>
+      ) : null}
+    </span>
+  );
 }
 
 function statusBadge(isActive) {
@@ -196,17 +232,36 @@ export default function PatientManager() {
   const [showInactive, setShowInactive] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
-  const { toasts, dismissToast, showToast, showSmsToast, trackSmsStatuses } = useSmsToasts();
+  const { toasts, dismissToast, showToast, showSmsToast, trackSmsStatuses } =
+    useSmsToasts();
 
   const replacePassword = async (patient) => {
-    if (!window.confirm(`Confirm you have verified ${patient.full_name}'s identity and registered mobile number. Issue a new temporary password? The old password and setup session will be invalidated.`)) return;
+    if (
+      !window.confirm(
+        `Confirm you have verified ${patient.full_name}'s identity and registered mobile number. Issue a new temporary password? The old password and setup session will be invalidated.`,
+      )
+    )
+      return;
     setSmsBusy(true);
     try {
-      const result = await api.post(`/admin/patients/${patient.user_id}/temporary-password`, { identity_confirmed: true });
-      showSmsToast({ id: result.sms_job_id, state: result.sms_status, label: `Replacement password SMS for ${patient.full_name}` });
+      const result = await api.post(
+        `/admin/patients/${patient.user_id}/temporary-password`,
+        { identity_confirmed: true },
+      );
+      showSmsToast({
+        id: result.sms_job_id,
+        state: result.sms_status,
+        label: `Replacement password SMS for ${patient.full_name}`,
+      });
       setRefresh((value) => value + 1);
-    } catch (err) { showToast(`Unable to request replacement password SMS. ${err.message}`, "error"); }
-    finally { setSmsBusy(false); }
+    } catch (err) {
+      showToast(
+        `Unable to request replacement password SMS. ${err.message}`,
+        "error",
+      );
+    } finally {
+      setSmsBusy(false);
+    }
   };
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -232,39 +287,52 @@ export default function PatientManager() {
     priority_category: "",
   });
 
-  const fetchPatients = useCallback(async (silent = false, signal) => {
-    const id = ++requestId.current;
-    if (!silent) setLoading(true);
-    setFetchError("");
-    try {
-      const data = await api.get("/admin/patients", {
-        params: { page: currentPage, limit: PATIENTS_PER_PAGE, search: debouncedSearch, includeInactive: showInactive },
-        signal,
-      });
-      if (signal?.aborted || id !== requestId.current) return;
-      const list = data?.patients ?? [];
-      setPatients(list);
-      setTotalPatients(data.pagination.total);
-      setCurrentPage(data.pagination.page);
-      trackSmsStatuses(list.map((patient) => ({
-        id: patient.sms_job_id,
-        state: patient.sms_state,
-        provider_status: patient.sms_provider_status,
-        label: `Temporary password SMS for ${patient.full_name}`,
-      })));
-    } catch (err) {
-      if (signal?.aborted || id !== requestId.current) return;
-      setFetchError(err.message || "Failed to load patient accounts.");
-      if (!silent) setPatients([]);
-    } finally {
-      if (!signal?.aborted && id === requestId.current) setLoading(false);
-    }
-  }, [trackSmsStatuses, currentPage, debouncedSearch, showInactive]);
+  const fetchPatients = useCallback(
+    async (silent = false, signal) => {
+      const id = ++requestId.current;
+      if (!silent) setLoading(true);
+      setFetchError("");
+      try {
+        const data = await api.get("/admin/patients", {
+          params: {
+            page: currentPage,
+            limit: PATIENTS_PER_PAGE,
+            search: debouncedSearch,
+            includeInactive: showInactive,
+          },
+          signal,
+        });
+        if (signal?.aborted || id !== requestId.current) return;
+        const list = data?.patients ?? [];
+        setPatients(list);
+        setTotalPatients(data.pagination.total);
+        setCurrentPage(data.pagination.page);
+        trackSmsStatuses(
+          list.map((patient) => ({
+            id: patient.sms_job_id,
+            state: patient.sms_state,
+            provider_status: patient.sms_provider_status,
+            label: `Temporary password SMS for ${patient.full_name}`,
+          })),
+        );
+      } catch (err) {
+        if (signal?.aborted || id !== requestId.current) return;
+        setFetchError(err.message || "Failed to load patient accounts.");
+        if (!silent) setPatients([]);
+      } finally {
+        if (!signal?.aborted && id === requestId.current) setLoading(false);
+      }
+    },
+    [trackSmsStatuses, currentPage, debouncedSearch, showInactive],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
     fetchPatients(false, controller.signal);
-    const interval = setInterval(() => fetchPatients(true, controller.signal), 15_000);
+    const interval = setInterval(
+      () => fetchPatients(true, controller.signal),
+      15_000,
+    );
     return () => {
       controller.abort();
       clearInterval(interval);
@@ -299,7 +367,11 @@ export default function PatientManager() {
     setSubmitting(true);
     try {
       const result = await api.post("/admin/patients", form);
-      showSmsToast({ id: result.sms_job_id, state: result.sms_status, label: `Temporary password SMS for ${[form.first_name, form.middle_name, form.last_name, form.suffix].filter(Boolean).join(" ")}` });
+      showSmsToast({
+        id: result.sms_job_id,
+        state: result.sms_status,
+        label: `Temporary password SMS for ${[form.first_name, form.middle_name, form.last_name, form.suffix].filter(Boolean).join(" ")}`,
+      });
       setShowForm(false);
       setForm({
         first_name: "",
@@ -315,7 +387,10 @@ export default function PatientManager() {
       setRefresh((value) => value + 1);
     } catch (err) {
       setFormError(err.message);
-      showToast(`Unable to request the temporary password SMS. ${err.message}`, "error");
+      showToast(
+        `Unable to request the temporary password SMS. ${err.message}`,
+        "error",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -344,10 +419,7 @@ export default function PatientManager() {
     }
   };
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(totalPatients / PATIENTS_PER_PAGE),
-  );
+  const totalPages = Math.max(1, Math.ceil(totalPatients / PATIENTS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
 
   return (
@@ -410,7 +482,10 @@ export default function PatientManager() {
             <input
               type="checkbox"
               checked={showInactive}
-              onChange={(e) => { setCurrentPage(1); setShowInactive(e.target.checked); }}
+              onChange={(e) => {
+                setCurrentPage(1);
+                setShowInactive(e.target.checked);
+              }}
               style={{ cursor: "pointer" }}
             />
             Show inactive
@@ -469,7 +544,9 @@ export default function PatientManager() {
               />
             </div>
             <div>
-              <label htmlFor="patient-create-middle-name" style={labelStyle}>Middle Name (optional)</label>
+              <label htmlFor="patient-create-middle-name" style={labelStyle}>
+                Middle Name (optional)
+              </label>
               <input
                 id="patient-create-middle-name"
                 style={inputStyle}
@@ -489,7 +566,9 @@ export default function PatientManager() {
               />
             </div>
             <div>
-              <label htmlFor="patient-create-suffix" style={labelStyle}>Suffix (optional)</label>
+              <label htmlFor="patient-create-suffix" style={labelStyle}>
+                Suffix (optional)
+              </label>
               <input
                 id="patient-create-suffix"
                 style={inputStyle}
@@ -639,6 +718,7 @@ export default function PatientManager() {
           <Icon name="search" size={15} color="#9ca3af" />
         </span>
         <input
+          className="pm-search-input"
           style={{
             width: "100%",
             padding: "9px 12px 9px 36px",
@@ -675,7 +755,16 @@ export default function PatientManager() {
             borderBottom: "1px solid #f3f4f6",
           }}
         >
-          {["Last name", "First name", "Middle initial", "Suffix", "Phone number", "Barangay", "Status", "Actions"].map((h) => (
+          {[
+            "Last name",
+            "First name",
+            "Middle initial",
+            "Suffix",
+            "Phone number",
+            "Barangay",
+            "Status",
+            "Actions",
+          ].map((h) => (
             <span
               key={h}
               style={{
@@ -755,7 +844,16 @@ export default function PatientManager() {
                   }}
                 >
                   {getNameFields(patient).map(([label, value]) => (
-                    <span key={label} style={{ fontSize: "14px", fontWeight: 500, color: "#111827" }}>{value}</span>
+                    <span
+                      key={label}
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        color: "#111827",
+                      }}
+                    >
+                      {value}
+                    </span>
                   ))}
                   <span style={{ fontSize: "13px", color: "#6b7280" }}>
                     {patient.contact_number || patient.phone || "—"}
@@ -813,8 +911,25 @@ export default function PatientManager() {
                         Deactivate
                       </button>
                     )}
-                    <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
-                    {!!patient.patient_id && <Link to={`/staff/patients/${patient.patient_id}`} aria-label={`Recover account for ${patient.full_name}`} style={{ display: "block", marginTop: "5px", fontSize: "12px", color: "#1d4ed8" }}>Account recovery</Link>}
+                    <ActivationSMS
+                      patient={patient}
+                      onReplace={replacePassword}
+                      busy={smsBusy}
+                    />
+                    {!!patient.patient_id && (
+                      <Link
+                        to={`/staff/patients/${patient.patient_id}`}
+                        aria-label={`Recover account for ${patient.full_name}`}
+                        style={{
+                          display: "block",
+                          marginTop: "5px",
+                          fontSize: "12px",
+                          color: "#1d4ed8",
+                        }}
+                      >
+                        Account recovery
+                      </Link>
+                    )}
                   </div>
                 </div>
               );
@@ -849,7 +964,10 @@ export default function PatientManager() {
                     >
                       <dl className="pm-name-grid">
                         {getNameFields(patient).map(([label, value]) => (
-                          <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+                          <div key={label}>
+                            <dt>{label}</dt>
+                            <dd>{value}</dd>
+                          </div>
                         ))}
                       </dl>
                       <span
@@ -867,10 +985,28 @@ export default function PatientManager() {
                       </span>
                     </div>
                     <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                      Phone number: {patient.contact_number || patient.phone || "—"}
+                      Phone number:{" "}
+                      {patient.contact_number || patient.phone || "—"}
                     </span>
-                    <ActivationSMS patient={patient} onReplace={replacePassword} busy={smsBusy} />
-                    {!!patient.patient_id && <Link to={`/staff/patients/${patient.patient_id}`} aria-label={`Recover account for ${patient.full_name}`} style={{ display: "block", marginTop: "5px", fontSize: "12px", color: "#1d4ed8" }}>Account recovery</Link>}
+                    <ActivationSMS
+                      patient={patient}
+                      onReplace={replacePassword}
+                      busy={smsBusy}
+                    />
+                    {!!patient.patient_id && (
+                      <Link
+                        to={`/staff/patients/${patient.patient_id}`}
+                        aria-label={`Recover account for ${patient.full_name}`}
+                        style={{
+                          display: "block",
+                          marginTop: "5px",
+                          fontSize: "12px",
+                          color: "#1d4ed8",
+                        }}
+                      >
+                        Account recovery
+                      </Link>
+                    )}
                     {patient.barangay && (
                       <span style={{ fontSize: "12px", color: "#9ca3af" }}>
                         {patient.barangay}

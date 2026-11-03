@@ -1,0 +1,729 @@
+=== PDF PAGE 1 ===
+ 
+STI West Negros University     22 
+ 
+CHAPTER III 
+METHODOLOGY 
+Research Design 
+ This study employs a Developmental Research Design to develop and implement 
+E-KALUSUGAN: A Web-Based Appointment Scheduling System for Bago City Primary 
+Care Facility with Predictive Analytics. This research design is appropriate because the 
+study focuses on creating a functional web-based system that addresses the identified needs 
+in dental appointment scheduling, patient queuing, dentist availability, patient records, and 
+patient volume prediction. 
+The development process involves identifying the requirements of the Bago City 
+Primary Care Facility, designing the system based on these requirements, developing its 
+features, and testing the system to determine whether it functions according to the intended 
+specifications. The system will be developed using React for the frontend, Node.js and 
+Express.js for the backend, and MySQL for database management. Predictive analytics will 
+also be incorporated using available historical dental data to generate pati ent volume 
+predictions according to age group. 
+The developmental design also allows the proponents to evaluate the system after 
+its implementation and determine whether its features support the intended dental service 
+processes. The system will undergo testing and evaluation to identify functional issu es, 
+usability concerns, and areas for improvement before its final implementation. This process 
+provides an opportunity to refine the system based on the results of testing and feedback 
+from its intended users. 
+The completed system will then be evaluated based on its functionality and ability 
+to support the dental service processes of the facility. Feedback and results from the 
+evaluation will be used to identify areas that may require improvement. Through this 
+design, the study follows a systematic process of developing and accessing a technology-
+based solution suited to the identified needs of the Bago City Primary Care Facility. 
+ 
+ 
+
+=== PDF PAGE 2 ===
+ 
+STI West Negros University     23 
+ 
+System Development Methodology 
+This study uses the Agile methodology as the system development methodology for 
+E-KALUSUGAN: A Web-Based Appointment Scheduling System for Bago City Primary 
+Care Facility with Predictive Analytics. Agile is suitable for the study because it supports 
+an iterative and flexible approach, allowing the proponents to develop, test, review, and 
+improve the system based on identified requirements and feedback. The methodology will 
+be carried out through seven phases: Plan, Design, Develop, Test, Deploy, Review, and  
+Launch. The proponents will begin by planning the project requirements and objectives, 
+followed by designing the system structure and interface. The system will then be 
+developed and tested to verify its functions, prepared for deployment, reviewed based on 
+testing and evaluation results, and launched once the necessary improvements have been 
+completed. 
+Plan  
+During this phase, the proponents conducted meetings with the adviser and capstone 
+coordinator to discuss the proposed system. The proponents identified the project 
+objectives, scope, target users, and initial requirements of the Bago City Primary Care 
+Facility. The project timeline, resources, and development tasks were also discussed and 
+organized. These activities provided the initial direction for the development of E -
+KALUSUGAN. 
+Design 
+ During this phase, the proponents designed the system structure and workflow based 
+on the identified requirements. The team prepared the user interface, database structure, and 
+navigation flow for the different system users. The design also covered the app ointment 
+scheduling, queue management, dentist availability, patient records, and predictive 
+analytics features. These designs served as the basis for developing the system. 
+ 
+ 
+
+=== PDF PAGE 3 ===
+ 
+STI West Negros University     24 
+ 
+Develop 
+ During this phase, the proponents developed the features of E-KALUSUGAN using 
+React, Node.js, Express.js, and MySQL. The team implemented the appointment 
+scheduling, queue management, dentist availability, and patient record functions. The 
+predictive analy tics component using the ARIMA model was also developed using the 
+available historical dental data. The different components were integrated to create a 
+functial web-based system. 
+Test 
+During this phase, the proponents tested the developed system to determine whether 
+its features functioned according to the specified requirements. Playwright and Black Box 
+Testing were used to test user interactions and system functions, including appoint ment 
+scheduling, queue management, dentist availability, and patient records. The team 
+compared actual results with expected results to identify errors and unexpected system 
+responses. Necessary corrections were made, followed by retesting. 
+Deploy 
+ During this phase, the proponents prepared the completed E-KALUSUGAN system 
+for deployment in its intended environment. The team integrated the final system 
+components and ensured that the database, system features, and predictive analytics 
+component were properly configured. Final checks were conducted to ensure that the 
+system was ready for use at the Bago City Primary Care Facility. Any remaining 
+deployment issues were documented and addressed before the system was launched. 
+Review 
+ During this phase, the proponents reviewed the results of the system testing and 
+deployment. The team evaluated the system using Playwright and Black Box Testing, while 
+user acceptance was assessed through the Technology Acceptance Model (TAM) and 
+system quality through ISO/IEC 25010. Feedback and evaluation results were reviewed to 
+
+=== PDF PAGE 4 ===
+ 
+STI West Negros University     25 
+ 
+identify errors, concerns, and areas that required improvement. Necessary revisions were 
+made to improve the system before its final launch. 
+Launch 
+During this phase, the proponents presented the completed E -KALUSUGAN 
+system to its intended users and prepared it for its intended use within the Bago City 
+Primary Care Facility. The team demonstrated the system's major features, including 
+appointment sch eduling, queue management, dentist availability, patient records, and 
+predictive analytics. The final version of the system was made ready for use and evaluation 
+based on the approved scope of the study. 
+Figure 3. 
+System Development Methodology 
+ 
+Data Gathering 
+The study employed face -to-face interviews as the primary method of data 
+collection. This approach was selected to obtain firsthand information regarding the current 
+dental appointment scheduling practices, patient queuing procedures, dentist availability,  
+and management of patient records at the Bago City Primary Care Facility. The interviews 
+
+
+=== PDF PAGE 5 ===
+ 
+STI West Negros University     26 
+ 
+were conducted on -site at the facility, allowing the proponents to gather information 
+directly from personnel involved in the dental service operations. 
+One of the primary sources of data was the Bago City Primary Care Facility 
+personnel, particularly those involved in managing dental consultations, appointments, 
+patient queues, and related records. Their firsthand experience provided information about 
+the existing procedures, daily operations, and challenges encountered in managing dental 
+services. 
+Patients seeking dental services at the Bago City Primary Care Facility also served 
+as a source of data. Their responses provided information about their experiences with the 
+existing appointment and queuing procedures, including waiting and accessing dent al 
+services. Their perspective helped the proponents identify patient-side concerns that could 
+be considered in the development of the system. 
+An interview guide was prepared and used as the primary instrument for data 
+collection. The questions covered the existing dental appointment procedures, patient 
+queuing, dentist availability, patient records, and the information needed for the proposed 
+system. The proponents also gathered available historical dental records from authorized 
+personnel to provide the data needed for the predictive analytics component. These records 
+will be organized and prepared for use in developing the patient volume predic tion model 
+according to age group. 
+The data gathering procedure began with coordination and securing permission 
+from the appropriate personnel of the Bago City Primary Care Facility. After approval, the 
+proponents conducted face -to-face interviews with the selected respondents and gathered 
+the necessary information regarding the existing dental service processes. The available 
+historical dental data was also obtained from authorized personnel and reviewed based on 
+the requirements of the predictive analytics component. The gathered information was then 
+organized and used as a basis for identifying system requirements, designing system 
+features, and developing the predictive analytics component. 
+
+=== PDF PAGE 6 ===
+ 
+STI West Negros University     27 
+ 
+All interviews and data collection activities were conducted with the informed 
+consent of the participants. The information gathered was handled with confidentiality and 
+used only for the purposes of the study. Patient information obtained from the facilit y will 
+be protected and will not be disclosed in the presentation or reporting of the study. 
+Respondents/System Users 
+The respondents and system users of this study consist of two primary groups 
+involved in the dental services of the Bago City Primary Care Facility. The first group 
+consists of dental facility personnel, particularly those involved in managing dental 
+consultations, appointments, patient queues, dentist availability, and patient records. They 
+will serve as the administrative users of the system and provide information regarding the 
+operational requirements of the dental department. 
+The second group consists of patients seeking dental services at the Bago City 
+Primary Care Facility. They will represent the patient -side users of E-KALUSUGAN and 
+provide information regarding their experience with the existing appointment and queuing 
+processes. Their participation will help the proponents assess whether the system provides 
+a practical way for patients to access their appointment and queue information. 
+A total of thirty (30) respondents participated in the study. The respondents 
+consisted of selected dental facility personnel and patients seeking dental services at the 
+Bago City Primary Care Facility. 
+The respondents were selected through purposive sampling, a non -probability 
+sampling technique in which participants are selected based on their direct involvement or 
+experience with the subject of the study. This sampling method was appropriate because 
+the study required respondents who have firsthand experience with the dental service 
+processes addressed by E -KALUSUGAN. Their responses provided the proponents with 
+information needed to identify system requirements and develop features suited to the 
+actual users of the system. 
+ 
+
+=== PDF PAGE 7 ===
+ 
+STI West Negros University     28 
+ 
+Machine Learning Methodology 
+ E-KALUSUGAN uses Autoregressive Integrated Moving Average (ARIMA) 
+timeseries models to forecast annual dental service recipient counts by age group, 
+supporting dental service planning at the Bago City Primary Care Facility.  
+The pipeline includes dataset preparation, validation, chronological organization, 
+model selection, fitting, testing, and forecasting. Annual data are loaded from a CSV file 
+and checked for required attributes, valid numerical values, duplicates, and compl ete 
+reporting years, then organized chronologically into seven age-group time series.  
+For each series, the successfully converged ARIMA candidate with the lowest 
+Akaike Information Criterion (AIC) is selected. Performance is assessed through expanding 
+window evaluation, using earlier observations to predict the following year. Final models 
+use all observations from 2014–2025 to forecast 2026. Forecasts, prediction intervals, and 
+evaluation results are exported as CSV files for the system’s analytics interface.  
+Dataset 
+The forecasting component uses a CSV dataset of annual dental service recipient 
+counts covering 2014–2025. It contains 84 aggregated records: twelve annual observations 
+for each of seven age groups. Each record represents one year and age group rather than an 
+individual patient. Bago City Primary Care Facility provided the actual dataset for 2020 – 
+2025, comprising 42 records. The remaining 42 records for 2014 –2019 are explicitly 
+identified as synthetic placeholders rather than original facility records.  
+The seven age groups are infants aged 0 –11 months, children aged 1 –4 years, 
+children aged 5 –9 years, adolescents aged 10 –14 years, adolescents aged 15 –19 years, 
+adults aged 20–59 years, and senior citizens aged 60 years and above.  
+
+=== PDF PAGE 8 ===
+ 
+STI West Negros University     29 
+ 
+The dataset contains thirteen attributes: period start, reporting year, reporting 
+frequency, age group, age group order, estimated population, male recipients, female 
+recipients, total recipients, data source, synthetic -data indicator, synthetic generation  
+method, and data quality note. Total recipients are the forecasting variable; reporting year 
+establishes chronology, and age group identifies each separate time series. Other attributes 
+document demographic context, ordering, and data provenance. Estimated  population and 
+sex-disaggregated counts are not predictors in the current ARIMA implementation.  
+The dataset contains no patient names, contact information, or individual medical 
+records. Its annual frequency supports yearly recipient forecasts rather than direct 
+predictions of daily queues or monthly demand.  
+Data Processing 
+Data preprocessing begins with checking the presence of the required attributes:  
+reporting year, age group, age group order, total recipients, data source, and the synthetic 
+data indicator. Reporting years are converted to integers; total recipient counts are 
+converted to numerical values, and synthetic data indicators are converted to  Boolean 
+values.  
+The implementation checks for missing recipient totals, invalid synthetic data 
+indicators, negative recipient counts, and duplicate combinations of reporting year and age 
+groups. Records that fail these checks cause processing to stop so that the dataset c an be 
+reviewed and corrected. Missing target values are not automatically replaced with zero or 
+estimated through imputation.  
+Each age group is checked to ensure that it contains one observation for every year 
+from 2014 to 2025. The implementation also verifies that observations for 2014 –2019 are 
+labeled synthetic and that observations for 2020 –2025 are labeled actual. The validated 
+records are sorted by reporting year and organized into separate chronological series. The 
+model uses recipient counts in their original units, and separate models are constructed for 
+each age group. Unusually high or low annual counts remain in the series rather than being 
+deleted without supporting evidence.  
+
+=== PDF PAGE 9 ===
+ 
+STI West Negros University     30 
+ 
+ML Algorithm Used 
+The forecasting algorithm implemented in E -KALUSUGAN is ARIMA, 
+represented as ARIMA(p, d, q). The parameter p specifies the autoregressive order, d 
+specifies the differencing order, and q specifies the moving-average order.   
+  
+The autoregressive component relates an observation to preceding values, 
+differencing models changes between observations, and the moving -average component 
+accounts for preceding model errors.  
+The implementation uses the ARIMA functionality provided by the Python stats 
+models library. Eight candidate configurations are evaluated by allowing each parameter to 
+take a value of zero or one. This produces configurations ranging from ARIMA(0, 0, 0) to  
+ARIMA(1, 1, 1). The limited candidate set keeps model selection manageable for the short 
+annual series.  
+Candidate models that fail to fit or do not converge are excluded from selection. 
+Among the remaining candidates, the configuration with the lowest AIC is selected. A 
+separate model is fitted for each age group.  
+The implemented models are nonseasonal and do not include external predictors. 
+Consequently, they forecast annual recipient totals rather than seasonal appointment 
+patterns or demand for individual dental procedures. Forecasts and interval limits are 
+rounded to whole numbers, and negative output values are restricted to zero.  
+Model Training and Testing 
+Model training and testing use an expanding window time -series evaluation. The 
+chronological order of observations is preserved, and each validation year is predicted using 
+only observations from preceding years. This approach provides four one -year-ahead 
+validation rounds for each age group.  
+ 
+ 
+
+=== PDF PAGE 10 ===
+ 
+STI West Negros University     31 
+ 
+Evaluation round Training Period Validation Year 
+First  2014-2021  2022  
+Second  2014-2022  2023  
+Third  2014-2023  2024  
+Fourth  2014-2024  2025  
+At every round, candidate models are fitted using the training period, and the lowest 
+AIC configuration is selected. The selected model predicts the recipient count for the 
+validation year, which is then compared with that year’s recorded count. Across seven age 
+groups, this procedure produces 28 validation predictions.  
+The evaluation follows an expanding -window form of time -series cross-validation 
+rather than random splitting or ordinary shuffled k-fold cross-validation. Model selection is 
+repeated within each training window, without using the corresponding validation -year 
+outcome to select the configuration.  
+A naive forecasting baseline is also included. This baseline predicts that the next 
+year’s recipient count will equal the preceding year’s count. Its errors provide a reference 
+for assessing whether ARIMA offers an improvement over a simpler forecasting method.  
+After testing, a final model for each age group is fitted using all twelve observations 
+from 2014–2025 to forecast 2026. The validation outcomes are drawn from years labeled 
+actual, but every training window includes six synthetic observations. The evaluation 
+therefore describes performance under the current mixed-data setup and does not establish 
+forecasting reliability using exclusively authentic historical records.  
+ 
+
+=== PDF PAGE 11 ===
+ 
+STI West Negros University     32 
+ 
+Performance Evaluation Metrics 
+Forecasting performance is evaluated using Mean Absolute Error (MAE), Root 
+Mean Squared Error (RMSE) and Mean Absolute Percentage Error (MAPE). These metrics 
+are calculated separately for each age group using the validation predictions for 2022–2025.  
+Mean Absolute Error. MAE measures the average absolute difference between the 
+recorded and predicted recipient counts:  
+MAE = Σ|actual − predicted| / n  
+MAE expresses the typical forecast error in recipient counts. A lower value indicates 
+a smaller average error.  
+Root Mean Squared Error.  RMSE is calculated by taking the square root of the 
+average squared forecast error:  
+RMSE = √[Σ(actual − predicted)² / n]  
+RMSE gives greater weight to larger errors and helps identify models that occasionally 
+produce substantial deviations from recorded counts.  
+Ethical Considerations 
+The researchers will ensure that the study is conducted responsibly and in 
+accordance with ethical principles that protect the rights, privacy, dignity, and welfare of 
+all participants. Before conducting interviews and gathering data, the researchers will 
+secure the necessary permission from the appropriate personnel of the Bago City Primary 
+Care Facility and obtain informed consent from the participants. 
+Participation in the study will be voluntary. The respondents will be informed about 
+the purpose of the study, the nature of their participation, and how the information they 
+
+=== PDF PAGE 12 ===
+ 
+STI West Negros University     33 
+ 
+provide will be used. They will have the right to decline participation or withdraw from the 
+study without any penalty or negative consequences. 
+The researchers will maintain the confidentiality of the information gathered from 
+the respondents. Personal and identifying information will not be disclosed in the study's 
+analysis, presentation, or final report. Information obtained from patient records  will also 
+be handled with care and used only for purposes related to the development and evaluation 
+of E-KALUSUGAN. 
+The researchers will also ensure that the historical dental data used for the predictive 
+analytics component is obtained only through authorized personnel and is handled securely. 
+Only the information necessary for the study will be collected and processed . The 
+researchers will avoid using the data for purposes outside the scope of the study. 
+During system testing and evaluation, respondents will be treated fairly and 
+respectfully. Their feedback will be recorded accurately and will not be altered to produce 
+favorable results. The researchers will use the gathered information solely to support the 
+development and evaluation of E-KALUSUGAN and will observe applicable institutional 
+policies regarding research ethics and data privacy. 
+System Architecture 
+The system architecture of E -Kalusugan is designed as a web -based, mobile -
+responsive ecosystem that facilitates seamless interaction between healthcare providers and 
+residents of Bago City. It serves to replace manual, paper -based queuing with a smart, 
+integrated platform. By utilizing a Client -Server model, the system ensures that data 
+regarding dental appointments, doctor availability, and patient flow is centralized and 
+accessible in real -time across various devices. The architecture also supports effici ent 
+communication between the frontend, backend, and database components to ensure smooth 
+system operations and reliable data processing. In addition, the system is designed to 
+support scalability and maintainability, allowing future enhancements and addit ional 
+healthcare services to be integrated easily. 
+ 
+
+=== PDF PAGE 13 ===
+ 
+STI West Negros University     34 
+ 
+Figure 4 
+System Architecture 
+ 
+Network Architecture 
+The illustration presents the system architecture of the E -Kalusugan Appointment 
+and Queue System, showing how patients and healthcare facility personnel interact with 
+the system. On the client side, patients can access E-Kalusugan using smartphones, tablets, 
+or laptops, while staff, dentists, and administrators use computers within the Bago Primary 
+Care Facility (BCPCF). These devices connect through the Internet to the E-Kalusugan web 
+interface. 
+On the server side, the Node.js and Express.js application server manages the system's 
+functions, including appointment scheduling, queue management, and communication with 
+the MySQL database, which stores centralized patient records and system logs. The 
+
+
+=== PDF PAGE 14 ===
+ 
+STI West Negros University     35 
+ 
+Analytics component uses the stored data for predictive analytics, helping the facility 
+anticipate patient volume and support better queue and resource management. 
+The architecture also includes an SMS Notification System, which allows E -Kalusugan to 
+send automated queue -status updates to patients' mobile devices. Overall, the illustration 
+shows how E -Kalusugan connects patients, healthcare staff, the database, predi ctive 
+analytics, and SMS notifications into one centralized system, helping provide more 
+organized, efficient, and accessible appointment and queue management for the healthcare 
+facility. 
+Figure 5. 
+Network Architecture 
+Database Architecture 
+The illustration presents the overall data flow and interaction of the E -Kalusugan 
+Appointment and Queue System. It shows how the four main users —Patient, Admin, 
+Doctor, and Staff —interact with the system and how their activities are connected to the 
+centralized database. 
+
+
+=== PDF PAGE 15 ===
+ 
+STI West Negros University     36 
+ 
+The Patient can enter or request data, such as personal information, appointment 
+details, and queue-related information. The admin manages and configures system data and 
+can view or update records. The Doctor controls the queue and can view or update relevant 
+patient and appointment information, while the Staff can add and control queue information 
+to assist with the daily operations of the health facility. Each user has specific functions and 
+access according to their assigned role in the system. This helps ensure that users can only 
+perform the tasks necessary for their responsibilities. The system processes the information 
+provided by each user and updates the corresponding records in the database. 
+All user activities are directed to the E-Kalusugan system, where the information is 
+synchronized through the Web Server. The Web Server processes the requests and performs 
+query and update operations with the centralized Database, where patient records, 
+appointment information, queue data, and other system information are stored. 
+Overall, the illustration demonstrates how E -Kalusugan centralizes data 
+management and connects patients and healthcare personnel through a single system. This 
+structure supports more organized appointment scheduling, efficient queue management, 
+accurate record handling, and coordinated healthcare services within the Bago Primary Care 
+Facility. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 16 ===
+ 
+STI West Negros University     37 
+ 
+Figure 6.  
+Database Architecture 
+Application/ Module Architecture 
+The illustration presents the three-tier architecture of the E-Kalusugan Appointment 
+and Queue System, showing how users, communication services, application functions, 
+analytics, and the database work together as one integrated system. 
+The Client Tier (User Interface) provides a mobile-responsive interface that can be 
+accessed by the Patient, Staff, Admin, and Doctor. Through this interface, patients can 
+manage their appointments and receive queue -related information, while staff, 
+administrators, and doctors can perform their respective system functions. 
+The Communication Tier (Patient Alerts) contains the Automated SMS Notification 
+Gateway. It connects the E -Kalusugan system to the SMS gateway to automatically send 
+queue alerts and appointment -related notifications to patients. This helps patients stay 
+informed about their queue status without needing to continuously check the system. 
+
+
+=== PDF PAGE 17 ===
+ 
+STI West Negros University     38 
+ 
+The Application Tier (Core Logic and Data) is powered by the Node.js and 
+Express.js Application Server. It contains the main modules of E-Kalusugan, including data 
+management, queueing, appointment scheduling, and doctor availability tracking. The tier 
+also includes Predictive Analytics, which can analyze stored data and help forecast patient 
+volume and support better queue and healthcare resource management. 
+All application and analytics processes are connected to the MySQL Centralized 
+Database, which stores important system information such as patient records, appointments, 
+queue information, doctor availability, and system data. Overall, the illustration shows how 
+E-Kalusugan integrates its user interface, SMS notifications, core application functions, 
+predictive analytics, and centralized database to provide a more organized, efficient, and 
+responsive appointment and queue management system for the Bago Primary Care Facility. 
+ Figure 7. 
+ Application/ Module Architecture 
+ 
+
+
+=== PDF PAGE 18 ===
+ 
+STI West Negros University     39 
+ 
+Security Architecture 
+  The E -Kalusugan System implements a robust, two -tiered security framework 
+dividing responsibilities between frontend user interaction and backend data processing to 
+safeguard sensitive health records. At the client level, the Frontend Security Layer handles 
+initial user protection through client -side form validation, role -guarded route navigation, 
+secure token handling, session lifecycle management, dynamic XSS sanitization, and 
+graceful error handling. Once requests reach the server, the Backend Security Layer 
+enforces strict data integrity via an API gateway, JWT -based authentication middleware, 
+fine-grained RoleBased Access Control (RBAC), rate limiting, parameterized database 
+queries, comprehensive audit logging, and full HTTPS/TLS transport encryption before 
+data is safely stored.  
+Figure 8.  
+Security Architecture 
+
+
+=== PDF PAGE 19 ===
+ 
+STI West Negros University     40 
+ 
+Integration Architecture 
+The illustration shows the system architecture of the E-Kalusugan Appointment and 
+Queue System, demonstrating how the user interface, backend, database, SMS notification 
+service, real -time updates, and predictive analytics work together. Users access E -
+Kalusugan through the User Interface (Web/Mobile App), which communicates with the 
+REST API (Node.js/Backend) to process appointments, queue information, and patient 
+records. The Centralized MySQL Database stores important data such as patient records, 
+appointments, and queue data, while Real-Time Updates provide current queue information 
+to users. The Semaphore SMS Gateway Service sends automated notifications to patients 
+regarding queue or appointment updates. Finally, the Predictive Analytics component uses 
+the stored system data to help forecast patient demand and support better queue  and 
+resource management. Overall, the architecture allows E -Kalusugan to provide a 
+centralized, efficient, real -time, and data -driven appointment and queue management 
+system for the Bago Primary Care Facility. 
+Figure 9.  
+Integration Architecture  
+ 
+
+
+=== PDF PAGE 20 ===
+ 
+STI West Negros University     41 
+ 
+Deployment Architecture 
+The E-Kalusugan Appointment and Queue System will be deployed as a web-based 
+system within the Bago Primary Care Facility, allowing patients and authorized personnel 
+to access the system using computers, smartphones, and tablets through a reliable internet  
+connection. During deployment, the required hardware, software, network connection, 
+server environment, and security configurations will be prepared to ensure that the system 
+can operate properly. 
+The front -end layer will provide the User Interface through a web or mobile -
+responsive application. It will allow patients to access appointments, view queue 
+information, and receive system updates, while staff, doctors, and administrators can access 
+the functions appropriate to their roles. The interface will communicate with the backend 
+through the REST API. 
+The back -end layer will use Node.js and Express.js to handle the main system 
+operations, including user authentication, appointment scheduling, queue management, 
+data processing, and communication with external services. It will also manage the 
+connection between the User Interface, database, predictive analytics, and Semaphore SMS 
+Gateway for sending temporary password and queue notifications. 
+The data layer will use a MySQL centralized database to store and manage patient 
+records, appointment information, queue data, user accounts, and other necessary system 
+records. Predictive Analytics will access relevant stored data to help analyze and fore cast 
+patient volume, supporting more efficient queue and resource management. 
+During deployment, the system will be configured, tested, and monitored to ensure 
+that all components communicate correctly, and that security measures, user access 
+controls, database protection, and regular backups are properly implemented. Overall, the 
+deployment architecture ensures that the E-Kalusugan system operates as a reliable, secure, 
+and centralized platform for appo intment scheduling, queue management, patient 
+notifications, and predictive analytics at the Bago Primary Care Facility. 
+ 
+
+=== PDF PAGE 21 ===
+ 
+STI West Negros University     42 
+ 
+System Design 
+Use Case Diagram 
+The illustration presents the Use Case Diagram of the E -Kalusugan Appointment 
+and Queue System, showing how the main users interact with the system. The Patient can 
+log in or reset their password, book appointments, join the queue, and view their queue 
+status and medical history. The Staff manages queue numbers, updates doctor's availability, 
+assists patients with scheduling, and maintains records. The Doctor (Dentist) can update 
+availability, conduct consultations, review patient records, and monitor the queue. 
+Meanwhile, the Admin manages user accounts, oversees database integr ity, generates 
+analytical reports, configures system settings, and performs administrative overrides when 
+necessary. Each user is provided with specific functions and access based on their assigned 
+role within the system. The diagram shows how users can perform different activities while 
+interacting with the corresponding system functions. It also illustrates how appoint ment 
+scheduling, queue management, dentist availability, and patient records are connected to 
+support the dental service workflow. The include and extend relationships show how certain 
+functions depend on or provide additional actions to other use cases. These interactions help 
+ensure that the information handled by the system can be properly updated and accessed by 
+authorized users. The diagram also shows the relationships between these functions through 
+including and extending connections, demonstrating how different activities work together 
+within E-Kalusugan. Overall, the use case diagram illustrates how patients and healthcare 
+personnel interact with E-Kalusugan to support organized appointment scheduling, efficient 
+queue management, patient record handling, and administrative operations. 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 22 ===
+ 
+STI West Negros University     43 
+ 
+Figure 10. 
+Use Case Diagram 
+System Testing and Evaluation 
+User Acceptance Evaluation. Adopting an evaluation tool for user acceptance. 
+The user acceptance of E -KALUSUGAN will be evaluated using the Technology 
+Acceptance Model (TAM). TAM will be used to determine the users' perceptions of the 
+system in terms of perceived usefulness, perceived ease of use, and behavioral intention to 
+use the system. These factors will help determine how users perceive the system and their 
+willingness to use it for dental appointment scheduling, queue monitoring, and related 
+services. A structured questionnaire using a five-point Likert scale will be administered to 
+
+
+=== PDF PAGE 23 ===
+ 
+STI West Negros University     44 
+ 
+the selected system users after they have interacted with the developed system. The 
+questionnaire items will be adapted to the functions of E -KALUSUGAN while retaining 
+the main constructs of TAM. The responses will be summarized using descriptive statistics 
+to determine the level of user acceptance of the system. 
+Performance Evaluation. Using Playwright and Black Box Testing 
+The user interface of the developed system will be tested using Playwright and the 
+Black Box Testing approach. Playwright will be utilized as an automated testing tool to 
+simulate user interactions with the web application in a browser environment. Automat ed 
+test scenarios will be created to evaluate common user activities such as logging into the 
+system, navigating between pages, entering information into forms, clicking buttons, 
+submitting records, and verifying displayed results or system responses. Black Box Testing 
+will be used as the primary testing approach in evaluating the functionality of the user 
+interface. This approach focuses on testing the behavior of the system based on specified 
+inputs and expected outputs without considering its internal so urce code or program 
+structure. Test cases will be developed based on the functional requirements and major 
+features of the system. Each test case will contain the test scenario, test input or user action, 
+expected result, actual result, and test status. A test case will be marked as passed when the 
+actual result corresponds with the expected result; otherwise, it will be recorded as failed 
+and subjected to further correction and retesting. 
+The use of Playwright together with Black Box Testing will provide a systematic 
+method for identifying functional errors, form validation issues, navigation problems, 
+incorrect system responses, and other user interface -related defects before the final 
+implementation of the system. 
+System Quality. Adopting an evaluation tool for Quality Standard (ISO or ITIL) 
+For system quality evaluation, the study will adopt the ISO/IEC 25010 Software 
+Product Quality Model. This standard provides a framework for evaluating software quality 
+based on established quality characteristics. For E -KALUSUGAN, the evaluation will 
+focus on quality characteristics applicable to the developed system, such as functional 
+
+=== PDF PAGE 24 ===
+ 
+STI West Negros University     45 
+ 
+suitability, usability, reliability, performance efficiency, security, maintainability, and 
+portability. The selected characteristics will be evaluated through a structured assessment 
+by the identified evaluators. The results will provide a basis for deter mining whether E -
+KALUSUGAN meets the expected software quality requirements. 
+User Interface  
+Patient Dashboard 
+ The E-Kalusugan Patient Dashboard provides patients with a simple and convenient 
+view of their healthcare appointments and queue information. It allows patients to get a 
+queue number online, monitor the current queue, view their estimated waiting time, che ck 
+doctor's availability, and review their appointment history. The dashboard also provides 
+information about the health facility and available healthcare services. Through these 
+features, patients can easily monitor their appointments and queue status without needin g 
+to wait at the facility unnecessarily, making the E -Kalusugan system more accessible, 
+organized, and convenient for patients. 
+
+
+=== PDF PAGE 25 ===
+ 
+STI West Negros University     46 
+ 
+Doctor Dashboard 
+The E-Kalusugan Doctor Dashboard provides doctors with a centralized interface 
+For managing their daily patient services and queue. It allows the doctor to update their 
+availability, monitor the daily appointment capacity, and view the current and next patients 
+in the queue. The dashboard also helps doctors keep track of appointments an d manage 
+patient consultations efficiently. Through real -time queue information, doctors can easily 
+identify which patient should be attended to next, helping improve the flow of consultations 
+and reduce unnecessary waiting time. Overall, the dashboard supports doctors in providing 
+organized, efficient, and timely healthcare services through the E-Kalusugan system. 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PDF PAGE 26 ===
+ 
+STI West Negros University     47 
+ 
+Admin Dashboard 
+ The E -Kalusugan Administrator Dashboard serves as the central management 
+interface for overseeing the system’s users, doctors, patients, and healthcare activities. It 
+provides the administrator with access to doctor profiles and availability, patient histo ry, 
+and account management for staff and patients. The dashboard also allows the administrator 
+to add, edit, deactivate, and monitor user accounts, helping ensure that system information 
+remains organized and up to date. Through features such as the Queue Monitor, 
+Statistics/Analytics, Notifications, and Doctors and Patient History sections, the 
+administrator can effectively monitor and manage the overall operation of the E-Kalusugan 
+system. 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PDF PAGE 27 ===
+ 
+STI West Negros University     48 
+ 
+Registration Dashboard 
+ The E -Kalusugan Staff Dashboard provides staff members with an organized 
+interface for managing patients and the queue. It allows staff to select the type of service, 
+such as Dental Check -up or General Consultation, enter the patient’s information, and 
+assign a regular or priority queue. The dashboard also displays the currently served patient 
+and the next patient in line, helping staff manage patient flow efficiently. Through the Get 
+Queue and Next Queue functions, staff can register patients and call the next patient for 
+service, making the E -Kalusugan appointment and queue management process faster and 
+more organized. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PDF PAGE 28 ===
+ 
+STI West Negros University     49 
+ 
+Predictive Analytics 
+ The E-Kalusugan Analytics Dashboard provides administrators and authorized staff 
+with an overview of dental service data through visual reports and predictive analytics. It 
+presents patient volume and historical dental records to help users understand patient trends 
+and monitor service demand. The dashboard also includes predictive analytics using the 
+ARIMA model to predict annual dental patient volume according to age group. These 
+insights can assist the Bago City Primary Care Facility in understanding pat ient demand 
+and planning dental services based on historical data and predicted patient volume. 
+ 
+ 

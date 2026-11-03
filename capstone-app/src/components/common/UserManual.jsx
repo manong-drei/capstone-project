@@ -100,10 +100,11 @@ export default function UserManual({ role, isOpen, onClose }) {
             <section className="manual-section" id="manual-queue-guide" tabIndex={-1}>
               <h2>Queue guide</h2>
               <p>A ticket number identifies a visit. Follow the displayed queue order and status; the numbers alone do not show who is next.</p>
+              <p>Verified priority patients go first in queue-entry order, whether registered online or by staff. Regular tickets alternate between online and walk-in patients when eligible. A new regular online ticket waits for earlier regular walk-ins to have their first turn. Registration can continue after service starts, subject to dentist availability and capacity.</p>
               <h3>How a visit moves through the queue</h3>
               <figure className="manual-queue-figure">
                 <ol className="manual-queue-flow" aria-label="Queue status diagram">{QUEUE_STAGES.map((stage, index) => <li key={stage.title}><stage.Icon size={26} aria-hidden="true" /><strong>{stage.title}</strong><span>{stage.text}</span>{index < QUEUE_STAGES.length - 1 && <ArrowRight className="manual-flow-arrow" size={20} aria-hidden="true" />}</li>)}</ol>
-                <div className="manual-missed"><ArrowDown size={22} aria-hidden="true" /><PhoneMissed size={22} aria-hidden="true" /><p><strong>If a patient misses both calls:</strong> the ticket becomes “Missed call”. Report to staff within the displayed 10-minute return window. A confirmed return keeps the same ticket for the next opening. An expired window or a second missed turn after returning ends the ticket as “No-show”.</p></div>
+                <div className="manual-missed"><ArrowDown size={22} aria-hidden="true" /><PhoneMissed size={22} aria-hidden="true" /><p><strong>If a patient misses both calls:</strong> the ticket becomes “Missed call”. Report to staff within the displayed 10-minute return window. A confirmed return keeps the same ticket and rejoins behind patients already waiting in the same priority group. An expired window or a second missed turn after returning ends the ticket as “No-show”.</p></div>
                 <figcaption>The patient already called or being served keeps their turn when another patient returns.</figcaption>
               </figure>
               <h3>Words and ticket numbers you will see</h3>

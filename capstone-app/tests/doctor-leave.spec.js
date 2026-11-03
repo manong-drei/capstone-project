@@ -121,7 +121,7 @@ for (const width of [1440, 375]) {
     await expect(doctor.getByText('Approved', { exact: true })).toBeVisible();
     await expect(doctor.getByText('Approved for planned leave')).toBeVisible();
     await expect(doctor.getByRole('button', { name: 'Withdraw request' })).toHaveCount(0);
-    await doctor.getByRole('button', { name: '← Back', exact: true }).click();
+    await doctor.getByRole('button', { name: 'Back to dashboard', exact: true }).click();
     await expect(doctor.getByRole('button', { name: 'On leave', exact: true })).toBeDisabled();
     await expect(doctor.getByText(/On approved leave through/)).toBeVisible();
     await doctor.getByRole('button', { name: 'Apply', exact: true }).click();

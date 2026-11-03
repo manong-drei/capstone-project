@@ -1,0 +1,10 @@
+.doctor-tab-page { flex: 1; min-width: 0; width: 100%; padding: 24px 24px 36px; color: #172033; }
+.doctor-tab-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.doctor-tab-title { display: flex; align-items: center; gap: 14px; }
+.doctor-tab-title-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 13px; color: #2d3a8c; background: #eef2ff; }
+.doctor-tab-eyebrow { margin: 0 0 3px; color: #52619a; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.doctor-tab-title h1 { margin: 0; font-size: clamp(23px, 3vw, 30px); font-weight: 700; line-height: 1.2; }
+.doctor-tab-back { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid #dbe1eb; border-radius: 9px; color: #344054; background: white; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.doctor-tab-back:hover { background: #f3f6fc; }
+.doctor-tab-back:focus-visible { outline: 3px solid #91a3ef; outline-offset: 2px; }
+@media (max-width: 640px) { .doctor-tab-page { padding: 20px 14px 28px; } }

@@ -17,7 +17,7 @@ All existing JWT sessions must log in again because the new middleware requires 
 
 - New patient account and encrypted password SMS are committed together. No plaintext password is returned to the admin. Passwords are cryptographically random six-digit strings, including leading zeros. Five wrong attempts lock that account for 15 minutes in addition to the existing IP limiter.
 - The 72-hour lifetime begins at first delivery submission, including a rejected submission; retry attempts do not reset it. Login atomically consumes the temporary credential and grants only password setup and `/auth/me` access. Successful setup invalidates the old session and returns a normal JWT.
-- Queue positions and clinic displays use the same source alternation and priority selection as call-next. Position 1 is next. The initial suppression decision is permanent, even if the admin later changes the threshold or the queue order changes.
+- Queue positions and clinic displays use the same [priority FIFO, protected regular alternation, and return placement](QUEUE_ORDERING.md) as call-next. Position 1 is next. The initial suppression decision is permanent, even if the admin later changes the threshold or the queue order changes.
 - Queue alerts use the registered account phone or the walk-in contact confirmed by staff. Walk-in contacts must still match the associated patient record. Invalid, changed, archived or inactive associations are skipped. Alerts contain no name, diagnosis or service details.
 - Queue confirmation tells suppressed patients to stay nearby. Staff must relay the notice shown after walk-in registration. This policy does not prove a patient is physically present; remote patients near the front receive no alert.
 

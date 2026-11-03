@@ -1,8 +1,10 @@
 import { generatePath, useLocation, useMatch, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, ClipboardList } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { Footer } from "@/pages/LandingPage";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConsultationNotesDialog from "./ConsultationNotesDialog";
+import "./DoctorTab.css";
 
 const INDIGO = "#4f46e5";
 const VISITS_PER_PAGE = 10;
@@ -112,88 +114,58 @@ export default function DoctorAppointmentsTab({
           onClose={() => setSelectedVisit(null)}
         />
       )}
-      <div
-        className="dd-tab-pad"
-        style={{ flex: 1, maxWidth: "1100px", margin: "0 auto", width: "100%" }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            rowGap: "10px",
-            marginBottom: "24px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <button
-              onClick={onBack}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#6b7280",
-                fontSize: "14px",
-                fontWeight: 500,
-              }}
-            >
-              ← Back
-            </button>
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "20px",
-                fontWeight: 700,
-                color: "#111827",
-              }}
-            >
-              Patient History
-            </h2>
+      <main className="doctor-tab-page">
+        <div className="doctor-tab-header mb-5">
+          <div className="doctor-tab-title">
+            <span className="doctor-tab-title-icon"><ClipboardList size={23} /></span>
+            <div><p className="doctor-tab-eyebrow">Patient records</p><h1>Patient History</h1></div>
           </div>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: "3px",
-              borderRadius: "10px",
-              border: "1px solid #e5e7eb",
-              background: "#f9fafb",
-              gap: "4px",
-            }}
-          >
-            {[
-              { key: "today", label: "Today" },
-              { key: "all", label: "All" },
-            ].map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={filter === key}
-                onClick={() => {
-                  updateQuery({ filter: key, page: 1 });
-                }}
-                style={{
-                  border: "none",
-                  borderRadius: "8px",
-                  padding: "6px 12px",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  background: filter === key ? INDIGO : "transparent",
-                  color: filter === key ? "#ffffff" : "#374151",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <button className="doctor-tab-back" type="button" onClick={onBack}><ArrowLeft size={17} /> Back to dashboard</button>
         </div>
 
         <p className="mb-4 text-sm text-slate-500">
           Appointments and dental queue visits, including walk-ins. Open a visit
           to read your saved consultation notes.
         </p>
+
+        <div
+          className="mb-4"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "3px",
+            borderRadius: "10px",
+            border: "1px solid #e5e7eb",
+            background: "#f9fafb",
+            gap: "4px",
+          }}
+        >
+          {[
+            { key: "today", label: "Today" },
+            { key: "all", label: "All" },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={filter === key}
+              onClick={() => {
+                updateQuery({ filter: key, page: 1 });
+              }}
+              style={{
+                border: "none",
+                borderRadius: "8px",
+                padding: "6px 12px",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                background: filter === key ? INDIGO : "transparent",
+                color: filter === key ? "#ffffff" : "#374151",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="mb-5 grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_11rem_16rem]">
           <label className="min-w-0 text-xs font-semibold text-slate-600">
@@ -204,7 +176,8 @@ export default function DoctorAppointmentsTab({
               type="search"
               value={search}
               onChange={(event) => {
-                updateQuery({ search: event.target.value, page: 1 }, { replace: true });
+                // Commit the search before another filter can reuse the previous query.
+                updateQuery({ search: event.target.value, page: 1 }, { replace: true, flushSync: true });
               }}
               placeholder="Patient name or ticket number"
               className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-indigo-500 focus:outline-indigo-500"
@@ -529,7 +502,7 @@ export default function DoctorAppointmentsTab({
             </nav>
           </>
         )}
-      </div>
+      </main>
       <Footer />
     </>
   );

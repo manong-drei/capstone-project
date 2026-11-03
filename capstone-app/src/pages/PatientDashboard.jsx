@@ -6,12 +6,10 @@ import { useQueue } from "@/hooks/useQueue";
 import { ROUTES } from "@/constants/routes";
 import { QUEUE_STATUS } from "@/constants/queue";
 import { CANCELLATION_REASONS } from "@/constants/queueReasons";
-import { DENTAL_SERVICES } from "@/constants/medicalServices";
 import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 import * as queueService from "@/services/queueService";
 import * as patientService from "@/services/patientService";
-import { getQueueDisplayName } from "@/utils/queueDisplay";
 
 import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
@@ -28,23 +26,6 @@ const PATIENT_PAGES = {
   home: ROUTES.PATIENT_DASHBOARD,
   appointments: ROUTES.PATIENT_APPOINTMENT_HISTORY,
   queue: ROUTES.PATIENT_MY_QUEUE,
-};
-
-const DENTAL_SUBSERVICE_LABEL_BY_ID = DENTAL_SERVICES.reduce((acc, s) => {
-  acc[s.id] = s.label;
-  return acc;
-}, {});
-
-const formatQueuedServices = (queue) => {
-  if (!Array.isArray(queue?.services) || queue.services.length === 0) return "";
-  return queue.services
-    .map((s) => {
-      if (s && typeof s === "object") return s.label || s.name || s.id || "";
-      const key = String(s ?? "").trim();
-      return DENTAL_SUBSERVICE_LABEL_BY_ID[key] || key;
-    })
-    .filter(Boolean)
-    .join(", ");
 };
 
 const PATIENT_RESPONSIVE_CSS = `
@@ -234,16 +215,6 @@ export default function PatientDashboard() {
 
   const hasActiveQueue =
     queue && [QUEUE_STATUS.WAITING, QUEUE_STATUS.CALLED, QUEUE_STATUS.SERVING, QUEUE_STATUS.MISSED].includes(queue.status);
-  const queueDisplayName = hasActiveQueue ? getQueueDisplayName(queue) : "";
-  const queuedServices = hasActiveQueue ? formatQueuedServices(queue) : "";
-  const myQueueSubtitle = hasActiveQueue
-    ? [
-        queueDisplayName,
-        queuedServices ? `Dental Sub-services: ${queuedServices}` : null,
-      ]
-        .filter(Boolean)
-        .join(" | ")
-    : "-";
 
   if (!activeTab) return <Navigate to={ROUTES.PATIENT_DASHBOARD} replace />;
 
@@ -440,7 +411,6 @@ export default function PatientDashboard() {
           registrationMessage={queueStatus.registration_message}
           queue={queue}
           queueError={error}
-          myQueueSubtitle={myQueueSubtitle}
           onGetQueue={() => setShowQueueModal(true)}
           onCancelQueue={handleCancelQueue}
           onGoAppointments={() => setActiveTab("appointments")}

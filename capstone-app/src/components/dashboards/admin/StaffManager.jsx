@@ -13,6 +13,16 @@ const STAFF_RESPONSIVE_CSS = `
   .sm-name-grid dt { font-size: 11px; color: #6b7280; }
   .sm-name-grid dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #111827; overflow-wrap: anywhere; }
   .sm-cards-mobile { display: none; }
+
+  /* Focus highlight for all inputs inside StaffManager */
+  .staff-manager input:not([type="checkbox"]):not([type="radio"]):focus,
+  .staff-manager select:focus,
+  .staff-manager textarea:focus {
+    border-color: #4f46e5 !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
+    background: #ffffff !important;
+  }
+
   @media (max-width: 900px) {
     .sm-table-row, .sm-table-head { display: none !important; }
     .sm-cards-mobile { display: flex !important; flex-direction: column; gap: 6px; padding: 10px; }
@@ -33,6 +43,8 @@ const inputStyle = {
   boxSizing: "border-box",
   outline: "none",
   fontFamily: "inherit",
+  transition:
+    "border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease",
 };
 
 const labelStyle = {
@@ -287,7 +299,9 @@ function EditStaffModal({ member, onSave, onClose }) {
             />
           </div>
           <div>
-            <label htmlFor="staff-edit-middle-name" style={labelStyle}>Middle Name (optional)</label>
+            <label htmlFor="staff-edit-middle-name" style={labelStyle}>
+              Middle Name (optional)
+            </label>
             <input
               id="staff-edit-middle-name"
               style={inputStyle}
@@ -306,7 +320,9 @@ function EditStaffModal({ member, onSave, onClose }) {
             />
           </div>
           <div>
-            <label htmlFor="staff-edit-suffix" style={labelStyle}>Suffix (optional)</label>
+            <label htmlFor="staff-edit-suffix" style={labelStyle}>
+              Suffix (optional)
+            </label>
             <input
               id="staff-edit-suffix"
               style={inputStyle}
@@ -513,7 +529,14 @@ export default function StaffManager() {
     setConfirm({
       open: true,
       memberId: member.user_id,
-      memberName: [member.first_name, member.middle_name, member.last_name, member.suffix].filter(Boolean).join(" "),
+      memberName: [
+        member.first_name,
+        member.middle_name,
+        member.last_name,
+        member.suffix,
+      ]
+        .filter(Boolean)
+        .join(" "),
       action,
     });
   };
@@ -535,7 +558,10 @@ export default function StaffManager() {
   const visibleStaff = showInactive ? staff : staff.filter((m) => m.is_active);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div
+      className="staff-manager"
+      style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+    >
       <style>{STAFF_RESPONSIVE_CSS}</style>
 
       <ConfirmModal
@@ -687,7 +713,9 @@ export default function StaffManager() {
               />
             </div>
             <div>
-              <label htmlFor="staff-create-middle-name" style={labelStyle}>Middle Name (optional)</label>
+              <label htmlFor="staff-create-middle-name" style={labelStyle}>
+                Middle Name (optional)
+              </label>
               <input
                 id="staff-create-middle-name"
                 style={inputStyle}
@@ -707,7 +735,9 @@ export default function StaffManager() {
               />
             </div>
             <div>
-              <label htmlFor="staff-create-suffix" style={labelStyle}>Suffix (optional)</label>
+              <label htmlFor="staff-create-suffix" style={labelStyle}>
+                Suffix (optional)
+              </label>
               <input
                 id="staff-create-suffix"
                 style={inputStyle}
@@ -833,7 +863,17 @@ export default function StaffManager() {
             borderBottom: "1px solid #f3f4f6",
           }}
         >
-          {["Last name", "First name", "Middle initial", "Suffix", "Phone number", "Email", "Role", "Status", "Actions"].map((h) => (
+          {[
+            "Last name",
+            "First name",
+            "Middle initial",
+            "Suffix",
+            "Phone number",
+            "Email",
+            "Role",
+            "Status",
+            "Actions",
+          ].map((h) => (
             <span
               key={h}
               style={{
@@ -912,7 +952,16 @@ export default function StaffManager() {
                   }}
                 >
                   {getNameFields(member).map(([label, value]) => (
-                    <span key={label} style={{ fontSize: "14px", fontWeight: 500, color: "#111827" }}>{value}</span>
+                    <span
+                      key={label}
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        color: "#111827",
+                      }}
+                    >
+                      {value}
+                    </span>
                   ))}
                   <span style={{ fontSize: "13px", color: "#6b7280" }}>
                     {member.phone || member.contact_number || "—"}
@@ -1037,7 +1086,10 @@ export default function StaffManager() {
                     >
                       <dl className="sm-name-grid">
                         {getNameFields(member).map(([label, value]) => (
-                          <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+                          <div key={label}>
+                            <dt>{label}</dt>
+                            <dd>{value}</dd>
+                          </div>
                         ))}
                       </dl>
                       <span
@@ -1055,7 +1107,8 @@ export default function StaffManager() {
                       </span>
                     </div>
                     <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                      Phone number: {member.phone || member.contact_number || "—"}
+                      Phone number:{" "}
+                      {member.phone || member.contact_number || "—"}
                     </span>
                     <span
                       style={{

@@ -4,11 +4,11 @@ const sms = require('../src/utils/sms');
 const { projectQueue, alertState } = require('../src/utils/queueOrder');
 const { failureDisposition, queueMessage } = require('../src/services/smsNotifications');
 
-test('projection alternates sources, prioritizes within each source, breaks ties, and falls back', () => {
+test('projection uses priority FIFO before protected source alternation and SMS thresholds', () => {
   const row = (id, is_walk_in, type = 'regular') => ({ id, is_walk_in, type, created_at: new Date(0) });
   const waiting = [row(4, 1), row(2, 0), row(5, 1, 'priority'), row(1, 0, 'priority'), row(3, 0)];
   assert.deepEqual(projectQueue(waiting).map(q => q.id), [1, 5, 2, 4, 3]);
-  assert.deepEqual(projectQueue(waiting, { is_walk_in: 0 }).map(q => q.id), [5, 1, 4, 2, 3]);
+  assert.deepEqual(projectQueue(waiting, { is_walk_in: 0 }).map(q => q.id), [1, 5, 2, 4, 3]);
   assert.deepEqual(projectQueue(waiting, { is_walk_in: 1 }).map(q => q.id), [1, 5, 2, 4, 3]);
   assert.deepEqual(projectQueue([], null), []);
   for (let position = 1; position <= 5; position++) assert.equal(alertState(position, 5), 'suppressed');

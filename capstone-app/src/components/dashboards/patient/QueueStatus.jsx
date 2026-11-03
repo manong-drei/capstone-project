@@ -1,4 +1,5 @@
 import { QUEUE_STATUS } from "@/constants/queue";
+import { DENTAL_SERVICES } from "@/constants/medicalServices";
 import Icon from "@/components/common/AppIcons";
 import { formatQueueTime, getQueueDisplayName } from "@/utils/queueDisplay";
 
@@ -40,7 +41,7 @@ const STATUS_CONFIG = {
  *   queue   — queue object { queue_number, status, type, services, created_at }
  *   onCancel — called when patient cancels the queue
  */
-export default function QueueStatus({ queue, onCancel }) {
+export default function QueueStatus({ queue, onCancel, onViewQueue }) {
   if (!queue) return null;
 
   const config =
@@ -50,6 +51,7 @@ export default function QueueStatus({ queue, onCancel }) {
 
   return (
     <div
+      className="h-full min-w-0"
       style={{
         background: "#ffffff",
         border: "1px solid #e5e7eb",
@@ -58,10 +60,22 @@ export default function QueueStatus({ queue, onCancel }) {
         boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
       }}
     >
+      {onViewQueue && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-[#111827]">My Queue</h2>
+          <button
+            type="button"
+            onClick={onViewQueue}
+            className="rounded-lg px-3 py-2 text-sm font-semibold text-[#1e4db7] transition hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100"
+          >
+            View queue line
+          </button>
+        </div>
+      )}
       {/* Queue Number */}
       {queue.status === QUEUE_STATUS.MISSED && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">You missed your call. Report to staff before {formatQueueTime(queue.grace_expires_at)} to keep this ticket. The queue is continuing while you return.</p>}
       {queue.status === QUEUE_STATUS.CALLED && <p role="status" className="mb-4 text-center text-sm text-green-800">Please report to staff now so they can confirm you are here.</p>}
-      {queue.returned_at && queue.status === QUEUE_STATUS.WAITING && <p role="status" className="mb-4 text-center text-sm text-blue-800">Your return is confirmed. You will be called at the next opening; please stay nearby.</p>}
+      {queue.returned_at && queue.status === QUEUE_STATUS.WAITING && <p role="status" className="mb-4 text-center text-sm text-blue-800">Your return is confirmed. You have rejoined behind patients already waiting in your priority group; please stay nearby.</p>}
       {queue.status === QUEUE_STATUS.NO_SHOW && <p role="status" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">This ticket ended as a no-show. {queue.status_reason} You may request a new ticket subject to today's availability and daily limit.</p>}
       {queue.status === QUEUE_STATUS.WAITING && (
         <p role="status" style={{ color: '#475569', fontSize: '13px', textAlign: 'center' }}>
@@ -76,6 +90,7 @@ export default function QueueStatus({ queue, onCancel }) {
           Your Queue Number
         </p>
         <div
+          className="max-w-full flex-wrap justify-center"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -86,6 +101,7 @@ export default function QueueStatus({ queue, onCancel }) {
           }}
         >
           <span
+            className="min-w-0 break-words"
             style={{
               fontSize: "42px",
               fontWeight: 800,
@@ -182,7 +198,9 @@ export default function QueueStatus({ queue, onCancel }) {
                   padding: "3px 10px",
                 }}
               >
-                {typeof s === "object" ? s.label : s}
+                {s && typeof s === "object"
+                  ? s.label || s.name || s.id
+                  : DENTAL_SERVICES.find(({ id }) => id === String(s ?? "").trim())?.label || s}
               </span>
             ))}
           </div>

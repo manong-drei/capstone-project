@@ -24,39 +24,34 @@ async function fixture(run) {
     find: Queue.findByPatientId, number: Queue.nextQueueNumber, status: Queue.getPublicStatus,
     patient: Patient.findByUserId, appointment: Appointment.create,
   };
-  const state = { calls: [], appointments: [], tickets: [], writes: [], locks: 0, rolledBack: 0, onLock: null };
+  const state = { calls: [], appointments: [], tickets: [], writes: [], locks: 0, rolledBack: 0, onLock: null,
+    bookedCount: 0, registrationCount: 0, activeQueue: null,
+    patient: { patient_id: 42, priority_category: 'senior' },
+    settings: { appointment_limit: 10, is_available: 1 } };
   const connection = {
     async beginTransaction() {}, async commit() {}, async rollback() { state.rolledBack++; }, release() {},
     async query(sql, values = []) {
       if (sql.includes('INSERT INTO queue_sequences')) return [{}];
       if (sql.includes('SELECT last_number')) { state.locks++; state.onLock?.(); return [[{ last_number: 0 }]]; }
-      if (sql.includes('last_called_at IS NOT NULL LIMIT 1')) {
-        assert.match(sql, /category = 'dental'/);
-        assert.match(sql, /created_at >= COALESCE\(\?, CURDATE\(\)\)/);
-        assert.match(sql, /created_at < COALESCE\(\?, CURDATE\(\)\) \+ INTERVAL 1 DAY/);
-        assert.doesNotMatch(sql, /status\s*(?:IN|=)/);
-        assert.equal(values[0], values[1]);
-        return [state.calls.filter(row => row.category === 'dental' && row.day === (values[0] || today) && row.last_called_at).slice(0, 1)];
-      }
       if (sql.includes('SELECT appointment_id')) {
         assert.match(sql, /appointment_date = CURDATE\(\)/);
         assert.match(sql, /status IN \('pending', 'confirmed'\)/);
         assert.match(sql, /FOR UPDATE/);
         return [state.appointments.filter(row => row.patient_id === values[0] && row.day === today && ['pending', 'confirmed'].includes(row.status)).slice(0, 1)];
       }
-      if (sql.includes('SELECT * FROM patients')) return [[{ patient_id: 42, priority_category: 'senior' }]];
-      if (sql.includes('todayQueueCount')) return [[{ todayQueueCount: 0 }]];
+      if (sql.includes('SELECT * FROM patients')) return [[state.patient]];
+      if (sql.includes('todayQueueCount')) return [[{ todayQueueCount: state.registrationCount }]];
       if (sql.includes('FROM doctors')) return [[{ doctor_id: 1 }]];
-      if (sql.includes('FROM daily_doctor_settings')) return [[{ appointment_limit: 20, is_available: 1 }]];
+      if (sql.includes('FROM daily_doctor_settings')) return [[state.settings]];
       if (sql.includes('FROM doctor_leaves')) return [[]];
-      if (sql.includes('AS booked')) return [[{ booked: 0 }]];
+      if (sql.includes('AS booked')) return [[{ booked: state.bookedCount }]];
       if (sql.includes('INSERT INTO appointments')) { state.writes.push('appointment'); return [{ insertId: 2 }]; }
       throw new Error(`Unexpected SQL: ${sql}`);
     },
   };
   pool.getConnection = async () => connection;
   pool.query = connection.query;
-  Queue.findByPatientId = async () => null;
+  Queue.findByPatientId = async () => state.activeQueue;
   Queue.nextQueueNumber = async ({ type }) => type === 'priority' ? 'AP01' : 'AQ01';
   Queue.create = async input => { state.tickets.push(input); return { id: 2, ...input }; };
   Queue.getPublicStatus = async () => ({ now_serving: null, next_queuing: null });
@@ -84,24 +79,24 @@ test('new dashboard appointments remain available before the first dental call',
   });
 });
 
-test('first call closes new dashboard appointments for the rest of the day, including priority patients', async () => {
+test('new regular and priority dashboard tickets remain available after dental service starts', async () => {
   await fixture(async state => {
     for (const status of ['called', 'serving', 'done', 'cancelled', 'missed', 'no_show', 'waiting']) {
       state.calls = [called(status)];
       for (const type of ['regular', 'priority']) {
         const res = response();
         await createQueue(request({ type }), res);
-        assert.equal(res.statusCode, 409, `${status}, ${type}`);
-        assert.equal(res.body.message, Queue.REGISTRATION_CLOSED_MESSAGE);
+        assert.equal(res.statusCode, 201, `${status}, ${type}`);
+        assert.equal(res.body.queue_number, type === 'priority' ? 'AP01' : 'AQ01');
       }
     }
-    assert.equal(state.writes.length, 0);
-    assert.equal(state.tickets.length, 0);
-    assert.equal(state.rolledBack, 14);
+    assert.equal(state.writes.length, 14);
+    assert.equal(state.tickets.length, 14);
+    assert.equal(state.rolledBack, 0);
   });
 });
 
-test('earlier active bookings retain AQ/AP access; cancelled, completed and unrelated bookings do not', async () => {
+test('active bookings are reused; inactive or unrelated bookings require a new capacity-checked booking', async () => {
   await fixture(async state => {
     state.calls = [called('done')];
     for (const status of ['pending', 'confirmed']) {
@@ -117,14 +112,14 @@ test('earlier active bookings retain AQ/AP access; cancelled, completed and unre
       state.appointments = [appointment];
       const res = response();
       await createQueue(request(), res);
-      assert.equal(res.statusCode, 409);
+      assert.equal(res.statusCode, 201);
     }
-    assert.equal(state.tickets.length, 4);
-    assert.equal(state.writes.length, 0);
+    assert.equal(state.tickets.length, 8);
+    assert.equal(state.writes.length, 4);
   });
 });
 
-test('separate booking endpoint closes today after the first call and still accepts future appointments', async () => {
+test('the booking endpoint accepts today and future dates after the first call when capacity remains', async () => {
   await fixture(async state => {
     const submit = async appointment_date => {
       const res = response();
@@ -134,39 +129,38 @@ test('separate booking endpoint closes today after the first call and still acce
     assert.equal((await submit(today)).statusCode, 201);
     state.calls = [called('done')];
     state.appointments = [booked()];
-    const closed = await submit(today);
-    assert.equal(closed.statusCode, 409);
-    assert.equal(closed.body.message, Queue.REGISTRATION_CLOSED_MESSAGE);
+    assert.equal((await submit(today)).statusCode, 201);
     assert.equal((await submit(date(1))).statusCode, 201);
-    assert.equal(state.writes.length, 2);
+    assert.equal(state.writes.length, 3);
     assert.equal(state.locks, 3);
   });
 });
 
-test('registration checks run after acquiring the first-call lock', async () => {
+test('a concurrent first call does not close intake; registration retains the category lock', async () => {
   await fixture(async state => {
     state.onLock = () => { state.calls = [called()]; };
     const ticket = response();
     await createQueue(request(), ticket);
-    assert.equal(ticket.statusCode, 409);
+    assert.equal(ticket.statusCode, 201);
     state.calls = [];
     const booking = response();
     await createAppointment(request({ doctor_id: 1, appointment_date: today, appointment_time: '09:00' }), booking);
-    assert.equal(booking.statusCode, 409);
-    assert.equal(state.tickets.length, 0);
-    assert.equal(state.writes.length, 0);
+    assert.equal(booking.statusCode, 201);
+    assert.equal(state.tickets.length, 1);
+    assert.equal(state.writes.length, 2);
+    assert.equal(state.locks, 2);
   });
 });
 
-test('patient status explains closure and permits existing bookings without changing other roles', async () => {
+test('patient status never advertises a first-call closure and preserves the response contract', async () => {
   await fixture(async state => {
     const before = response();
     await getQueueStatus(request(), before);
     assert.equal(before.body.registration_message, null);
     state.calls = [called('done')];
-    const closed = response();
-    await getQueueStatus(request(), closed);
-    assert.equal(closed.body.registration_message, Queue.REGISTRATION_CLOSED_MESSAGE);
+    const running = response();
+    await getQueueStatus(request(), running);
+    assert.equal(running.body.registration_message, null);
     state.appointments = [booked()];
     const existing = response();
     await getQueueStatus(request(), existing);
@@ -174,5 +168,27 @@ test('patient status explains closure and permits existing bookings without chan
     const staff = response();
     await getQueueStatus({ ...request(), user: { role: 'staff' } }, staff);
     assert.deepEqual(staff.body, { now_serving: null, next_queuing: null });
+  });
+});
+
+test('open intake still rejects unavailable dentists, full capacity, duplicates, daily limits and unverified priority', async () => {
+  await fixture(async state => {
+    state.calls = [called('serving')];
+    for (const [setup, message, type = 'regular'] of [
+      [() => { state.settings.is_available = 0; }, /unavailable/],
+      [() => { state.settings.is_available = 1; state.bookedCount = 10; }, /No appointment slots/],
+      [() => { state.bookedCount = 0; state.activeQueue = { id: 1 }; }, /already have an active queue/],
+      [() => { state.activeQueue = null; state.registrationCount = 2; }, /daily queue limit/],
+      [() => { state.registrationCount = 0; state.patient.priority_category = null; }, /not eligible/, 'priority'],
+      [() => { state.patient.priority_category = 'pwd'; state.patient.priority_expires_at = new Date(0); }, /not eligible/, 'priority'],
+    ]) {
+      setup();
+      const res = response();
+      await createQueue(request({ type }), res);
+      assert.equal(res.statusCode, type === 'priority' ? 403 : 409);
+      assert.match(res.body.message, message);
+    }
+    assert.equal(state.tickets.length, 0);
+    assert.equal(state.writes.length, 0);
   });
 });

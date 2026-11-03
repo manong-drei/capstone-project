@@ -12,7 +12,7 @@ async function mockDashboard(page, role) {
   const visit = { visit_id: "queue-1", consultation_id: 11, queue_number: "AQ11", patient_full_name: "My Patient", visit_date: "2026-11-02", visit_type: "appointment", status: "done" };
   const state = {
     doctor,
-    queue: { id: 1, queue_number: "AQ11", category: "dental", status: "waiting", services: [] },
+    queue: { id: 1, queue_number: "AQ11", category: "dental", status: "waiting", services: ["CONSULTATION"] },
     statusError: false,
     status: { now_serving: "Q01", current_status: "serving", next_queuing: "P02", line: [
       { queue_number: "Q01", status: "serving" },
@@ -119,11 +119,15 @@ for (const width of [1440, 375]) {
     await page.clock.install();
     const state = await mockDashboard(page, "patient");
     await page.goto("/patient");
-    const myQueueCard = page.getByRole("button", { name: /My Queue/ });
+    const myQueueCard = page.getByRole("region", { name: "My Queue", exact: true });
     await expect(myQueueCard).toHaveCount(1);
     await expect(myQueueCard).toContainText("AQ11");
+    await expect(myQueueCard).toContainText("Your Queue Number");
+    await expect(myQueueCard).toContainText("Dental Check-up");
+    await expect(myQueueCard.getByRole("button", { name: "Cancel Queue", exact: true })).toBeVisible();
+    await expect(page.getByText("AQ11", { exact: true })).toHaveCount(1);
     await expect(page.getByText("My queue number", { exact: true })).toHaveCount(0);
-    await myQueueCard.click();
+    await myQueueCard.getByRole("button", { name: "View queue line", exact: true }).click();
     await expect(page).toHaveURL(/\/patient\/my-queue$/);
     const line = page.getByRole("list", { name: "Current queue line" });
     await expect(line.getByRole("listitem")).toHaveText([/Q01.*Now serving/, /P02.*Waiting/, /AQ11.*Your ticket.*Waiting/]);
@@ -151,7 +155,11 @@ test("My Queue shows the line without a personal ticket and respects the dentist
   const state = await mockDashboard(page, "patient");
   state.queue = null;
   state.doctor.leave_end = "2026-11-04";
-  await page.goto("/patient/my-queue");
+  await page.goto("/patient");
+  const myQueueCard = page.getByRole("region", { name: "My Queue", exact: true });
+  await expect(myQueueCard).toContainText("No active queue number");
+  await myQueueCard.getByRole("button", { name: /My Queue/ }).click();
+  await expect(page).toHaveURL(/\/patient\/my-queue$/);
   await expect(page.getByRole("list", { name: "Current queue line" }).getByRole("listitem")).toHaveCount(3);
   await expect(page.getByText("Your ticket", { exact: true })).toHaveCount(0);
   await expect(page.getByText("The dentist is on leave. Please approach clinic staff for assistance.", { exact: true })).toBeVisible();

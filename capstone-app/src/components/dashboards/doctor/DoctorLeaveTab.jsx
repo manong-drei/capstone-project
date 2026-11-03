@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, CalendarDays } from 'lucide-react';
 import api from '@/services/api';
 import { Footer } from '@/pages/LandingPage';
+import './DoctorTab.css';
 
 const date = value => new Date(`${value}T00:00:00+08:00`).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium' });
 const inputClass = 'mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-2 focus:outline-indigo-600';
@@ -50,14 +52,14 @@ export default function DoctorLeaveTab({ onBack }) {
   };
 
   return <>
-    <main className="dd-tab-pad mx-auto w-full max-w-5xl flex-1 space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3"><button type="button" onClick={onBack} className="text-sm text-slate-600">← Back</button><h2 className="text-xl font-bold text-slate-900">Leave Requests</h2></div>
-        <button type="button" disabled={loading || busy} onClick={reload} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50">Refresh leave requests</button>
+    <main className="doctor-tab-page space-y-5">
+      <div className="doctor-tab-header">
+        <div className="doctor-tab-title"><span className="doctor-tab-title-icon"><CalendarDays size={23} /></span><div><p className="doctor-tab-eyebrow">Availability</p><h1>Leave Requests</h1></div></div>
+        <button className="doctor-tab-back" type="button" onClick={onBack}><ArrowLeft size={17} /> Back to dashboard</button>
       </div>
       <p className="text-sm leading-relaxed text-slate-600">Request a date range for admin approval. Pending requests keep your current availability. Approved leave blocks new appointments and walk-ins for the full period, using Philippine dates.</p>
       <form onSubmit={submit} aria-label="Request doctor leave" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
-        <h3 className="font-semibold text-slate-900">Request leave</h3>
+        <h2 className="font-semibold text-slate-900">Request leave</h2>
         <p className="text-xs text-slate-500">Both dates are required. The end date is included.</p>
         <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-slate-700">Start date<input type="date" required min={today} value={start} onChange={event => { setStart(event.target.value); setError(''); }} className={inputClass} /></label>
@@ -69,7 +71,10 @@ export default function DoctorLeaveTab({ onBack }) {
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{message}</p>}
       <section aria-labelledby="my-leave-heading" className="space-y-3">
-        <h3 id="my-leave-heading" className="font-semibold text-slate-900">My leave requests</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="my-leave-heading" className="font-semibold text-slate-900">My leave requests</h2>
+          <button type="button" disabled={loading || busy} onClick={reload} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50">Refresh leave requests</button>
+        </div>
         {loading ? <p role="status" className="text-sm text-slate-500">Loading leave requests…</p> : loadError ? <div role="alert" className="text-sm text-red-700">{loadError}<button type="button" onClick={reload} className="ml-3 underline">Retry</button></div> : requests.length === 0 ? <p className="text-sm text-slate-500">No leave requests yet.</p> : requests.map(request => <article key={request.id} className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{date(request.start_date)} – {date(request.end_date)}</p><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${request.status === 'approved' ? 'bg-green-50 text-green-800' : request.status === 'pending' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>{statuses[request.status]}</span></div>
           {request.reason && <p className="whitespace-pre-wrap break-words text-sm text-slate-600">{request.reason}</p>}

@@ -5,17 +5,6 @@ const conflict = message => Object.assign(new Error(message), { status: 409 });
 const NO_SHOW_EXPIRED = 'No-show — did not return within 10 minutes';
 
 const Queue = {
-  REGISTRATION_CLOSED_MESSAGE: "Today's dental queue has started. New same-day appointment registration is closed. Please approach staff for walk-in registration.",
-
-  hasDentalQueueStarted: async (date = null, connection = pool) => {
-    const [[called]] = await connection.query(`SELECT id FROM queues
-      WHERE category = 'dental'
-        AND created_at >= COALESCE(?, CURDATE())
-        AND created_at < COALESCE(?, CURDATE()) + INTERVAL 1 DAY
-        AND last_called_at IS NOT NULL LIMIT 1`, [date, date]);
-    return Boolean(called);
-  },
-
   lockCategory: async (category, connection) => {
     if (!['dental', 'general'].includes(category)) throw new Error('Invalid queue category.');
     await connection.query(`INSERT INTO queue_sequences (queue_date, category, sequence_type, last_number)

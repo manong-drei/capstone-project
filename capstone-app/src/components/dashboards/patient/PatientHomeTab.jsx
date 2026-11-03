@@ -11,17 +11,41 @@ const CHO_MAP_EMBED_SRC =
   "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2564.558871295493!2d122.83512719999999!3d10.538003599034457!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33aec71e206eb71d%3A0xfbcc4df1333ed49a!2sCity%20Health%20Office%20of%20Bago!5e0!3m2!1sen!2sph!4v1791246126385!5m2!1sen!2sph";
 
 function getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError) {
-  if (queueError) return { value: "Unavailable", detail: "Queue updates failed. Retrying automatically." };
-  if (!hasActiveQueue) return { value: "—", detail: "Join the queue to see your estimate" };
-  if (queue.status === QUEUE_STATUS.CALLED) return { value: "Your turn", detail: "Please report to staff now" };
-  if (queue.status === QUEUE_STATUS.SERVING) return { value: "In progress", detail: "You are receiving care" };
-  if (queue.status === QUEUE_STATUS.MISSED) return { value: "On hold", detail: "Report to staff to rejoin the queue" };
-  if (doctorAvailability === 0) return { value: "Paused", detail: "The dentist is unavailable. Please check with staff." };
-  if (doctorAvailability === null) return { value: "Checking…", detail: "Checking doctor availability" };
+  if (queueError)
+    return {
+      value: "Unavailable",
+      detail: "Queue updates failed. Retrying automatically.",
+    };
+  if (!hasActiveQueue)
+    return { value: "—", detail: "Join the queue to see your estimate" };
+  if (queue.status === QUEUE_STATUS.CALLED)
+    return { value: "Your turn", detail: "Please report to staff now" };
+  if (queue.status === QUEUE_STATUS.SERVING)
+    return { value: "In progress", detail: "You are receiving care" };
+  if (queue.status === QUEUE_STATUS.MISSED)
+    return { value: "On hold", detail: "Report to staff to rejoin the queue" };
+  if (doctorAvailability === 0)
+    return {
+      value: "Paused",
+      detail: "The dentist is unavailable. Please check with staff.",
+    };
+  if (doctorAvailability === null)
+    return { value: "Checking…", detail: "Checking doctor availability" };
   const estimate = queue.wait_estimate;
-  if (!estimate || !Number.isFinite(estimate.minutes)) return { value: "Updating…", detail: "Waiting for the latest queue estimate" };
-  if (estimate.minutes === 0) return { value: "You’re next", detail: "No patients ahead. Please stay nearby." };
-  const basis = estimate.sample_count > 0 ? "Based on today’s completed visits." : "Using 15 min per patient until visits are completed.";
+  if (!estimate || !Number.isFinite(estimate.minutes))
+    return {
+      value: "Updating…",
+      detail: "Waiting for the latest queue estimate",
+    };
+  if (estimate.minutes === 0)
+    return {
+      value: "You’re next",
+      detail: "No patients ahead. Please stay nearby.",
+    };
+  const basis =
+    estimate.sample_count > 0
+      ? "Based on today’s completed visits."
+      : "Using 15 min per patient until visits are completed.";
   return {
     value: `~${estimate.minutes} min`,
     detail: `${estimate.patients_ahead} patient${estimate.patients_ahead === 1 ? "" : "s"} ahead. ${basis} Times may change.`,
@@ -36,14 +60,18 @@ export default function PatientHomeTab({
   registrationMessage,
   queue,
   queueError,
-  myQueueSubtitle,
   onGetQueue,
   onCancelQueue,
   onGoAppointments,
   onGoQueue,
 }) {
   const [showMap, setShowMap] = useState(false);
-  const estimatedWait = getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError);
+  const estimatedWait = getWaitDisplay(
+    queue,
+    hasActiveQueue,
+    doctorAvailability,
+    queueError,
+  );
 
   const doctorAvailable = doctorAvailability !== 0;
   const availabilityLabel =
@@ -52,8 +80,8 @@ export default function PatientHomeTab({
       : doctorLeaveEnd
         ? "On leave"
         : doctorAvailable
-        ? "Available today"
-        : "Unavailable today";
+          ? "Available today"
+          : "Unavailable today";
 
   const quickLinks = [
     {
@@ -126,7 +154,9 @@ export default function PatientHomeTab({
             <button
               type="button"
               onClick={onGetQueue}
-              disabled={hasActiveQueue || !!registrationMessage || !!doctorLeaveEnd}
+              disabled={
+                hasActiveQueue || !!registrationMessage || !!doctorLeaveEnd
+              }
               className="flex min-h-20 min-w-0 items-center rounded-2xl bg-[#f97316] px-3 py-4 text-left text-white shadow-md shadow-orange-500/30 transition hover:bg-[#ea6d10] focus:outline-none focus:ring-4 focus:ring-orange-200 disabled:cursor-not-allowed disabled:opacity-65 sm:min-h-16 sm:px-6"
             >
               <span className="min-w-0">
@@ -139,8 +169,8 @@ export default function PatientHomeTab({
                     : doctorLeaveEnd
                       ? "Dentist on approved leave"
                       : registrationMessage
-                      ? "Registration closed"
-                      : "Join the dental queue"}
+                        ? "Registration closed"
+                        : "Join the dental queue"}
                 </span>
               </span>
             </button>
@@ -169,21 +199,27 @@ export default function PatientHomeTab({
             </p>
           )}
 
-          {(hasActiveQueue || queue?.status === "no_show") && (
-            <QueueStatus queue={queue} onCancel={onCancelQueue} />
-          )}
-
           <section
-            className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3"
+            className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
             aria-label="Patient information"
           >
-            <InfoCard
-              title="My Queue"
-              value={hasActiveQueue ? queue.queue_number : "—"}
-              detail={hasActiveQueue ? myQueueSubtitle : "View the current queue line"}
-              accent={ORANGE}
-              onClick={onGoQueue}
-            />
+            <section className="min-w-0" aria-label="My Queue">
+              {hasActiveQueue || queue?.status === "no_show" ? (
+                <QueueStatus
+                  queue={queue}
+                  onCancel={onCancelQueue}
+                  onViewQueue={onGoQueue}
+                />
+              ) : (
+                <InfoCard
+                  title="My Queue"
+                  value="No active queue number"
+                  detail="View the current queue line"
+                  accent={ORANGE}
+                  onClick={onGoQueue}
+                />
+              )}
+            </section>
             <InfoCard
               title="Estimated wait"
               value={estimatedWait.value}
@@ -199,8 +235,8 @@ export default function PatientHomeTab({
                   : doctorLeaveEnd
                     ? `Through ${new Date(`${doctorLeaveEnd}T00:00:00+08:00`).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" })}. Please contact staff.`
                     : doctorAvailable
-                    ? "Ready to receive patients"
-                    : "Please check again later"
+                      ? "Ready to receive patients"
+                      : "Please check again later"
               }
               accent={
                 doctorAvailability === null
@@ -319,7 +355,7 @@ function QueueBanner({ label, value, color }) {
 
 function InfoCard({ title, value, detail, accent, onClick }) {
   const content = (
-    <span className="min-w-0 flex-1">
+    <span className="flex w-full min-w-0 flex-col items-start justify-center text-left">
       <span className="block text-[10px] font-bold uppercase leading-snug tracking-[0.08em] text-[#9ca3af] sm:text-[11px] sm:tracking-[0.12em]">
         {title}
       </span>
@@ -334,8 +370,7 @@ function InfoCard({ title, value, detail, accent, onClick }) {
     </span>
   );
 
-  const classes =
-    "flex min-h-28 min-w-0 flex-col justify-center rounded-2xl border border-[#e5e7eb] border-l-4 bg-white p-3 text-left shadow-sm sm:min-h-32 sm:p-5";
+  const classes = "flex h-full w-full min-h-28 min-w-0 items-center rounded-2xl border border-[#e5e7eb] border-l-4 bg-white p-3 text-left shadow-sm sm:min-h-32 sm:p-5";
 
   if (!onClick)
     return (

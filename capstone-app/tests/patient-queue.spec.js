@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
-const CLOSED_MESSAGE = "Today's dental queue has started. New same-day appointment registration is closed. Please approach staff for walk-in registration.";
+const CAPACITY_MESSAGE = "No appointment slots available for today.";
 
 async function mockPatient(page) {
   await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
@@ -16,8 +16,8 @@ async function mockPatient(page) {
     if (path === '/api/queue' && route.request().method() === 'POST') {
       state.posts++;
       if (state.rejectRegistration) {
-        state.registrationMessage = CLOSED_MESSAGE;
-        return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: CLOSED_MESSAGE }) });
+        state.registrationMessage = CAPACITY_MESSAGE;
+        return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: CAPACITY_MESSAGE }) });
       }
       state.queue = { id: 2, queue_number: 'AQ12', category: 'dental', status: 'waiting', type: 'regular', services: ['CONSULTATION'] };
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(state.queue) });
@@ -36,6 +36,46 @@ async function mockPatient(page) {
 }
 
 const estimatedWaitCard = page => page.getByText('Estimated wait', { exact: true }).locator('../..');
+
+for (const [width, columns] of [[320, 1], [375, 1], [768, 2], [1024, 3], [1440, 3]]) {
+  test(`patient information uses ${columns} columns without overflow at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = await mockPatient(page);
+    const ticket = { ...state.queue, type: "priority", queue_number: "AP12345678" };
+    state.queue = null;
+    await page.goto("/patient");
+    const grid = page.getByRole("region", { name: "Patient information", exact: true });
+    const myQueue = grid.getByRole("region", { name: "My Queue", exact: true });
+
+    for (const active of [false, true]) {
+      if (active) {
+        state.queue = ticket;
+        await page.clock.fastForward(15_000);
+        await expect(myQueue).toContainText(ticket.queue_number);
+        await expect(myQueue.getByRole("button", { name: "Cancel Queue", exact: true })).toBeVisible();
+        await expect(myQueue.getByRole("button", { name: "View queue line", exact: true })).toBeVisible();
+      } else {
+        await expect(myQueue).toContainText("No active queue number");
+      }
+
+      await expect(grid.locator(":scope > *")).toHaveCount(6);
+      const layout = await grid.evaluate(element => {
+        const cards = Array.from(element.children, card => card.getBoundingClientRect());
+        return {
+          columns: new Set(cards.map(card => Math.round(card.x))).size,
+          rows: new Set(cards.map(card => Math.round(card.y))).size,
+          widths: new Set(cards.map(card => Math.round(card.width))).size,
+        };
+      });
+      expect(layout).toEqual({ columns, rows: 6 / columns, widths: 1 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(await myQueue.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      if (width === 375 || width === 1440) {
+        await page.screenshot({ path: testInfo.outputPath(`patient-cards-${width}-${active ? "active" : "idle"}.png`), fullPage: true });
+      }
+    }
+  });
+}
 
 for (const width of [1440, 375]) {
   test(`estimated wait refreshes with the patient's queue at ${width}px`, async ({ page }, testInfo) => {
@@ -169,22 +209,22 @@ test('expired no-show explains closure and permits requesting a new ticket', asy
   await expect(page.getByRole('status')).toContainText('did not return within 10 minutes');
 });
 
-test('closed registration directs patients to staff even between calls and refreshes when intake reopens', async ({ page }) => {
+test('registration notices disable intake and clear when the notice is removed', async ({ page }) => {
   const state = await mockPatient(page);
   state.queue = null;
-  state.registrationMessage = CLOSED_MESSAGE;
+  state.registrationMessage = CAPACITY_MESSAGE;
   await page.goto('/patient');
   const join = page.getByRole('button', { name: /Get queue ticket/i });
   await expect(join).toBeDisabled();
-  await expect(page.getByRole('status')).toHaveText(CLOSED_MESSAGE);
+  await expect(page.getByRole('status')).toHaveText(CAPACITY_MESSAGE);
   expect(state.posts).toBe(0);
   state.registrationMessage = null;
   await page.clock.fastForward(15_000);
   await expect(join).toBeEnabled();
-  await expect(page.getByText(CLOSED_MESSAGE, { exact: true })).toHaveCount(0);
+  await expect(page.getByText(CAPACITY_MESSAGE, { exact: true })).toHaveCount(0);
 });
 
-test('a patient with an existing eligible booking can get a ticket while the queue is running', async ({ page }) => {
+test('a patient can get a ticket while the queue is running', async ({ page }) => {
   const state = await mockPatient(page);
   state.queue = null;
   state.started = true;
@@ -197,7 +237,7 @@ test('a patient with an existing eligible booking can get a ticket while the que
   expect(state.posts).toBe(1);
 });
 
-test('an open ticket form stops registration when the first-call cutoff arrives on a poll', async ({ page }) => {
+test('an open ticket form remains available when the first patient is called', async ({ page }) => {
   const state = await mockPatient(page);
   state.queue = null;
   await page.goto('/patient');
@@ -205,11 +245,20 @@ test('an open ticket form stops registration when the first-call cutoff arrives 
   await page.getByRole('checkbox', { name: 'Dental Check-up', exact: true }).check();
   const submit = page.getByRole('button', { name: 'Get Queue Ticket', exact: true });
   await expect(submit).toBeEnabled();
-  state.registrationMessage = CLOSED_MESSAGE;
+  state.started = true;
   await page.clock.fastForward(15_000);
-  await expect(submit).toBeDisabled();
-  await expect(page.getByRole('alert')).toHaveText(CLOSED_MESSAGE);
-  expect(state.posts).toBe(0);
+  await expect(submit).toBeEnabled();
+  await submit.click();
+  await expect(page.getByText('AQ12', { exact: true }).first()).toBeVisible();
+  expect(state.posts).toBe(1);
+});
+
+test('a confirmed return explains rejoining the priority group without promising the next opening', async ({ page }) => {
+  const state = await mockPatient(page);
+  state.queue.returned_at = '2026-10-18T10:00:00+08:00';
+  await page.goto('/patient');
+  await expect(page.getByText('Your return is confirmed. You have rejoined behind patients already waiting in your priority group; please stay nearby.', { exact: true })).toBeVisible();
+  await expect(page.getByText('You will be called at the next opening', { exact: false })).toHaveCount(0);
 });
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 375, height: 667 }]) {
@@ -259,7 +308,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 375, height: 667 
   });
 }
 
-test('a cutoff rejection from a stale form refreshes eligibility and explains walk-in registration', async ({ page }) => {
+test('a capacity rejection from an open form refreshes eligibility and explains the error', async ({ page }) => {
   const state = await mockPatient(page);
   state.queue = null;
   await page.goto('/patient');
@@ -271,8 +320,8 @@ test('a cutoff rejection from a stale form refreshes eligibility and explains wa
   const submit = page.getByRole('button', { name: 'Get Queue Ticket', exact: true });
   await submit.click();
   await expect(submit).toBeDisabled();
-  await expect(page.getByRole('alert')).toHaveText(CLOSED_MESSAGE);
-  expect(alertMessage).toBe(CLOSED_MESSAGE);
+  await expect(page.getByRole('alert')).toHaveText(CAPACITY_MESSAGE);
+  expect(alertMessage).toBe(CAPACITY_MESSAGE);
   expect(state.posts).toBe(1);
   expect(state.queue).toBeNull();
 });

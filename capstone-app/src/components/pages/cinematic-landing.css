@@ -136,14 +136,14 @@
 }
 .cinematic-sheen {
   position: absolute;
-  inset: 0;
+  top: 30%;
+  left: 50%;
+  width: 720px;
+  height: 720px;
+  margin: -360px 0 0 -360px;
   pointer-events: none;
   z-index: 5;
-  background: radial-gradient(
-    600px circle at var(--mouse-x, 50%) var(--mouse-y, 30%),
-    #ffffff09,
-    transparent 60%
-  );
+  background: radial-gradient(circle, #ffffff09, transparent 70%);
 }
 .cinematic-card-grid {
   display: grid;
@@ -427,6 +427,17 @@
   }
 }
 @media (min-width: 1024px) and (min-height: 700px) and (prefers-reduced-motion: no-preference) {
+  /* Keep the scroll reveal on composited layers without repainting filters. */
+  .cinematic-intro,
+  .cinematic-card,
+  .cinematic-phone-wrap,
+  .cinematic-card-copy,
+  .cinematic-badge {
+    will-change: transform, opacity;
+  }
+  .cinematic-badge {
+    backdrop-filter: none;
+  }
   .cinematic-stage {
     height: calc(100svh - 72px);
     overflow: hidden;

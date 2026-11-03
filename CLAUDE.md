@@ -70,6 +70,7 @@ server/                           Express backend
   .env.sms.example                SMS variable template, no real secrets
   SMS_SETUP.md                    Detailed SMS deployment and recovery guide
   QUEUE_GRACE_PERIOD.md           Missed-call lifecycle and API guide
+  QUEUE_ORDERING.md               Priority FIFO, protected alternation, and return placement
   SERVER_REVIEW.md                Prior audit; re-check findings against current code
   reset-test-data.js              Destructive demo-data cleanup utility
 
@@ -244,7 +245,7 @@ Mock identities are not provisioned database records. The header mocks use `id`,
 - Priority requests require recorded eligibility; categories are `senior`, `pwd`, and `pregnant`, with expiry checked for patient self-queueing.
 - A patient can have one active dental ticket and at most two dental registrations per day. Active states are `waiting`, `called`, `serving`, and `missed`; terminal `no_show` does not itself block a new eligible ticket.
 - Registration uses the dentist with the lowest `doctor_id`, daily availability, and appointment capacity. The appointment default/max is 10; dental walk-in capacity defaults to 0 (no configured cap) and has a maximum setting of 999.
-- Once any dental ticket for the date has been called, new appointment registration for that date closes. An existing eligible booking can still request its ticket. Closure persists between calls; staff walk-in intake remains the alternative.
+- Registration stays open after the first dental call, subject to existing dentist availability, capacity, active-ticket and daily limits. Patient queue status retains a nullable `registration_message`; starting service does not populate it with a closure notice.
 - Without an active same-day appointment, self-queueing creates a confirmed appointment with the exact reason `Same-day queue registration` in the registration transaction.
 - Current numbers come from `Queue.nextQueueNumber()` and locked daily `queue_sequences`, not the unused `utils/generateQueueNumber.js`.
 
@@ -254,14 +255,14 @@ Mock identities are not provisioned database records. The header mocks use `id`,
 | Dental walk-in | `Q01` | `P01` |
 | General walk-in | `G-001` | `G-001` (same general sequence) |
 
-Dental tickets have four independent daily counters: `appointment_regular` (`AQ`), `appointment_priority` (`AP`), `walk_in_regular` (`Q`), and `walk_in_priority` (`P`). Four walk-ins do not advance either appointment counter: the first regular appointment is `AQ01`, and the first priority appointment is `AP01`. New counters start after the highest number already issued today with the same prefix, including cancelled/completed tickets; existing tickets keep their numbers. The existing `queue_sequences.sequence_type` VARCHAR(20) supports these keys without a migration. General tickets retain one shared `general` counter. `queueOrder.projectQueue()` alternates sources, prioritizes eligible tickets within each source, and orders staff-confirmed returns first by return time. Clinic displays, call-next, and SMS positions must use that shared projected order.
+Dental tickets have four independent daily counters: `appointment_regular` (`AQ`), `appointment_priority` (`AP`), `walk_in_regular` (`Q`), and `walk_in_priority` (`P`). Four walk-ins do not advance either appointment counter: the first regular appointment is `AQ01`, and the first priority appointment is `AP01`. New counters start after the highest number already issued today with the same prefix, including cancelled/completed tickets; existing tickets keep their numbers. The existing `queue_sequences.sequence_type` VARCHAR(20) supports these keys without a migration. General tickets retain one shared `general` counter. `queueOrder.projectQueue()` selects verified priority tickets FIFO across sources, then alternates regular sources subject to older first-turn walk-in protection. Confirmed returns rejoin behind existing entries in their priority group using `returned_at`. Entry timestamps and ID break ties; displayed numbers never determine precedence. Clinic displays, call-next, estimates and SMS positions use that shared projected order. See `server/QUEUE_ORDERING.md` for the algorithm and examples.
 
 ### Call, Presence, Missed Turn, and Return
 
 - Call-next changes `waiting → called`; only one called/serving ticket may occupy a category. Staff/doctor confirms physical presence for `called → serving`.
-- Recall is available 30 seconds after the first call. Skipping requires two calls and another 30 seconds after the second.
+- Recall is available 15 seconds after the first call. Skipping requires two calls and another 15 seconds after the second.
 - The first skip changes the ticket to `missed`, starts a 10-minute grace period, and calls the next ticket in the same transaction.
-- Staff/doctor records an arrival before the deadline through the return action. The same ticket becomes `waiting` and gets the next opening in return-time order; it does not interrupt a called/serving patient.
+- Staff/doctor records an arrival before the deadline through the return action. The same ticket becomes `waiting` and rejoins behind patients already waiting in its priority group, ordered by return time; it does not interrupt a called/serving patient.
 - An expired grace window or a second missed turn after returning ends as `no_show`. Terminal tickets cannot be revived. The queue expiry worker runs at startup and every five seconds independently of SMS; ticket actions also check expiry under the category lock.
 - The generic status endpoint accepts presence, completion (`serving → done`), and cancellation. Recall/skip/return use their dedicated endpoints. Admins cannot confirm presence.
 - Cancellation requires a reason. Patients may cancel their own `waiting` or `missed` ticket; staff/doctor/admin can cancel an eligible active ticket. Registered-patient cancellation/completion also updates the associated appointment status.

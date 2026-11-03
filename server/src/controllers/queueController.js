@@ -39,11 +39,6 @@ const getQueueStatus = async (req, res) => {
     const status = await Queue.getPublicStatus({ category });
     if (req.user.role === 'patient') {
       status.registration_message = null;
-      if (await Queue.hasDentalQueueStarted()) {
-        const patient = await Patient.findByUserId(req.user.user_id);
-        const appointment = patient && await Appointment.findActiveToday(patient.patient_id);
-        if (!appointment) status.registration_message = Queue.REGISTRATION_CLOSED_MESSAGE;
-      }
     }
     res.json(status);
   } catch (err) {
@@ -138,9 +133,6 @@ const createQueue = async (req, res) => {
 
     const existingAppointment = await Appointment.findActiveToday(patient.patient_id, connection);
     if (!existingAppointment) {
-      if (await Queue.hasDentalQueueStarted(null, connection)) {
-        throw httpError(409, Queue.REGISTRATION_CLOSED_MESSAGE);
-      }
       const [[{ booked }]] = await connection.query(
         `SELECT COUNT(*) AS booked FROM appointments
          WHERE doctor_id = ? AND appointment_date = CURDATE() AND status != 'cancelled'`,

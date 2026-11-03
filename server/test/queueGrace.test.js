@@ -203,6 +203,8 @@ test('timely return keeps the original ticket beyond expiry and a second miss is
     await Queue.expireMissed();
     assert.equal(f.rows()[0].status, 'waiting');
     await Queue.updateStatus(2, 'serving'); await Queue.updateStatus(2, 'done');
+    assert.equal((await Queue.callNext()).id, 3);
+    await Queue.updateStatus(3, 'serving'); await Queue.updateStatus(3, 'done');
     assert.equal((await Queue.callNext()).id, 1);
     f.advance(15_000); await Queue.recall(1); f.advance(15_000);
     const second = await Queue.skip(1);
@@ -267,10 +269,10 @@ test('cancellation cannot bypass expiry while waiting for the worker', async () 
   } finally { f.close(); }
 });
 
-test('returned patients are FIFO ahead of ordinary priority and source alternation resumes afterward', () => {
+test('returns rejoin their group after existing entries without bypassing priority', () => {
   const row = (id, is_walk_in, returned_at, type = 'regular') => ({ id, is_walk_in, returned_at, type, created_at: new Date(0) });
   const waiting = [row(4, 0, new Date(2)), row(3, 1, new Date(1)), row(2, 1, null, 'priority'), row(1, 0, null, 'priority')];
-  assert.deepEqual(projectQueue(waiting, { is_walk_in: 1 }).map(q => q.id), [3, 4, 2, 1]);
+  assert.deepEqual(projectQueue(waiting, { is_walk_in: 1 }).map(q => q.id), [1, 2, 3, 4]);
 });
 
 test('expiry startup sweep and five-second timer work with SMS disabled', async () => {

@@ -119,7 +119,6 @@ test('approved leave rejects appointments, online tickets and walk-ins before re
   };
   t.mock.method(pool, 'getConnection', async () => connection);
   t.mock.method(Queue, 'lockCategory', async () => {});
-  t.mock.method(Queue, 'hasDentalQueueStarted', async () => false);
   t.mock.method(Queue, 'findByPatientId', async () => null);
   t.mock.method(Patient, 'findByUserId', async () => ({ patient_id: 42 }));
   t.mock.method(console, 'error', () => {});

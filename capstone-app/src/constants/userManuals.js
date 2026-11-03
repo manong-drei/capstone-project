@@ -18,13 +18,13 @@ export const USER_MANUALS = {
           "Select “Get Queue Ticket” and wait for confirmation. Your assigned ticket appears on Home; keep this number to identify your visit to staff.",
           "Read the notice above your ticket. It tells you whether to stay nearby without an SMS or expect a possible text reminder as your turn approaches.",
         ],
-        note: "You can have one active dental ticket and make at most two dental queue registrations per day. Cancelled tickets and no-shows still count. After the first dental call, new online same-day registration closes; an existing eligible appointment for today may still obtain its ticket. Follow the message shown or approach staff for walk-in registration.",
+        note: "You can have one active dental ticket and make at most two dental queue registrations per day. Cancelled tickets and no-shows still count. Online registration can continue after service starts, subject to dentist availability and capacity. A new regular online ticket cannot pass earlier regular walk-ins waiting for their first turn.",
       },
       {
         id: "follow-ticket", title: "Follow your turn", summary: "Your ticket status tells you what to do next.",
         steps: [
           "On Home, compare your ticket with “Now serving” and “Next in queue”. The display updates about every 15 seconds while the page is open.",
-          "While your ticket is “Waiting”, stay nearby and keep checking. Queue order can change when priority patients or confirmed returning patients are placed in order.",
+          "While your ticket is “Waiting”, stay nearby and keep checking. Verified priority patients go first in entry order. Confirmed returns rejoin behind patients already waiting in the same priority group.",
           "When “It’s your turn!” or “Called — report to staff” appears, report to staff immediately. Staff must confirm that you are present before care begins.",
           "If you see “Missed call”, report to staff before the displayed deadline. Staff must record your return; reopening the page does not confirm your arrival.",
         ],
@@ -65,7 +65,7 @@ export const USER_MANUALS = {
     faqs: [
       ["Can I choose more than two services?", "Choose one or two services per ticket. Tell clinic staff or the dentist if your needs change."],
       ["How do I get priority status?", "Priority is applied automatically when your profile has a valid approved category. Ask clinic staff to review your eligibility; there is no patient priority selector."],
-      ["Why did a higher ticket number go first?", "Appointment and walk-in tickets use separate counters. Priority and confirmed returns also affect serving order. Follow the displayed queue rather than comparing the number alone."],
+      ["Why did a higher ticket number go first?", "Appointment and walk-in tickets use separate counters. Verified priority patients go first in entry order. Regular tickets use protected source alternation; a new online ticket cannot pass earlier regular walk-ins waiting for their first turn. Follow the displayed queue rather than comparing ticket numbers."],
       ["Does this ticket reserve a future date?", "The ticket request is for today's dental visit. It is not a future-date booking form."],
       ["Can I recover my account by text?", "Yes. Select “Forgot password?” and enter the mobile number registered to your patient account. Use the SMS code to verify your number, then set a new password. You can request at most three codes per number in 15 minutes. Never share your code. Clinic reception remains available if SMS recovery is unavailable."],
     ],
@@ -116,7 +116,7 @@ export const USER_MANUALS = {
           "If the called patient is absent, wait for the 15-second countdown to finish, then select “Call again”. Each call is announced twice.",
           "After the second call, wait another 15 seconds. If still absent, select “Skip and call next”.",
           "Check “Missed patients · 10-minute return window”. If the patient arrives before the listed deadline, select “Patient returned” only after confirming physical presence.",
-          "The returned ticket waits for the next opening without interrupting the current patient. Expiry or a second missed turn after returning ends it as No-show.",
+          "The returned ticket rejoins behind patients already waiting in the same priority group, without interrupting the current patient. Expiry or a second missed turn after returning ends it as No-show.",
         ],
       },
       {
@@ -147,7 +147,7 @@ export const USER_MANUALS = {
     },
     troubleshooting: [
       ["Next is unavailable or another patient is active.", "Resolve the called or serving ticket first. Confirm presence, complete care, or follow the recall/skip controls as appropriate. Check that waiting tickets remain and no update is still running."],
-      ["Call again or Skip is disabled.", "Wait for the displayed countdown. Recall requires 30 seconds after the first call; skipping requires two calls and another 30 seconds after the second."],
+      ["Call again or Skip is disabled.", "Wait for the displayed countdown. Recall requires 15 seconds after the first call; skipping requires two calls and another 15 seconds after the second."],
       ["Consultation saving failed.", "Keep the notes window open and read the error. Check the connection and whether a consultation was already saved for this visit. Do not create a second ticket just to save notes."],
       ["A report will not print or download.", "Wait for loading to finish, use “Retry” for a load error, and save all manual entries. Check that the chosen period contains completed visits or saved clinical counts."],
       ["Queue or settings look out of date.", "The dashboard refreshes about every 30 seconds. Confirm the connection and current ticket before repeating an action. Save any unsaved notes or report entries before reloading the page."],
@@ -198,7 +198,7 @@ export const USER_MANUALS = {
           "After the first call, wait 15 seconds before selecting “Call again”. Each call is announced twice.",
           "After the second call, wait another 15 seconds before selecting “Skip and call next”.",
           "Look under “Missed patients · 10-minute return window”. If the patient arrives before the deadline, select “Patient returned” after confirming presence.",
-          "Explain that the same ticket waits for the next opening. A return does not interrupt a patient already called or serving. An expired window or another missed turn after returning ends as No-show.",
+          "Explain that the same ticket rejoins behind patients already waiting in the same priority group. A return does not interrupt a patient already called or serving. An expired window or another missed turn after returning ends as No-show.",
         ],
       },
       {
@@ -248,7 +248,7 @@ export const USER_MANUALS = {
       ["Why can I select only two services?", "Each dental ticket allows one or two services. Clear a selected service before choosing another."],
       ["Why is no SMS planned for a ticket?", "A patient who joins within the alert range receives no queue SMS and must stay nearby. Other eligible tickets may receive one approaching-turn alert. Relay the actual registration notice."],
       ["Does finishing a check-up save the doctor's notes?", "No. Queue completion and consultation saving are separate actions. The doctor can add the consultation to an eligible completed visit."],
-      ["Can a returning patient interrupt the current visit?", "No. A confirmed return within the deadline keeps the ticket for the next opening after the current called or serving patient."],
+      ["Can a returning patient interrupt the current visit?", "No. A confirmed return within the deadline keeps the ticket and rejoins behind patients already waiting in the same priority group."],
       ["Can I send a recovery password to someone who is absent?", "Recovery requires the patient to be physically present and all identity details to match. Give the password directly to that verified patient."],
     ],
     conclusion: "Accurate patient matching, confirmed contact details, and timely presence checks keep reception and the dental queue coordinated. Relay each ticket's instructions and verify the latest queue before repeating an action.",

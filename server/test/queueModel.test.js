@@ -112,7 +112,7 @@ test("MySQL counters separate sources, preserve issued numbers, and ignore earli
   }
 });
 
-test("call-next alternates using is_walk_in after every queue has a patient ID", async () => {
+test("call-next selects priority before a regular walk-in regardless of source preference", async () => {
   const originalConnection = pool.getConnection;
   const originalFetch = Queue._fetchById;
   let calledId;
@@ -130,10 +130,10 @@ test("call-next alternates using is_walk_in after every queue has a patient ID",
     },
   };
   pool.getConnection = async () => connection;
-  Queue._fetchById = async () => ({ id: 9 });
+  Queue._fetchById = async id => ({ id });
   try {
-    assert.deepEqual(await Queue.callNext({ category: "dental" }), { id: 9 });
-    assert.equal(calledId, 9);
+    assert.deepEqual(await Queue.callNext({ category: "dental" }), { id: 8 });
+    assert.equal(calledId, 8);
   } finally {
     pool.getConnection = originalConnection;
     Queue._fetchById = originalFetch;

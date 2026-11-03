@@ -11,6 +11,7 @@ import { Footer } from "@/pages/LandingPage";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/services/api";
 import { AGE_GROUPS, BARANGAYS, PREGNANT_AGES, REPORT_GROUPS, createDoctorReport, emptyReport, groupOffset, normalizeReportBarangay, summarizeCompletedVisits, sumReports } from "./doctorReport";
+import "./DoctorTab.css";
 import "./DoctorAnalyticsTab.css";
 
 const PERIODS = [
@@ -269,12 +270,12 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
   const rangeLabel = range?.from ? range.from === lastDate ? range.from : `${range.from} – ${lastDate}` : "";
 
   return <>
-    <main className="da-page">
-      <div className="da-top">
-        <div className="da-title"><span className="da-title-icon"><BarChart3 size={23} /></span><div>
-          <p className="da-eyebrow">Dental service</p><h1>{dailyEntry ? "Daily barangay entries" : "Doctor Analytics"}</h1>
+    <main className="doctor-tab-page da-page">
+      <div className="doctor-tab-header">
+        <div className="doctor-tab-title"><span className="doctor-tab-title-icon"><BarChart3 size={23} /></span><div>
+          <p className="doctor-tab-eyebrow">Dental service</p><h1>{dailyEntry ? "Daily barangay entries" : "Doctor Analytics"}</h1>
         </div></div>
-        <button className="da-back" type="button" onClick={() => dailyEntry ? navigate(ROUTES.DOCTOR_ANALYTICS) : onBack()}><ArrowLeft size={17} /> {dailyEntry ? "Back to analytics" : "Back to dashboard"}</button>
+        <button className="doctor-tab-back" type="button" onClick={() => dailyEntry ? navigate(ROUTES.DOCTOR_ANALYTICS) : onBack()}><ArrowLeft size={17} /> {dailyEntry ? "Back to analytics" : "Back to dashboard"}</button>
       </div>
 
       {!dailyEntry && <div className="da-periods" role="group" aria-label="Analytics period">
