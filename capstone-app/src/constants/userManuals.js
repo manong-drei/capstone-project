@@ -93,8 +93,8 @@ export const USER_MANUALS = {
       {
         id: "doctor-leave", title: "Request planned leave", summary: "Leave dates require admin approval; daily availability and capacity changes do not.",
         steps: [
-          "Open “Leave Requests”, enter the start and end dates, and optionally add a reason. The end date is included and all dates use Philippine time.",
-          "Select “Submit leave request”. Pending requests leave availability unchanged. Use “Refresh leave requests” to check the admin decision and review note.",
+          "Under “Today's availability” on the dashboard, select “Request leave” to open the Leave Requests window. Enter the start and end dates, and optionally add a reason. The end date is included and all dates use Philippine time.",
+          "Select “Submit leave request”. Pending requests leave availability unchanged. Under “My leave requests”, use “Refresh” to check the admin decision and review note.",
           "Use “Withdraw request” while it is pending. For approved dates that need changing, contact an admin. Approved leave blocks new appointments and dental walk-ins; normal daily settings apply again after it ends or is cancelled.",
         ],
         note: "Existing appointments and queue tickets remain for staff follow-up. Leave does not erase clinical history or change saved daily capacity.",
@@ -106,7 +106,7 @@ export const USER_MANUALS = {
           "When the patient is physically present, select “Start consultation”. The “Consultation Notes” window opens.",
           "Enter the required “Consultation Notes”. Add “Diagnosis” and “Prescription / Recommendations” if needed.",
           "Select “Save Consultation”. A successful save stores the notes and completes the visit. If saving fails, keep the window open, read the error, and retry when the issue is resolved.",
-          "Alternatively, use “Mark as Complete” to finish a serving visit without notes. Use “Add notes” in “Completed List” to record its consultation later.",
+          "Alternatively, use “Mark as Complete” to finish a serving visit without notes. Use “Add notes” in “Completed today” to record its consultation later.",
         ],
         note: "Only one consultation can be saved per visit. There is no consultation editing control here. Completing a ticket alone does not create consultation notes or clinical report counts.",
       },
@@ -123,10 +123,10 @@ export const USER_MANUALS = {
         id: "doctor-reports", title: "Review analytics and enter report counts", summary: "Completed visits appear automatically. Clinical results require your own saved entries.",
         steps: [
           "Open “Analytics”. Select “Today”, “This week”, or “This month” and the matching report date, week, or month.",
-          "Review completed-visit totals and demographics for the selected period. Open “Daily barangay entries” to record clinical counts.",
-          "Choose “Entry date” and “Barangay”, then enter whole-number counts of 0 or more in the appropriate fields. Leave a field blank when no entry is available; enter 0 only for a confirmed zero.",
+          "Use “Completed visits” and choose a breakdown by barangay, age group, or sex. Open a barangay row for its demographics. Use “Clinical counts” and select one clinical measure to review recorded counts; expand the rows without entries when needed.",
+          "Open “Daily barangay entries”. Choose “Entry date”, “Barangay”, and “Clinical measure”. Use the chevron Previous and Next buttons below the barangay dropdown to change barangay, or at the bottom of the entry card to change measure. Navigation keeps your edits and stops at the first or last option. Enter whole-number counts of 0 or more; leave a field blank when no entry is available and enter 0 only for a confirmed zero.",
           "Select “Save entries” before changing dates or report periods. If saving fails, keep the entered values and resolve the error before retrying.",
-          "Review “Page 1” and “Page 2”. Select “Print report” or “Download Excel” after data has loaded and all changes are saved.",
+          "Return to analytics and select “Print report” or “Download Excel” after data has loaded and all changes are saved. Exports include every barangay and measure, regardless of the selected on-screen view.",
         ],
         note: "A barangay is the local community used to group the report. BOHC means Basic Oral Health Care. Completed visits do not establish clinical outcomes; use the clinic's reporting definitions when entering these counts. Exports are blocked for loading errors, unsaved changes, or a period with no completed visits or saved counts.",
       },
@@ -204,11 +204,11 @@ export const USER_MANUALS = {
       {
         id: "staff-recovery", title: "Help a patient recover their account", summary: "Patients can first use “Forgot password?” for SMS recovery. Use this fallback only after verifying the patient in person.",
         steps: [
-          "Select “Account recovery”, search for the patient, and open the matching profile. Select “Start account recovery” if available.",
-          "Complete all six Identity verification checks: patient presence, first name, last name, registered phone, address, and birthday. Stop if any detail differs.",
-          "Select “Issue temporary password” and review the confirmation. Issuing it invalidates the old password and existing sessions.",
+          "Select “Account recovery”, confirm the patient's registered phone number, and open the matching profile. Select the orange recovery icon beside the patient's name.",
+          "Enter your own sign-in password in the recovery window. “Issue temporary password” becomes available after your password is confirmed.",
+          "Select “Issue temporary password”. Issuing it invalidates the old password and existing sessions.",
           "Hand the displayed password directly to the verified patient. It lasts 30 minutes and permits one login. After login, the patient has 15 minutes to set a new password.",
-          "Select “Hide temporary password” when finished. The password cannot be shown again from this display.",
+          "Select the × in the top-right corner when finished. The temporary password cannot be shown again from this display.",
         ],
         note: "The account must be active and have complete identity information. Ask an administrator to resolve missing details or inactive accounts. Do not bypass an identity mismatch.",
       },
@@ -306,10 +306,10 @@ export const USER_MANUALS = {
       {
         id: "admin-recovery", title: "Assist with in-person account recovery", summary: "Patients can recover through “Forgot password?” and SMS. Use this fallback when a verified patient cannot complete that flow; review SMS recovery requests and completion in Audit Logs.",
         steps: [
-          "From patient account management, select “Account recovery” to open the patient's profile, then “Start account recovery”.",
-          "Verify the patient is physically present and confirm first name, last name, registered phone, address, and birthday. Stop if any detail does not match.",
-          "Select “Issue temporary password” and review the confirmation. Give the shown password directly to the verified patient; it works for one login within 30 minutes.",
-          "Explain that the patient must set a new password within the 15-minute setup session after login. Select “Hide temporary password” when finished.",
+          "From patient account management, select “Account recovery” to open the patient's profile, then select the orange recovery icon beside their name.",
+          "Confirm the patient's registered phone number and enter your own sign-in password in the recovery window.",
+          "Once your password is confirmed, select “Issue temporary password”. Give the shown password directly to the verified patient; it works for one login within 30 minutes.",
+          "Explain that the patient must set a new password within the 15-minute setup session after login. Select the × in the top-right corner when finished.",
         ],
       },
       {

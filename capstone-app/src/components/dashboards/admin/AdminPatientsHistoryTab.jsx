@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { generatePath, Link, useSearchParams } from "react-router-dom";
+import { ROUTES } from "@/constants/routes";
 import StatusBadge from "@/components/common/StatusBadge";
 import { getAllAppointments } from "@/services/appointmentService";
 
@@ -255,7 +256,7 @@ export default function AdminPatientsHistoryTab() {
                         {formatAppointmentTime(appt.appointment_time)}
                       </td>
                       <td style={{ padding: "12px", color: "#1e293b" }}>
-                        {appt.patient_full_name || "—"}
+                        {appt.patient_id ? <Link to={generatePath(ROUTES.ADMIN_PATIENT_PROFILE, { id: String(appt.patient_id) })} className="font-semibold text-blue-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600">{appt.patient_full_name || "—"}</Link> : appt.patient_full_name || "—"}
                       </td>
                       <td style={{ padding: "12px", color: "#475569" }}>
                         {formatDoctorName(appt)}
@@ -311,7 +312,7 @@ export default function AdminPatientsHistoryTab() {
                         fontSize: "13px",
                       }}
                     >
-                      {appt.patient_full_name || "—"}
+                      {appt.patient_id ? <Link to={generatePath(ROUTES.ADMIN_PATIENT_PROFILE, { id: String(appt.patient_id) })} className="font-semibold text-blue-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600">{appt.patient_full_name || "—"}</Link> : appt.patient_full_name || "—"}
                     </span>
                     <span style={{ fontSize: "12px", color: "#64748b" }}>
                       {new Date(appt.appointment_date).toLocaleDateString(

@@ -101,7 +101,7 @@ test("a malformed token returns to login", async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
 });
 
-for (const [role, marker] of [["patient", /Your Health, Schedule/], ["doctor", /Your Health, Schedule/], ["admin", /Good (Morning|Afternoon|Evening)/]]) {
+for (const [role, marker] of [["patient", /Your Health, Schedule/], ["doctor", /^Welcome,/], ["admin", /Good (Morning|Afternoon|Evening)/]]) {
   test(`${role} refresh preserves its protected URL`, async ({ page }) => {
     const token = await mockSession(page, { role }, JSON.stringify({ user_id: 8, role }));
     await page.goto(`/${role}?tab=home#saved`);
@@ -138,7 +138,7 @@ test("login persists a session and logout prevents restoration", async ({ page }
   await expect(page).toHaveURL(/\/login$/);
 });
 
-for (const [role, marker] of [["patient", /Your Health, Schedule/], ["doctor", /Your Health, Schedule/], ["staff", "Dental queue"], ["admin", /Good (Morning|Afternoon|Evening)/]]) {
+for (const [role, marker] of [["patient", /Your Health, Schedule/], ["doctor", /^Welcome,/], ["staff", "Dental queue"], ["admin", /Good (Morning|Afternoon|Evening)/]]) {
   test(`${role} phone/password login survives idle time and refresh`, async ({ page }) => {
     const token = await mockSession(page, { role }, undefined);
     await page.route("**/api/auth/login", async (route) => {

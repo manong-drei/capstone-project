@@ -3,10 +3,10 @@ const pool = require("../config/db");
 const patientName = "COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')), ''), q.walk_in_name, 'Unknown patient')";
 
 module.exports = {
-  async findVisits(doctorId) {
+  async findVisits(doctorId, patientId) {
     // shortcut: Visits without notes use appointment/default dentist ownership; store a treating doctor on queues when multiple dentists share intake.
     const [visits] = await pool.query(`
-      SELECT CONCAT('queue-', q.id) AS visit_id, q.id AS queue_id,
+      SELECT CONCAT('queue-', q.id) AS visit_id, q.id AS queue_id, q.patient_id,
              q.queue_number, DATE_FORMAT(q.created_at, '%Y-%m-%d') AS visit_date,
              TIME_FORMAT(q.created_at, '%H:%i:%s') AS visit_time,
              ${patientName} AS patient_full_name,
@@ -25,22 +25,22 @@ module.exports = {
          WHERE a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at)
            AND a.status != 'cancelled' ORDER BY a.appointment_id LIMIT 1),
         (SELECT d.doctor_id FROM doctors d ORDER BY d.doctor_id LIMIT 1)
-      ) = ?
+      ) = ? ${patientId === undefined ? "" : "AND q.patient_id = ?"}
       UNION ALL
-      SELECT CONCAT('appointment-', a.appointment_id), NULL, NULL,
+      SELECT CONCAT('appointment-', a.appointment_id), NULL, a.patient_id, NULL,
              DATE_FORMAT(a.appointment_date, '%Y-%m-%d'), a.appointment_time,
              CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')),
              'appointment', NULL, a.reason, a.status, NULL, NULL
       FROM appointments a
       LEFT JOIN patients p ON p.patient_id = a.patient_id
-      WHERE a.doctor_id = ? AND NOT EXISTS (
+      WHERE a.doctor_id = ? ${patientId === undefined ? "" : "AND a.patient_id = ?"} AND NOT EXISTS (
         SELECT 1 FROM queues q WHERE q.patient_id = a.patient_id
           AND q.category = 'dental' AND q.is_walk_in = 0
           AND DATE(q.created_at) = a.appointment_date
           AND (a.status = 'cancelled') = (q.status = 'cancelled')
       )
       ORDER BY visit_date DESC, visit_time DESC, visit_id DESC
-    `, [doctorId, doctorId]);
+    `, patientId === undefined ? [doctorId, doctorId] : [doctorId, patientId, doctorId, patientId]);
     return visits;
   },
 

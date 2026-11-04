@@ -1,5 +1,7 @@
 const Patient = require("../models/Patient");
 const User = require("../models/User");
+const Doctor = require("../models/Doctor");
+const DoctorHistory = require("../models/DoctorHistory");
 const bcrypt = require("bcryptjs");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
@@ -73,19 +75,31 @@ const updateProfile = async (req, res) => {
 
 /** GET /api/patients/:id  (admin/staff/doctor only) */
 const getPatientById = async (req, res) => {
+  const patientId = Number(req.params.id);
+  if (!Number.isSafeInteger(patientId) || patientId < 1) {
+    return res.status(400).json({ success: false, message: "A valid patient ID is required." });
+  }
   try {
-    const patient = await Patient.findById(req.params.id);
+    let visits;
+    if (req.user.role === "doctor") {
+      res.set("Cache-Control", "no-store");
+      const doctor = await Doctor.findByUserId(req.user.user_id);
+      if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+      visits = await DoctorHistory.findVisits(doctor.doctor_id, patientId);
+      if (!visits.length) return res.status(404).json({ success: false, message: "Patient not found." });
+    }
+    const patient = await Patient.findById(patientId);
     if (!patient) {
       return res
         .status(404)
         .json({ success: false, message: "Patient not found." });
     }
-    const [visits] = await pool.query(
-      `SELECT id, queue_number, category, type, status, status_reason, services, created_at
+    if (!visits) [visits] = await pool.query(
+      `SELECT id, queue_number, category, type, status, status_reason, services, is_walk_in, created_at
        FROM queues WHERE patient_id = ? ORDER BY created_at DESC, id DESC`,
       [patient.patient_id],
     );
-    const user = patient.user_id ? await User.findById(patient.user_id) : null;
+    const user = req.user.role !== "doctor" && patient.user_id ? await User.findById(patient.user_id) : null;
     const account = user?.role === "patient" ? {
       phone: user.phone,
       is_active: user.is_active,
@@ -160,21 +174,50 @@ const mergePatient = async (req, res) => {
   }
 };
 
-const RECOVERY_CHECKS = ["patient_present", "first_name", "last_name", "phone", "address", "date_of_birth"];
+const requireRecoveryPassword = async (req) => {
+  const password = req.body?.staff_password;
+  if (typeof password !== "string" || !password || password.length > 128) {
+    throw Object.assign(new Error("Enter your sign-in password."), { status: 400 });
+  }
+  const actor = await User.findByIdWithHash(req.user.user_id);
+  if (!actor || !actor.is_active || !["staff", "admin"].includes(actor.role) ||
+      actor.must_change_password || actor.credential_version !== req.user.credential_version) {
+    throw Object.assign(new Error("Sign in again before recovering a patient account."), { status: 403 });
+  }
+  if (!await User.verifyPassword(password, actor.password_hash)) {
+    throw Object.assign(new Error("Your password is incorrect."), { status: 403 });
+  }
+};
+
+/** POST /api/patients/:id/account-recovery/verify-password */
+const verifyRecoveryPassword = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const patientId = Number(req.params.id);
+  if (!Number.isSafeInteger(patientId) || patientId < 1) {
+    return res.status(400).json({ success: false, message: "A valid patient ID is required." });
+  }
+  try {
+    await requireRecoveryPassword(req);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Unable to verify your password. Please try again." });
+  }
+};
 
 /** POST /api/patients/:id/account-recovery */
 const recoverAccount = async (req, res) => {
   res.set("Cache-Control", "no-store");
   const patientId = Number(req.params.id);
-  const { expected_credential_version: expectedVersion, verification } = req.body || {};
+  const { expected_credential_version: expectedVersion, confirmed_phone: confirmedPhone } = req.body || {};
   if (!Number.isSafeInteger(patientId) || patientId < 1 ||
       !Number.isSafeInteger(expectedVersion) || expectedVersion < 1 ||
-      !verification || RECOVERY_CHECKS.some((key) => verification[key] !== true)) {
-    return res.status(400).json({ success: false, message: "Confirm the patient's presence and all five identity checks before recovery." });
+      typeof confirmedPhone !== "string" || !normalizePhilippineMobilePhone(confirmedPhone)) {
+    return res.status(400).json({ success: false, message: "Confirm the patient's registered phone number before recovery." });
   }
 
   let connection;
   try {
+    await requireRecoveryPassword(req);
     connection = await pool.getConnection();
     await connection.beginTransaction();
     const [[patient]] = await connection.query(
@@ -193,7 +236,10 @@ const recoverAccount = async (req, res) => {
       throw Object.assign(new Error("Only active patient accounts can be recovered."), { status: 409 });
     }
     if (user.credential_version !== expectedVersion) {
-      throw Object.assign(new Error("This account has changed. Refresh the patient profile and verify identity again."), { status: 409 });
+      throw Object.assign(new Error("This account has changed. Refresh the patient profile and confirm the registered phone number again."), { status: 409 });
+    }
+    if (normalizePhilippineMobilePhone(user.phone) !== normalizePhilippineMobilePhone(confirmedPhone)) {
+      throw Object.assign(new Error("The registered phone number has changed. Refresh the patient profile before recovery."), { status: 409 });
     }
     if (!normalizePhilippineMobilePhone(user.phone) || !patient.date_of_birth ||
         Number.isNaN(new Date(patient.date_of_birth).getTime()) ||
@@ -217,7 +263,7 @@ const recoverAccount = async (req, res) => {
     );
     await Patient.audit(patientId, req.user.user_id, "account_recovery", {
       user_id: user.user_id,
-      verification: Object.fromEntries(RECOVERY_CHECKS.map((key) => [key, true])),
+      verification: { phone: true, staff_password: true },
       credential_version: version,
       expires_at: expiresAt,
     }, connection, req);
@@ -235,4 +281,4 @@ const recoverAccount = async (req, res) => {
   }
 };
 
-module.exports = { getMyProfile, updateProfile, getPatientById, searchPatients, mergePatient, recoverAccount };
+module.exports = { getMyProfile, updateProfile, getPatientById, searchPatients, mergePatient, verifyRecoveryPassword, recoverAccount };

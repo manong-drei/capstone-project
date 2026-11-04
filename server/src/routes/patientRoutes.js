@@ -9,6 +9,7 @@ const {
   getPatientById,
   searchPatients,
   mergePatient,
+  verifyRecoveryPassword,
   recoverAccount,
 } = require("../controllers/patientController");
 
@@ -31,6 +32,15 @@ const recoveryLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: "Too many recovery requests. Please try again in 15 minutes." },
 });
+const recoveryPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: (req) => String(req.user.user_id),
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many password attempts. Please try again in 15 minutes." },
+});
 
 // Routes
 
@@ -41,8 +51,9 @@ router.get("/me", protect, authorize("patient"), getMyProfile);
 router.put("/me", protect, authorize("patient"), updateProfile);
 
 router.get("/search", protect, authorize("staff", "admin"), searchPatients);
-router.get("/:id", protect, authorize("staff", "admin"), getPatientById);
+router.get("/:id", protect, authorize("staff", "admin", "doctor"), getPatientById);
 router.post("/:id/merge", protect, authorize("staff", "admin"), mergePatient);
 router.post("/:id/account-recovery", protect, authorize("staff", "admin"), requireRecoverySession, recoveryLimiter, recoverAccount);
+router.post("/:id/account-recovery/verify-password", protect, authorize("staff", "admin"), requireRecoverySession, recoveryPasswordLimiter, verifyRecoveryPassword);
 
 module.exports = router;

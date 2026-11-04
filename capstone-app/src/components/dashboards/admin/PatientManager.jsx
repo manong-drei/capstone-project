@@ -918,7 +918,7 @@ export default function PatientManager() {
                     />
                     {!!patient.patient_id && (
                       <Link
-                        to={`/staff/patients/${patient.patient_id}`}
+                        to={`/admin/patients/${patient.patient_id}`}
                         aria-label={`Recover account for ${patient.full_name}`}
                         style={{
                           display: "block",
@@ -995,7 +995,7 @@ export default function PatientManager() {
                     />
                     {!!patient.patient_id && (
                       <Link
-                        to={`/staff/patients/${patient.patient_id}`}
+                        to={`/admin/patients/${patient.patient_id}`}
                         aria-label={`Recover account for ${patient.full_name}`}
                         style={{
                           display: "block",

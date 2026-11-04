@@ -6,7 +6,7 @@ const bcrypt = require("bcryptjs");
 const pool = require("../src/config/db");
 const Patient = require("../src/models/Patient");
 const User = require("../src/models/User");
-const { recoverAccount, getPatientById } = require("../src/controllers/patientController");
+const { recoverAccount, verifyRecoveryPassword, getPatientById } = require("../src/controllers/patientController");
 const { login, changePassword } = require("../src/controllers/authController");
 const authenticate = require("../src/middleware/authenticate");
 const patientRouter = require("../src/routes/patientRoutes");
@@ -14,9 +14,7 @@ const devBypass = require("../src/middleware/devBypass");
 const { sessionResponse } = require("../src/utils/authSession");
 
 test.after(() => pool.end());
-const checks = ["patient_present", "first_name", "last_name", "phone", "address", "date_of_birth"];
-const verification = Object.fromEntries(checks.map(key => [key, true]));
-const request = (version = 2) => ({ params: { id: "42" }, body: { expected_credential_version: version, verification }, user: { user_id: 8 } });
+const request = (version = 2) => ({ params: { id: "42" }, body: { expected_credential_version: version, confirmed_phone: "09123456789", staff_password: "StaffPassword1" }, user: { user_id: 8, credential_version: 1 } });
 const response = () => ({
   statusCode: 200, headers: {},
   status(code) { this.statusCode = code; return this; },
@@ -30,6 +28,7 @@ async function database(t) {
   const state = {
     patient: { patient_id: 42, user_id: 7, first_name: "Ana", last_name: "Test", date_of_birth: new Date("1990-01-01"), barangay: "Abuanan", city: "Bago City", archived_into_patient_id: null },
     user: { user_id: 7, role: "patient", phone: "09123456789", is_active: 1, credential_version: 2, must_change_password: 0, password_hash: await bcrypt.hash("OldPassword1", 4), temp_password_used_at: now, login_failures: 4, login_locked_until: now },
+    staff: { user_id: 8, role: "staff", is_active: 1, credential_version: 1, must_change_password: 0, password_hash: await bcrypt.hash("StaffPassword1", 4) },
     jobs: [{ state: "queued" }, { state: "submitting" }, { state: "submitted" }],
     audits: [],
   };
@@ -37,6 +36,7 @@ async function database(t) {
   let held = Promise.resolve();
   let failAudit = false;
   t.mock.method(User, "generateTempPassword", () => "012345");
+  t.mock.method(User, "findByIdWithHash", async id => id === 7 ? state.user && { ...state.user } : state.staff && { ...state.staff, user_id: id });
   t.mock.method(pool, "getConnection", async () => {
     let working;
     let unlock;
@@ -107,11 +107,15 @@ test("profile exposes only safe account metadata and nullable unlinked accounts"
   }
 });
 
-test("requires every strict confirmation and a positive numeric version before accessing the database", async t => {
+test("requires the registered phone, a password and a positive numeric version before acquiring a connection", async t => {
   const connection = t.mock.method(pool, "getConnection", async () => { throw new Error("must not query"); });
-  const badBodies = [null, {}, { expected_credential_version: "2", verification }, { expected_credential_version: 0, verification }];
-  for (const key of checks) {
-    for (const value of [false, "true", 1, undefined]) badBodies.push({ expected_credential_version: 2, verification: { ...verification, [key]: value } });
+  const badBodies = [null, {}];
+  for (const [key, values] of Object.entries({
+    expected_credential_version: ["2", 0, -1, 1.5, undefined],
+    confirmed_phone: [null, "invalid", {}, 9123456789, undefined],
+    staff_password: [null, "", {}, 1, "a".repeat(129), undefined],
+  })) {
+    for (const value of values) badBodies.push({ ...request().body, [key]: value });
   }
   for (const body of badBodies) {
     const res = response(); await recoverAccount({ ...request(), body }, res);
@@ -125,6 +129,39 @@ test("requires every strict confirmation and a positive numeric version before a
   assert.equal(connection.mock.callCount(), 0);
 });
 
+test("password verification never issues credentials, and issuance rechecks the signed-in staff password", async t => {
+  const { state, events } = await database(t);
+  const before = structuredClone(state);
+  const verified = response();
+  await verifyRecoveryPassword(request(), verified);
+  assert.equal(verified.statusCode, 200);
+  assert.deepEqual(verified.body, { success: true });
+  assert.equal(verified.headers["Cache-Control"], "no-store");
+  assert.deepEqual(state, before);
+  assert.equal(events.length, 0);
+  for (const handler of [verifyRecoveryPassword, recoverAccount]) {
+    for (const password of ["WrongPassword1", "OldPassword1"]) {
+      const res = response();
+      await handler({ ...request(), body: { ...request().body, staff_password: password, verification: { phone: true, staff_password: true } } }, res);
+      assert.equal(res.statusCode, 403);
+      assert.match(res.body.message, /password is incorrect/);
+      assert.deepEqual(state, before);
+    }
+    for (const change of [{ role: "patient" }, { role: "doctor" }, { is_active: 0 }, { must_change_password: 1 }, { credential_version: 2 }]) {
+      state.staff = { ...before.staff, ...change };
+      const res = response();
+      await handler(request(), res);
+      assert.equal(res.statusCode, 403);
+    }
+    state.staff = null;
+    const missing = response();
+    await handler(request(), missing);
+    assert.equal(missing.statusCode, 403);
+    state.staff = structuredClone(before.staff);
+  }
+  assert.equal(events.length, 0);
+});
+
 test("issuance commits hash, expiry, credential rotation, SMS cancellation and sanitized audit before revealing the password", async t => {
   const { state, events, now } = await database(t);
   const res = response();
@@ -132,7 +169,7 @@ test("issuance commits hash, expiry, credential rotation, SMS cancellation and s
     assert.equal(events.at(-1).sql, "COMMIT");
     this.body = body; return this;
   };
-  await recoverAccount({ ...request(), body: { ...request().body, phone: "09999999999", newPassword: "ChosenPassword1", verification: { ...verification, unrelated: "do not audit" } } }, res);
+  await recoverAccount({ ...request(), body: { ...request().body, phone: "09999999999", newPassword: "ChosenPassword1", verification: { unrelated: "do not audit" } } }, res);
   assert.equal(res.statusCode, 201);
   assert.equal(res.headers["Cache-Control"], "no-store");
   assert.deepEqual(res.body.data, { temp_password: "012345", registered_phone: "09123456789", expires_at: new Date(now.getTime() + 30 * 60000).toISOString() });
@@ -143,9 +180,10 @@ test("issuance commits hash, expiry, credential rotation, SMS cancellation and s
   assert.equal(state.user.login_failures, 0);
   assert.equal(state.user.login_locked_until, null);
   assert.deepEqual(state.jobs.map(job => job.state), ["cancelled", "cancelled", "submitted"]);
-  assert.deepEqual(state.audits, [{ patient_id: 42, actor_user_id: 8, action: "account_recovery", details: { user_id: 7, verification, credential_version: 3, expires_at: res.body.data.expires_at } }]);
+  assert.deepEqual(state.audits, [{ patient_id: 42, actor_user_id: 8, action: "account_recovery", details: { user_id: 7, verification: { phone: true, staff_password: true }, credential_version: 3, expires_at: res.body.data.expires_at } }]);
   assert.ok(!JSON.stringify(state.audits).includes("012345"));
   assert.ok(!JSON.stringify(state.audits).includes("Ana"));
+  assert.ok(!JSON.stringify(state.audits).includes("StaffPassword1"));
 });
 
 test("ineligible accounts and incomplete records roll back without replacing credentials", async t => {
@@ -160,6 +198,7 @@ test("ineligible accounts and incomplete records roll back without replacing cre
     { user: { ...original.user, is_active: 0 } },
     { user: { ...original.user, credential_version: 3 } },
     { user: { ...original.user, phone: "invalid" } },
+    { user: { ...original.user, phone: "09999999999" } },
     ...["first_name", "last_name", "date_of_birth", "barangay", "city"].map(key => ({ patient: { ...original.patient, [key]: null } })),
   ];
   for (const { status = 409, ...changes } of cases) {
@@ -231,7 +270,7 @@ test("real route enforces staff/admin permissions, rejects development identitie
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
     }
   });
-  const actors = { 1001: "staff", 1002: "admin", 1003: "patient", 1004: "doctor", 1005: "staff", 1006: "staff" };
+  const actors = { 1001: "staff", 1002: "admin", 1003: "patient", 1004: "doctor", 1005: "staff", 1006: "staff", 1007: "staff", 1008: "staff" };
   t.mock.method(User, "findById", async id => ({ user_id: id, role: actors[id], is_active: 1, credential_version: 1, must_change_password: 0 }));
   const app = express();
   app.use(express.json());
@@ -240,9 +279,9 @@ test("real route enforces staff/admin permissions, rejects development identitie
   const server = await new Promise(resolve => { const running = app.listen(0, "127.0.0.1", () => resolve(running)); });
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const url = `http://127.0.0.1:${server.address().port}/api/patients/42/account-recovery`;
-  const dispatch = async (id, body = request().body, purpose = "session", extraHeaders = {}) => {
+  const dispatch = async (id, body = request().body, purpose = "session", extraHeaders = {}, suffix = "") => {
     const token = id && jwt.sign({ user_id: id, role: "admin", credential_version: 1, purpose }, process.env.JWT_SECRET);
-    return fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extraHeaders }, body: JSON.stringify(body) });
+    return fetch(url + suffix, { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extraHeaders }, body: JSON.stringify(body) });
   };
   assert.equal((await dispatch(null)).status, 401);
   for (const id of [1003, 1004]) assert.equal((await dispatch(id)).status, 403);
@@ -258,4 +297,15 @@ test("real route enforces staff/admin permissions, rejects development identitie
   assert.equal(limited.status, 429);
   assert.equal(limited.headers.get("cache-control"), "no-store");
   assert.equal((await dispatch(1006, {})).status, 400);
+  const verify = (id, body = request().body, purpose = "session", headers = {}) => dispatch(id, body, purpose, headers, "/verify-password");
+  assert.equal((await verify(null)).status, 401);
+  for (const id of [1003, 1004]) assert.equal((await verify(id)).status, 403);
+  assert.equal((await verify(1001, {}, "development")).status, 403);
+  assert.equal((await verify(null, {}, "session", { "x-dev-role": "staff" })).status, 403);
+  for (const id of [1001, 1002]) assert.equal((await verify(id)).status, 200);
+  for (let i = 0; i < 10; i++) assert.equal((await verify(1007, { staff_password: "WrongPassword1" })).status, 403);
+  const passwordLimited = await verify(1007);
+  assert.equal(passwordLimited.status, 429);
+  assert.equal(passwordLimited.headers.get("cache-control"), "no-store");
+  for (let i = 0; i < 11; i++) assert.equal((await verify(1008)).status, 200);
 });

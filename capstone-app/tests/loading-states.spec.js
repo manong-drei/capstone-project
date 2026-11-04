@@ -47,7 +47,7 @@ async function mockDashboard(page, dashboard) {
 
 function loadedContent(page, role) {
   if (role === "patient") return page.getByRole("button", { name: /Get queue ticket/i });
-  if (role === "doctor") return page.getByText("Today's dental queues", { exact: true });
+  if (role === "doctor") return page.getByRole("heading", { name: "Dental queue management", exact: true });
   if (role === "staff") return page.getByRole("form", { name: "Dental walk-in registration" });
   return page.getByText("Total Patient Visits", { exact: true });
 }

@@ -310,9 +310,6 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
           >
             Register dental walk-in
           </h3>
-          <p className="mt-1 text-xs text-slate-500">
-            Find an existing record before creating a new patient.
-          </p>
         </div>
       </div>
       <form

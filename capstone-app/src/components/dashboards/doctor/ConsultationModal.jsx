@@ -1,173 +1,55 @@
-import { useState } from 'react'
-import Icon from '../../common/AppIcons'
-import { getQueueDisplayName } from '../../../utils/queueDisplay'
+import { useEffect, useRef, useState } from "react";
+import { ClipboardList, LoaderCircle, X } from "lucide-react";
+import { getQueueDisplayName } from "@/utils/queueDisplay";
 
-/**
- * ConsultationModal
- * Allows a doctor to record notes, diagnosis, and prescription for a patient.
- *
- * Props:
- *   isOpen    - controls visibility
- *   onClose   - close handler
- *   onSubmit  - called with { notes, diagnosis, prescription }
- *   patient   - patient object { queue_number, name }
- *   loading   - disables submit while saving
- */
+const inputClass = "mt-2 block w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-base text-slate-800 placeholder:text-slate-400 focus:border-blue-600 focus:outline-2 focus:outline-blue-600 sm:text-sm";
+
 export default function ConsultationModal({ isOpen, onClose, onSubmit, patient, loading = false }) {
-  const [notes,        setNotes]        = useState('')
-  const [diagnosis,    setDiagnosis]    = useState('')
-  const [prescription, setPrescription] = useState('')
+  const dialogRef = useRef(null);
+  const [notes, setNotes] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
+  const [prescription, setPrescription] = useState("");
 
-  if (!isOpen) return null
+  useEffect(() => {
+    if (!isOpen) return;
+    const dialog = dialogRef.current;
+    const trigger = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (trigger?.isConnected) trigger.focus();
+    };
+  }, [isOpen]);
 
-  const handleSubmit = () => {
-    if (!notes.trim()) return
-    onSubmit({ notes, diagnosis, prescription })
-  }
+  if (!isOpen) return null;
 
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) onClose()
-  }
-
-  const inputStyle = {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: '10px',
-    border: '1.5px solid #e5e7eb',
-    fontSize: '14px',
-    color: '#111827',
-    background: '#fafafa',
-    resize: 'vertical',
-    fontFamily: 'inherit',
-    boxSizing: 'border-box',
-    outline: 'none',
-    transition: 'border-color 0.15s',
-  }
-
-  const patientName = patient ? getQueueDisplayName(patient) : ''
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!notes.trim() || loading) return;
+    onSubmit({ notes, diagnosis, prescription });
+  };
 
   return (
-    <div
-      onClick={handleBackdropClick}
-      style={{
-        position: 'fixed', inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.45)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, padding: '16px',
-      }}
-    >
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '20px',
-          padding: '28px',
-          width: '100%',
-          maxWidth: '520px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#111827' }}>
-              Consultation Notes
-            </h2>
-            {patient && (
-              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}>
-                Patient #{patient.queue_number} {patientName ? `- ${patientName}` : ''}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: '#f3f4f6', border: 'none', borderRadius: '8px',
-              width: '32px', height: '32px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <Icon name="close" size={16} color="#6b7280" />
-          </button>
+    <dialog ref={dialogRef} aria-labelledby="consultation-title" onCancel={onClose} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-800 shadow-2xl backdrop:bg-slate-900/55 sm:rounded-[20px]">
+      <form onSubmit={handleSubmit} className="p-5 sm:p-8">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3"><span className="hidden rounded-xl bg-blue-50 p-3 text-blue-700 sm:block"><ClipboardList size={24} aria-hidden="true" /></span><h2 id="consultation-title" className="text-lg font-bold text-[#1a3a8f] sm:text-xl">Consultation Notes</h2></div>
+          <button type="button" onClick={onClose} aria-label="Close consultation" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-600"><X size={22} aria-hidden="true" /></button>
         </div>
-
-        {/* Fields */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-              Consultation Notes <span style={{ color: '#dc2626' }}>*</span>
-            </label>
-            <textarea
-              rows={4}
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Chief complaint, history, physical examination findings..."
-              style={inputStyle}
-              onFocus={e => e.target.style.borderColor = '#4f46e5'}
-              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-              Diagnosis
-            </label>
-            <textarea
-              rows={2}
-              value={diagnosis}
-              onChange={e => setDiagnosis(e.target.value)}
-              placeholder="Assessment / Diagnosis..."
-              style={inputStyle}
-              onFocus={e => e.target.style.borderColor = '#4f46e5'}
-              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-              Prescription / Recommendations
-            </label>
-            <textarea
-              rows={3}
-              value={prescription}
-              onChange={e => setPrescription(e.target.value)}
-              placeholder="Medications, dosage, follow-up instructions..."
-              style={inputStyle}
-              onFocus={e => e.target.style.borderColor = '#4f46e5'}
-              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-            />
-          </div>
+        {patient && <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4"><span className="max-w-full break-words rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-bold text-white">{patient.queue_number}</span><div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold text-slate-900">{getQueueDisplayName(patient)}</p><p className="mt-1 text-xs text-slate-500">Dental services</p></div>{patient.type === "priority" && <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-700">Priority</span>}</div>}
+        <div className="space-y-5">
+          <div><label htmlFor="consultation-notes" className="text-sm font-semibold text-slate-700">Consultation Notes <span className="text-red-600">*</span></label><textarea id="consultation-notes" rows={4} required value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Chief complaint, history, physical examination findings..." aria-describedby="consultation-required" className={inputClass} /><p id="consultation-required" className="mt-1 text-xs text-slate-500">Required</p></div>
+          <div><label htmlFor="consultation-diagnosis" className="text-sm font-semibold text-slate-700">Diagnosis</label><textarea id="consultation-diagnosis" rows={2} value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)} placeholder="Assessment / Diagnosis..." className={inputClass} /></div>
+          <div><label htmlFor="consultation-prescription" className="text-sm font-semibold text-slate-700">Prescription / Recommendations</label><textarea id="consultation-prescription" rows={3} value={prescription} onChange={(event) => setPrescription(event.target.value)} placeholder="Medications, dosage, follow-up instructions..." className={inputClass} /></div>
         </div>
-
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={onClose}
-            style={{
-              flex: 1, padding: '12px', borderRadius: '12px',
-              border: '1px solid #e5e7eb', background: 'transparent',
-              fontSize: '14px', fontWeight: 500, color: '#374151', cursor: 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!notes.trim() || loading}
-            style={{
-              flex: 2, padding: '12px', borderRadius: '12px',
-              border: 'none',
-              background: !notes.trim() ? '#e5e7eb' : '#4f46e5',
-              color: !notes.trim() ? '#9ca3af' : '#ffffff',
-              fontSize: '14px', fontWeight: 600,
-              cursor: !notes.trim() || loading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {loading ? 'Saving...' : 'Save Consultation'}
-          </button>
+        <div className="mt-6 border-t border-slate-100 pt-5">
+          <div className="flex flex-col gap-3 sm:flex-row"><button type="button" onClick={onClose} className="min-h-11 flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600">Cancel</button><button type="submit" disabled={!notes.trim() || loading} className="inline-flex min-h-11 flex-[2] items-center justify-center gap-2 rounded-xl bg-[#1e4db7] px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">{loading && <LoaderCircle size={18} className="animate-spin" aria-hidden="true" />}{loading ? "Saving..." : "Save Consultation"}</button></div>
+          {!notes.trim() && <p className="mt-3 text-center text-xs leading-relaxed text-slate-500">Add consultation notes to enable saving.</p>}
         </div>
-      </div>
-    </div>
-  )
+      </form>
+    </dialog>
+  );
 }

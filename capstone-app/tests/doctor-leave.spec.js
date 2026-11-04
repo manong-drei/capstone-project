@@ -66,9 +66,8 @@ async function mockRole(page, role, state) {
 }
 
 async function doctorLeave(page) {
-  if (page.viewportSize().width <= 640) await page.getByRole('button', { name: 'Toggle menu', exact: true }).click();
-  await page.getByRole('button', { name: 'Leave Requests', exact: true }).filter({ visible: true }).click();
-  await expect(page.getByRole('heading', { name: 'Leave Requests', exact: true })).toBeVisible();
+  await page.getByRole('region', { name: "Today's availability", exact: true }).getByRole('button', { name: 'Request leave', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Leave Requests', exact: true })).toBeVisible();
 }
 async function adminLeave(page) {
   if (page.viewportSize().width <= 900) await page.getByRole('button', { name: 'Open menu', exact: true }).click();
@@ -121,7 +120,7 @@ for (const width of [1440, 375]) {
     await expect(doctor.getByText('Approved', { exact: true })).toBeVisible();
     await expect(doctor.getByText('Approved for planned leave')).toBeVisible();
     await expect(doctor.getByRole('button', { name: 'Withdraw request' })).toHaveCount(0);
-    await doctor.getByRole('button', { name: 'Back to dashboard', exact: true }).click();
+    await doctor.getByRole('button', { name: 'Close leave requests', exact: true }).click();
     await expect(doctor.getByRole('button', { name: 'On leave', exact: true })).toBeDisabled();
     await expect(doctor.getByText(/On approved leave through/)).toBeVisible();
     await doctor.getByRole('button', { name: 'Apply', exact: true }).click();
@@ -207,4 +206,112 @@ test('leave loading and submission errors are recoverable and preserve entered d
   await expect(form.getByLabel('Start date', { exact: true })).toHaveValue('2026-10-29');
   failSubmit = false; await form.getByRole('button', { name: 'Submit leave request' }).click();
   await expect(page.getByText('Pending approval', { exact: true })).toBeVisible();
+});
+
+for (const width of [320, 768, 1440, 1920]) {
+  test(`leave requests open from availability and remain usable at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = fixture();
+    state.requests = [
+      { ...request(1), reason: 'LONG_LEAVE_REASON_'.repeat(30), review_note: 'Please review these dates. '.repeat(20), status: 'rejected' },
+      { ...request(2), status: 'approved' },
+      request(3),
+    ];
+    await mockRole(page, 'doctor', state);
+    await page.goto('/doctor');
+    await expect(page.getByRole('button', { name: 'Leave Requests', exact: true, includeHidden: true })).toHaveCount(0);
+    const trigger = page.getByRole('region', { name: "Today's availability", exact: true }).getByRole('button', { name: 'Request leave', exact: true });
+    await trigger.click();
+    const dialog = page.getByRole('dialog', { name: 'Leave Requests', exact: true });
+    const close = dialog.getByRole('button', { name: 'Close leave requests', exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(close).toBeFocused();
+    await expect(dialog.getByRole('article')).toHaveCount(3);
+    await expect(dialog.getByRole('button', { name: 'Withdraw request', exact: true })).toHaveCount(1);
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+    const bounds = await dialog.boundingBox();
+    expect(bounds.x).toBeGreaterThanOrEqual(15);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width - 15);
+    expect(await dialog.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    const heights = await dialog.locator('button, input').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
+    expect(heights.every(height => height >= 44)).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`doctor-leave-modal-${width}.png`), animations: 'disabled' });
+    await dialog.getByRole('button', { name: 'Withdraw request', exact: true }).scrollIntoViewIfNeeded();
+    await expect(close).toBeInViewport();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
+    await expect(page).toHaveURL(/\/doctor$/);
+    await trigger.click();
+    await expect(dialog).toBeVisible();
+    await page.mouse.click(4, 4);
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+}
+
+test('leave modal stays open during submission and preserves the form after a failure', async ({ page }) => {
+  const state = fixture();
+  await mockRole(page, 'doctor', state);
+  let finish;
+  const pending = new Promise(resolve => { finish = resolve; });
+  await page.route('**/api/doctor/leave-requests', async route => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    await pending;
+    return route.fulfill({ status: 503, json: { message: 'Please try submitting again.' } });
+  });
+  await page.goto('/doctor');
+  await doctorLeave(page);
+  const dialog = page.getByRole('dialog', { name: 'Leave Requests', exact: true });
+  await dialog.getByLabel('Start date', { exact: true }).fill('2026-10-29');
+  await dialog.getByLabel('End date', { exact: true }).fill('2026-11-04');
+  await dialog.getByLabel('Reason (optional)', { exact: true }).fill('Family event');
+  await dialog.getByRole('button', { name: 'Submit leave request' }).click();
+  const close = dialog.getByRole('button', { name: 'Close leave requests' });
+  await expect(close).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await page.mouse.click(4, 4);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('Start date', { exact: true })).toBeDisabled();
+  finish();
+  await expect(dialog.getByRole('alert')).toHaveText('Please try submitting again.');
+  await expect(dialog.getByLabel('Start date', { exact: true })).toHaveValue('2026-10-29');
+  await expect(dialog.getByLabel('Reason (optional)', { exact: true })).toHaveValue('Family event');
+  await expect(close).toBeEnabled();
+  await close.click();
+  await expect(dialog).toHaveCount(0);
+});
+
+test('leave modal keeps date validation and submits a same-day request without changing availability', async ({ page }) => {
+  const state = fixture();
+  await mockRole(page, 'doctor', state);
+  await page.goto('/doctor');
+  await doctorLeave(page);
+  const form = page.getByRole('form', { name: 'Request doctor leave' });
+  const start = form.getByLabel('Start date', { exact: true });
+  const end = form.getByLabel('End date', { exact: true });
+  const submit = form.getByRole('button', { name: 'Submit leave request' });
+  await expect(start).toHaveAttribute('min', '2026-10-29');
+  await expect(start).toHaveAttribute('required', '');
+  await expect(end).toHaveAttribute('required', '');
+  await start.fill('2026-10-28');
+  await end.fill('2026-10-29');
+  await submit.click();
+  expect(await start.evaluate(element => element.validity.rangeUnderflow)).toBe(true);
+  expect(state.requests).toHaveLength(0);
+  await start.fill('2026-10-30');
+  await submit.click();
+  expect(await end.evaluate(element => element.validity.rangeUnderflow)).toBe(true);
+  expect(state.requests).toHaveLength(0);
+  await start.fill('2026-10-29');
+  await form.getByLabel('Reason (optional)', { exact: true }).fill('  Family event  ');
+  await submit.click();
+  await expect(page.getByText('Pending approval', { exact: true })).toBeVisible();
+  expect(state.requests[0]).toMatchObject({ start_date: '2026-10-29', end_date: '2026-10-29', reason: 'Family event', status: 'pending' });
+  expect(state.dailyWrites).toEqual([]);
+  expect(state.daily).toBe(1);
 });

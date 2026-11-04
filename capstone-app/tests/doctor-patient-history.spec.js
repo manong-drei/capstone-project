@@ -36,7 +36,7 @@ async function openHistory(page) {
   await expect(page.getByRole("heading", { name: "Patient History", exact: true })).toBeVisible();
 }
 
-for (const width of [1440, 768, 375]) {
+for (const width of [1920, 1440, 1024, 768, 375, 320]) {
   test(`patient history shows visit types and opens the exact visit's read-only notes at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 });
     await mockDoctor(page);
@@ -53,12 +53,18 @@ for (const width of [1440, 768, 375]) {
     await expect(row("WQ03")).toContainText("No notes recorded");
     await expect(row("WQ03").getByRole("button", { name: "View Notes" })).toHaveCount(0);
     await expect(page.getByText("Earlier Patient", { exact: true })).toHaveCount(0);
+    const search = page.getByRole("searchbox", { name: "Search patients or tickets" });
+    await search.fill("WQ02");
     const returnNotes = row("WQ02").getByRole("button", { name: "View Notes" });
     await returnNotes.click();
     const dialog = page.getByRole("dialog", { name: "Consultation Notes", exact: true });
     await expect(dialog).toContainText("Return visit notes\nSecond line");
     await expect(dialog).toContainText("Return diagnosis");
     await expect(dialog).toContainText("Follow-up instructions");
+    await expect(dialog).toContainText("Ana Santos");
+    await expect(dialog).toContainText("WQ02");
+    await expect(dialog).toContainText("Oct 29, 2026");
+    await expect(page).toHaveURL(/\/doctor\/consultations\/12\?search=WQ02$/);
     await expect(dialog).not.toContainText("First visit notes");
     await expect(dialog.getByRole("textbox")).toHaveCount(0);
     await expect(dialog.getByRole("button", { name: /Save/ })).toHaveCount(0);
@@ -66,6 +72,9 @@ for (const width of [1440, 768, 375]) {
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(returnNotes).toBeFocused();
+    await expect(page).toHaveURL(/\/doctor\/patient-history\?search=WQ02$/);
+    await expect(search).toHaveValue("WQ02");
+    await search.fill("");
     await row("AQ01").getByRole("button", { name: "View Notes" }).click();
     await expect(dialog).toContainText("First visit notes");
     await expect(dialog).not.toContainText("Return diagnosis");
@@ -78,6 +87,45 @@ for (const width of [1440, 768, 375]) {
     expect(writes).toEqual([]);
   });
 }
+
+test("patient history and saved notes wrap long content and use the available width across views", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  const responses = await mockDoctor(page);
+  const patient = "Maria Alexandra Dela Cruz Santos ".repeat(5).trim();
+  const services = "DENTAL_SERVICE_WITH_EXTENDED_DETAILS_".repeat(12);
+  const notes = "Saved clinical observations ".repeat(60) + "LONG_REFERENCE_".repeat(40);
+  responses["/api/doctor/patient-history"].visits = [
+    { ...visits[1], patient_full_name: patient, queue_services: [services] },
+  ];
+  responses["/api/doctor/consultations/12"].data.notes = notes;
+  await openHistory(page);
+
+  for (const width of [320, 768, 1024, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const records = page.locator("tbody > tr, .dd-show-on-mobile > div").filter({ visible: true });
+    await expect(records).toHaveCount(1);
+    await expect(records.getByText(patient, { exact: true })).toBeVisible();
+    await expect(records.getByText(services, { exact: true })).toBeVisible();
+    if (width >= 1280) await expect(page.getByRole("table")).toBeVisible();
+    else await expect(page.getByRole("table")).toBeHidden();
+    const main = await page.getByRole("main").boundingBox();
+    expect(main.x).toBe(0);
+    expect(main.width).toBe(width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    const controls = await page.getByRole("main").locator("button:visible, input:visible, select:visible").evaluateAll(
+      elements => elements.map(element => element.getBoundingClientRect().height),
+    );
+    expect(controls.every(height => height >= 44)).toBe(true);
+    await expect(page.getByRole("button", { name: /^Sort (ascending|descending)$/ }).locator("svg")).toHaveCSS("width", "18px");
+
+    await records.getByRole("button", { name: "View Notes" }).click();
+    const dialog = page.getByRole("dialog", { name: "Consultation Notes", exact: true });
+    await expect(dialog.getByText(notes, { exact: true })).toBeVisible();
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  }
+});
 
 for (const width of [1440, 375]) {
   test(`patient history pagination, search, filters and sorting work together at ${width}px`, async ({ page }, testInfo) => {
@@ -125,6 +173,7 @@ for (const width of [1440, 375]) {
     await expect(pagination).toHaveCount(0);
     await search.fill("");
     await type.selectOption("all");
+    await expect(search).toHaveValue("");
     await next.click();
     await page.getByRole("button", { name: "All", exact: true }).click();
     await expect(pagination).toContainText("Showing 1–10 of 25");

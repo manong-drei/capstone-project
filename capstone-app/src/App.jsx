@@ -132,6 +132,22 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path={ROUTES.DOCTOR_PATIENT_PROFILE}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.DOCTOR]}>
+                <StaffPatientProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_PATIENT_PROFILE}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <StaffPatientProfile />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected: Admin */}
           <Route

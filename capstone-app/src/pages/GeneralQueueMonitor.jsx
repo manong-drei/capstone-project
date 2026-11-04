@@ -205,16 +205,7 @@ export default function GeneralQueueMonitor() {
       >
         {/* Left column — queue info (70%) */}
         <div className="basis-[70%] shrink-0 grow-0 min-w-0 h-screen grid grid-rows-[auto_minmax(0,1.3fr)_minmax(0,1fr)] gap-4 p-6 xl:gap-5 xl:p-8 bg-[#1e2d6b]">
-          <Header
-            now={now}
-            speechSupported={speechSupported}
-            announcementsEnabled={announcementsEnabled}
-            announcementError={announcementError}
-            onToggleAnnouncements={() => {
-              setAnnouncementError("");
-              setAnnouncementsEnabled((enabled) => !enabled);
-            }}
-          />
+          <Header now={now} />
 
           <PanelPair current={currentServing} next={nextServing} />
 
@@ -232,6 +223,49 @@ export default function GeneralQueueMonitor() {
             className="absolute inset-0 w-full h-full object-cover block"
           />
         </div>
+
+        {/* Floating announcement toggle — bottom-right of the monitor */}
+        {speechSupported && (
+          <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+            {announcementError && (
+              <p
+                role="status"
+                className="max-w-xs rounded-lg border border-red-400/40 bg-red-950/85 px-3 py-2 text-xs leading-relaxed text-red-200 shadow-lg backdrop-blur"
+              >
+                {announcementError}
+              </p>
+            )}
+            <button
+              type="button"
+              aria-pressed={announcementsEnabled}
+              aria-label={
+                announcementsEnabled
+                  ? "Mute announcements"
+                  : "Enable announcements"
+              }
+              title={
+                announcementsEnabled
+                  ? "Mute announcements"
+                  : "Enable announcements"
+              }
+              onClick={() => {
+                setAnnouncementError("");
+                setAnnouncementsEnabled((enabled) => !enabled);
+              }}
+              className={`inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-full border shadow-lg cursor-pointer transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
+                announcementsEnabled
+                  ? "bg-[#f97316] border-[#f97316] text-white"
+                  : "bg-white/10 border-white/25 text-white hover:bg-white/20 backdrop-blur"
+              }`}
+            >
+              {announcementsEnabled ? (
+                <Volume2 size={20} strokeWidth={2.2} />
+              ) : (
+                <VolumeX size={20} strokeWidth={2.2} />
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
@@ -290,13 +324,7 @@ function SkippedTickets({ tickets }) {
   );
 }
 
-function Header({
-  now,
-  speechSupported,
-  announcementsEnabled,
-  announcementError,
-  onToggleAnnouncements,
-}) {
+function Header({ now }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <div className="flex min-w-0 items-center gap-3">
@@ -318,56 +346,14 @@ function Header({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        {speechSupported && (
-          <button
-            type="button"
-            aria-pressed={announcementsEnabled}
-            aria-label={
-              announcementsEnabled
-                ? "Mute announcements"
-                : "Enable announcements"
-            }
-            title={
-              announcementsEnabled
-                ? "Mute announcements"
-                : "Enable announcements"
-            }
-            onClick={onToggleAnnouncements}
-            className={`inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-[9px] border cursor-pointer transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 ${
-              announcementsEnabled
-                ? "bg-[#f97316] border-[#f97316] text-white"
-                : "bg-white/[0.08] border-white/[0.22] text-white hover:bg-white/[0.16]"
-            }`}
-          >
-            {announcementsEnabled ? (
-              <Volume2 size={16} strokeWidth={2.2} />
-            ) : (
-              <VolumeX size={16} strokeWidth={2.2} />
-            )}
-          </button>
-        )}
-        <div className="text-right shrink-0">
-          <p className="mb-1 text-[clamp(10px,1vw,18px)] text-white/65">
-            {formatDate(now)}
-          </p>
-          <p className="text-[clamp(24px,2.4vw,42px)] font-extrabold leading-none tracking-tight tabular-nums">
-            {formatTime(now)}
-          </p>
-        </div>
+      <div className="text-right shrink-0">
+        <p className="mb-1 text-[clamp(10px,1vw,18px)] text-white/65">
+          {formatDate(now)}
+        </p>
+        <p className="text-[clamp(24px,2.4vw,42px)] font-extrabold leading-none tracking-tight tabular-nums">
+          {formatTime(now)}
+        </p>
       </div>
-      {announcementError ? (
-        <p
-          role="status"
-          className="basis-full text-xs leading-relaxed text-red-300"
-        >
-          {announcementError}
-        </p>
-      ) : !speechSupported ? (
-        <p role="status" className="basis-full text-xs text-white/55">
-          Voice announcements are unavailable in this browser.
-        </p>
-      ) : null}
     </header>
   );
 }

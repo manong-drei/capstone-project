@@ -67,7 +67,7 @@ const destinations = {
     ["/doctor/patient-history", "Patient History"],
     ["/doctor/leave-requests", "Leave Requests"],
     ["/doctor/consultations/11", "Consultation Notes"],
-    ["/doctor/reports/daily?date=2026-11-02", "Manual clinical entries"],
+    ["/doctor/reports/daily?date=2026-11-02", "Daily barangay entries"],
   ],
   admin: [
     ["/admin/analytics", "Statistics & Analytics"],
