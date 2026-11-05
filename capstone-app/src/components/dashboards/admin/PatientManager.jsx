@@ -1,3 +1,4 @@
+import useLiveData from "@/hooks/useLiveData";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/common/AppIcons";
@@ -326,18 +327,7 @@ export default function PatientManager() {
     [trackSmsStatuses, currentPage, debouncedSearch, showInactive],
   );
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchPatients(false, controller.signal);
-    const interval = setInterval(
-      () => fetchPatients(true, controller.signal),
-      15_000,
-    );
-    return () => {
-      controller.abort();
-      clearInterval(interval);
-    };
-  }, [fetchPatients, refresh]);
+  useLiveData(useCallback((signal, background) => fetchPatients(background, signal), [fetchPatients]), true, refresh);
 
   useEffect(() => {
     if (search.trim() === debouncedSearch) return;
@@ -616,7 +606,7 @@ export default function PatientManager() {
                 value={form.address}
                 onChange={(e) => handleChange("address", e.target.value)}
               >
-                <option value="">Select Barangay</option>
+                <option value="">-- Select Barangay --</option>
                 <option value="Abuanan">Abuanan</option>
                 <option value="Alianza">Alianza</option>
                 <option value="Atipuluan">Atipuluan</option>

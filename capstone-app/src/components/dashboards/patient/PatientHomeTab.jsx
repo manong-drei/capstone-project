@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
+import { ArrowRight, Clock3, MapPin, Radio, Ticket } from "lucide-react";
 import QueueStatus from "./QueueStatus";
-import { Footer } from "@/pages/LandingPage";
+import PatientQueueLine from "./PatientQueueLine";
 import { QUEUE_STATUS } from "@/constants/queue";
-
-const ORANGE = "#f97316";
-const NAVY = "#2d3a8c";
-const BLUE = "#1e4db7";
 
 const CHO_MAP_EMBED_SRC =
   "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2564.558871295493!2d122.83512719999999!3d10.538003599034457!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33aec71e206eb71d%3A0xfbcc4df1333ed49a!2sCity%20Health%20Office%20of%20Bago!5e0!3m2!1sen!2sph!4v1791246126385!5m2!1sen!2sph";
@@ -53,16 +50,18 @@ function getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError) {
 }
 
 export default function PatientHomeTab({
-  queueStatus,
+  queueStatus = {},
   doctorAvailability,
   doctorLeaveEnd,
   hasActiveQueue,
   registrationMessage,
   queue,
   queueError,
+  queueStatusError,
+  queueStatusLoaded = true,
+  lastUpdated,
   onGetQueue,
   onCancelQueue,
-  onGoAppointments,
   onGoQueue,
 }) {
   const [showMap, setShowMap] = useState(false);
@@ -72,197 +71,142 @@ export default function PatientHomeTab({
     doctorAvailability,
     queueError,
   );
-
-  const doctorAvailable = doctorAvailability !== 0;
-  const availabilityLabel =
-    doctorAvailability === null
-      ? "Checking availability"
-      : doctorLeaveEnd
-        ? "On leave"
-        : doctorAvailable
-          ? "Available today"
-          : "Unavailable today";
-
-  const quickLinks = [
-    {
-      label: "Appointment history",
-      detail: "View past visits",
-      onClick: onGoAppointments,
-      accent: BLUE,
-    },
-    {
-      label: "Location",
-      detail: "City Health Office",
-      onClick: () => setShowMap(true),
-      accent: "#1e1b4b",
-    },
-    {
-      label: "CHO services",
-      detail: "Explore available care",
-      accent: ORANGE,
-    },
-  ];
-
   return (
-    <>
-      <section
-        className="relative isolate flex min-h-[320px] items-center overflow-hidden bg-cover bg-center px-4 py-14 text-center sm:min-h-[360px] sm:px-6"
-        style={{ backgroundImage: "url('/assets/BGHero.webp')" }}
+    <div className="@container/patient-home font-[Poppins,sans-serif] text-slate-800 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_:is(button,a,summary):focus-visible]:outline-2 [&_:is(button,a,summary):focus-visible]:outline-offset-4 [&_:is(button,a,summary):focus-visible]:outline-blue-600">
+      <div
+        className="grid items-start gap-5 @min-[900px]/patient-home:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]"
+        role="region"
+        aria-label="Patient information"
       >
-        <div className="absolute inset-0 -z-10 bg-white/45" />
-        <div className="mx-auto max-w-2xl">
-          <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1.5 text-xs font-bold tracking-wide text-[#2d3a8c] shadow-sm">
-            E-KALUSUGAN PATIENT PORTAL
-          </span>
-          <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-[#111827] sm:text-4xl">
-            Your Health, Schedule.
-            <span className="block text-[#1e4db7]">No More Long Waits.</span>
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#374151] sm:text-base">
-            Get your queue number online, check doctor availability, and track
-            your wait time from your phone.
-          </p>
-        </div>
-      </section>
-
-      <main className="bg-[#f3f4f6] px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
-          <section
-            className="grid grid-cols-2 gap-3 sm:gap-4"
-            aria-label="Live queue status"
-          >
-            <QueueBanner
-              label={
+        <section
+          className="order-2 grid grid-cols-2 gap-3 @min-[600px]/patient-home:order-0 @min-[600px]/patient-home:grid-cols-3 @min-[900px]/patient-home:col-span-2"
+          aria-label="Live queue status"
+        >
+          {[
+            {
+              label:
                 queueStatus.current_status === "called"
                   ? "Called — report to staff"
-                  : "Now serving"
-              }
-              value={queueStatus.now_serving}
-              color={ORANGE}
-            />
-            <QueueBanner
-              label="Next in queue"
-              value={queueStatus.next_queuing}
-              color={NAVY}
-            />
-          </section>
-
-          <section
-            className="grid grid-cols-2 gap-3"
-            aria-label="Quick actions"
-          >
-            <button
-              type="button"
-              onClick={onGetQueue}
-              disabled={
-                hasActiveQueue || !!registrationMessage || !!doctorLeaveEnd
-              }
-              className="flex min-h-20 min-w-0 items-center rounded-2xl bg-[#f97316] px-3 py-4 text-left text-white shadow-md shadow-orange-500/30 transition hover:bg-[#ea6d10] focus:outline-none focus:ring-4 focus:ring-orange-200 disabled:cursor-not-allowed disabled:opacity-65 sm:min-h-16 sm:px-6"
+                  : "Now serving",
+              value: queueStatusError
+                ? "Unavailable"
+                : queueStatus.now_serving || "—",
+              icon: Radio,
+            },
+            {
+              label: "Next in queue",
+              value: queueStatusError
+                ? "Unavailable"
+                : queueStatus.next_queuing || "—",
+              icon: ArrowRight,
+            },
+            {
+              label: "Estimated wait",
+              value: estimatedWait.value,
+              detail: estimatedWait.detail,
+              icon: Clock3,
+            },
+          ].map((item) => (
+            <div
+              className={`min-w-0 rounded-2xl border bg-white p-4 shadow-xs sm:p-5 ${item.detail ? "col-span-2 border-slate-200 @min-[600px]/patient-home:col-span-1" : "border-orange-200/70"}`}
+              key={item.label}
             >
-              <span className="min-w-0">
-                <span className="block text-sm font-extrabold leading-snug sm:text-base">
-                  Get queue ticket
-                </span>
-                <span className="mt-1 block text-[11px] leading-snug text-white/80 sm:text-xs">
-                  {hasActiveQueue
-                    ? "You already have an active queue"
-                    : doctorLeaveEnd
-                      ? "Dentist on approved leave"
-                      : registrationMessage
-                        ? "Registration closed"
-                        : "Join the dental queue"}
-                </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={onGoAppointments}
-              className="flex min-h-20 min-w-0 items-center rounded-2xl border border-[#d1d5db] bg-white px-3 py-4 text-left text-[#374151] shadow-sm transition hover:border-[#1e4db7] hover:bg-[#eff6ff] focus:outline-none focus:ring-4 focus:ring-blue-100 sm:min-h-16 sm:px-6"
+              <div>
+                <p className="flex items-center justify-between gap-2 text-md font-medium text-slate-800">
+                  {item.label}
+                  <item.icon
+                    size={16}
+                    className={
+                      item.detail
+                        ? "shrink-0 text-blue-700"
+                        : "shrink-0 text-orange-700"
+                    }
+                    aria-hidden="true"
+                  />
+                </p>
+                <strong
+                  className={`mt-2 block text-2xl leading-tight font-bold tracking-tight wrap-anywhere tabular-nums sm:text-3xl ${item.detail ? "text-blue-950" : "text-orange-700"}`}
+                >
+                  {item.value}
+                </strong>
+                {item.detail && (
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    {item.detail}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </section>
+        <section
+          className="order-1 min-w-0 [&>section:not(:first-child)]:mt-5"
+          aria-label="My Queue"
+        >
+          {(hasActiveQueue || queue?.status === "no_show") && (
+            <QueueStatus
+              queue={queue}
+              onCancel={hasActiveQueue ? onCancelQueue : undefined}
+              onViewQueue={onGoQueue}
+              lastUpdated={lastUpdated}
+              updatesUnavailable={!!queueError}
+            />
+          )}
+          {!hasActiveQueue && (
+            <section
+              className="flex min-w-0 flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center shadow-xs sm:px-8"
+              aria-label="Quick actions"
             >
-              <span className="min-w-0">
-                <span className="block text-sm font-extrabold leading-snug sm:text-base">
-                  Appointment history
-                </span>
-                <span className="mt-1 block text-[11px] leading-snug text-[#6b7280] sm:text-xs">
-                  Review your consultations
-                </span>
+              <span className="grid size-16 place-items-center rounded-2xl bg-orange-50 text-orange-700">
+                <Ticket size={30} aria-hidden="true" />
               </span>
-            </button>
-          </section>
+              <h2 className="text-lg font-semibold text-blue-950">
+                No active queue number
+              </h2>
 
-          {!hasActiveQueue && registrationMessage && (
+              {registrationMessage && (
+                <p role="status" className="text-sm leading-6 text-red-700">
+                  {registrationMessage}
+                </p>
+              )}
+              <button
+                type="button"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                onClick={onGetQueue}
+                disabled={!!registrationMessage || !!doctorLeaveEnd}
+              >
+                Get queue ticket
+              </button>
+            </section>
+          )}
+          {queueError && (
             <p
-              role="status"
-              className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+              role="alert"
+              className="my-3 rounded-xl bg-red-50 p-4 text-sm leading-6 text-red-700"
             >
-              {registrationMessage}
+              {queueError} Displayed ticket information may be outdated.
             </p>
           )}
-
-          <section
-            className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
-            aria-label="Patient information"
+        </section>
+        <div className="order-3 min-w-0">
+          <PatientQueueLine
+            queueStatus={queueStatus}
+            queue={queue}
+            hasActiveQueue={hasActiveQueue}
+            error={queueStatusError}
+            loaded={queueStatusLoaded}
+          />
+          <button
+            type="button"
+            className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 text-xs font-medium text-blue-800 hover:bg-blue-50"
+            onClick={() => setShowMap(true)}
           >
-            <section className="min-w-0" aria-label="My Queue">
-              {hasActiveQueue || queue?.status === "no_show" ? (
-                <QueueStatus
-                  queue={queue}
-                  onCancel={onCancelQueue}
-                  onViewQueue={onGoQueue}
-                />
-              ) : (
-                <InfoCard
-                  title="My Queue"
-                  value="No active queue number"
-                  detail="View the current queue line"
-                  accent={ORANGE}
-                  onClick={onGoQueue}
-                />
-              )}
-            </section>
-            <InfoCard
-              title="Estimated wait"
-              value={estimatedWait.value}
-              detail={estimatedWait.detail}
-              accent={BLUE}
-            />
-            <InfoCard
-              title="Doctor availability"
-              value={availabilityLabel}
-              detail={
-                doctorAvailability === null
-                  ? "Please wait a moment"
-                  : doctorLeaveEnd
-                    ? `Through ${new Date(`${doctorLeaveEnd}T00:00:00+08:00`).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" })}. Please contact staff.`
-                    : doctorAvailable
-                      ? "Ready to receive patients"
-                      : "Please check again later"
-              }
-              accent={
-                doctorAvailability === null
-                  ? "#9ca3af"
-                  : doctorAvailable
-                    ? "#059669"
-                    : "#dc2626"
-              }
-            />
-            {quickLinks.map(({ label, detail, onClick, accent }) => (
-              <InfoCard
-                key={label}
-                title={label}
-                value={detail}
-                accent={accent}
-                onClick={onClick}
-              />
-            ))}
-          </section>
+            <MapPin size={16} aria-hidden="true" />
+            Clinic location
+          </button>
         </div>
-      </main>
-
+      </div>
       {showMap && <LocationMapModal onClose={() => setShowMap(false)} />}
-
-      <Footer />
-    </>
+    </div>
   );
 }
 
@@ -315,8 +259,7 @@ function LocationMapModal({ onClose }) {
         <iframe
           title="City Health Office of Bago map"
           src={CHO_MAP_EMBED_SRC}
-          className="h-[45dvh] max-h-[380px] min-h-0 w-full"
-          style={{ border: 0 }}
+          className="h-[45dvh] max-h-[380px] min-h-0 w-full border-0"
           allowFullScreen
           loading="lazy"
           referrerPolicy="strict-origin-when-cross-origin"
@@ -334,59 +277,5 @@ function LocationMapModal({ onClose }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function QueueBanner({ label, value, color }) {
-  return (
-    <div
-      className="relative min-w-0 overflow-hidden rounded-2xl px-3 py-4 text-white shadow-lg sm:px-6 sm:py-5"
-      style={{ backgroundColor: color }}
-    >
-      <p className="text-[10px] font-bold uppercase leading-snug tracking-[0.1em] text-white/75 sm:text-xs sm:tracking-[0.14em]">
-        {label}
-      </p>
-      <p className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">
-        {value ?? "—"}
-      </p>
-    </div>
-  );
-}
-
-function InfoCard({ title, value, detail, accent, onClick }) {
-  const content = (
-    <span className="flex w-full min-w-0 flex-col items-start justify-center text-left">
-      <span className="block text-[10px] font-bold uppercase leading-snug tracking-[0.08em] text-[#9ca3af] sm:text-[11px] sm:tracking-[0.12em]">
-        {title}
-      </span>
-      <span className="mt-1 block break-words text-base font-extrabold leading-snug text-[#111827] sm:text-lg">
-        {value}
-      </span>
-      {detail && (
-        <span className="mt-1 block break-words text-[11px] leading-snug text-[#6b7280] sm:text-xs">
-          {detail}
-        </span>
-      )}
-    </span>
-  );
-
-  const classes = "flex h-full w-full min-h-28 min-w-0 items-center rounded-2xl border border-[#e5e7eb] border-l-4 bg-white p-3 text-left shadow-sm sm:min-h-32 sm:p-5";
-
-  if (!onClick)
-    return (
-      <div className={classes} style={{ borderLeftColor: accent }}>
-        {content}
-      </div>
-    );
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${classes} cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-100`}
-      style={{ borderLeftColor: accent }}
-    >
-      {content}
-    </button>
   );
 }

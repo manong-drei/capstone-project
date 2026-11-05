@@ -16,6 +16,7 @@ const {
 // Middleware
 const protect = require("../middleware/authenticate"); // direct import
 const authorize = require("../middleware/authorize"); // direct import
+const requireProfileSession = require("../middleware/requireProfileSession");
 
 const requireRecoverySession = (req, res, next) => {
   res.set("Cache-Control", "no-store");
@@ -48,7 +49,7 @@ const recoveryPasswordLimiter = rateLimit({
 router.get("/me", protect, authorize("patient"), getMyProfile);
 
 // Update patient profile (protected, only "patient" role)
-router.put("/me", protect, authorize("patient"), updateProfile);
+router.put("/me", protect, authorize("patient"), requireProfileSession, updateProfile);
 
 router.get("/search", protect, authorize("staff", "admin"), searchPatients);
 router.get("/:id", protect, authorize("staff", "admin", "doctor"), getPatientById);

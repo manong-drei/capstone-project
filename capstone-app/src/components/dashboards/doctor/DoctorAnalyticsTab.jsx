@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useEffect, useState } from "react";
 import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES } from "@/constants/routes";
 import {
@@ -359,7 +360,7 @@ function ClinicalRows({ rows, fields }) {
                 <th
                   scope="col"
                   key={field.index}
-                  className="break-words px-2 py-3 text-right font-semibold"
+                  className="wrap-break-word px-2 py-3 text-right font-semibold"
                 >
                   {field.label}
                 </th>
@@ -560,10 +561,6 @@ function CompletedBreakdown({ rows, completed }) {
           <h3 className="text-xl font-bold text-slate-900">
             {completed.completed} completed visits
           </h3>
-          <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            Each completed visit is counted once, including visits without
-            notes. One patient may have several visits.
-          </p>
         </div>
         <label className="grid gap-2 text-sm font-semibold text-slate-700">
           Breakdown
@@ -749,92 +746,36 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
     } else blocker.reset();
   }, [blocker, saving]);
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const data = await api.get(`/doctor/analytics?${query}`);
-        if (active) {
-          setStats(data);
-          setToday(data.report_date);
-          setError("");
-        }
-      } catch (err) {
-        if (active) {
-          setStats(null);
-          setError(err.message || "Could not load analytics.");
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    load();
-    const timer = setInterval(load, 30_000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [query, retry]);
+  useLiveData(useCallback(async (signal, background) => {
+    if (!background) setLoading(true);
+    try {
+      const data = await api.get('/doctor/analytics?' + query, { signal });
+      if (!signal.aborted) { setStats(data); setToday(data.report_date); setError(''); }
+    } catch (err) { if (!signal.aborted) setError(err.message || 'Could not load analytics.'); }
+    finally { if (!signal.aborted) setLoading(false); }
+  }, [query]), true, retry);
 
-  useEffect(() => {
-    if (!manualOpen || !selectedDate) return;
-    let active = true;
-    setManualLoading(true);
-    setManualError("");
-    setManualDate("");
-    api
-      .get(`/doctor/daily-report?date=${selectedDate}`)
-      .then((response) => {
-        if (active) {
-          setManualData(
-            Array.isArray(response.data) ? response.data : emptyReport(),
-          );
-          setHasSavedRecord(Boolean(response.data));
-          setLegacyRecord(response.legacy ?? null);
-          setManualDate(selectedDate);
-          setDirty(false);
-        }
-      })
-      .catch((err) => {
-        if (active)
-          setManualError(err.message || "Could not load your report.");
-      })
-      .finally(() => {
-        if (active) setManualLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [selectedDate, manualOpen, manualRetry]);
-
-  useEffect(() => {
-    if (manualOpen) return;
-    let active = true;
-    const load = async () => {
-      setReportLoading(true);
-      try {
-        const response = await api.get(`/doctor/report?${query}`);
-        if (active) {
-          setReport({ ...response, data: sumReports(response.reports) });
-          setReportError("");
-        }
-      } catch (err) {
-        if (active) {
-          setReport(null);
-          setReportError(err.message || "Could not load report.");
-        }
-      } finally {
-        if (active) setReportLoading(false);
+  useLiveData(useCallback(async (signal, background) => {
+    if (!background) { setManualLoading(true); setManualDate(''); }
+    try {
+      const response = await api.get('/doctor/daily-report?date=' + selectedDate, { signal });
+      if (!signal.aborted) {
+        setManualData(Array.isArray(response.data) ? response.data : emptyReport());
+        setHasSavedRecord(Boolean(response.data)); setLegacyRecord(response.legacy ?? null);
+        setManualDate(selectedDate); setManualError('');
       }
-    };
-    load();
-    const timer = setInterval(load, 30_000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [query, reportRetry, manualOpen]);
+    } catch (err) { if (!signal.aborted) setManualError(err.message || 'Could not load your report.'); }
+    finally { if (!signal.aborted) setManualLoading(false); }
+  }, [selectedDate]), manualOpen && Boolean(selectedDate) && !dirty && !saving, manualRetry);
+
+  useLiveData(useCallback(async (signal, background) => {
+    if (!background) setReportLoading(true);
+    try {
+      const response = await api.get('/doctor/report?' + query, { signal });
+      if (!signal.aborted) { setReport({ ...response, data: sumReports(response.reports) }); setReportError(''); }
+    } catch (err) { if (!signal.aborted) setReportError(err.message || 'Could not load report.'); }
+    finally { if (!signal.aborted) setReportLoading(false); }
+  }, [query]), !manualOpen, reportRetry);
 
   useEffect(() => {
     if (!dirty) return;

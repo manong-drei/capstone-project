@@ -23,7 +23,7 @@ export const USER_MANUALS = {
       {
         id: "follow-ticket", title: "Follow your turn", summary: "Your ticket status tells you what to do next.",
         steps: [
-          "On Home, compare your ticket with “Now serving” and “Next in queue”. The display updates about every 15 seconds while the page is open.",
+          "On Home, compare your ticket with “Now serving” and “Next in queue”. The display updates about every 5 seconds while the page is open.",
           "While your ticket is “Waiting”, stay nearby and keep checking. Verified priority patients go first in entry order. Confirmed returns rejoin behind patients already waiting in the same priority group.",
           "When “It’s your turn!” or “Called — report to staff” appears, report to staff immediately. Staff must confirm that you are present before care begins.",
           "If you see “Missed call”, report to staff before the displayed deadline. Staff must record your return; reopening the page does not confirm your arrival.",
@@ -40,11 +40,25 @@ export const USER_MANUALS = {
         note: "Cancelling does not restore a daily registration attempt. A new request must still meet today's availability, capacity, and registration rules.",
       },
       {
-        id: "patient-history", title: "View history and clinic location", summary: "Use the Home shortcuts to find previous visits and the clinic map.",
+        id: "patient-history", title: "View history and clinic location", summary: "Use the navigation for previous visits and Home for the clinic map.",
         steps: [
-          "Select “Appointment history” to see your recorded appointments and their statuses.",
+          "Select “Appointment history” in the navigation, or “Visits” on mobile, to see recorded appointments. Expand a visit for readable service names, its status, diagnosis, and recorded prescription or recommendations.",
           "Select “Back” to return to Home. History is a viewing screen; ask staff if a record needs attention.",
-          "Select “Location” on Home to view the City Health Office of Bago map.",
+          "Select “Clinic location” below the current queue line on Home to view the City Health Office of Bago map. The service directory is unavailable at the moment.",
+        ],
+      },
+      {
+        id: "patient-print-ticket", title: "Print your ticket", summary: "Print an image of your dental queue ticket.",
+        steps: [
+          "On your ticket, select “Download Ticket” to save a 4:3 PNG image directly. The image includes your queue number, name, services, queue status, and issue time including seconds. Priority numbers use orange; regular numbers use blue.",
+          "Choose your printer in the print dialog. Printing is available once your queue status has been verified.",
+        ],
+        note: "Follow the live ticket and clinic staff for your current turn.",
+      },
+      {
+        id: "patient-updates-profile", title: "Manage your profile", summary: "Review and update your saved personal information.",
+        steps: [
+          "Open the menu with “Log Out” and select “My Profile”. Select the pencil icon to update your personal or contact information, then select “Save changes”. Use “Change password” in the profile card to update your password. Your queue status appears next to the Patient tag.",
         ],
       },
     ],
@@ -150,7 +164,7 @@ export const USER_MANUALS = {
       ["Call again or Skip is disabled.", "Wait for the displayed countdown. Recall requires 15 seconds after the first call; skipping requires two calls and another 15 seconds after the second."],
       ["Consultation saving failed.", "Keep the notes window open and read the error. Check the connection and whether a consultation was already saved for this visit. Do not create a second ticket just to save notes."],
       ["A report will not print or download.", "Wait for loading to finish, use “Retry” for a load error, and save all manual entries. Check that the chosen period contains completed visits or saved clinical counts."],
-      ["Queue or settings look out of date.", "The dashboard refreshes about every 30 seconds. Confirm the connection and current ticket before repeating an action. Save any unsaved notes or report entries before reloading the page."],
+      ["Queue or settings look out of date.", "The dashboard refreshes about every 5 seconds. Confirm the connection and current ticket before repeating an action. Save any unsaved notes or report entries before reloading the page."],
     ],
     support: "Contact the clinic administrator for account, queue, or report problems you cannot resolve.",
     faqs: [
@@ -226,7 +240,7 @@ export const USER_MANUALS = {
         steps: [
           "Select “Open dental monitor”. It opens the display in a separate browser tab.",
           "Use the announcement control on the monitor to enable voice announcements. Browser support and a suitable voice are required.",
-          "If audio is unavailable, follow the recovery message and continue using the visible ticket display. Successful queue actions trigger an immediate monitor refresh in the same browser. Other devices check for changes about every second. The staff dashboard refreshes about every 15 seconds.",
+          "If audio is unavailable, follow the recovery message and continue using the visible ticket display. Successful queue actions trigger an immediate monitor refresh in the same browser. Other devices check for changes about every second. The staff dashboard refreshes about every 5 seconds.",
         ],
       },
     ],
@@ -267,16 +281,16 @@ export const USER_MANUALS = {
         id: "admin-overview", title: "Review clinic activity and queue", summary: "Review today's live queue directly on the Dashboard overview.",
         steps: [
           "Open “Dashboard” to review Total Patient Visits, Total Doctors, Total Appointments, and Total Queues Completed. In today's queue statistics, Serving includes called patients.",
-          "On “Dashboard”, use “Live queue monitor” to see Dental and General patients now being served and up next. Filter today's tickets by All queues, Dental, or General to review patients, queue types, statuses, and recorded reasons. It refreshes every 15 seconds; use “Refresh live queue” for an immediate update.",
+          "On “Dashboard”, use “Live queue monitor” to see the dental patient now being served and up next. Review today's tickets, queue types, statuses, and recorded reasons. It refreshes every 5 seconds; use “Refresh live queue” for an immediate update. Dental age distribution and the Monthly, Weekly, and Daily patient-volume bar graph are also on Dashboard.",
           "To withdraw an eligible active ticket, select its “Cancel” button, choose the reason in “Reason for cancellation”, then select “Continue”. Staff and doctors handle calls and physical presence.",
-          "Open “Doctors” to read Doctor Availability. Open “Patients History” for Appointment History; use “Previous” and “Next” to move through ten-record pages.",
+          "Open “Management” and choose “Doctors & leave” to read Doctor Availability and review leave requests. Choose “Patient history” for Appointment History; use “Previous” and “Next” to move through ten-record pages.",
         ],
         note: "Doctors and Patients History are viewing screens here. Doctor availability is changed by the doctor. Cancelled tickets may no longer appear in the active queue list.",
       },
       {
         id: "admin-leave", title: "Review doctor leave requests", summary: "Admin approval applies to leave only.",
         steps: [
-          "Open “Leave Requests”, choose a status, and select “Review request” for the relevant doctor.",
+          "Open “Management” → “Doctors & leave”. Under Leave Requests, choose a status and select “Review request” for the relevant doctor.",
           "Review the dates, reason, affected appointments and active queue tickets. If any are affected, acknowledge responsibility for staff follow-up before approving. Approval keeps those existing records in place.",
           "Optionally enter a review note, then select “Approve leave” or “Reject request”. The doctor can read the decision and note. Refresh the review if the affected records changed.",
           "To revoke approved leave, open its review and select “Cancel approved leave”. The doctor's saved daily availability rules resume. Daily availability and capacity changes do not need approval.",
@@ -285,7 +299,7 @@ export const USER_MANUALS = {
       {
         id: "admin-staff", title: "Create and manage staff accounts", summary: "Manage doctor, staff, and administrator access in Accounts.",
         steps: [
-          "Open “Accounts”, choose “Staff”, then select “Add Staff”.",
+          "Open “Management” → “Accounts”, choose “Staff”, then select “Add Staff”.",
           "In “New Staff Account”, select the role and fill Phone, First Name, Last Name, Email, and Password. Doctors also require License Number; staff require Position.",
           "Select “Create Account”. Use a valid Philippine mobile number and check any error about an existing phone, email, or license.",
           "Use “Edit” and “Save Changes” to update supported account details. This form does not change the role or password.",
@@ -295,7 +309,7 @@ export const USER_MANUALS = {
       {
         id: "admin-patients", title: "Create and assist patient accounts", summary: "Patient accounts use a temporary activation password sent by SMS.",
         steps: [
-          "Open “Accounts”, choose “Patients”, then select “Add Patient”.",
+          "Open “Management” → “Accounts”, choose “Patients”, then select “Add Patient”.",
           "Complete First Name, Last Name, Phone, Date of Birth, Gender, and Barangay. Set Priority Status only when appropriate, then select “Create Account”.",
           "Check the account confirmation and SMS status. Creating the account queues its activation password message; it does not register a queue ticket.",
           "Use “Search by name, contact, or barangay...” and “Show inactive” to find accounts. Use “Deactivate” or “Reactivate” when account access needs to change.",
@@ -315,9 +329,9 @@ export const USER_MANUALS = {
       {
         id: "admin-sms", title: "Set up and review SMS notifications", summary: "SMS means text messages. Use this area for approach alerts and account-message status.",
         steps: [
-          "Open “Notifications”. In “SMS notifications”, set “Notify within the next” to a whole number from 1 to 100 patients.",
+          "Open “Activity” and select “SMS notifications” in Activity view. Set “Notify within the next” to a whole number from 1 to 100 patients. Select “Audit logs” in Activity view to review administrator events and account recovery.",
           "Select “Save”. One alert can be sent per eligible ticket as the patient's turn approaches.",
-          "Review “Recent SMS activity” for Purpose, Recipient, Status, Details, and Created. Select “Refresh” for an update; the list also updates about every 15 seconds.",
+          "Review “Recent SMS activity” for Purpose, Recipient, Status, Details, and Created. Select “Refresh” for an update; the list also updates about every 5 seconds.",
           "Read status details before taking action. Queued, submitted, or pending does not confirm delivery; unknown means submission is uncertain and must be checked against provider history.",
         ],
         note: "Patients who join already within the alert range receive no queue SMS and must stay nearby. Changing this setting does not enable alerts for tickets already marked to receive none. A sent status does not prove that a patient read the message.",
@@ -325,9 +339,9 @@ export const USER_MANUALS = {
       {
         id: "admin-statistics", title: "Understand statistics and predictions", summary: "Read recorded service data separately from the demonstration forecast.",
         steps: [
-          "Open “Statistics/Analytics”. Review “Three-year demand forecast” for 2026, 2027, and 2028 totals, then use “Year” to select a prediction or a historical year.",
-          "Read the age-group chart legend: green shows 2025 actual data, blue shows the selected year's prediction, and dashed gray lines show its uncertainty.",
-          "Review the selected year's “forecast breakdown” and “Model performance by age group”. Scores are evaluated separately for one-, two-, and three-year predictions, with four, three, and two validation forecasts per age group respectively.",
+          "Open “Analytics”. Review “Three-year demand forecast” for total annual patient volume from 2014–2025 and predictions for 2026–2028.",
+          "Use “Age group” to select the patients shown in the BOHC recipients chart. Both charts use a solid green line for 2014–2025 history and a dashed blue line for 2026–2028 predictions, with colored legends below.",
+          "Use “Forecast year” under “Forecast details” to update the summary, “forecast breakdown”, and “Model performance by age group”. The breakdown includes 95% prediction intervals. Scores are evaluated separately for one-, two-, and three-year predictions, with four, three, and two validation forecasts per age group respectively.",
         ],
         note: "BOHC means Basic Oral Health Care. The “Demonstration forecast” uses synthetic 2012–2019 history and recorded 2020–2025 totals. All three prediction years use the same historical baseline; later predictions are not actual records. Validation samples are small and do not guarantee future accuracy or demand.",
       },
@@ -340,7 +354,7 @@ export const USER_MANUALS = {
     troubleshooting: [
       ["An account seems to be missing.", "Enable “Show inactive”, clear the patient search, and check the correct Staff or Patients section. Use Previous/Next where available."],
       ["Account creation reports a duplicate.", "Check existing phone numbers, emails, or license numbers before trying again. Locate and review the existing account rather than creating another for the same person."],
-      ["An SMS is queued or pending.", "Use Notifications → Recent SMS activity and Refresh. Sending and delivery take time. Check details rather than assuming that account creation guarantees receipt."],
+      ["An SMS is queued or pending.", "Use Activity → SMS notifications → Recent SMS activity and Refresh. Sending and delivery take time. Check details rather than assuming that account creation guarantees receipt."],
       ["An SMS status is unknown.", "Verify the text-message provider's history before issuing a replacement password. The provider may have received the request even though its result is unknown."],
       ["Changing the alert range did not send more texts.", "Tickets that joined within their alert range remain set to receive no queue SMS. There is no manual queue-alert resend action. Ask staff to relay the ticket's stay-nearby instruction."],
       ["Statistics or queue data will not load.", "Check the connection and follow the displayed refresh instructions. Confirm current state before repeating any cancellation or account action."],

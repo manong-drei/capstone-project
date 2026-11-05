@@ -1,16 +1,18 @@
-import { lazy, Suspense, useState, useEffect } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, matchPath, useLocation, useNavigate } from "react-router-dom";
+import { ChartNoAxesCombined, ClipboardList, History, LayoutDashboard, Stethoscope, UserRoundCog, UsersRound } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
 import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
-
-import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
-import AdminOverviewTab from "@/components/dashboards/admin/AdminOverviewTab";
-import AdminLiveQueueMonitor from "@/components/dashboards/admin/AdminLiveQueueMonitor";
+import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
+import "./AdminDashboard.css";
+
 const UserManual = lazy(() => import("@/components/common/UserManual"));
+const AdminOverviewTab = lazy(() => import("@/components/dashboards/admin/AdminOverviewTab"));
 const AdminReportsTab = lazy(() => import("@/components/dashboards/admin/AdminReportsTab"));
 const AdminDoctorsTab = lazy(() => import("@/components/dashboards/admin/AdminDoctorsTab"));
 const AdminPatientsHistoryTab = lazy(() => import("@/components/dashboards/admin/AdminPatientsHistoryTab"));
@@ -19,181 +21,24 @@ const AdminAuditLogsTab = lazy(() => import("@/components/dashboards/admin/Admin
 const AdminLeaveRequestsTab = lazy(() => import("@/components/dashboards/admin/AdminLeaveRequestsTab"));
 const AdminStaffTab = lazy(() => import("@/components/dashboards/admin/AdminStaffTab"));
 
-const BLUE = "#1a3a8f";
-const BLUE2 = "#1e4db7";
-const ORANGE = "#f97316";
-
-const ADMIN_RESPONSIVE_CSS = `
-  :root { --ad-nav-h: 64px; }
-
-  .ad-root {
-    min-height: 100vh;
-    background: #f1f5f9;
-    font-family: Poppins, system-ui, sans-serif;
-  }
-
-  /* ───────── Navbar ───────── */
-  .ad-nav {
-    height: var(--ad-nav-h);
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .ad-nav-left,
-  .ad-nav-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-  }
-  .ad-brand-text { white-space: nowrap; }
-
-  /* Hidden by default — the !important is what beats the inline display */
-  .ad-hamburger { display: none !important; }
-
-  /* ───────── Layout ───────── */
-  .ad-body {
-    display: flex;
-    min-height: calc(100vh - var(--ad-nav-h));
-  }
-
-  /* ───────── Sidebar ───────── */
-  .ad-sidebar {
-    width: 180px;
-    flex-shrink: 0;
-    background: #ffffff;
-    border-right: 1px solid #e2e8f0;
-    padding: 24px 0;
-    display: flex;
-    flex-direction: column;
-    position: sticky;
-    top: var(--ad-nav-h);
-    height: calc(100vh - var(--ad-nav-h));
-    overflow-y: auto;
-  }
-
-  .ad-sidebar-title {
-    margin: 0 0 12px;
-    padding: 0 16px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #94a3b8;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-  }
-
-  .ad-sidebar-btn {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 10px 16px;
-    border: none;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 400;
-    background: transparent;
-    color: #475569;
-    border-left: 3px solid transparent;
-    transition: background .15s, color .15s, border-color .15s;
-  }
-  .ad-sidebar-btn:hover { background: #f8fafc; }
-  .ad-sidebar-btn.is-active {
-    font-weight: 600;
-    background: #eff6ff;
-    color: ${BLUE};
-    border-left-color: ${BLUE};
-  }
-
-  .ad-sidebar-backdrop { display: none; }
-
-  /* ───────── Main ───────── */
-  .ad-main {
-    flex: 1;
-    min-width: 0;
-    padding: 24px;
-    overflow-x: hidden;
-  }
-  .ad-tab-pad, .ad-section-pad { padding: 20px; }
-  .ad-hero-pad { padding: 24px; }
-  .ad-show-on-mobile { display: none; }
-
-  /* ───────── Tablet / Mobile ───────── */
-  @media (max-width: 900px) {
-    .ad-nav { padding: 0 12px; }
-    .ad-brand-text { font-size: 14px !important; letter-spacing: .3px !important; }
-    .ad-hamburger { display: flex !important; }
-    .ad-hide-on-mobile { display: none !important; }
-    .ad-tab-pad, .ad-section-pad { padding: 16px; }
-    .ad-hero-pad { padding: 20px; }
-    .ad-show-on-mobile { display: flex !important; flex-direction: column; gap: 10px; }
-
-    .ad-sidebar {
-      position: fixed !important;
-      top: var(--ad-nav-h) !important;
-      left: 0 !important;
-      width: 250px !important;
-      max-width: 82vw !important;
-      height: calc(100vh - var(--ad-nav-h)) !important;
-      height: calc(100dvh - var(--ad-nav-h)) !important; /* mobile browser chrome */
-      z-index: 99 !important;
-      transform: translateX(-100%);
-      transition: transform .25s ease;
-      box-shadow: 4px 0 18px rgba(0, 0, 0, .18);
-      overscroll-behavior: contain;
-      padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
-    }
-    .ad-sidebar.ad-sidebar-open { transform: translateX(0) !important; }
-
-    /* bigger touch targets */
-    .ad-sidebar-btn { padding: 13px 18px !important; font-size: 14px !important; }
-    .ad-sidebar-title { padding: 0 18px !important; }
-
-    .ad-sidebar-backdrop {
-      position: fixed;
-      inset: var(--ad-nav-h) 0 0 0;
-      background: rgba(15, 23, 42, .45);
-      z-index: 98;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .ad-sidebar-backdrop.ad-sidebar-backdrop-active { display: block !important; }
-
-    .ad-main {
-      padding: 14px !important;
-      padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
-    }
-  }
-
-  /* ───────── Small phones ───────── */
-  @media (max-width: 420px) {
-    .ad-nav { padding: 0 10px; }
-    .ad-brand-text { display: none; }
-    .ad-logo { width: 32px !important; height: 32px !important; }
-    .ad-main { padding: 10px !important; }
-  }
-`;
-
-const sidebarItems = [
-  { label: "Dashboard", tab: "overview", path: ROUTES.ADMIN_DASHBOARD },
-  { label: "Statistics/Analytics", tab: "reports", path: ROUTES.ADMIN_ANALYTICS },
-  { label: "Doctors", tab: "doctors", path: ROUTES.ADMIN_DOCTORS },
-  { label: "Leave Requests", tab: "leave", path: ROUTES.ADMIN_LEAVE_REQUESTS },
-  { label: "Patients History", tab: "patientshistory", path: ROUTES.ADMIN_PATIENT_HISTORY },
-  { label: "Notifications", tab: "notifications", path: ROUTES.ADMIN_NOTIFICATIONS },
-  { label: "Accounts", tab: "staff", path: ROUTES.ADMIN_STAFF_ACCOUNTS },
-  { label: "Audit Logs", tab: "auditlogs", path: ROUTES.ADMIN_AUDIT_LOGS },
-  { label: "Live Queue", tab: "queue", path: ROUTES.ADMIN_QUEUE },
+const pages = [
+  [ROUTES.ADMIN_DASHBOARD, "overview"], [ROUTES.ADMIN_ANALYTICS, "reports"],
+  [ROUTES.ADMIN_DOCTORS, "doctors"], [ROUTES.ADMIN_DOCTOR_RECORDS, "doctors"],
+  [ROUTES.ADMIN_LEAVE_REQUESTS, "leave"], [ROUTES.ADMIN_LEAVE_REVIEW, "leave"],
+  [ROUTES.ADMIN_PATIENT_HISTORY, "history"], [ROUTES.ADMIN_STAFF_ACCOUNTS, "accounts"],
+  [ROUTES.ADMIN_PATIENT_ACCOUNTS, "accounts"], [ROUTES.ADMIN_NOTIFICATIONS, "notifications"],
+  [ROUTES.ADMIN_AUDIT_LOGS, "auditlogs"],
 ];
-const adminPages = [
-  ...sidebarItems,
-  { path: ROUTES.ADMIN_ACCOUNTS, tab: "staff" },
-  { path: ROUTES.ADMIN_PATIENT_ACCOUNTS, tab: "staff" },
-  { path: ROUTES.ADMIN_DOCTOR_RECORDS, tab: "doctors" },
-  { path: ROUTES.ADMIN_LEAVE_REVIEW, tab: "leave" },
+const navigation = [
+  { key: "overview", label: "Dashboard", icon: LayoutDashboard, path: ROUTES.ADMIN_DASHBOARD },
+  { key: "management", label: "Management", icon: UsersRound, path: ROUTES.ADMIN_DOCTORS },
+  { key: "reports", label: "Analytics", icon: ChartNoAxesCombined, path: ROUTES.ADMIN_ANALYTICS },
+  { key: "activity", label: "Activity", icon: History, path: ROUTES.ADMIN_NOTIFICATIONS },
+];
+const managementSections = [
+  { key: "doctors", label: "Doctors & leave", icon: Stethoscope, path: ROUTES.ADMIN_DOCTORS },
+  { key: "accounts", label: "Accounts", icon: UserRoundCog, path: ROUTES.ADMIN_STAFF_ACCOUNTS },
+  { key: "history", label: "Patient history", icon: ClipboardList, path: ROUTES.ADMIN_PATIENT_HISTORY },
 ];
 
 export default function AdminDashboard() {
@@ -201,280 +46,89 @@ export default function AdminDashboard() {
   const { pathname } = useLocation();
   const { logout } = useAuth();
   const { identity } = useDashboardIdentity();
-
-  const activeTab = adminPages.find(({ path }) => matchPath(path, pathname))?.tab;
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const activePage = pages.find(([path]) => matchPath(path, pathname))?.[1];
+  const management = ["doctors", "leave", "accounts", "history"].includes(activePage);
+  const activity = ["notifications", "auditlogs"].includes(activePage);
+  const activeGroup = management ? "management" : activity ? "activity" : activePage;
   const [showManual, setShowManual] = useState(false);
-
   const [overview, setOverview] = useState(null);
+  const [overviewError, setOverviewError] = useState("");
   const [ovLoading, setOvLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [overviewRetry, setOverviewRetry] = useState(0);
   const [doctors, setDoctors] = useState([]);
+  const [doctorsError, setDoctorsError] = useState("");
   const [appointments, setAppointments] = useState([]);
-  const [apptLoading, setApptLoading] = useState(false);
+  const [apptLoading, setApptLoading] = useState(true);
+  const [appointmentsError, setAppointmentsError] = useState("");
   const [initialAppointmentsLoading, setInitialAppointmentsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDoctors();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab !== "overview") return;
-    fetchOverview();
-    const controller = new AbortController();
-    setApptLoading(true);
-    appointmentService.getAllAppointments({ limit: 5 }, controller.signal)
-      .then((response) => { if (!controller.signal.aborted) setAppointments(response.data); })
-      .catch(() => { if (!controller.signal.aborted) setAppointments([]); })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setApptLoading(false);
-          setInitialAppointmentsLoading(false);
-        }
-      });
-    return () => controller.abort();
-  }, [activeTab]);
-
-  /* ── Lock body scroll while the mobile drawer is open ── */
-  useEffect(() => {
-    if (!sidebarOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [sidebarOpen]);
-
-  /* ── Auto-close the drawer when resizing back to desktop ── */
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 901px)");
-    const handle = (e) => {
-      if (e.matches) setSidebarOpen(false);
-    };
-    if (mq.addEventListener) mq.addEventListener("change", handle);
-    else mq.addListener(handle); // Safari < 14
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener("change", handle);
-      else mq.removeListener(handle);
-    };
-  }, []);
-
-  /* ── Close the drawer with Escape ── */
-  useEffect(() => {
-    if (!sidebarOpen) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") setSidebarOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [sidebarOpen]);
-
-  /* ── Scroll back to top when switching tabs ── */
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [activeTab]);
-
-  const fetchOverview = async () => {
-    setOvLoading(true);
+  const fetchDoctors = useCallback(async (signal) => {
     try {
-      setOverview(await api.get("/admin/overview"));
-    } catch {
-      setOverview(null);
-    } finally {
-      setOvLoading(false);
-      setInitialLoading(false);
-    }
-  };
+      const data = await api.get('/doctor', { signal });
+      if (!signal?.aborted) { setDoctors(data?.data ?? []); setDoctorsError(''); }
+    } catch (error) { if (!signal?.aborted) setDoctorsError(error.message || 'Doctor availability is unavailable.'); }
+  }, []);
+  useLiveData(fetchDoctors, ['overview', 'doctors', 'leave'].includes(activePage));
 
-  const fetchDoctors = async () => {
-    try {
-      setDoctors((await api.get("/doctor"))?.data ?? []);
-    } catch {
-      /* silently ignore */
-    }
-  };
+  useLiveData(useCallback(async (signal, background) => {
+    if (!background) { setOvLoading(true); setApptLoading(true); }
+    await Promise.all([
+      api.get('/admin/overview', { signal }).then(data => {
+        if (!signal.aborted) { setOverview(data); setOverviewError(''); }
+      }).catch(error => { if (!signal.aborted) setOverviewError(error.message || 'Dashboard totals are unavailable.'); })
+        .finally(() => { if (!signal.aborted) { setOvLoading(false); setInitialLoading(false); } }),
+      appointmentService.getAllAppointments({ limit: 5 }, signal).then(response => {
+        if (!signal.aborted) { setAppointments(response.data); setAppointmentsError(''); }
+      }).catch(error => { if (!signal.aborted) setAppointmentsError(error.message || 'Recent appointments are unavailable.'); })
+        .finally(() => { if (!signal.aborted) { setApptLoading(false); setInitialAppointmentsLoading(false); } }),
+    ]);
+  }, []), activePage === "overview", overviewRetry);
 
-  const handleLogout = () => {
-    logout();
-    navigate(ROUTES.LOGIN);
-  };
+  useEffect(() => { window.scrollTo(0, 0); }, [activePage]);
 
-  const selectTab = (tab) => {
-    navigate(sidebarItems.find((item) => item.tab === tab).path);
-    setSidebarOpen(false);
-  };
 
+  const goTo = path => navigate(path);
+  const handleLogout = () => { logout(); navigate(ROUTES.LOGIN); };
   if (pathname === ROUTES.ADMIN_ACCOUNTS) return <Navigate to={ROUTES.ADMIN_STAFF_ACCOUNTS} replace />;
-  if (!activeTab) return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
+  if (pathname === ROUTES.ADMIN_QUEUE) return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
+  if (!activePage) return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
 
   return (
-    <div className="ad-root">
-      <style>{ADMIN_RESPONSIVE_CSS}</style>
-      {showManual && <Suspense fallback={<p role="status">Loading help…</p>}>
-        <UserManual role="admin" isOpen onClose={() => setShowManual(false)} />
-      </Suspense>}
-
-      {/* ── Navbar ── */}
-      <nav
-        className="ad-nav"
-        style={{
-          background: `linear-gradient(135deg, ${BLUE} 0%, ${BLUE2} 100%)`,
-          boxShadow: "0 2px 12px rgba(26,58,143,0.18)",
-        }}
-      >
-        <div className="ad-nav-left">
-          <button
-            className="ad-hamburger"
-            onClick={() => setSidebarOpen((p) => !p)}
-            style={{
-              alignItems: "center",
-              justifyContent: "center",
-              width: "38px",
-              height: "38px",
-              borderRadius: "8px",
-              background: "rgba(255,255,255,0.18)",
-              border: "none",
-              color: "#fff",
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-            aria-label={sidebarOpen ? "Close menu" : "Open menu"}
-            aria-expanded={sidebarOpen}
-            aria-controls="ad-sidebar"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.25"
-              strokeLinecap="round"
-            >
-              {sidebarOpen ? (
-                <>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </>
-              ) : (
-                <>
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </>
-              )}
-            </svg>
-          </button>
-
-          <img
-            className="ad-logo"
-            src="/assets/Logo.jpg"
-            alt="logo"
-            style={{
-              width: "38px",
-              height: "38px",
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: "2px solid rgba(255,255,255,0.4)",
-              flexShrink: 0,
-            }}
-          />
-          <span
-            className="ad-brand-text"
-            style={{
-              fontSize: "16px",
-              fontWeight: 700,
-              color: "#ffffff",
-              letterSpacing: "0.5px",
-            }}
-          >
-            E-KALUSUGAN
-          </span>
-        </div>
-
-        <div className="ad-nav-right">
-          <button
-            className="ad-nav-btn"
-            onClick={() => { setSidebarOpen(false); setShowManual(true); }}
-            style={{
-              background: "rgba(255,255,255,0.15)",
-              border: "none",
-              borderRadius: "8px",
-              padding: "7px 14px",
-              color: "#fff",
-              fontSize: "13px",
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            Help
-          </button>
-          <DashboardProfileMenu
-            identity={identity}
-            onLogout={handleLogout}
-            accentColor={ORANGE}
-            chipBg="rgba(255,255,255,0.15)"
-            chipBorder="rgba(255,255,255,0.24)"
-            chipTextColor="#ffffff"
-            subtitleColor="rgba(255,255,255,0.72)"
-          />
-        </div>
-      </nav>
-
-      {/* Mobile sidebar backdrop */}
-      <div
-        className={`ad-sidebar-backdrop ${sidebarOpen ? "ad-sidebar-backdrop-active" : ""}`}
-        onClick={() => setSidebarOpen(false)}
-        aria-hidden="true"
+    <div className="ad-root min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
+      {showManual && <Suspense fallback={<p role="status">Loading help…</p>}><UserManual role="admin" isOpen onClose={() => setShowManual(false)} /></Suspense>}
+      <StaffNavbar
+        identity={identity}
+        onHelp={() => setShowManual(true)}
+        onLogout={handleLogout}
+        sections={navigation.map((item) => ({
+          ...item,
+          active: activeGroup === item.key,
+          onSelect: () => goTo(item.path),
+        }))}
       />
 
-      {/* ── Body: Sidebar + Main ── */}
-      <div className="ad-body">
-        <aside
-          id="ad-sidebar"
-          className={`ad-sidebar ${sidebarOpen ? "ad-sidebar-open" : ""}`}
-        >
-          <p className="ad-sidebar-title">MAIN MENU</p>
-          {sidebarItems.map(({ label, tab }) => (
-            <button
-              key={tab}
-              className={`ad-sidebar-btn ${activeTab === tab ? "is-active" : ""}`}
-              onClick={() => selectTab(tab)}
-              aria-current={activeTab === tab ? "page" : undefined}
-            >
-              {label}
-            </button>
-          ))}
-        </aside>
-
-        <main className="ad-main">
-          <Suspense fallback={<DashboardSkeleton />}>
-          {activeTab === "overview" && (
-            <AdminOverviewTab
-              overview={overview}
-              ovLoading={ovLoading}
-              initialLoading={initialLoading}
-              doctors={doctors}
-              recentAppointments={appointments}
-              apptLoading={apptLoading}
-              initialAppointmentsLoading={initialAppointmentsLoading}
-            />
-          )}
-          {activeTab === "reports" && (
-            <AdminReportsTab />
-          )}
-          {activeTab === "doctors" && <AdminDoctorsTab doctors={doctors} />}
-          {activeTab === "leave" && <AdminLeaveRequestsTab onChanged={fetchDoctors} />}
-          {activeTab === "patientshistory" && (
-            <AdminPatientsHistoryTab />
-          )}
-          {activeTab === "notifications" && <AdminNotificationsTab />}
-          {activeTab === "staff" && <AdminStaffTab />}
-          {activeTab === "auditlogs" && <AdminAuditLogsTab />}
-          {activeTab === "queue" && <AdminLiveQueueMonitor />}
-          </Suspense>
-        </main>
-      </div>
+      <main className="mx-auto w-full max-w-[1600px] space-y-4 px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-6">
+        {management && <>
+          <div className="flex items-center gap-3"><span className="rounded-xl bg-blue-50 p-3 text-blue-800"><UsersRound size={22} aria-hidden="true" /></span><div><h1 className="text-xl font-bold text-[#1a3a8f] sm:text-2xl">Management</h1><p className="mt-1 text-xs text-slate-500 sm:text-sm">Doctors, leave, accounts, and patient history in one place.</p></div></div>
+          <div role="group" aria-label="Management sections" className="flex flex-wrap gap-1 border-b border-slate-200 pb-3">
+            {managementSections.map(item => {
+              const selected = item.key === activePage || (item.key === "doctors" && activePage === "leave");
+              return <button key={item.key} type="button" aria-pressed={selected} onClick={() => goTo(item.path)} className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-blue-600 sm:text-sm ${selected ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:bg-blue-50 hover:text-blue-800"}`}><item.icon size={17} aria-hidden="true" />{item.label}</button>;
+            })}
+          </div>
+        </>}
+        {activity && <div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-xl font-bold text-[#1a3a8f] sm:text-2xl">Activity</h1><p className="mt-1 text-xs text-slate-500 sm:text-sm">SMS notifications, delivery history, and audit logs.</p></div><label className="grid gap-1 text-xs font-medium text-slate-600">Activity view<select aria-label="Activity view" value={activePage} onChange={event => goTo(event.target.value === "auditlogs" ? ROUTES.ADMIN_AUDIT_LOGS : ROUTES.ADMIN_NOTIFICATIONS)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"><option value="notifications">SMS notifications</option><option value="auditlogs">Audit logs</option></select></label></div>}
+        <Suspense fallback={<DashboardSkeleton />}>
+          {activePage === "overview" && <AdminOverviewTab identity={identity} overview={overview} ovLoading={ovLoading} initialLoading={initialLoading} overviewError={overviewError} onRetry={() => setOverviewRetry(value => value + 1)} doctors={doctors} doctorsError={doctorsError} recentAppointments={appointments} apptLoading={apptLoading} appointmentsError={appointmentsError} initialAppointmentsLoading={initialAppointmentsLoading} />}
+          {activePage === "reports" && <AdminReportsTab />}
+          {["doctors", "leave"].includes(activePage) && <div className="space-y-4"><AdminDoctorsTab doctors={doctors} />{doctorsError && <p role="alert" className="text-sm text-red-700">{doctorsError}</p>}<AdminLeaveRequestsTab onChanged={fetchDoctors} /></div>}
+          {activePage === "history" && <AdminPatientsHistoryTab />}
+          {activePage === "accounts" && <AdminStaffTab />}
+          {activePage === "notifications" && <AdminNotificationsTab />}
+          {activePage === "auditlogs" && <AdminAuditLogsTab />}
+        </Suspense>
+      </main>
     </div>
   );
 }

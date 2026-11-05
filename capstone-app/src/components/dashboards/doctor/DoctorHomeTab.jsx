@@ -102,7 +102,7 @@ export default function DoctorHomeTab({
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute -right-10 -top-24 h-72 w-72 rounded-full border-[40px] border-white/5"
+          className="pointer-events-none absolute -right-10 -top-24 h-72 w-72 rounded-full border-40 border-white/5"
           aria-hidden="true"
         />
         <div className="relative flex flex-wrap items-center justify-between gap-6">
@@ -213,7 +213,18 @@ export default function DoctorHomeTab({
               {currentQueue ? (
                 <>
                   <p className="break-words text-sm font-medium">
-                    {currentQueue.patient_id ? <Link to={generatePath(ROUTES.DOCTOR_PATIENT_PROFILE, { id: String(currentQueue.patient_id) })} className="underline decoration-white/50 underline-offset-4 hover:decoration-white focus-visible:outline-2 focus-visible:outline-white">{getQueueDisplayName(currentQueue)}</Link> : getQueueDisplayName(currentQueue)}
+                    {currentQueue.patient_id ? (
+                      <Link
+                        to={generatePath(ROUTES.DOCTOR_PATIENT_PROFILE, {
+                          id: String(currentQueue.patient_id),
+                        })}
+                        className="underline decoration-white/50 underline-offset-4 hover:decoration-white focus-visible:outline-2 focus-visible:outline-white"
+                      >
+                        {getQueueDisplayName(currentQueue)}
+                      </Link>
+                    ) : (
+                      getQueueDisplayName(currentQueue)
+                    )}
                   </p>
                   <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
                     {currentQueue.type === "priority" && (
@@ -329,7 +340,18 @@ export default function DoctorHomeTab({
                         {queue.queue_number}
                       </p>
                       <p className="break-words text-xs text-slate-600">
-                        {queue.patient_id ? <Link to={generatePath(ROUTES.DOCTOR_PATIENT_PROFILE, { id: String(queue.patient_id) })} className="underline-offset-4 hover:text-blue-700 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600">{getQueueDisplayName(queue)}</Link> : getQueueDisplayName(queue)}
+                        {queue.patient_id ? (
+                          <Link
+                            to={generatePath(ROUTES.DOCTOR_PATIENT_PROFILE, {
+                              id: String(queue.patient_id),
+                            })}
+                            className="underline-offset-4 hover:text-blue-700 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600"
+                          >
+                            {getQueueDisplayName(queue)}
+                          </Link>
+                        ) : (
+                          getQueueDisplayName(queue)
+                        )}
                       </p>
                     </div>
                     <span
@@ -379,7 +401,11 @@ export default function DoctorHomeTab({
                 !availLoading && onToggleAvailability(!isAvailable)
               }
               disabled={availLoading || !!approvedLeave}
-              className={`min-h-11 shrink-0 rounded-xl border px-4 py-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60 ${isAvailable && !approvedLeave ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"}`}
+              className={`min-h-11 shrink-0 rounded-xl border-2 px-4 py-2 text-xs font-bold shadow-md transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-70 ${
+                isAvailable && !approvedLeave
+                  ? "border-emerald-800 bg-emerald-700 text-white hover:bg-emerald-800"
+                  : "border-amber-600 bg-amber-400 text-amber-950 hover:bg-amber-300"
+              }`}
             >
               {approvedLeave
                 ? "On leave"
@@ -648,7 +674,7 @@ export default function DoctorHomeTab({
           className={`h-2 w-2 shrink-0 rounded-full ${error ? "bg-amber-500" : "bg-emerald-500"}`}
           aria-hidden="true"
         />
-        {error ? "Refresh unavailable" : "Auto-refresh every 30 seconds"}
+        {error ? "Refresh unavailable" : "Auto-refresh every 5 seconds"}
       </p>
     </main>
   );

@@ -3,9 +3,11 @@
  */
 
 const User = require("../models/User");
+const Staff = require("../models/Staff");
 const pool = require("../config/db");
 const audit = require("../services/auditLog");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
+const { normalizeProfileChanges } = require("../utils/profile");
 const { sessionResponse } = require("../utils/authSession");
 
 const ROLE_LABELS = {
@@ -46,6 +48,7 @@ const normalizeProfile = (row) => ({
   suffix: pickFirst(row.suffix),
   full_name: pickFirst(row.full_name, row.dev_full_name),
   phone: pickFirst(row.profile_contact_number, row.user_phone, row.phone),
+  contact_number: pickFirst(row.profile_contact_number),
   email: pickFirst(row.email, row.dev_email),
   position: pickFirst(row.position),
   specialization_name: pickFirst(row.specialization_name),
@@ -285,6 +288,39 @@ const getProfile = async (req, res) => {
   }
 };
 
+/** PATCH /api/auth/profile (doctor, staff, admin) */
+const updateProfile = async (req, res) => {
+  const { role, user_id } = req.user;
+  if (!["doctor", "staff", "admin"].includes(role)) {
+    return res.status(403).json({ success: false, message: "Use the patient profile to update your details." });
+  }
+
+  try {
+    const changes = normalizeProfileChanges(req.body);
+    const fields = Object.keys(changes);
+    const table = role === "doctor" ? "doctors" : "staff";
+    const update = async (connection) => {
+      if (role === "admin") await Staff.ensureAdminProfile(user_id, changes, connection);
+      const [result] = await connection.query(
+        `UPDATE ${table} SET ${fields.map((field) => `${field} = ?`).join(", ")} WHERE user_id = ?`,
+        [...Object.values(changes), user_id],
+      );
+      if (!result.affectedRows) return false;
+      await audit.write(req, { action: "account.updated", target_type: "user", target_id: user_id,
+        details: { changed_fields: fields } }, connection);
+      return true;
+    };
+
+    const updated = role === "admin" ? await audit.transaction(update) : await update(pool);
+    if (!updated) return res.status(404).json({ success: false, message: "Profile not found." });
+    return getProfile(req, res);
+  } catch (err) {
+    if ([400, 404].includes(err.status)) return res.status(err.status).json({ success: false, message: err.message });
+    console.error("Account profile update failed:", err.code || err.name);
+    return res.status(500).json({ success: false, message: "Unable to update your profile." });
+  }
+};
+
 /** PATCH /api/auth/change-password (protected) */
 const changePassword = async (req, res) => {
   try {
@@ -343,4 +379,4 @@ const changePassword = async (req, res) => {
   }
 };
 
-module.exports = { login, getMe, getProfile, changePassword };
+module.exports = { login, getMe, getProfile, updateProfile, changePassword };

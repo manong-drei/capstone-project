@@ -1,134 +1,109 @@
-import { useEffect, useRef, useState } from "react";
-import Icon from "./AppIcons";
-
-function Chevron({ open, color = "currentColor" }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      style={{
-        transform: open ? "rotate(180deg)" : "rotate(0deg)",
-        transition: "transform 0.16s ease",
-        flexShrink: 0,
-      }}
-    >
-      <path
-        d="M6 9l6 6 6-6"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { ChevronDown, LogOut, User } from "lucide-react";
+import { ACCOUNT_ROUTES } from "@/constants/routes";
 
 export function ProfileChip({
   identity,
   onClick,
   isOpen = false,
-  chipTextColor = "#ffffff",
-  subtitleColor = "rgba(255,255,255,0.72)",
+  chipClassName = "text-white",
+  subtitleClassName = "text-white/70",
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-haspopup="menu"
       aria-expanded={isOpen}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        minWidth: 0,
-        padding: 0,
-        border: "none",
-        background: "transparent",
-        color: chipTextColor,
-        cursor: "pointer",
-      }}
+      aria-haspopup="menu"
+      className={`flex min-h-11 min-w-0 cursor-pointer items-center gap-2 border-0 bg-transparent p-0 ${chipClassName}`}
     >
-      <Icon name="user" size={18} color={chipTextColor} />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
-          minWidth: 0,
-        }}
-      >
-        <span
-          style={{
-            maxWidth: "140px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontSize: "12px",
-            fontWeight: 700,
-            lineHeight: 1.15,
-          }}
-        >
+      <User size={18} aria-hidden="true" focusable="false" />
+      <div className="flex min-w-0 flex-col items-start gap-0.5">
+        <span className="max-w-35 truncate text-xs leading-tight font-bold">
           {identity.displayName}
         </span>
         <span
-          style={{
-            maxWidth: "140px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontSize: "11px",
-            color: subtitleColor,
-            lineHeight: 1.1,
-          }}
+          className={`max-w-35 truncate text-[11px] leading-tight ${subtitleClassName}`}
         >
           {identity.subtitle}
         </span>
       </div>
-      <Chevron open={isOpen} color={chipTextColor} />
+      <ChevronDown
+        size={14}
+        aria-hidden="true"
+        focusable="false"
+        className={`shrink-0 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+      />
     </button>
   );
 }
 
-function LogoutDropdown({
+export function ProfileActions({
+  role,
+  onProfileClick,
   onLogout,
   mobile = false,
-  accentColor = "#f97316",
-  panelBg = "#ffffff",
-  panelTextColor = "#0f172a",
 }) {
+  const profilePath = ACCOUNT_ROUTES[role]?.profile;
+
+  const panelClass = mobile
+    ? "min-w-full border border-white/20 bg-white/10 backdrop-blur-sm"
+    : "min-w-52 border border-slate-200 bg-white shadow-xl shadow-slate-900/10";
+
+  const profileLinkClass = mobile
+    ? "text-white hover:bg-white/15 focus-visible:outline-white"
+    : "text-slate-700 hover:bg-slate-100 focus-visible:outline-blue-600";
+
+  const profileIconClass = mobile
+    ? "bg-white/15 text-white"
+    : "bg-blue-50 text-blue-600 group-hover:bg-blue-100";
+
+  const logoutClass = mobile
+    ? "text-red-100 hover:bg-red-500/30 focus-visible:outline-white"
+    : "text-red-600 hover:bg-red-50 focus-visible:outline-red-600";
+
+  const logoutIconClass = mobile
+    ? "bg-red-500/30 text-red-100"
+    : "bg-red-50 text-red-600 group-hover:bg-red-100";
+
+  const dividerClass = mobile ? "bg-white/15" : "bg-slate-100";
+
   return (
     <div
       role="menu"
       aria-label="Profile actions"
-      style={{
-        minWidth: mobile ? "100%" : "150px",
-        borderRadius: "12px",
-        background: panelBg,
-        boxShadow: mobile ? "none" : "0 14px 30px rgba(15,23,42,0.16)",
-        overflow: "hidden",
-      }}
+      className={`overflow-hidden rounded-xl p-1.5 ${panelClass}`}
     >
+      {profilePath && (
+        <>
+          <Link
+            to={profilePath}
+            onClick={onProfileClick}
+            role="menuitem"
+            className={`group flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 ${profileLinkClass}`}
+          >
+            <span
+              className={`grid size-7 shrink-0 place-items-center rounded-md transition-colors ${profileIconClass}`}
+            >
+              <User size={16} aria-hidden="true" focusable="false" />
+            </span>
+            My Profile
+          </Link>
+          <div role="separator" className={`mx-2 my-1 h-px ${dividerClass}`} />
+        </>
+      )}
       <button
         type="button"
         onClick={onLogout}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          padding: "11px 14px",
-          border: "none",
-          background: "transparent",
-          color: mobile ? "#ffffff" : panelTextColor,
-          fontSize: "13px",
-          fontWeight: 700,
-          cursor: "pointer",
-          textAlign: "left",
-        }}
+        role="menuitem"
+        className={`group flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 ${logoutClass}`}
       >
-        <Icon name="logout" size={16} color={mobile ? "#ffffff" : accentColor} />
+        <span
+          className={`grid size-7 shrink-0 place-items-center rounded-md transition-colors ${logoutIconClass}`}
+        >
+          <LogOut size={16} aria-hidden="true" focusable="false" />
+        </span>
         Log Out
       </button>
     </div>
@@ -139,26 +114,26 @@ export default function DashboardProfileMenu({
   identity,
   onLogout,
   mobile = false,
-  accentColor = "#f97316",
-  chipTextColor,
-  subtitleColor,
-  panelBg,
-  panelTextColor,
+  chipClassName,
+  subtitleClassName,
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+
+  const close = useCallback(() => setOpen(false), []);
+  const toggle = useCallback(() => setOpen((prev) => !prev), []);
 
   useEffect(() => {
     if (mobile || !open) return undefined;
 
     const handlePointerDown = (event) => {
       if (rootRef.current && !rootRef.current.contains(event.target)) {
-        setOpen(false);
+        close();
       }
     };
 
     const handleEscape = (event) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") close();
     };
 
     document.addEventListener("mousedown", handlePointerDown);
@@ -168,30 +143,29 @@ export default function DashboardProfileMenu({
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [mobile, open]);
+  }, [mobile, open, close]);
 
-  const handleLogout = () => {
-    setOpen(false);
+  const handleLogout = useCallback(() => {
+    close();
     onLogout();
-  };
+  }, [close, onLogout]);
 
   if (mobile) {
     return (
-      <div style={{ display: "grid", gap: "8px" }}>
+      <div className="grid gap-2">
         <ProfileChip
           identity={identity}
-          onClick={() => setOpen((value) => !value)}
+          onClick={toggle}
           isOpen={open}
-          chipTextColor={chipTextColor}
-          subtitleColor={subtitleColor}
+          chipClassName={chipClassName}
+          subtitleClassName={subtitleClassName}
         />
         {open ? (
-          <LogoutDropdown
+          <ProfileActions
             mobile
+            role={identity.role}
+            onProfileClick={close}
             onLogout={handleLogout}
-            accentColor={accentColor}
-            panelBg={panelBg}
-            panelTextColor={panelTextColor}
           />
         ) : null}
       </div>
@@ -199,28 +173,20 @@ export default function DashboardProfileMenu({
   }
 
   return (
-    <div ref={rootRef} style={{ position: "relative" }}>
+    <div ref={rootRef} className="relative">
       <ProfileChip
         identity={identity}
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         isOpen={open}
-        chipTextColor={chipTextColor}
-        subtitleColor={subtitleColor}
+        chipClassName={chipClassName}
+        subtitleClassName={subtitleClassName}
       />
       {open ? (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 10px)",
-            right: 0,
-            zIndex: 120,
-          }}
-        >
-          <LogoutDropdown
+        <div className="absolute top-[calc(100%+10px)] right-0 z-120">
+          <ProfileActions
+            role={identity.role}
+            onProfileClick={close}
             onLogout={handleLogout}
-            accentColor={accentColor}
-            panelBg={panelBg}
-            panelTextColor={panelTextColor}
           />
         </div>
       ) : null}

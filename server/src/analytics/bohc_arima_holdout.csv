@@ -1,0 +1,15 @@
+age_group,training_end_year,validation_year,actual_recipients,horizon,forecast_recipients,lower_95,upper_95,arima_order,arima_trend,naive_last_year
+Infants 0-11 months,2023,2024,963,1,28,0,119,"(0, 1, 0)",n,28
+Infants 0-11 months,2023,2025,1742,2,28,0,156,"(0, 1, 0)",n,28
+Children 1-4 years,2023,2024,442,1,986,371,1601,"(0, 1, 0)",n,986
+Children 1-4 years,2023,2025,455,2,986,117,1855,"(0, 1, 0)",n,986
+Children 5-9 years,2023,2024,565,1,837,381,1293,"(0, 1, 0)",n,837
+Children 5-9 years,2023,2025,808,2,837,192,1482,"(0, 1, 0)",n,837
+Adolescents 10-14 years,2023,2024,656,1,1108,630,1586,"(0, 1, 0)",n,1108
+Adolescents 10-14 years,2023,2025,698,2,1108,432,1784,"(0, 1, 0)",n,1108
+Adolescents 15-19 years,2023,2024,944,1,400,190,611,"(0, 1, 1)",n,606
+Adolescents 15-19 years,2023,2025,921,2,400,190,611,"(0, 1, 1)",n,606
+Adults 20-59 years,2023,2024,4800,1,4604,2130,7078,"(0, 1, 0)",n,4604
+Adults 20-59 years,2023,2025,3889,2,4604,1105,8103,"(0, 1, 0)",n,4604
+Senior Citizens 60 years and above,2023,2024,593,1,475,235,715,"(0, 1, 0)",n,475
+Senior Citizens 60 years and above,2023,2025,626,2,475,136,814,"(0, 1, 0)",n,475

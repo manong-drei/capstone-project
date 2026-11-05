@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useState } from "react";
 import { generatePath, Link, useSearchParams } from "react-router-dom";
 import { ROUTES } from "@/constants/routes";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -51,19 +52,16 @@ export default function AdminPatientsHistoryTab() {
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const pageSize = 10;
-  useEffect(() => {
-    const controller = new AbortController();
-    getAllAppointments({ page: currentPage, limit: pageSize }, controller.signal)
-      .then((response) => {
-        if (!controller.signal.aborted) {
-          setResult(response);
-          if (response.pagination.page !== currentPage) setCurrentPage(response.pagination.page, { replace: true });
-        }
-      })
-      .catch((err) => { if (!controller.signal.aborted) setError(err.message); })
-      .finally(() => { if (!controller.signal.aborted) setApptLoading(false); });
-    return () => controller.abort();
-  }, [currentPage, retry, setCurrentPage]);
+  useLiveData(useCallback(async (signal) => {
+    try {
+      const response = await getAllAppointments({ page: currentPage, limit: pageSize }, signal);
+      if (!signal.aborted) {
+        setResult(response); setError('');
+        if (response.pagination.page !== currentPage) setCurrentPage(response.pagination.page, { replace: true });
+      }
+    } catch (err) { if (!signal.aborted) setError(err.message); }
+    finally { if (!signal.aborted) setApptLoading(false); }
+  }, [currentPage, setCurrentPage]), true, retry);
 
   const appointments = result.data;
   const totalPages = result.pagination.totalPages ?? 1;
@@ -80,7 +78,8 @@ export default function AdminPatientsHistoryTab() {
       <div
         className="ad-tab-pad"
         style={{
-          background: "linear-gradient(135deg, #eff6ff 0%, #fff7ed 100%)",
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
           borderRadius: "16px",
           boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
         }}
@@ -282,7 +281,6 @@ export default function AdminPatientsHistoryTab() {
             {/* Mobile cards */}
             <div
               className="ad-show-on-mobile"
-              style={{ display: "none", flexDirection: "column", gap: "10px" }}
             >
               {appointments.map((appt) => (
                 <div

@@ -7,7 +7,6 @@ The synthetic 2012-2019 rows are teaching placeholders, not facility records.
 Forecasts and scores are demonstrations because synthetic history is included.
 """
 
-from itertools import product
 from math import sqrt
 from pathlib import Path
 import warnings
@@ -25,8 +24,11 @@ except ImportError as exc:
 DATA_FILE = Path(__file__).with_name("bohc_modeling_dataset.csv")
 FORECAST_FILE = Path(__file__).with_name("bohc_arima_forecasts.csv")
 BACKTEST_FILE = Path(__file__).with_name("bohc_arima_backtest.csv")
-ORDERS = list(product((0, 1), repeat=3))  # small p, d, q values for a short annual series
+HOLDOUT_FILE = Path(__file__).with_name("bohc_arima_holdout.csv")
+# First-difference changing annual levels up front; compare p/q at the same d.
+ORDERS = ((0, 1, 0), (1, 1, 0), (0, 1, 1))
 FORECAST_STEPS = 3
+HOLDOUT_ORIGIN = 2023
 
 
 def load_data(path):
@@ -61,21 +63,22 @@ def load_data(path):
     return data, groups
 
 
-def fit_lowest_aic(values):
+def select_arima(values):
     candidates = []
     for order in ORDERS:
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                fitted = ARIMA(values, order=order).fit()
-            converged = getattr(fitted, "mle_retvals", {}).get("converged", True)
-            if converged and pd.notna(fitted.aic):
-                candidates.append((float(fitted.aic), order, fitted))
-        except (ValueError, ArithmeticError, np.linalg.LinAlgError):
-            continue
+        for trend in ("n", "t"):
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    fitted = ARIMA(values, order=order, trend=trend).fit()
+                converged = getattr(fitted, "mle_retvals", {}).get("converged", True)
+                if converged and np.isfinite(fitted.aicc):
+                    candidates.append((float(fitted.aicc), order, trend, fitted))
+            except (ValueError, ArithmeticError, np.linalg.LinAlgError):
+                continue
     if not candidates:
         raise RuntimeError("No small ARIMA candidate fitted successfully for this series.")
-    return min(candidates, key=lambda item: (item[0], item[1]))[1:]
+    return min(candidates, key=lambda item: item[:3])[1:]
 
 
 def forecast_steps(fitted, steps):
@@ -95,10 +98,10 @@ def forecast_steps(fitted, steps):
 def backtest_forecasts(series):
     rows = []
     last_year = int(series.index.max())
-    # Synthetic backcasts use 2020-2021, so every training window must include both.
+    # Keep the existing origins so new scores remain comparable with the old demo.
     for origin in range(2021, last_year):
         train = series.loc[series.index <= origin].to_numpy(dtype=float)
-        order, fitted = fit_lowest_aic(train)
+        order, trend, fitted = select_arima(train)
         for prediction in forecast_steps(fitted, min(FORECAST_STEPS, last_year - origin)):
             year = origin + prediction["horizon"]
             rows.append({
@@ -107,6 +110,7 @@ def backtest_forecasts(series):
                 "actual_recipients": int(series.loc[year]),
                 **prediction,
                 "arima_order": str(order),
+                "arima_trend": trend,
                 "naive_last_year": int(train[-1]),
             })
     return rows
@@ -143,7 +147,7 @@ def main():
 
         group_backtests = backtest_forecasts(series)
         backtests.extend({"age_group": group, **row} for row in group_backtests)
-        order, fitted = fit_lowest_aic(series.to_numpy(dtype=float))
+        order, trend, fitted = select_arima(series.to_numpy(dtype=float))
         baseline_year = int(series.index.max())
         for prediction in forecast_steps(fitted, FORECAST_STEPS):
             summaries.append({
@@ -153,6 +157,7 @@ def main():
                 "forecast_year": baseline_year + prediction["horizon"],
                 **prediction,
                 "selected_arima_order": str(order),
+                "selected_arima_trend": trend,
                 **validation_scores([row for row in group_backtests if row["horizon"] == prediction["horizon"]]),
                 "synthetic_years_in_training": int(group_data["is_synthetic"].sum()),
                 "interpretation": "Demonstration only: training includes synthetic historical values",
@@ -160,8 +165,13 @@ def main():
 
     pd.DataFrame(summaries).to_csv(FORECAST_FILE, index=False)
     pd.DataFrame(backtests).to_csv(BACKTEST_FILE, index=False)
+    # This model's selection sees no 2024-2025 values; later fits are separate.
+    holdout = [row for row in backtests if row["training_end_year"] == HOLDOUT_ORIGIN]
+    pd.DataFrame(holdout).to_csv(HOLDOUT_FILE, index=False)
     print(f"Saved forecasts: {FORECAST_FILE.name}")
     print(f"Saved actual-year backtests: {BACKTEST_FILE.name}")
+    print(f"Saved fixed 2024-2025 holdout: {HOLDOUT_FILE.name}")
+    print("Three small ARIMA orders, with/without drift, are selected by AICc using training data only.")
     print("Each model uses 2012-2025, including eight synthetic rows; accuracy scores are demonstrations.")
     print("Forecasts cover 2026-2028; validation has four 1-year, three 2-year, and two 3-year tests per age group.")
 

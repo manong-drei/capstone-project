@@ -37,8 +37,8 @@ async function mockPatient(page) {
 
 const estimatedWaitCard = page => page.getByText('Estimated wait', { exact: true }).locator('../..');
 
-for (const [width, columns] of [[320, 1], [375, 1], [768, 2], [1024, 3], [1440, 3]]) {
-  test(`patient information uses ${columns} columns without overflow at ${width}px`, async ({ page }, testInfo) => {
+for (const width of [320, 375, 768, 1024, 1440]) {
+  test(`patient dashboard keeps ticket actions readable without overflow at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const state = await mockPatient(page);
     const ticket = { ...state.queue, type: "priority", queue_number: "AP12345678" };
@@ -58,16 +58,12 @@ for (const [width, columns] of [[320, 1], [375, 1], [768, 2], [1024, 3], [1440, 
         await expect(myQueue).toContainText("No active queue number");
       }
 
-      await expect(grid.locator(":scope > *")).toHaveCount(6);
-      const layout = await grid.evaluate(element => {
-        const cards = Array.from(element.children, card => card.getBoundingClientRect());
-        return {
-          columns: new Set(cards.map(card => Math.round(card.x))).size,
-          rows: new Set(cards.map(card => Math.round(card.y))).size,
-          widths: new Set(cards.map(card => Math.round(card.width))).size,
-        };
-      });
-      expect(layout).toEqual({ columns, rows: 6 / columns, widths: 1 });
+      await expect(page.getByRole('region', { name: 'Patient tools', exact: true })).toHaveCount(0);
+      if (width < 600) {
+        const ticketBounds = await myQueue.boundingBox();
+        const summaryBounds = await grid.getByRole('region', { name: 'Live queue status' }).boundingBox();
+        expect(ticketBounds.y).toBeLessThan(summaryBounds.y);
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect(await myQueue.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
       if (width === 375 || width === 1440) {
@@ -160,7 +156,7 @@ for (const [type, ticket] of [["regular", "AQ11"], ["priority", "AP11"]]) {
     Object.assign(state.queue, { type, queue_number: ticket });
     await page.goto("/patient");
     await expect(page.getByText(ticket, { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /Get queue ticket/i })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Get queue ticket/i })).toHaveCount(0);
   });
 }
 
@@ -168,7 +164,7 @@ test("patient clears a staff-cancelled ticket on the next poll", async ({ page }
   const state = await mockPatient(page);
   await page.goto("/patient");
   const joinQueue = page.getByRole("button", { name: /Get queue ticket/i });
-  await expect(joinQueue).toBeDisabled();
+  await expect(joinQueue).toHaveCount(0);
   state.queue = null;
   await page.clock.fastForward(15_000);
   await expect(joinQueue).toBeEnabled();
@@ -182,7 +178,7 @@ for (const status of ["", "cancelled", "done"]) {
     const state = await mockPatient(page);
     state.queue.status = status;
     await page.goto("/patient");
-    await expect(page.getByRole("heading", { name: /Your Health, Schedule/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome, Queue Patient.", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Get queue ticket/i })).toBeEnabled();
     await expect(page.getByText("Your Queue Number", { exact: true })).toHaveCount(0);
   });
@@ -193,7 +189,7 @@ for (const status of ['called', 'missed']) {
     const state = await mockPatient(page);
     Object.assign(state.queue, { status, grace_expires_at: '2026-10-10T09:10:00+08:00' });
     await page.goto('/patient');
-    await expect(page.getByRole('button', { name: /Get queue ticket/i })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /Get queue ticket/i })).toHaveCount(0);
     if (status === 'missed') await expect(page.getByRole('status')).toContainText('You missed your call. Report to staff before 9:10 AM to keep this ticket.');
     else await expect(page.getByRole('status')).toContainText('Please report to staff now');
   });
@@ -229,7 +225,7 @@ test('a patient can get a ticket while the queue is running', async ({ page }) =
   state.queue = null;
   state.started = true;
   await page.goto('/patient');
-  await expect(page.getByText('Q02', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Live queue status' }).getByText('Q02', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Get queue ticket/i }).click();
   await page.getByRole('checkbox', { name: 'Dental Check-up', exact: true }).check();
   await page.getByRole('button', { name: 'Get Queue Ticket', exact: true }).click();
@@ -257,7 +253,7 @@ test('a confirmed return explains rejoining the priority group without promising
   const state = await mockPatient(page);
   state.queue.returned_at = '2026-10-18T10:00:00+08:00';
   await page.goto('/patient');
-  await expect(page.getByText('Your return is confirmed. You have rejoined behind patients already waiting in your priority group; please stay nearby.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText('Your return is confirmed. You have rejoined behind patients already waiting in your priority group; please stay nearby.');
   await expect(page.getByText('You will be called at the next opening', { exact: false })).toHaveCount(0);
 });
 
@@ -320,7 +316,7 @@ test('a capacity rejection from an open form refreshes eligibility and explains 
   const submit = page.getByRole('button', { name: 'Get Queue Ticket', exact: true });
   await submit.click();
   await expect(submit).toBeDisabled();
-  await expect(page.getByRole('alert')).toHaveText(CAPACITY_MESSAGE);
+  await expect(page.getByRole('dialog', { name: 'Get Queue Ticket' }).getByRole('alert')).toHaveText(CAPACITY_MESSAGE);
   expect(alertMessage).toBe(CAPACITY_MESSAGE);
   expect(state.posts).toBe(1);
   expect(state.queue).toBeNull();

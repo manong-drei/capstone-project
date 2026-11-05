@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, Info, LoaderCircle, RefreshCw, Send, X } from 'lucide-react';
 import api from '@/services/api';
 
@@ -34,14 +35,13 @@ export default function DoctorLeaveModal({ onClose }) {
     };
   }, []);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    api.get('/doctor/leave-requests', { signal: controller.signal })
-      .then(data => { if (!controller.signal.aborted) setRequests(data.requests ?? []); })
-      .catch(err => { if (!controller.signal.aborted) setLoadError(err.message); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [refresh]);
+  useLiveData(useCallback(async (signal) => {
+    try {
+      const data = await api.get('/doctor/leave-requests', { signal });
+      if (!signal.aborted) { setRequests(data.requests ?? []); setLoadError(''); }
+    } catch (err) { if (!signal.aborted) setLoadError(err.message); }
+    finally { if (!signal.aborted) setLoading(false); }
+  }, []), true, refresh);
 
   const submit = async event => {
     event.preventDefault();

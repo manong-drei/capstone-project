@@ -7,8 +7,7 @@ export default function StaffHeroBanner({
 }) {
   return (
     <section
-      className="relative overflow-hidden rounded-2xl bg-cover bg-center bg-no-repeat p-6 text-white shadow-sm sm:p-8"
-      style={{ backgroundImage: "url('/assets/BGHero.webp')" }}
+      className="relative overflow-hidden rounded-2xl bg-[url('/assets/BGHero.webp')] bg-cover bg-center bg-no-repeat p-6 text-white shadow-sm sm:p-8"
     >
       {/* Dark overlay for text readability */}
       <div
@@ -39,7 +38,7 @@ export default function StaffHeroBanner({
           <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 font-medium">
             <Stethoscope size={16} aria-hidden="true" />
             <span
-              className={`h-2 w-2 rounded-full ${doctorAvailable === null ? "bg-slate-300" : doctorAvailable ? "bg-emerald-300" : "bg-amber-300"}`}
+              className={`h-2 w-2 shrink-0 rounded-full ${doctorAvailable === null ? "bg-slate-300" : doctorAvailable ? "bg-emerald-300" : "bg-rose-300"}`}
               aria-hidden="true"
             />
             {doctorLeaveEnd

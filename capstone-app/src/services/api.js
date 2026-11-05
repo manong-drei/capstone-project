@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { QUEUE_UPDATES_CHANNEL } from '@/constants/queue'
+import { notifyDataChange } from './dataSync'
 
 const api = axios.create({
   baseURL: '/api',
@@ -16,6 +17,7 @@ api.interceptors.request.use((config) => {
 // Unwrap data and normalize errors
 api.interceptors.response.use(
   (res) => {
+    if (['post', 'put', 'patch', 'delete'].includes(res.config.method)) notifyDataChange()
     if (['post', 'put', 'patch', 'delete'].includes(res.config.method) && /^\/queue(?:[/?]|$)/.test(res.config.url)) {
       try {
         const updates = new BroadcastChannel(QUEUE_UPDATES_CHANNEL)

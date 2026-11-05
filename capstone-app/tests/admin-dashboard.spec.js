@@ -1,3 +1,4 @@
+import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
@@ -44,7 +45,7 @@ const liveQueues = () => [
 ];
 
 for (const width of [1440, 768, 375]) {
-  test(`overview live monitor shows both services and projected order at ${width}px`, async ({ page }, testInfo) => {
+  test(`overview live monitor shows dental tickets in projected order at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 });
     const responses = await mockAdmin(page);
     responses['/api/queue'] = liveQueues();
@@ -52,7 +53,7 @@ for (const width of [1440, 768, 375]) {
     await page.goto('/admin');
     const monitor = page.getByRole('region', { name: 'Live queue monitor', exact: true });
     await expect(monitor).toBeVisible();
-    await expect(page.locator('#ad-sidebar').getByRole('button', { name: 'Queue Monitor', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Admin navigation' }).getByRole('button', { name: 'Live Queue', exact: true })).toHaveCount(0);
     const dental = monitor.getByRole('region', { name: 'Dental live queue', exact: true });
     await expect(dental).toContainText('AQ01');
     await expect(dental).toContainText('Ana Santos');
@@ -60,10 +61,9 @@ for (const width of [1440, 768, 375]) {
     await expect(dental).not.toContainText('AP07');
     await expect(dental).toContainText('2 waiting');
     const general = monitor.getByRole('region', { name: 'General live queue', exact: true });
-    await expect(general).toContainText('GQ02');
-    await expect(general).toContainText('GQ04');
+    await expect(general).toHaveCount(0);
     const tickets = monitor.getByRole('region', { name: "Today's queue tickets", exact: true });
-    await expect(tickets.getByRole('listitem')).toHaveCount(7);
+    await expect(tickets.getByRole('listitem')).toHaveCount(5);
     await expect(tickets.getByRole('listitem').nth(1)).toContainText('WQ15');
     await expect(tickets.getByRole('listitem').nth(1)).toContainText('Regular');
     await expect(tickets.getByRole('listitem').nth(2)).toContainText('AP07');
@@ -72,12 +72,8 @@ for (const width of [1440, 768, 375]) {
     await expect(tickets.getByText(/^Return before /)).toBeVisible();
     await expect(tickets.getByText('Reason: Did not return within 10 minutes', { exact: true })).toBeVisible();
     await expect(tickets.getByRole('button', { name: 'Cancel ticket AQ03', exact: true })).toHaveCount(0);
-    await monitor.getByRole('button', { name: 'General', exact: true }).click();
-    await expect(tickets.getByRole('listitem')).toHaveCount(2);
-    await expect(tickets).not.toContainText('Ana Santos');
-    await monitor.getByRole('button', { name: 'Dental', exact: true }).click();
-    await expect(tickets.getByRole('listitem')).toHaveCount(5);
-    await monitor.getByRole('button', { name: 'All queues', exact: true }).click();
+    await expect(tickets).not.toContainText('Rosa Lim');
+    await expect(tickets).not.toContainText('Pedro Ramos');
 
     Object.assign(responses['/api/queue'][0], { queue_number: 'AQ08', full_name: 'New Patient', status: 'serving' });
     await page.clock.runFor(15_000);
@@ -175,13 +171,13 @@ test('live monitor distinguishes loading and failure, retains the last update, a
   await page.goto('/admin');
   const monitor = page.getByRole('region', { name: 'Live queue monitor', exact: true });
   await expect(monitor.getByRole('status')).toHaveText('Loading live queue…');
-  await expect(monitor.getByText('No queue tickets today', { exact: true })).toHaveCount(0);
+  await expect(monitor.getByText('No dental tickets today', { exact: true })).toHaveCount(0);
   finishRequest();
   await expect(monitor.getByRole('alert')).toContainText('Queue connection unavailable.');
-  await expect(monitor.getByText('No queue tickets today', { exact: true })).toHaveCount(0);
+  await expect(monitor.getByText('No dental tickets today', { exact: true })).toHaveCount(0);
   fail = false;
   await monitor.getByRole('button', { name: 'Refresh live queue', exact: true }).click();
-  await expect(monitor.getByText('No queue tickets today', { exact: true })).toBeVisible();
+  await expect(monitor.getByText('No dental tickets today', { exact: true })).toBeVisible();
   responses['/api/queue'] = liveQueues();
   await monitor.getByRole('button', { name: 'Refresh live queue', exact: true }).click();
   await expect(monitor.getByRole('region', { name: 'Dental live queue', exact: true })).toContainText('Ana Santos');
@@ -190,12 +186,12 @@ test('live monitor distinguishes loading and failure, retains the last update, a
   await expect(monitor.getByRole('alert')).toContainText('Showing the last successful update.');
   await expect(monitor.getByText('Update needed', { exact: true })).toBeVisible();
   await expect(monitor.getByRole('region', { name: 'Dental live queue', exact: true })).toContainText('Ana Santos');
-  await page.locator('#ad-sidebar').getByRole('button', { name: 'Accounts', exact: true }).click();
+  await selectAdminSection(page, 'Accounts');
   const previousRequests = requests;
   await page.clock.runFor(30_000);
   expect(requests).toBe(previousRequests);
   fail = false;
-  await page.locator('#ad-sidebar').getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await selectAdminSection(page, 'Dashboard');
   await expect(monitor.getByRole('region', { name: 'Dental live queue', exact: true })).toContainText('Ana Santos');
 });
 
@@ -244,8 +240,8 @@ for (const width of [1440, 375]) {
     await page.goto('/admin');
     const main = page.getByRole('main');
     async function selectTab(name) {
-      if (width <= 900) await page.getByRole('button', { name: 'Open menu' }).click();
-      await page.locator('#ad-sidebar').getByRole('button', { name, exact: true }).click();
+
+      await selectAdminSection(page, name);
     }
     await selectTab('Notifications');
     await expect(main.getByText('Account activation #11', { exact: true }).filter({ visible: true })).toBeVisible();
@@ -293,8 +289,8 @@ for (const width of [1440, 375]) {
       : route.fulfill({ json: responses['/api/admin/sms-jobs'] }));
     await page.clock.install();
     await page.goto('/admin');
-    if (width <= 900) await page.getByRole('button', { name: 'Open menu' }).click();
-    await page.locator('#ad-sidebar').getByRole('button', { name: 'Notifications', exact: true }).click();
+
+    await selectAdminSection(page, 'Notifications');
     const main = page.getByRole('main');
     const pagination = main.getByRole('navigation', { name: 'SMS activity pagination' });
     const rows = main.getByText(/^Queue alert #\d+$/).filter({ visible: true });
@@ -352,7 +348,7 @@ test('SMS history distinguishes loading, request failure and an empty history', 
     return route.fulfill({ status: 503, json: { message: 'Unable to load SMS history.' } });
   });
   await page.goto('/admin');
-  await page.locator('#ad-sidebar').getByRole('button', { name: 'Notifications', exact: true }).click();
+  await selectAdminSection(page, 'Notifications');
   const main = page.getByRole('main');
   await expect(main.getByRole('status')).toHaveText('Loading SMS activity…');
   await expect(main.getByText('No SMS jobs yet', { exact: true })).toHaveCount(0);
@@ -376,8 +372,8 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 768, height: 900
     await page.screenshot({ path: testInfo.outputPath(`admin-overview-${viewport.width}.png`), fullPage: true, animations: 'disabled' });
 
     async function selectTab(name) {
-      if (viewport.width <= 900) await page.getByRole('button', { name: 'Open menu' }).click();
-      await page.locator('#ad-sidebar').getByRole('button', { name, exact: true }).click();
+
+      await selectAdminSection(page, name);
     }
 
     await selectTab('Accounts');
@@ -410,7 +406,7 @@ test('patient creation reports request errors, queued SMS, and confirmed sending
     return route.fulfill({ status: 201, json: { success: true, sms_job_id: 91, sms_status: 'queued' } });
   });
   await page.goto('/admin');
-  await page.locator('#ad-sidebar').getByRole('button', { name: 'Accounts', exact: true }).click();
+  await selectAdminSection(page, 'Accounts');
   await page.getByRole('main').getByRole('button', { name: 'Patients', exact: true }).click();
   await expect(page.locator('.pm-table-row').first().locator(':scope > span').nth(0)).toHaveText('Patient');
   await expect(page.locator('.pm-table-row').first().locator(':scope > span').nth(1)).toHaveText('Test');
@@ -451,7 +447,7 @@ test('replacement password SMS reports request and delivery failures', async ({ 
   });
   page.on('dialog', dialog => dialog.accept());
   await page.goto('/admin');
-  await page.locator('#ad-sidebar').getByRole('button', { name: 'Accounts', exact: true }).click();
+  await selectAdminSection(page, 'Accounts');
   await page.getByRole('main').getByRole('button', { name: 'Patients', exact: true }).click();
   const replace = page.getByRole('button', { name: 'Issue replacement password' }).filter({ visible: true });
   await expect(replace).toBeVisible();

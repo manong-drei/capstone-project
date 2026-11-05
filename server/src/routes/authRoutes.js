@@ -6,11 +6,13 @@ const {
   login,
   getMe,
   getProfile,
+  updateProfile,
   changePassword,
 } = require("../controllers/authController");
 
 // Middleware (direct import)
 const protect = require("../middleware/authenticate"); // <-- changed here
+const requireProfileSession = require("../middleware/requireProfileSession");
 const rateLimit = require('express-rate-limit');
 const recovery = require('../controllers/passwordRecoveryController');
 const recoveryLimit = max => rateLimit({
@@ -25,6 +27,7 @@ router.post('/password-recovery/verify', recoveryLimit(20), recovery.verify);
 router.post('/password-recovery/reset', recoveryLimit(10), recovery.reset);
 router.get("/me", protect, getMe); // now 'protect' is defined
 router.get("/profile", protect, getProfile);
+router.patch("/profile", protect, requireProfileSession, updateProfile);
 router.patch("/change-password", protect, changePassword);
 
 module.exports = router;

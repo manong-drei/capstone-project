@@ -1,3 +1,4 @@
+import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from '@playwright/test';
 import { createTestToken } from './helpers/auth';
 
@@ -70,8 +71,8 @@ async function doctorLeave(page) {
   await expect(page.getByRole('dialog', { name: 'Leave Requests', exact: true })).toBeVisible();
 }
 async function adminLeave(page) {
-  if (page.viewportSize().width <= 900) await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-  await page.locator('#ad-sidebar').getByRole('button', { name: 'Leave Requests', exact: true }).click();
+
+  await selectAdminSection(page, 'Leave Requests');
   await expect(page.getByRole('heading', { name: 'Leave Requests', exact: true })).toBeVisible();
 }
 
@@ -134,7 +135,7 @@ for (const width of [1440, 375]) {
         await expect(viewer.getByText(/Dentist on leave through/)).toBeVisible();
         await expect(viewer.getByRole('button', { name: 'Register and assign dental queue' })).toBeDisabled();
       } else {
-        await expect(viewer.getByText('On leave', { exact: true })).toBeVisible();
+        await expect(viewer.getByText(/^Dentist on leave through/)).toBeVisible();
         await expect(viewer.getByRole('button', { name: /Get queue ticket/ })).toBeDisabled();
       }
       await expect(viewer.getByText('Private leave reason', { exact: true })).toHaveCount(0);

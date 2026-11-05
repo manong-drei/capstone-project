@@ -1,3 +1,4 @@
+import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
@@ -61,11 +62,11 @@ async function mockAdmin(page) {
 }
 
 async function selectTab(page, name) {
-  if (page.viewportSize().width <= 900) await page.getByRole("button", { name: "Open menu" }).click();
-  await page.locator("#ad-sidebar").getByRole("button", { name, exact: true }).click();
+
+  await selectAdminSection(page, name);
 }
 
-test("overview fetches five appointments and defers unopened sections and offscreen accounts", async ({ page }) => {
+test("overview fetches five appointments and defers management panels until opened", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const state = await mockAdmin(page);
   const modules = [];
@@ -76,7 +77,8 @@ test("overview fetches five appointments and defers unopened sections and offscr
     .toEqual([{ limit: "5" }]);
   expect(state.requests.some(request => ["/api/admin/staff", "/api/admin/patients"].includes(request.path))).toBe(false);
   expect(modules.some(url => /\/(AdminReportsTab|AdminNotificationsTab|PatientManager|StaffManager|UserManual)[-.]/.test(url))).toBe(false);
-  await page.getByRole("region", { name: "Overview account management", exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("region", { name: "Overview account management", exact: true })).toHaveCount(0);
+  await selectAdminSection(page, "Accounts");
   await expect(page.getByRole("heading", { name: "Staff Management", exact: true })).toBeVisible();
   expect(state.requests.some(request => request.path === "/api/admin/staff")).toBe(true);
 });

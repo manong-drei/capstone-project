@@ -138,16 +138,12 @@ const Patient = {
       "middle_name",
       "last_name",
       "suffix",
-      "date_of_birth",
-      "gender",
       "contact_number",
       "barangay",
       "city",
       "philhealth_id",
       "emergency_contact",
       "emg_contact_no",
-      "priority_category",
-      "priority_expires_at",
     ];
     const fields = Object.keys(data).filter((k) => allowed.includes(k) && data[k] !== undefined);
     if (!fields.length) return null;

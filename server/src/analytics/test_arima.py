@@ -1,3 +1,5 @@
+import csv
+import io
 import tempfile
 import unittest
 from collections import Counter
@@ -9,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 import arima
+import regenerate_synthetic
 
 
 def fake_fit(values):
@@ -18,10 +21,26 @@ def fake_fit(values):
             predicted_mean=means,
             conf_int=lambda alpha: np.column_stack((means - 1, means + 1)),
         )
-    return (0, 1, 0), SimpleNamespace(get_forecast=get_forecast)
+    return (0, 1, 0), "t", SimpleNamespace(get_forecast=get_forecast)
 
 
 class ForecastTests(unittest.TestCase):
+    def test_selection_uses_aicc_and_rejects_unconverged_or_nonfinite_candidates(self):
+        scores = iter([40, 30, 20, 10, 5, float("inf")])
+
+        def candidate(values, order, trend):
+            fitted = SimpleNamespace(
+                aicc=next(scores), aic=0 if trend == "n" else 100,
+                mle_retvals={"converged": (order, trend) != ((0, 1, 1), "n")},
+            )
+            return SimpleNamespace(fit=lambda: fitted)
+
+        with patch.object(arima, "ARIMA", side_effect=candidate) as fit:
+            order, trend, fitted = arima.select_arima(np.arange(14))
+        self.assertEqual((order, trend, fitted.aicc), ((1, 1, 0), "t", 10))
+        self.assertEqual(fit.call_count, 6)
+        self.assertTrue(all(call.kwargs["order"][1] == 1 for call in fit.call_args_list))
+
     def test_three_steps_keep_their_own_intervals_and_clip_negative_counts(self):
         fitted = Mock()
         fitted.get_forecast.return_value = SimpleNamespace(
@@ -37,7 +56,7 @@ class ForecastTests(unittest.TestCase):
 
     def test_backtests_do_not_use_observations_after_the_training_cutoff(self):
         series = pd.Series(range(1, 15), index=range(2012, 2026))
-        with patch.object(arima, "fit_lowest_aic", side_effect=fake_fit) as fit:
+        with patch.object(arima, "select_arima", side_effect=fake_fit) as fit:
             rows = arima.backtest_forecasts(series)
         self.assertEqual(Counter(row["horizon"] for row in rows), {1: 4, 2: 3, 3: 2})
         for origin, call in zip(range(2021, 2025), fit.call_args_list):
@@ -48,6 +67,7 @@ class ForecastTests(unittest.TestCase):
             self.assertEqual(row["validation_year"], row["training_end_year"] + row["horizon"])
             self.assertEqual(row["actual_recipients"], row["forecast_recipients"])
             self.assertEqual(row["naive_last_year"], series.loc[row["training_end_year"]])
+            self.assertEqual(row["arima_trend"], "t")
 
     def test_scores_include_zero_actual_errors_but_exclude_them_from_mape(self):
         rows = [
@@ -67,10 +87,12 @@ class ForecastTests(unittest.TestCase):
         self.addCleanup(scratch.cleanup)
         forecasts_path = Path(scratch.name) / "forecasts.csv"
         backtests_path = Path(scratch.name) / "backtests.csv"
+        holdout_path = Path(scratch.name) / "holdout.csv"
         original = arima.DATA_FILE.read_bytes()
         with patch.object(arima, "FORECAST_FILE", forecasts_path), \
              patch.object(arima, "BACKTEST_FILE", backtests_path), \
-             patch.object(arima, "fit_lowest_aic", side_effect=fake_fit):
+             patch.object(arima, "HOLDOUT_FILE", holdout_path), \
+             patch.object(arima, "select_arima", side_effect=fake_fit):
             arima.main()
         forecasts = pd.read_csv(forecasts_path)
         backtests = pd.read_csv(backtests_path)
@@ -79,12 +101,58 @@ class ForecastTests(unittest.TestCase):
         self.assertEqual(set(forecasts["forecast_year"]), {2026, 2027, 2028})
         self.assertTrue(forecasts["baseline_year"].eq(2025).all())
         self.assertTrue(forecasts["synthetic_years_in_training"].eq(8).all())
+        self.assertTrue(forecasts["selected_arima_trend"].eq("t").all())
+        holdout = pd.read_csv(holdout_path)
+        self.assertEqual(len(holdout), 14)
+        self.assertTrue(holdout["training_end_year"].eq(2023).all())
+        self.assertEqual(set(holdout["validation_year"]), {2024, 2025})
         for horizon, count in [(1, 4), (2, 3), (3, 2)]:
             selected = forecasts.loc[forecasts["horizon"] == horizon]
             self.assertEqual(len(selected), 7)
             self.assertTrue(selected["backtest_count"].eq(count).all())
             self.assertTrue(selected["forecast_recipients"].eq(selected["baseline_recipients"] + horizon).all())
         self.assertEqual(arima.DATA_FILE.read_bytes(), original)
+
+
+class SyntheticHistoryTests(unittest.TestCase):
+    def test_growth_is_three_to_four_percent_with_a_small_decline_and_fixed_seed(self):
+        for group in regenerate_synthetic.PROFILES:
+            with self.subTest(group=group):
+                counts = regenerate_synthetic.synthetic_counts(group)
+                self.assertEqual(counts, regenerate_synthetic.synthetic_counts(group))
+                self.assertEqual(len(counts), 8)
+                self.assertTrue(all(isinstance(count, int) and count > 0 for count in counts))
+                growth = (counts[-1] / counts[0]) ** (1 / 7) - 1
+                self.assertGreaterEqual(growth, 0.03)
+                self.assertLessEqual(growth, 0.04)
+                changes = np.diff(counts) / np.array(counts[:-1])
+                self.assertTrue((changes < 0).any())
+                self.assertGreater(changes.min(), -0.03)
+
+    def test_regeneration_preserves_recorded_rows_and_does_not_use_holdout_values(self):
+        directory = Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory(prefix=".bohc-test-", dir=directory) as scratch:
+            path = Path(scratch) / "history.csv"
+            path.write_bytes(arima.DATA_FILE.read_bytes())
+            original = list(csv.DictReader(io.StringIO(path.read_text())))
+            recorded = [row for row in original if int(row["reporting_year"]) >= 2020]
+            regenerate_synthetic.regenerate_data(path)
+            generated_bytes = path.read_bytes()
+            generated = list(csv.DictReader(io.StringIO(path.read_text())))
+            self.assertEqual([row for row in generated if int(row["reporting_year"]) >= 2020], recorded)
+            self.assertTrue(all(row["is_synthetic"].lower() == "true" for row in generated[:56]))
+            regenerate_synthetic.regenerate_data(path)
+            self.assertEqual(path.read_bytes(), generated_bytes)
+            for row in generated:
+                if int(row["reporting_year"]) >= 2024:
+                    row["total_recipients"] = str(int(row["total_recipients"]) + 10000)
+            with path.open("w", newline="") as output:
+                writer = csv.DictWriter(output, fieldnames=generated[0].keys())
+                writer.writeheader()
+                writer.writerows(generated)
+            regenerate_synthetic.regenerate_data(path)
+            changed = list(csv.DictReader(io.StringIO(path.read_text())))
+            self.assertEqual(changed[:56], generated[:56])
 
 
 if __name__ == "__main__":

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { generatePath, Link, useNavigate, useParams } from "react-router-dom";
 import { AlertCircle, ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, GitMerge, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
 import api from "@/services/api";
 import AccountRecovery from "@/components/dashboards/staff/AccountRecovery";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
+import ProfileCard from "@/components/common/ProfileCard";
 import StatusBadge from "@/components/common/StatusBadge";
 import UserManual from "@/components/common/UserManual";
 import { Skeleton } from "@/components/common/LoadingState";
@@ -50,6 +52,7 @@ function PatientProfile({ id }) {
   const recoveryButtonRef = useRef(null);
   const [mergeSearch, setMergeSearch] = useState("");
   const [targets, setTargets] = useState([]);
+  const [mergeQuery, setMergeQuery] = useState("");
   const [targetId, setTargetId] = useState("");
   const [mergeError, setMergeError] = useState("");
   const [merging, setMerging] = useState(false);
@@ -61,27 +64,31 @@ function PatientProfile({ id }) {
   const backLabel = user?.role === "doctor" ? "Back to patient history"
     : user?.role === "admin" ? "Back to admin dashboard" : "Back to staff dashboard";
 
-  useEffect(() => {
-    let active = true;
-    api.get(`/patients/${id}`)
-      .then((res) => { if (active) setPatient(res.data); })
-      .catch((err) => { if (active) setError(err.message); });
-    return () => { active = false; };
-  }, [id, retry]);
+  useLiveData(useCallback(async (signal) => {
+    try {
+      const res = await api.get('/patients/' + id, { signal });
+      if (!signal.aborted) { setPatient(res.data); setError(''); }
+    } catch (err) { if (!signal.aborted) setError(err.message); }
+  }, [id]), !showRecovery && !merging, retry);
 
   useEffect(() => {
-    if (!canManageAccount || mergeSearch.trim().length < 2) return;
-    let active = true;
+    const term = mergeSearch.trim();
+    const phone = term.replace(/\D/g, '');
+    const params = /^\+?[\d\s-]+$/.test(term)
+      ? new URLSearchParams({ phone: phone.length === 10 && phone.startsWith('9') ? '0' + phone : phone })
+      : new URLSearchParams({ name: term });
     const timer = setTimeout(() => {
-      const term = mergeSearch.trim();
-      const phone = term.replace(/\D/g, "");
-      const params = /^\+?[\d\s-]+$/.test(term) ? `phone=${encodeURIComponent(phone.length === 10 && phone.startsWith("9") ? `0${phone}` : phone)}` : `name=${encodeURIComponent(term)}`;
-      api.get(`/patients/search?${params}`)
-        .then((res) => { if (active) setTargets((res.data || []).filter((p) => String(p.patient_id) !== id)); })
-        .catch((err) => { if (active) { setTargets([]); setMergeError(err.message); } });
+      setMergeQuery(canManageAccount && term.length >= 2 ? params.toString() : '');
+      if (term.length < 2) setTargets([]);
     }, 300);
-    return () => { active = false; clearTimeout(timer); };
-  }, [mergeSearch, id, canManageAccount]);
+    return () => clearTimeout(timer);
+  }, [mergeSearch, canManageAccount]);
+  useLiveData(useCallback(async (signal) => {
+    try {
+      const res = await api.get('/patients/search?' + mergeQuery, { signal });
+      if (!signal.aborted) { setTargets((res.data || []).filter(patient => String(patient.patient_id) !== id)); setMergeError(''); }
+    } catch (err) { if (!signal.aborted) setMergeError(err.message); }
+  }, [mergeQuery, id]), canManageAccount && Boolean(mergeQuery) && !merging);
 
   const merge = async () => {
     if (merging || !targetId || !window.confirm("Move every queue visit to the selected patient and archive this record?")) return;
@@ -139,35 +146,31 @@ function PatientProfile({ id }) {
         </div>}
 
         {patient && <>
-          <section aria-labelledby="patient-name" className="overflow-hidden rounded-2xl border border-slate-200 border-t-4 border-t-orange-500 bg-white shadow-sm">
-            <div className="flex items-start gap-4 p-5 sm:items-center sm:gap-5 sm:p-7">
-              <div aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-100 text-2xl font-bold text-[#1a3a8f] sm:h-20 sm:w-20 sm:text-3xl">{initials}</div>
-              <div className="min-w-0 flex-1">
-                <p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">Patient #{patient.patient_id}</p>
-                <div className="flex items-center gap-2">
-                  <h2 id="patient-name" className="min-w-0 text-2xl font-bold leading-snug text-slate-900 [overflow-wrap:anywhere] sm:text-3xl">{name}</h2>
-                  {canManageAccount && <span className="group relative inline-flex shrink-0">
-                    <button
-                      ref={recoveryButtonRef}
-                      type="button"
-                      aria-label="Start account recovery"
-                      aria-haspopup="dialog"
-                      aria-expanded={showRecovery}
-                      aria-controls={showRecovery ? "account-recovery-panel" : undefined}
-                      disabled={!recoveryEligible}
-                      onClick={() => setShowRecovery(true)}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-orange-500 hover:bg-orange-50 focus-visible:outline-2 focus-visible:outline-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <ShieldCheck size={20} aria-hidden="true" />
-                    </button>
-                    <span role="tooltip" className="pointer-events-none invisible absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:visible group-focus-within:visible">Account recovery</span>
-                  </span>}
-                </div>
-                <span className="mt-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                  {patient.archived_into_patient_id ? "Archived record" : patient.user_id ? "Registered patient" : "Walk-in patient"}
-                </span>
-              </div>
-            </div>
+          <ProfileCard
+            className="border-t-4 border-t-orange-500"
+            name={name}
+            initials={initials}
+            eyebrow={`Patient #${patient.patient_id}`}
+            badge={patient.archived_into_patient_id ? "Archived record" : patient.user_id ? "Registered patient" : "Walk-in patient"}
+            action={canManageAccount && (
+              <span className="group relative inline-flex shrink-0">
+                <button
+                  ref={recoveryButtonRef}
+                  type="button"
+                  aria-label="Start account recovery"
+                  aria-haspopup="dialog"
+                  aria-expanded={showRecovery}
+                  aria-controls={showRecovery ? "account-recovery-panel" : undefined}
+                  disabled={!recoveryEligible}
+                  onClick={() => setShowRecovery(true)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-orange-500 hover:bg-orange-50 focus-visible:outline-2 focus-visible:outline-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ShieldCheck size={20} aria-hidden="true" />
+                </button>
+                <span role="tooltip" className="pointer-events-none invisible absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-lg group-hover:visible group-focus-within:visible">Account recovery</span>
+              </span>
+            )}
+          >
             <div className="border-t border-slate-100 px-5 py-5 sm:px-7 sm:py-6">
               <h3 className="mb-5 text-sm font-semibold text-[#1a3a8f]">Personal information</h3>
               <dl className="grid min-w-0 gap-x-6 gap-y-6 min-[360px]:grid-cols-2 lg:grid-cols-4">
@@ -180,7 +183,7 @@ function PatientProfile({ id }) {
             {patient.archived_into_patient_id && <p className="border-t border-orange-100 bg-orange-50 px-5 py-4 text-sm leading-relaxed text-orange-900 sm:px-7">
               This record was merged into <Link to={generatePath(profileRoute, { id: String(patient.archived_into_patient_id) })} className="font-semibold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-orange-600">patient #{patient.archived_into_patient_id}</Link>.
             </p>}
-          </section>
+          </ProfileCard>
 
           {canManageAccount && showRecovery && <AccountRecovery
             patient={patient}

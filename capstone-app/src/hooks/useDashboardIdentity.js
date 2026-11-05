@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
 import * as authService from "@/services/authService";
 
@@ -57,38 +58,15 @@ export function useDashboardIdentity() {
     setIdentity(normalizeDashboardIdentity(user));
   }, [user]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!user?.user_id) {
-      setLoading(false);
-      setIdentity(normalizeDashboardIdentity(user));
-      return () => {
-        cancelled = true;
-      };
-    }
-
+  useLiveData(useCallback(async (signal) => {
     setLoading(true);
-
-    authService
-      .getProfile()
-      .then((response) => {
-        if (cancelled) return;
-        const profile = response?.data ?? response ?? user;
-        setIdentity(normalizeDashboardIdentity({ ...user, ...profile }));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setIdentity(normalizeDashboardIdentity(user));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+    try {
+      const response = await authService.getProfile({ signal });
+      if (!signal.aborted) setIdentity(normalizeDashboardIdentity({ ...user, ...(response?.data ?? response ?? user) }));
+    } catch {
+      if (!signal.aborted) setIdentity(current => current.user_id === user.user_id ? current : normalizeDashboardIdentity(user));
+    } finally { if (!signal.aborted) setLoading(false); }
+  }, [user]), Boolean(user?.user_id));
 
   return { identity, loading };
 }

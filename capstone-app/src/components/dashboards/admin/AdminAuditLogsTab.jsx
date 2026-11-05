@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useState } from "react";
 import { RefreshCw, ShieldCheck } from 'lucide-react';
 import api from '@/services/api';
 
@@ -52,14 +53,13 @@ export default function AdminAuditLogsTab() {
   const [result, setResult] = useState({ events: [], pagination: { page: 1, total: 0, totalPages: 1 } });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  useEffect(() => {
-    const controller = new AbortController();
-    api.get('/admin/audit-logs', { params: { ...filters, page, limit: 20 }, signal: controller.signal })
-      .then(data => { if (!controller.signal.aborted) { setResult(data); setPage(data.pagination.page); } })
-      .catch(err => { if (!controller.signal.aborted) setError(err.message); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [filters, page, refresh]);
+  useLiveData(useCallback(async (signal) => {
+    try {
+      const data = await api.get('/admin/audit-logs', { params: { ...filters, page, limit: 20 }, signal });
+      if (!signal.aborted) { setResult(data); setPage(data.pagination.page); setError(''); }
+    } catch (err) { if (!signal.aborted) setError(err.message); }
+    finally { if (!signal.aborted) setLoading(false); }
+  }, [filters, page]), true, refresh);
   const reload = () => { setLoading(true); setError(''); setRefresh(value => value + 1); };
   const apply = event => {
     event.preventDefault();
@@ -69,7 +69,7 @@ export default function AdminAuditLogsTab() {
     setDraft(EMPTY_FILTERS); setFilters({ ...EMPTY_FILTERS }); setPage(1); setLoading(true); setError('');
   };
   const changePage = next => { setLoading(true); setError(''); setPage(next); };
-  return <section aria-labelledby="audit-heading" className="mx-auto w-full max-w-6xl space-y-5">
+  return <section aria-labelledby="audit-heading" className="w-full space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
       <div className="flex items-start gap-3">
         <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-blue-800" aria-hidden="true" />

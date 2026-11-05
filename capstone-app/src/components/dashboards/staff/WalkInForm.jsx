@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
@@ -81,6 +82,7 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
   const [priorityCategory, setPriorityCategory] = useState("");
   const [lookup, setLookup] = useState("");
   const [matches, setMatches] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [confirmNew, setConfirmNew] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -105,50 +107,37 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
     if (selectedPatient) return;
     const term = lookup.trim();
     const isPhoneLookup = /^\+?[\d\s-]+$/.test(term);
-    const digits = (term ? (isPhoneLookup ? term : "") : form.contact).replace(
-      /\D/g,
-      "",
-    );
-    const phone =
-      digits.length === 10 && digits.startsWith("9") ? `0${digits}` : digits;
+    const digits = (term ? (isPhoneLookup ? term : '') : form.contact).replace(/\D/g, '');
+    const phone = digits.length === 10 && digits.startsWith('9') ? '0' + digits : digits;
     const params = new URLSearchParams();
     if (term) {
-      if (isPhoneLookup && phone.length >= 4) params.set("phone", phone);
-      else if (!isPhoneLookup && term.length >= 2) params.set("name", term);
+      if (isPhoneLookup && phone.length >= 4) params.set('phone', phone);
+      else if (!isPhoneLookup && term.length >= 2) params.set('name', term);
     } else {
-      if (fullName.length >= 2) params.set("name", fullName);
-      if (phone.length >= 4) params.set("phone", phone);
+      if (fullName.length >= 2) params.set('name', fullName);
+      if (phone.length >= 4) params.set('phone', phone);
     }
-    if (form.dateOfBirth) params.set("date_of_birth", form.dateOfBirth);
-    if (!params.size) {
-      const reset = setTimeout(() => {
-        setMatches([]);
-        setSearching(false);
-      }, 0);
-      return () => clearTimeout(reset);
-    }
-    let active = true;
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await api.get(`/patients/search?${params}`);
-        if (active) setMatches(res.data || []);
-      } catch {
-        if (active) setMatches([]);
-      } finally {
-        if (active) setSearching(false);
-      }
+    if (form.dateOfBirth) params.set('date_of_birth', form.dateOfBirth);
+    const timer = setTimeout(() => {
+      setSearchQuery(params.toString());
+      if (!params.size) { setMatches([]); setSearching(false); }
     }, 300);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, [lookup, fullName, form.contact, form.dateOfBirth, selectedPatient]);
+  useLiveData(useCallback(async (signal, background) => {
+    if (!background) setSearching(true);
+    try {
+      const res = await api.get('/patients/search?' + searchQuery, { signal });
+      if (!signal.aborted) setMatches(res.data || []);
+    } catch (err) { if (!signal.aborted) setError(err.message || 'Unable to search patient records.'); }
+    finally { if (!signal.aborted) setSearching(false); }
+  }, [searchQuery]), !selectedPatient && Boolean(searchQuery));
 
   const selectPatient = async (id) => {
     setError("");
     try {
       const { data } = await api.get(`/patients/${id}`);
+      setSearchQuery("");
       setSelectedPatient(data);
       setForm({
         firstName: data.first_name || "",
@@ -274,6 +263,8 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
       setSelectedServices([]);
       setIsPriority(false);
       setPriorityCategory("");
+      setSearchQuery("");
+      setSearching(false);
       setSelectedPatient(null);
       setMatches([]);
       setLookup("");

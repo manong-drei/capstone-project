@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import * as authService from "@/services/authService";
-import { ROUTES } from "@/constants/routes";
+import { ACCOUNT_ROUTES, ROUTES } from "@/constants/routes";
 
 const ChangePasswordPage = () => {
   const navigate = useNavigate();
   const { user, login } = useAuth();
   const setup = !!user?.must_change_password;
+  const profilePath = ACCOUNT_ROUTES[user.role].profile;
 
   const [form, setForm] = useState({
     oldPassword: "",
@@ -32,6 +33,7 @@ const ChangePasswordPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
 
     if ((!setup && !form.oldPassword.trim()) || !form.newPassword.trim()) {
       setError("Please fill in all fields.");
@@ -58,7 +60,8 @@ const ChangePasswordPage = () => {
       });
 
       login(result.user, result.token);
-      navigate(ROUTES.HOME + "dashboard");
+      if (setup) navigate(ROUTES.HOME + "dashboard");
+      else navigate(profilePath, { replace: true, state: { passwordChanged: true } });
     } catch (err) {
       setError(err.message || "Failed to change password. Please try again.");
     } finally {
@@ -87,12 +90,12 @@ const ChangePasswordPage = () => {
           </h2>
 
           <p className="text-xs leading-snug px-2" style={{ color: "#6b7280" }}>
-            You must set a new password before continuing.
+            {setup ? "You must set a new password before continuing." : "Enter your current password and choose a new one."}
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs text-center">
+          <div role="alert" className="mb-4 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs text-center">
             {error}
           </div>
         )}
@@ -101,6 +104,7 @@ const ChangePasswordPage = () => {
           {/* Current Password */}
           {!setup && <div>
             <label
+              htmlFor="oldPassword"
               className="block text-xs font-semibold mb-1"
               style={{ color: "#374151" }}
             >
@@ -109,8 +113,10 @@ const ChangePasswordPage = () => {
 
             <div className="relative">
               <input
+                id="oldPassword"
                 type={showOldPassword ? "text" : "password"}
                 name="oldPassword"
+                autoComplete="current-password"
                 value={form.oldPassword}
                 onChange={handleChange}
                 className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
@@ -139,6 +145,7 @@ const ChangePasswordPage = () => {
           {/* New Password */}
           <div>
             <label
+              htmlFor="newPassword"
               className="block text-xs font-semibold mb-1"
               style={{ color: "#374151" }}
             >
@@ -147,8 +154,10 @@ const ChangePasswordPage = () => {
 
             <div className="relative">
               <input
+                id="newPassword"
                 type={showNewPassword ? "text" : "password"}
                 name="newPassword"
+                autoComplete="new-password"
                 value={form.newPassword}
                 onChange={handleChange}
                 className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
@@ -175,6 +184,7 @@ const ChangePasswordPage = () => {
           {/* Confirm Password */}
           <div>
             <label
+              htmlFor="confirmPassword"
               className="block text-xs font-semibold mb-1"
               style={{ color: "#374151" }}
             >
@@ -183,8 +193,10 @@ const ChangePasswordPage = () => {
 
             <div className="relative">
               <input
+                id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
                 name="confirmPassword"
+                autoComplete="new-password"
                 value={form.confirmPassword}
                 onChange={handleChange}
                 className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
@@ -221,6 +233,7 @@ const ChangePasswordPage = () => {
             {loading ? "Updating..." : "Update Password"}
           </button>
         </form>
+        {!setup && <Link to={profilePath} className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-blue-700 hover:underline">Back to My Profile</Link>}
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ export default function AdminStaffTab() {
   const accountTab = pathname === ROUTES.ADMIN_PATIENT_ACCOUNTS ? "Patients" : "Staff";
 
   return (
-    <div className="ad-tab-pad" style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+    <div className="ad-tab-pad rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
         <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#1e293b" }}>
           Account Management

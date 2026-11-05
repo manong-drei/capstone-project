@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useState } from "react";
 import Icon from "@/components/common/AppIcons";
 import api from "@/services/api";
 import { getNameFields } from "@/utils/nameDisplay";
@@ -451,23 +452,16 @@ export default function StaffManager() {
     position: "",
   });
 
-  useEffect(() => {
-    fetchStaff();
-  }, []);
-
-  const fetchStaff = async () => {
-    setLoading(true);
-    setFetchError("");
+const fetchStaff = useCallback(async (signal, background = false) => {
+    if (!background) setLoading(true);
     try {
-      const data = await api.get("/admin/staff");
-      setStaff(data?.staff ?? []);
+      const data = await api.get('/admin/staff', { signal });
+      if (!signal?.aborted) { setStaff(data?.staff ?? []); setFetchError(''); }
     } catch (err) {
-      setFetchError(err.message || "Failed to load staff accounts.");
-      setStaff([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (!signal?.aborted) setFetchError(err.message || 'Failed to load staff accounts.');
+    } finally { if (!signal?.aborted) setLoading(false); }
+  }, []);
+  useLiveData(fetchStaff);
 
   const handleChange = (field, value) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -908,7 +902,7 @@ export default function StaffManager() {
               {fetchError}
             </p>
             <button
-              onClick={fetchStaff}
+              onClick={() => fetchStaff()}
               style={{
                 padding: "7px 16px",
                 borderRadius: "8px",

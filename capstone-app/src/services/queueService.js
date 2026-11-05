@@ -1,8 +1,8 @@
 import api from "./api";
 
-export const getMyQueue = () => api.get("/queue/me");
-export const getQueueStatus = (category) =>
-  api.get(`/queue/status${category ? `?category=${category}` : ""}`);
+export const getMyQueue = (config) => api.get("/queue/me", config);
+export const getQueueStatus = (category, config) =>
+  api.get(`/queue/status${category ? `?category=${category}` : ""}`, config);
 export const getAllQueues = (category, config) =>
   api.get(`/queue${category ? `?category=${category}` : ""}`, config);
 export const createQueue = (payload) => api.post("/queue", payload);

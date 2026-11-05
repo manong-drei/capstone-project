@@ -10,7 +10,8 @@ const Queue = require('../src/models/Queue');
 const { createStaff, createPatient, updateStaff } = require('../src/controllers/adminController');
 const { updateProfile } = require('../src/controllers/patientController');
 const { createWalkIn } = require('../src/controllers/queueController');
-const { getProfile } = require('../src/controllers/authController');
+const { getProfile, updateProfile: updateAccountProfile } = require('../src/controllers/authController');
+const requireProfileSession = require('../src/middleware/requireProfileSession');
 
 const response = () => ({ statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
 
@@ -104,6 +105,50 @@ test('authenticated profiles include complete names and separate optional fields
   }
 });
 
+test('self-profile updates use the authenticated account and reject managed fields', async t => {
+  for (const purpose of ['development', 'password_setup']) {
+    const res = response();
+    requireProfileSession({ user: { user_id: 7, purpose } }, res, () => assert.fail('Expected a regular session'));
+    assert.equal(res.statusCode, 403);
+  }
+  let authorized = false;
+  requireProfileSession({ user: { user_id: 7, purpose: 'session' } }, response(), () => { authorized = true; });
+  assert.equal(authorized, true);
+
+  let role;
+  const writes = [];
+  const query = async (sql, values) => {
+    if (sql.includes('FROM users u')) return [[{ user_id: 7, role, staff_id: 7 }]];
+    if (sql.startsWith('SELECT * FROM patients')) return [[{ user_id: 7 }]];
+    writes.push({ sql, values });
+    return [{ affectedRows: 1 }];
+  };
+  t.mock.method(pool, 'query', query);
+  t.mock.method(pool, 'getConnection', async () => ({
+    query, async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
+  }));
+
+  for (role of ['patient', 'doctor', 'staff', 'admin']) {
+    const handler = role === 'patient' ? updateProfile : updateAccountProfile;
+    const req = { user: { user_id: 7, role }, auditActor: { user_id: 7, role } };
+    writes.length = 0;
+    for (const fields of [{ user_id: 99 }, { phone: '09123456789' }, { priority_category: 'senior' }, { contact_number: 'wrong' }]) {
+      const res = response();
+      await handler({ ...req, body: { first_name: 'Juan', ...fields } }, res);
+      assert.equal(res.statusCode, 400, role);
+    }
+    assert.equal(writes.length, 0);
+
+    const res = response();
+    await handler({ ...req, body: { first_name: ' Juan ', suffix: '', contact_number: '+63 912 345 6789' } }, res);
+    assert.equal(res.statusCode, 200, role);
+    const table = { patient: 'patients', doctor: 'doctors', staff: 'staff', admin: 'staff' }[role];
+    assert.equal(writes[0].sql, `UPDATE ${table} SET first_name = ?, suffix = ?, contact_number = ? WHERE user_id = ?`);
+    assert.deepEqual(writes[0].values, ['Juan', null, '09123456789', 7]);
+    if (role === 'admin') assert.match(writes[1].sql, /^INSERT INTO audit_logs/);
+  }
+});
+
 test('staff, doctor, and admin edits can change or clear names while omission preserves them', async t => {
   const writes = [];
   let role;
@@ -111,7 +156,7 @@ test('staff, doctor, and admin edits can change or clear names while omission pr
   t.mock.method(pool, 'getConnection', async () => ({
     async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
     async query(sql, values) {
-      if (sql.startsWith('SELECT u.phone')) return [[{ first_name: 'Old', middle_name: null, suffix: null, phone: '09123456780' }]];
+      if (sql.startsWith('SELECT u.phone')) return [[{ staff_id: 7, first_name: 'Old', middle_name: null, suffix: null, phone: '09123456780' }]];
       writes.push({ sql, values }); return [{}];
     },
   }));

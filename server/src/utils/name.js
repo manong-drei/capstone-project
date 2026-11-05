@@ -9,4 +9,4 @@ const normalizeNamePart = (value, label, maxLength) => {
 const normalizeSuffix = (value) => normalizeNamePart(value, "Suffix", 20);
 const normalizeMiddleName = (value) => normalizeNamePart(value, "Middle name", 100);
 
-module.exports = { normalizeSuffix, normalizeMiddleName };
+module.exports = { normalizeNamePart, normalizeSuffix, normalizeMiddleName };

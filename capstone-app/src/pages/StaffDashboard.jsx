@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useState, useCallback } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   Clock3,
   Monitor,
@@ -25,11 +27,22 @@ import AccountRecoverySearch from "@/components/dashboards/staff/AccountRecovery
 import ToastNotifications from "@/components/common/ToastNotifications";
 import useSmsToasts from "@/hooks/useSmsToasts";
 
+
+const ALLOWED_ROUTES = [
+  ROUTES.STAFF_DASHBOARD,
+  ROUTES.STAFF_ACCOUNT_RECOVERY,
+  ROUTES.STAFF_WALK_IN,
+];
+
+const PAGE_HEADINGS = {
+  [ROUTES.STAFF_ACCOUNT_RECOVERY]: "Account recovery",
+  [ROUTES.STAFF_WALK_IN]: "Walk-in registration",
+  [ROUTES.STAFF_DASHBOARD]: "Dental queue management",
+};
+
 export default function StaffDashboard() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const recoveryPage = pathname === ROUTES.STAFF_ACCOUNT_RECOVERY;
-  const walkInPage = pathname === ROUTES.STAFF_WALK_IN;
   const { logout } = useAuth();
   const { identity } = useDashboardIdentity();
   const [queues, setQueues] = useState([]);
@@ -43,15 +56,20 @@ export default function StaffDashboard() {
   const [showManual, setShowManual] = useState(false);
   const { toasts, dismissToast, trackSmsStatuses } = useSmsToasts();
 
-  const fetchQueue = useCallback(async () => {
+  const recoveryPage = pathname === ROUTES.STAFF_ACCOUNT_RECOVERY;
+  const walkInPage = pathname === ROUTES.STAFF_WALK_IN;
+
+  const fetchQueue = useCallback(async (signal) => {
     try {
-      const data = await api.get("/queue?category=dental");
+      const data = await api.get("/queue?category=dental", { signal });
+      if (signal?.aborted) return;
       const list = Array.isArray(data) ? data : (data?.data ?? []);
       const dentalQueues = list.filter((queue) => queue.category === "dental");
       setQueues(dentalQueues);
       trackSmsStatuses(
         dentalQueues.map((queue) => ({
-          id: queue.sms_job_id,
+          // Track the ticket so replacing its SMS job still reports the new status.
+          id: queue.id,
           state: queue.sms_state,
           provider_status: queue.sms_provider_status,
           label: `Queue alert SMS for ${queue.queue_number}`,
@@ -60,17 +78,19 @@ export default function StaffDashboard() {
       setLastUpdated(new Date());
       setError("");
     } catch (err) {
+      if (signal?.aborted) return;
       setError(
         err.message || "Unable to refresh the dental queue. Please try again.",
       );
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [trackSmsStatuses]);
 
-  const fetchDoctorAvailability = useCallback(async () => {
+  const fetchDoctorAvailability = useCallback(async (signal) => {
     try {
-      const data = await api.get("/doctor");
+      const data = await api.get("/doctor", { signal });
+      if (signal?.aborted) return;
       // Registration uses the dentist with the lowest ID.
       const dentist = [...(data?.data ?? [])].sort(
         (a, b) => a.doctor_id - b.doctor_id,
@@ -80,20 +100,23 @@ export default function StaffDashboard() {
       );
       setDoctorLeaveEnd(dentist?.leave_end ?? null);
     } catch {
+      if (signal?.aborted) return;
       setDoctorAvailable(null);
       setDoctorLeaveEnd(null);
     }
   }, []);
 
   const refresh = useCallback(
-    () => Promise.all([fetchQueue(), fetchDoctorAvailability()]),
+    (signal) => Promise.all([fetchQueue(signal), fetchDoctorAvailability(signal)]),
     [fetchQueue, fetchDoctorAvailability],
   );
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 15_000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+
+  useLiveData(refresh);
+
+  const currentServing =
+    queues.find((queue) => ["called", "serving"].includes(queue.status)) ??
+    null;
+  const waiting = queues.filter((queue) => queue.status === "waiting");
 
   const handleCallNext = async () => {
     if (
@@ -101,8 +124,9 @@ export default function StaffDashboard() {
       calling ||
       currentServing?.status === "called" ||
       (!currentServing && !waiting.length)
-    )
+    ) {
       return;
+    }
     setCalling(true);
     setError("");
     try {
@@ -147,9 +171,11 @@ export default function StaffDashboard() {
   const handleQueueAction = async (id, action) => {
     setCalling(true);
     try {
-      if (action === "present")
+      if (action === "present") {
         await api.patch(`/queue/${id}/status`, { status: "serving" });
-      else await api.post(`/queue/${id}/${action}`);
+      } else {
+        await api.post(`/queue/${id}/${action}`);
+      }
       await fetchQueue();
     } catch (err) {
       await fetchQueue();
@@ -159,10 +185,6 @@ export default function StaffDashboard() {
     }
   };
 
-  const currentServing =
-    queues.find((queue) => ["called", "serving"].includes(queue.status)) ??
-    null;
-  const waiting = queues.filter((queue) => queue.status === "waiting");
   const stats = [
     {
       label: "Waiting patients",
@@ -190,13 +212,7 @@ export default function StaffDashboard() {
     },
   ];
 
-  if (
-    ![
-      ROUTES.STAFF_DASHBOARD,
-      ROUTES.STAFF_ACCOUNT_RECOVERY,
-      ROUTES.STAFF_WALK_IN,
-    ].includes(pathname)
-  ) {
+  if (!ALLOWED_ROUTES.includes(pathname)) {
     return <Navigate to={ROUTES.STAFF_DASHBOARD} replace />;
   }
 
@@ -229,7 +245,7 @@ export default function StaffDashboard() {
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            {(recoveryPage || walkInPage) && (
+            {walkInPage && (
               <Link
                 to={ROUTES.STAFF_DASHBOARD}
                 className="mb-1 block text-sm text-blue-700"
@@ -238,11 +254,7 @@ export default function StaffDashboard() {
               </Link>
             )}
             <h2 className="text-base font-bold text-[#1a3a8f] sm:text-lg">
-              {recoveryPage
-                ? "Account recovery"
-                : walkInPage
-                  ? "Walk-in registration"
-                  : "Dental queue management"}
+              {PAGE_HEADINGS[pathname] ?? "Dental queue management"}
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -250,21 +262,33 @@ export default function StaffDashboard() {
               <button
                 type="button"
                 onClick={() => navigate(ROUTES.STAFF_ACCOUNT_RECOVERY)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 sm:gap-2 sm:px-4"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:gap-2 sm:px-4"
               >
                 <ShieldCheck size={16} aria-hidden="true" />
                 Account recovery
               </button>
             )}
-            <a
-              href={ROUTES.GENERAL_QUEUE_MONITOR}
-              target="_blank"
-              rel="opener"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:gap-2 sm:px-4"
-            >
-              <Monitor size={16} aria-hidden="true" />
-              Open dental monitor<span className="sr-only"> (new tab)</span>
-            </a>
+            {recoveryPage ? (
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.STAFF_DASHBOARD)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600 sm:gap-2 sm:px-4"
+              >
+                <ArrowLeft size={17} aria-hidden="true" />
+                Back to queue management
+              </button>
+            ) : (
+              <a
+                href={ROUTES.GENERAL_QUEUE_MONITOR}
+                target="_blank"
+                rel="opener"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:gap-2 sm:px-4"
+              >
+                <Monitor size={16} aria-hidden="true" />
+                Open dental monitor
+                <span className="sr-only"> (new tab)</span>
+              </a>
+            )}
           </div>
         </div>
         {recoveryPage ? (
@@ -342,7 +366,7 @@ export default function StaffDashboard() {
             className={`h-2 w-2 rounded-full ${error ? "bg-amber-500" : "bg-emerald-500"}`}
             aria-hidden="true"
           />
-          {error ? "Refresh unavailable" : "Auto-refresh every 15 seconds"}
+          {error ? "Refresh unavailable" : "Auto-refresh every 5 seconds"}
           {lastUpdated && (
             <span>
               · Last updated{" "}

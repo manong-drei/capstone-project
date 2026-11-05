@@ -1,3 +1,4 @@
+import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
@@ -29,8 +30,8 @@ async function openDoctors(page, width = 1440) {
   };
   await page.route("**/api/**", (route) => route.fulfill({ json: responses[new URL(route.request().url()).pathname] ?? { data: [] } }));
   await page.goto("/admin");
-  if (width <= 900) await page.getByRole("button", { name: "Open menu" }).click();
-  await page.locator("#ad-sidebar").getByRole("button", { name: "Doctors", exact: true }).click();
+
+  await selectAdminSection(page, "Doctors");
 }
 
 for (const width of [1440, 375]) {

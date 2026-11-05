@@ -9,8 +9,8 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const db = require("./config/db");
-const { startWorker } = require('./services/smsNotifications');
-const { startWorker: startQueueExpiry } = require('./services/queueExpiry');
+const { startWorker } = require("./services/smsNotifications");
+const { startWorker: startQueueExpiry } = require("./services/queueExpiry");
 // Middleware imports
 const devBypass = require("./middleware/devBypass");
 

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useState } from "react";
 import {
   Activity,
   ArrowRight,
   Inbox,
+  Megaphone,
   RefreshCw,
-  Stethoscope,
+  ShieldCheck,
 } from "lucide-react";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -50,47 +52,44 @@ function QueueSummary({ queues }) {
   const next = waiting[0];
 
   return (
-    <section
-      aria-label="Dental live queue"
-      className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/60 p-4"
-    >
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <Stethoscope className="h-4 w-4 text-blue-700" aria-hidden="true" />
-          Dental
-        </h4>
-        <span className="rounded-md bg-white px-2 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
-          {waiting.length} waiting
-        </span>
+    <section aria-label="Dental live queue" className="min-w-0">
+      <div className="rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 py-6 text-center text-white">
+        <p className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-100">
+          <Megaphone size={16} aria-hidden="true" />
+          {serving?.status === QUEUE_STATUS.CALLED
+            ? "Called — awaiting patient"
+            : "Now serving"}
+        </p>
+        <p className="my-3 break-words text-5xl font-bold tracking-tight">
+          {serving?.queue_number ?? "—"}
+        </p>
+        <p className="break-words text-sm font-medium">
+          {serving ? getQueueDisplayName(serving) : "No patient being served"}
+        </p>
+        {serving && (
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
+            {serving.type === "priority" && (
+              <ShieldCheck size={13} aria-hidden="true" />
+            )}
+            {serving.type === "priority" ? "Priority" : "Regular"}
+          </span>
+        )}
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="min-w-0 border-r border-slate-200 pr-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
-            Now serving
-          </p>
-          <p className="mt-1 break-words text-2xl font-bold tracking-tight text-blue-900 sm:text-3xl">
-            {serving?.queue_number ?? "—"}
-          </p>
-          <p className="mt-1 break-words text-xs text-slate-600">
-            {serving ? getQueueDisplayName(serving) : "No patient being served"}
-          </p>
-          {serving && (
-            <div className="mt-2">
-              <StatusBadge status={serving.status} />
-            </div>
-          )}
-        </div>
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl bg-blue-50/60 p-4">
         <div className="min-w-0">
-          <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          <h4 className="flex items-center gap-1 text-xs font-semibold text-slate-600">
             Up next <ArrowRight className="h-3 w-3" aria-hidden="true" />
-          </p>
-          <p className="mt-1 break-words text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
+          </h4>
+          <p className="mt-1 break-words text-xl font-bold tracking-tight text-[#1a3a8f]">
             {next?.queue_number ?? "—"}
           </p>
           <p className="mt-1 break-words text-xs text-slate-600">
             {next ? getQueueDisplayName(next) : "No patients waiting"}
           </p>
         </div>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          {waiting.length} waiting
+        </span>
       </div>
     </section>
   );
@@ -156,17 +155,22 @@ export default function AdminLiveQueueMonitor() {
   const [reasonRequest, setReasonRequest] = useState(null);
   const [cancelling, setCancelling] = useState(false);
 
-  const loadQueues = useCallback(async (signal) => {
-    setLoading(true);
+  const loadQueues = useCallback(async (signal, background = false) => {
+    if (!background) setLoading(true);
     try {
       const data = await getAllQueues(undefined, { signal });
       if (signal?.aborted) return;
       const list = Array.isArray(data) ? data : [];
       // The API may still return legacy non-dental tickets; only dental is in scope.
-      const nextQueues = list.filter((queue) => queue.category === SERVICE_CATEGORY);
+      const nextQueues = list.filter(
+        (queue) => queue.category === SERVICE_CATEGORY,
+      );
       setQueues(nextQueues);
       setCurrentPage((page) =>
-        Math.min(page, Math.max(1, Math.ceil(nextQueues.length / TICKETS_PER_PAGE))),
+        Math.min(
+          page,
+          Math.max(1, Math.ceil(nextQueues.length / TICKETS_PER_PAGE)),
+        ),
       );
       setUpdatedAt(new Date());
       setError(null);
@@ -177,18 +181,7 @@ export default function AdminLiveQueueMonitor() {
     }
   }, []);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    loadQueues(controller.signal);
-    const interval = setInterval(
-      () => loadQueues(controller.signal),
-      POLL_INTERVAL_MS,
-    );
-    return () => {
-      controller.abort();
-      clearInterval(interval);
-    };
-  }, [loadQueues]);
+  useLiveData(loadQueues);
 
   const requestCancel = useCallback((id) => {
     setReasonRequest({
@@ -213,7 +206,10 @@ export default function AdminLiveQueueMonitor() {
   const initialLoading = loading && !updatedAt;
   const totalPages = Math.max(1, Math.ceil(queues.length / TICKETS_PER_PAGE));
   const firstTicketIndex = (currentPage - 1) * TICKETS_PER_PAGE;
-  const pageTickets = queues.slice(firstTicketIndex, firstTicketIndex + TICKETS_PER_PAGE);
+  const pageTickets = queues.slice(
+    firstTicketIndex,
+    firstTicketIndex + TICKETS_PER_PAGE,
+  );
 
   return (
     <section
@@ -241,111 +237,99 @@ export default function AdminLiveQueueMonitor() {
               </h3>
               <LiveIndicator error={error} connecting={initialLoading} />
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Today's patient flow · Refreshes every 15 seconds
-            </p>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className={`text-[11px] text-slate-500 ${updatedAt ? "" : "invisible"}`}>
-            Updated {updatedAt ? formatQueueTime(updatedAt) : "00:00 AM"}
-          </span>
-          <button
-            type="button"
-            onClick={() => loadQueues()}
-            disabled={loading || cancelling}
-            aria-label="Refresh live queue"
-            className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-              aria-hidden="true"
-            />
-            Refresh
-          </button>
         </div>
       </div>
 
-      <div role="region" aria-label="Live queue details" tabIndex={0}
-        className="h-[560px] overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
-      {error && (
-        <p
-          role="alert"
-          className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:mx-5"
-        >
-          {error} {updatedAt && "Showing the last successful update."}
-        </p>
-      )}
+      <div
+        role="region"
+        aria-label="Live queue details"
+        className="min-h-[560px]"
+      >
+        {error && (
+          <p
+            role="alert"
+            className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:mx-5"
+          >
+            {error} {updatedAt && "Showing the last successful update."}
+          </p>
+        )}
 
-      {initialLoading ? (
-        <div
-          role="status"
-          aria-busy="true"
-          className="space-y-5 p-4 sm:p-5"
-        >
-          <span className="sr-only">Loading live queue…</span>
-          <div aria-hidden="true" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[0, 1, 2, 3].map((card) => <Skeleton key={card} className="h-24 w-full" />)}
+        {initialLoading ? (
+          <div role="status" aria-busy="true" className="space-y-5 p-4 sm:p-5">
+            <span className="sr-only">Loading live queue…</span>
+            <div
+              aria-hidden="true"
+              className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+            >
+              {[0, 1, 2, 3].map((card) => (
+                <Skeleton key={card} className="h-24 w-full" />
+              ))}
+            </div>
+            {[0, 1, 2, 3].map((row) => (
+              <Skeleton key={row} className="h-16 w-full" />
+            ))}
           </div>
-          {[0, 1, 2, 3].map((row) => <Skeleton key={row} className="h-16 w-full" />)}
-        </div>
-      ) : (
-        updatedAt && (
-          <>
-            <div className="p-4 sm:p-5">
-              <QueueSummary queues={queues} />
-            </div>
-
-            <div className="flex items-center justify-between gap-3 border-y border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-5">
-              <h4 className="text-sm font-semibold text-slate-800">
-                Today's tickets{" "}
-                <span className="ml-1 text-xs font-normal text-slate-500">
-                  ({queues.length})
-                </span>
-              </h4>
-            </div>
-
-            {!queues.length ? (
-              <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-                <Inbox className="h-7 w-7 text-slate-300" aria-hidden="true" />
-                <p className="text-sm font-medium text-slate-600">
-                  No dental tickets today
-                </p>
-                <p className="text-xs text-slate-500">
-                  New registrations will appear here automatically.
-                </p>
+        ) : (
+          updatedAt && (
+            <>
+              <div className="p-4 sm:p-5">
+                <QueueSummary queues={queues} />
               </div>
-            ) : (
-              <div
-                role="region"
-                aria-label="Today's queue tickets"
-                tabIndex={0}
-                className="focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
-              >
-                <div
-                  aria-hidden="true"
-                  className="sticky top-0 z-10 hidden grid-cols-[6rem_minmax(0,1fr)_9rem_4rem] gap-4 border-b border-slate-100 bg-white px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 md:grid"
-                >
-                  <span>Ticket</span>
-                  <span>Patient</span>
-                  <span>Status</span>
-                  <span className="text-right">Action</span>
+
+              <div className="flex items-center justify-between gap-3 border-y border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-5">
+                <h4 className="text-sm font-semibold text-slate-800">
+                  Today's tickets{" "}
+                  <span className="ml-1 text-xs font-normal text-slate-500">
+                    ({queues.length})
+                  </span>
+                </h4>
+              </div>
+
+              {!queues.length ? (
+                <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+                  <Inbox
+                    className="h-7 w-7 text-slate-300"
+                    aria-hidden="true"
+                  />
+                  <p className="text-sm font-medium text-slate-600">
+                    No dental tickets today
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    New registrations will appear here automatically.
+                  </p>
                 </div>
-                <ul className="divide-y divide-slate-100">
-                  {pageTickets.map((queue) => (
-                    <TicketRow
-                      key={queue.id}
-                      queue={queue}
-                      cancelDisabled={cancelling}
-                      onCancel={requestCancel}
-                    />
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        )
-      )}
+              ) : (
+                <div
+                  role="region"
+                  aria-label="Today's queue tickets"
+                  tabIndex={0}
+                  className="focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="sticky top-0 z-10 hidden grid-cols-[6rem_minmax(0,1fr)_9rem_4rem] gap-4 border-b border-slate-100 bg-white px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 md:grid"
+                  >
+                    <span>Ticket</span>
+                    <span>Patient</span>
+                    <span>Status</span>
+                    <span className="text-right">Action</span>
+                  </div>
+                  <ul className="divide-y divide-slate-100">
+                    {pageTickets.map((queue) => (
+                      <TicketRow
+                        key={queue.id}
+                        queue={queue}
+                        cancelDisabled={cancelling}
+                        onCancel={requestCancel}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )
+        )}
       </div>
       {updatedAt && queues.length > 0 && (
         <nav
@@ -353,7 +337,9 @@ export default function AdminLiveQueueMonitor() {
           className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-xs sm:px-5"
         >
           <p aria-live="polite" className="text-slate-500">
-            Showing {firstTicketIndex + 1}–{Math.min(firstTicketIndex + TICKETS_PER_PAGE, queues.length)} of {queues.length}
+            Showing {firstTicketIndex + 1}–
+            {Math.min(firstTicketIndex + TICKETS_PER_PAGE, queues.length)} of{" "}
+            {queues.length}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -364,10 +350,14 @@ export default function AdminLiveQueueMonitor() {
             >
               Previous
             </button>
-            <span className="whitespace-nowrap text-slate-600">Page {currentPage} of {totalPages}</span>
+            <span className="whitespace-nowrap text-slate-600">
+              Page {currentPage} of {totalPages}
+            </span>
             <button
               type="button"
-              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              onClick={() =>
+                setCurrentPage((page) => Math.min(totalPages, page + 1))
+              }
               disabled={currentPage >= totalPages}
               className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
             >

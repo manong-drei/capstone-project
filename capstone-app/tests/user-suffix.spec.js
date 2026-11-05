@@ -1,3 +1,4 @@
+import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
@@ -56,9 +57,9 @@ async function mockUsers(page, role = "admin") {
 
 async function openAccounts(page, width) {
   await page.goto("/admin");
-  if (width <= 900) await page.getByRole("button", { name: "Open menu" }).click();
-  await page.locator("#ad-sidebar").getByRole("button", { name: "Accounts", exact: true }).click();
-  if (width <= 900) await expect(page.locator("#ad-sidebar")).not.toBeInViewport();
+
+  await selectAdminSection(page, "Accounts");
+  if (width <= 900) await expect(page.locator("#admin-mobile-menu")).toHaveCount(0);
 }
 
 // Older account fields use visual labels without htmlFor associations.

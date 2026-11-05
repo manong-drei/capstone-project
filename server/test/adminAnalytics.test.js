@@ -102,5 +102,6 @@ test("generated demonstration files contain all 21 forecasts and preserve the re
     assert.equal(rows.length, 7);
     assert.equal(rows.reduce((sum, row) => sum + row.baseline_recipients, 0), 9139);
     assert(rows.every(row => row.synthetic_years_in_training === 8));
+    assert(rows.every(row => ["n", "t"].includes(row.selected_arima_trend)));
   }
 });

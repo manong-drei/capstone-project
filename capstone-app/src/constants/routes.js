@@ -6,7 +6,9 @@ export const ROUTES = {
   PATIENT_DASHBOARD: "/patient",
   PATIENT_APPOINTMENT_HISTORY: "/patient/appointment-history",
   PATIENT_MY_QUEUE: "/patient/my-queue",
+  PATIENT_PROFILE: "/patient/profile",
   DOCTOR_DASHBOARD: "/doctor",
+  DOCTOR_PROFILE: "/doctor/profile",
   DOCTOR_ANALYTICS: "/doctor/analytics",
   DOCTOR_PATIENT_HISTORY: "/doctor/patient-history",
   DOCTOR_PATIENT_PROFILE: "/doctor/patients/:id",
@@ -14,10 +16,12 @@ export const ROUTES = {
   DOCTOR_CONSULTATION: "/doctor/consultations/:id",
   DOCTOR_DAILY_REPORT: "/doctor/reports/daily",
   STAFF_DASHBOARD: "/staff",
+  STAFF_PROFILE: "/staff/profile",
   STAFF_ACCOUNT_RECOVERY: "/staff/account-recovery",
   STAFF_WALK_IN: "/staff/walk-ins/new",
   STAFF_PATIENT_PROFILE: "/staff/patients/:id",
   ADMIN_DASHBOARD: "/admin",
+  ADMIN_PROFILE: "/admin/profile",
   ADMIN_ANALYTICS: "/admin/analytics",
   ADMIN_DOCTORS: "/admin/doctors",
   ADMIN_DOCTOR_RECORDS: "/admin/doctors/:id/records",
@@ -33,4 +37,11 @@ export const ROUTES = {
   ADMIN_QUEUE: "/admin/queue",
   GENERAL_QUEUE_MONITOR: "/general-queue-monitor",
   CHANGE_PASSWORD: "/change-password",
+};
+
+export const ACCOUNT_ROUTES = {
+  patient: { dashboard: ROUTES.PATIENT_DASHBOARD, profile: ROUTES.PATIENT_PROFILE },
+  doctor: { dashboard: ROUTES.DOCTOR_DASHBOARD, profile: ROUTES.DOCTOR_PROFILE },
+  staff: { dashboard: ROUTES.STAFF_DASHBOARD, profile: ROUTES.STAFF_PROFILE },
+  admin: { dashboard: ROUTES.ADMIN_DASHBOARD, profile: ROUTES.ADMIN_PROFILE },
 };

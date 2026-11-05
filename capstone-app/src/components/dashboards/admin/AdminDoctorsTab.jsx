@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { generatePath, useMatch, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/constants/routes";
@@ -35,13 +36,12 @@ function DoctorRecordsDialog({ doctorId, onClose }) {
     };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    api.get(`/doctor/${doctorId}/records`)
-      .then((response) => { if (active) setRecords(response.data); })
-      .catch((err) => { if (active) setError(err.message); });
-    return () => { active = false; };
-  }, [doctorId, attempt]);
+  useLiveData(useCallback(async (signal) => {
+    try {
+      const response = await api.get('/doctor/' + doctorId + '/records', { signal });
+      if (!signal.aborted) { setRecords(response.data); setError(''); }
+    } catch (err) { if (!signal.aborted) setError(err.message); }
+  }, [doctorId]), true, attempt);
 
   return (
     <dialog
@@ -143,7 +143,7 @@ export default function AdminDoctorsTab({ doctors }) {
   const navigate = useNavigate();
 
   return (
-    <div className="ad-tab-pad" style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+    <div className="ad-tab-pad rounded-2xl border border-slate-200 bg-white shadow-sm">
       {selectedDoctorId && <DoctorRecordsDialog key={selectedDoctorId} doctorId={selectedDoctorId} onClose={() => navigate(ROUTES.ADMIN_DOCTORS)} />}
       <h3 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 700, color: "#1e293b" }}>
         Doctor Availability
@@ -156,17 +156,17 @@ export default function AdminDoctorsTab({ doctors }) {
             <div
               key={d.doctor_id}
               style={{
-                border: `1.5px solid ${d.is_available ? "#bbf7d0" : "#fecaca"}`,
+                border: "1px solid #e2e8f0",
                 borderRadius: "14px",
                 padding: "18px",
                 display: "flex",
                 alignItems: "center",
                 gap: "14px",
-                background: d.is_available ? "#f0fdf4" : "#fef2f2",
+                background: "#fff",
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: "0 0 2px", fontSize: "14px", fontWeight: 700, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <p className="break-words" style={{ margin: "0 0 2px", fontSize: "14px", fontWeight: 700, color: "#1e293b" }}>
                   Dr. {[d.first_name, d.middle_name, d.last_name, d.suffix].filter(Boolean).join(" ")}
                 </p>
                 {d.specialization_name && (

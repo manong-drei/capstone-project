@@ -1,3 +1,4 @@
+import useLiveData from "@/hooks/useLiveData";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -90,6 +91,7 @@ export default function AdminNotificationsTab() {
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const thresholdDirty = useRef(false);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -98,48 +100,37 @@ export default function AdminNotificationsTab() {
     };
   }, []);
 
-  const loadJobs = useCallback(async (showSpinner = false) => {
+  const loadJobs = useCallback(async (showSpinner = false, signal) => {
     if (showSpinner && mounted.current) setRefreshing(true);
     try {
-      const result = await api.get("/admin/sms-jobs");
-      if (mounted.current) {
+      const result = await api.get("/admin/sms-jobs", { signal });
+      if (mounted.current && !signal?.aborted) {
         const nextJobs = result.jobs ?? [];
         setJobs(nextJobs);
         setCurrentPage((page) => Math.min(page, Math.max(1, Math.ceil(nextJobs.length / JOBS_PER_PAGE))));
         setJobsError(null);
       }
     } catch (err) {
-      if (mounted.current) setJobsError(err.message);
+      if (mounted.current && !signal?.aborted) setJobsError(err.message);
     } finally {
-      if (mounted.current) {
+      if (mounted.current && !signal?.aborted) {
         setJobsLoaded(true);
         if (showSpinner) setRefreshing(false);
       }
     }
   }, []);
 
-  useEffect(() => {
-    let active = true;
-
-    api
-      .get("/admin/sms-settings")
-      .then((result) => {
-        if (active) {
-          setThreshold(String(result.data.threshold));
+  useLiveData(useCallback(async (signal) => {
+    await Promise.all([
+      loadJobs(false, signal),
+      api.get('/admin/sms-settings', { signal }).then(result => {
+        if (!signal.aborted) {
+          if (!thresholdDirty.current) setThreshold(String(result.data.threshold));
           setLoaded(true);
         }
-      })
-      .catch((err) => {
-        if (active) setMessage({ text: err.message, tone: "error" });
-      });
-
-    loadJobs();
-    const interval = setInterval(() => loadJobs(), 15000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [loadJobs]);
+      }).catch(err => { if (!signal.aborted) setMessage({ text: err.message, tone: 'error' }); }),
+    ]);
+  }, [loadJobs]));
 
   const save = async (event) => {
     event.preventDefault();
@@ -154,6 +145,7 @@ export default function AdminNotificationsTab() {
     setBusy(true);
     try {
       await api.put("/admin/sms-settings", { threshold: value });
+      thresholdDirty.current = false;
       setMessage({
         text: "SMS threshold saved. Existing suppressed tickets stay suppressed.",
         tone: "ok",
@@ -171,7 +163,7 @@ export default function AdminNotificationsTab() {
   const pageJobs = jobs.slice(firstJobIndex, firstJobIndex + JOBS_PER_PAGE);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="w-full space-y-5">
       {/* ---------------- settings card ---------------- */}
       <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
         <div className="flex items-start gap-3">
@@ -209,7 +201,7 @@ export default function AdminNotificationsTab() {
                 inputMode="numeric"
                 required
                 value={threshold}
-                onChange={(event) => setThreshold(event.target.value)}
+                onChange={(event) => { thresholdDirty.current = true; setThreshold(event.target.value); }}
                 disabled={disabled}
                 className="w-24 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
               />
@@ -278,7 +270,7 @@ export default function AdminNotificationsTab() {
 
           <div className="flex items-center gap-2">
             <span className="hidden text-[11px] text-slate-400 sm:inline">
-              Auto-refreshes every 15s
+              Auto-refreshes every 5s
             </span>
             <button
               type="button"

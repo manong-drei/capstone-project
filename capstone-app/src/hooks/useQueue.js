@@ -6,31 +6,36 @@ export function useQueue() {
   const [queues, setQueues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const fetchMyQueue = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchMyQueue = useCallback(async (signal, background = false) => {
+    if (!background) setLoading(true);
     try {
-      const data = await queueService.getMyQueue();
-setQueue(data);
+      const data = await queueService.getMyQueue({ signal });
+      if (signal?.aborted) return;
+      setQueue(data);
+      setLastUpdated(new Date());
+      setError(null);
     } catch (err) {
+      if (signal?.aborted) return;
       setQueue((current) => current ? { ...current, wait_estimate: null } : current);
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
-  const fetchAllQueues = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchAllQueues = useCallback(async (signal, background = false) => {
+    if (!background) setLoading(true);
     try {
-      const data = await queueService.getAllQueues();
-setQueues(Array.isArray(data) ? data : []);
+      const data = await queueService.getAllQueues(undefined, { signal });
+      if (signal?.aborted) return;
+      setQueues(Array.isArray(data) ? data : []);
+      setError(null);
     } catch (err) {
-      setError(err.message);
+      if (!signal?.aborted) setError(err.message);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
@@ -39,8 +44,9 @@ setQueues(Array.isArray(data) ? data : []);
     setError(null);
     try {
       const data = await queueService.createQueue(payload);
-setQueue(data);
-return data;
+      setQueue(data);
+      setLastUpdated(new Date());
+      return data;
     } catch (err) {
       setError(err.message);
       throw err;
@@ -83,6 +89,7 @@ return data;
     queues,
     loading,
     error,
+    lastUpdated,
     fetchMyQueue,
     fetchAllQueues,
     submitQueue,

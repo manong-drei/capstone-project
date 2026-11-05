@@ -1,0 +1,13 @@
+.ad-root { color-scheme: only light; }
+.ad-root main, .ad-root main > *, .ad-root section { min-width: 0; }
+.ad-tab-pad { padding: 20px; }
+.ad-show-on-mobile { display: none; }
+.ad-overview-chart { min-width: 0; height: 250px; }
+@media (max-width: 767px) {
+  .ad-tab-pad { padding: 16px; }
+  .ad-hide-on-mobile { display: none; }
+  .ad-show-on-mobile { display: flex; flex-direction: column; gap: 10px; }
+}
+@media (pointer: coarse) {
+  .ad-root input:not([type="checkbox"]):not([type="radio"]), .ad-root select, .ad-root textarea { font-size: 16px; }
+}

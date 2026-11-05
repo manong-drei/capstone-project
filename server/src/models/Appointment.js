@@ -11,6 +11,7 @@ const Appointment = {
 
   // Patient's own appointments
   findByPatientId: async (patient_id) => {
+    // shortcut: Link clinical details only for an unambiguous patient/dentist/day; store a queue reference on appointments to distinguish multiple visits.
     const [rows] = await pool.query(
       `
       SELECT
@@ -36,15 +37,47 @@ const Appointment = {
           ORDER BY q.updated_at DESC
           LIMIT 1
         ) AS cancellation_reason
+        , c.diagnosis, pr.medication_name AS recommendation,
+        pr.consultation_id AS prescription_consultation_id
       FROM   appointments a
       JOIN   doctors d ON a.doctor_id = d.doctor_id
       LEFT   JOIN specializations s ON d.specialization_id = s.specialization_id
+      LEFT JOIN consultations c ON a.status = 'completed' AND c.consultation_id = (
+        SELECT visit.consultation_id FROM consultations visit
+        JOIN queues ticket ON ticket.id = visit.queue_id
+        WHERE ticket.patient_id = a.patient_id AND visit.patient_id = a.patient_id
+          AND visit.doctor_id = a.doctor_id AND ticket.category = 'dental'
+          AND ticket.is_walk_in = 0 AND ticket.status = 'done'
+          AND DATE(ticket.created_at) = a.appointment_date
+          AND (SELECT COUNT(*) FROM queues same_day
+               WHERE same_day.patient_id = a.patient_id AND same_day.category = 'dental'
+                 AND same_day.is_walk_in = 0 AND same_day.status = 'done'
+                 AND DATE(same_day.created_at) = a.appointment_date) = 1
+          AND (SELECT COUNT(*) FROM appointments same_day_appointment
+               WHERE same_day_appointment.patient_id = a.patient_id
+                 AND same_day_appointment.doctor_id = a.doctor_id
+                 AND same_day_appointment.appointment_date = a.appointment_date
+                 AND same_day_appointment.status = 'completed') = 1
+        ORDER BY visit.consultation_id DESC LIMIT 1
+      )
+      LEFT JOIN prescriptions pr ON pr.consultation_id = c.consultation_id
       WHERE  a.patient_id = ?
       ORDER  BY a.appointment_date DESC, a.appointment_time DESC
     `,
       [patient_id],
     );
-    return rows;
+    const appointments = new Map();
+    for (const { recommendation, prescription_consultation_id, ...row } of rows) {
+      let appointment = appointments.get(row.appointment_id);
+      if (!appointment) {
+        appointment = { ...row, recommendations: null };
+        appointments.set(row.appointment_id, appointment);
+      }
+      if (prescription_consultation_id !== null) {
+        (appointment.recommendations ??= []).push(recommendation);
+      }
+    }
+    return [...appointments.values()];
   },
 
   // Doctor's assigned appointments

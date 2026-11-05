@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useState } from "react";
 import StatCard from '@/components/common/StatCard'
 import api from '@/services/api'
 
@@ -11,19 +12,14 @@ export default function ReportsPanel() {
   const [loading, setLoading] = useState(true)
   const [date,    setDate]    = useState(new Date().toISOString().slice(0, 10))
 
-  useEffect(() => { fetchReport() }, [date])
-
-  const fetchReport = async () => {
-    setLoading(true)
+  useLiveData(useCallback(async (signal, background) => {
+    if (!background) setLoading(true);
     try {
-      const data = await api.get(`/admin/reports?date=${date}`)
-      setReport(data)
-    } catch {
-      setReport(null)
-    } finally {
-      setLoading(false)
-    }
-  }
+      const data = await api.get('/admin/reports?date=' + date, { signal });
+      if (!signal.aborted) setReport(data);
+    } catch { /* Retain the last report until the connection recovers. */ }
+    finally { if (!signal.aborted) setLoading(false); }
+  }, [date]));
 
   const stats = report
     ? [

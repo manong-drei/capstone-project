@@ -1,3 +1,4 @@
+import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
@@ -319,7 +320,7 @@ test("search handles invalid inputs, empty results, and server errors", async ({
 test("admins can open recovery from patient management and return to their dashboard", async ({ page }) => {
   await mockApp(page, { role: "admin" });
   await page.goto("/admin");
-  await page.locator("#ad-sidebar").getByRole("button", { name: "Accounts", exact: true }).click();
+  await selectAdminSection(page, "Accounts");
   await page.getByRole("button", { name: "Patients", exact: true }).click();
   await page.getByRole("link", { name: "Recover account for Ana Test" }).first().click();
   await expect(page).toHaveURL(/\/admin\/patients\/42$/);

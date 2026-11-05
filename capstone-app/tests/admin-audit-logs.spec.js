@@ -1,3 +1,4 @@
+import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from '@playwright/test';
 import { createTestToken } from './helpers/auth';
 
@@ -30,8 +31,8 @@ async function setup(page) {
 async function openAudit(page, width = 1440) {
   await page.setViewportSize({ width, height: 1000 });
   await page.goto('/admin');
-  if (width < 1024) await page.getByRole('button', { name: 'Open menu' }).click();
-  await page.locator('#ad-sidebar').getByRole('button', { name: 'Audit Logs', exact: true }).click();
+
+  await selectAdminSection(page, 'Audit Logs');
   await expect(page.getByRole('heading', { name: 'Audit Logs', exact: true })).toBeVisible();
 }
 

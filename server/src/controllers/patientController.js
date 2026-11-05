@@ -5,7 +5,7 @@ const DoctorHistory = require("../models/DoctorHistory");
 const bcrypt = require("bcryptjs");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
-const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
+const { normalizeProfileChanges } = require("../utils/profile");
 
 /** GET /api/patients/me */
 const getMyProfile = async (req, res) => {
@@ -27,32 +27,7 @@ const getMyProfile = async (req, res) => {
 /** PUT /api/patients/me */
 const updateProfile = async (req, res) => {
   try {
-    const payload = { ...req.body };
-    if (payload.suffix !== undefined) payload.suffix = normalizeSuffix(payload.suffix);
-    if (payload.middle_name !== undefined) payload.middle_name = normalizeMiddleName(payload.middle_name);
-
-    if (payload.contact_number !== undefined) {
-      const normalizedPhone = normalizePhilippineMobilePhone(payload.contact_number);
-      if (!normalizedPhone) {
-        return res.status(400).json({
-          success: false,
-          message: "Phone number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
-        });
-      }
-      payload.contact_number = normalizedPhone;
-    }
-
-    if (payload.emg_contact_no !== undefined && String(payload.emg_contact_no).trim()) {
-      const normalizedEmergency = normalizePhilippineMobilePhone(payload.emg_contact_no);
-      if (!normalizedEmergency) {
-        return res.status(400).json({
-          success: false,
-          message: "Emergency contact number must be a valid Philippine mobile number in the format 09xxxxxxxxx.",
-        });
-      }
-      payload.emg_contact_no = normalizedEmergency;
-    }
-
+    const payload = normalizeProfileChanges(req.body, true);
     const updated = await Patient.updateByUserId(req.user.user_id, payload);
     if (!updated) {
       return res
@@ -67,8 +42,8 @@ const updateProfile = async (req, res) => {
         data: updated,
       });
   } catch (err) {
-    console.error("updateProfile error:", err);
     if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
+    console.error("Patient profile update failed:", err.code || err.name);
     res.status(500).json({ success: false, message: "Server error." });
   }
 };

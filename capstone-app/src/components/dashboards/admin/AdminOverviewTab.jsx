@@ -1,4 +1,19 @@
-import { useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  BarChart3,
+  CalendarClock,
+  CalendarDays,
+  ChartPie,
+  CheckCircle2,
+  CircleAlert,
+  HeartPulse,
+  ListOrdered,
+  MessageSquareWarning,
+  Stethoscope,
+  Users,
+} from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -12,11 +27,9 @@ import {
 } from "recharts";
 import StatusBadge from "@/components/common/StatusBadge";
 import { Skeleton } from "@/components/common/LoadingState";
+import { ROUTES } from "@/constants/routes";
+import api from "@/services/api";
 import AdminLiveQueueMonitor from "./AdminLiveQueueMonitor";
-
-const BLUE = "#1a3a8f";
-const BLUE2 = "#1e4db7";
-const ORANGE = "#f97316";
 
 const AGE_COLORS = [
   "#1e4db7",
@@ -38,6 +51,8 @@ const AGE_GROUPS = [
   "60+ years",
   "Unknown",
 ];
+const panelClass =
+  "min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
 const dateKey = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
@@ -94,14 +109,17 @@ function buildVolumeData(rows, period) {
   });
 }
 
-const formatAppointmentDate = (value, withYear = true) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("en-PH", {
-    month: "short",
-    day: "numeric",
-    ...(withYear ? { year: "numeric" } : {}),
-  });
-};
+const formatAppointmentDate = (value) =>
+  value
+    ? new Date(
+        /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00+08:00` : value,
+      ).toLocaleDateString("en-PH", {
+        timeZone: "Asia/Manila",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "—";
 const formatAppointmentTime = (value) =>
   value
     ? new Date(`2000-01-01T${value}`).toLocaleTimeString("en-PH", {
@@ -111,46 +129,57 @@ const formatAppointmentTime = (value) =>
       })
     : "—";
 const formatDoctorName = (appt) => {
-  const name =
-    `Dr. ${[appt?.doctor_first_name, appt?.doctor_middle_name, appt?.doctor_last_name, appt?.doctor_suffix].filter(Boolean).join(" ")}`.trim();
-  return name === "Dr." ? "—" : name;
+  const name = [
+    appt.doctor_first_name,
+    appt.doctor_middle_name,
+    appt.doctor_last_name,
+    appt.doctor_suffix,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return name ? `Dr. ${name}` : "—";
 };
 const formatServices = (appt) => {
   try {
-    const raw = appt?.queue_services;
+    const raw = appt.queue_services;
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed.join(", ");
+    if (Array.isArray(parsed) && parsed.length) return parsed.join(", ");
   } catch {
-    /* fall through */
+    /* Fall back to the recorded appointment reason. */
   }
   return (
-    appt?.cancellation_reason ||
-    (appt?.reason === "Same-day queue registration" ? "—" : appt?.reason) ||
+    appt.cancellation_reason ||
+    (appt.reason === "Same-day queue registration" ? "—" : appt.reason) ||
     "—"
   );
 };
 
-/**
- * AdminOverviewTab
- * The main "Dashboard" tab shown when an admin first lands on the dashboard.
- *
- * Props:
- *   overview          — overview data object from /admin/overview
- *   ovLoading         — boolean
- *   doctors           — array of doctor objects
- *   recentAppointments — first 5 appointments
- *   apptLoading       — boolean
- */
 export default function AdminOverviewTab({
+  identity,
   overview,
   ovLoading,
   initialLoading,
+  overviewError,
+  onRetry,
   doctors,
+  doctorsError,
   recentAppointments,
   apptLoading,
+  appointmentsError,
   initialAppointmentsLoading,
 }) {
   const [volumeTab, setVolumeTab] = useState("Monthly");
+  const [attention, setAttention] = useState({ pending: null, failed: null });
+  useLiveData(useCallback(async (signal) => {
+    const [leaves, sms] = await Promise.allSettled([
+      api.get('/admin/doctor-leaves', { signal }), api.get('/admin/sms-jobs', { signal }),
+    ]);
+    if (!signal.aborted) setAttention({
+      pending: leaves.status === 'fulfilled' ? (leaves.value.requests ?? []).filter(row => row.status === 'pending').length : null,
+      failed: sms.status === 'fulfilled' ? (sms.value.jobs ?? []).filter(row => row.state === 'failed').length : null,
+    });
+  }, []));
+
   const dentalAges = (overview?.dentalAgeGroups ?? [])
     .map((row) => ({
       name: row.age_group,
@@ -160,383 +189,438 @@ export default function AdminOverviewTab({
     .sort((a, b) => b.value - a.value);
   const dentalTotal = dentalAges.reduce((sum, row) => sum + row.value, 0);
   const volumeData = buildVolumeData(overview?.volumeDaily ?? [], volumeTab);
+  const availableDoctors = doctors.filter(
+    (doctor) => Number(doctor.is_available) && !doctor.leave_end,
+  ).length;
+  const value = (number) => (overview ? (number ?? 0).toLocaleString() : "—");
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {/* Hero */}
-      <div
-        style={{
-          borderRadius: "20px",
-          overflow: "hidden",
-          position: "relative",
-          minHeight: "140px",
-          display: "flex",
-          alignItems: "center",
-        }}
+    <div className="space-y-4 sm:space-y-5">
+      <section
+        className="relative overflow-hidden rounded-2xl bg-cover bg-center p-6 text-white shadow-sm sm:p-8"
+        style={{ backgroundImage: "url('/assets/BGHero.webp')" }}
       >
         <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage: "url(/assets/BGHero.webp)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
+          className="pointer-events-none absolute inset-0 bg-black/40"
+          aria-hidden="true"
         />
         <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(255,255,255,0.42)",
-          }}
+          className="pointer-events-none absolute -right-10 -top-24 h-72 w-72 rounded-full border-[40px] border-white/5"
+          aria-hidden="true"
         />
-        <div className="ad-hero-pad" style={{ position: "relative" }}>
-          <p
-            style={{
-              margin: "0 0 4px",
-              fontSize: "12px",
-              fontWeight: 500,
-              color: "#475569",
-            }}
-          >
-            Admin Panel
-          </p>
-          <h2
-            style={{
-              margin: "0 0 4px",
-              fontSize: "22px",
-              fontWeight: 800,
-              color: BLUE,
-            }}
-          >
-            {new Date().getHours() < 12
-              ? "Good Morning"
-              : new Date().getHours() < 18
-                ? "Good Afternoon"
-                : "Good Evening"}
-            !
-          </h2>
-          <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
-            {new Date().toLocaleDateString("en-PH", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
+        <div className="relative flex flex-wrap items-center justify-between gap-6">
+          <div>
+            <p className="mb-2 text-xs font-semibold tracking-widest text-blue-200">
+              ADMIN DASHBOARD · E-KALUSUGAN
+            </p>
+            <h1 className="break-words text-2xl font-bold tracking-tight sm:text-3xl">
+              Welcome, {identity.displayName}.
+            </h1>
+          </div>
+          <div className="space-y-3 text-xs">
+            <p className="flex items-center gap-2 text-blue-100">
+              <CalendarDays size={16} aria-hidden="true" />
+              {new Date().toLocaleDateString("en-PH", {
+                timeZone: "Asia/Manila",
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </p>
+            <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 font-medium">
+              <Stethoscope size={16} aria-hidden="true" />
+              <span
+                className={`h-2 w-2 rounded-full ${availableDoctors ? "bg-emerald-300" : "bg-amber-300"}`}
+                aria-hidden="true"
+              />
+              {doctorsError
+                ? "Doctor availability unavailable"
+                : `${availableDoctors} doctor${availableDoctors === 1 ? "" : "s"} available today`}
+            </p>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-busy={initialLoading}
-        role={initialLoading ? "status" : undefined} aria-label={initialLoading ? "Loading dashboard" : undefined}>
-        {initialLoading && <span className="sr-only">Loading dashboard…</span>}
+      <div>
+        <h2 className="text-lg font-bold text-[#1a3a8f]">Dashboard overview</h2>
+        <p className="mt-1 text-xs text-slate-500">Health center totals</p>
+      </div>
+      {overviewError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+        >
+          <p>
+            {overviewError} {overview && "Showing the last successful update."}
+          </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="min-h-11 font-semibold underline"
+          >
+            Retry dashboard
+          </button>
+        </div>
+      )}
+      <section
+        aria-label="Health center totals"
+        aria-busy={ovLoading}
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+      >
         {[
           {
             label: "Total Patient Visits",
-            value: ovLoading ? "—" : (overview?.totalPatients ?? 0),
-            bg: BLUE,
+            count: overview?.totalPatients,
+            icon: Users,
+            color: "bg-blue-50 text-blue-700",
           },
           {
             label: "Total Doctors",
-            value: ovLoading ? "—" : (overview?.totalDoctors ?? 0),
-            bg: "#0891b2",
+            count: overview?.totalDoctors,
+            icon: Stethoscope,
+            color: "bg-violet-50 text-violet-700",
           },
           {
             label: "Total Appointments",
-            value: ovLoading ? "—" : (overview?.totalAppointments ?? 0),
-            bg: ORANGE,
+            count: overview?.totalAppointments,
+            icon: CalendarDays,
+            color: "bg-orange-50 text-orange-700",
           },
           {
             label: "Total Queues Completed",
-            value: ovLoading ? "—" : (overview?.completedQueues ?? 0),
-            bg: "#059669",
+            count: overview?.completedQueues,
+            icon: CheckCircle2,
+            color: "bg-emerald-50 text-emerald-700",
           },
-        ].map(({ label, value, bg }) => (
+        ].map((item) => (
           <div
-            key={label}
-            style={{
-              background: "#fff",
-              borderRadius: "16px",
-              padding: "18px 20px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-              borderTop: `4px solid ${bg}`,
-              display: "flex",
-              flexDirection: "column",
-              gap: "6px",
-            }}
+            key={item.label}
+            className="flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
           >
-            <span style={{ fontSize: "26px", fontWeight: 800, color: bg }}>
-              {initialLoading ? <Skeleton className="h-10 w-16" /> : value}
+            <span className={`rounded-xl p-2.5 ${item.color}`}>
+              <item.icon size={21} aria-hidden="true" />
             </span>
-            <span style={{ fontSize: "12px", color: "#64748b" }}>{label}</span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500">{item.label}</p>
+              <div className="mt-1 text-2xl font-bold text-slate-900">
+                {initialLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  value(item.count)
+                )}
+              </div>
+            </div>
           </div>
         ))}
-      </div>
-
-      <AdminLiveQueueMonitor />
-
-      <section
-        className="ad-section-pad"
-        aria-labelledby="today-queue-heading"
-        style={{
-          background: "#fff",
-          borderRadius: "16px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-        }}
-      >
-        <h3
-          id="today-queue-heading"
-          style={{
-            margin: "0 0 16px",
-            fontSize: "15px",
-            fontWeight: 700,
-            color: "#1e293b",
-          }}
-        >
-          Queue Statistics · Today
-        </h3>
-        <div
-          className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-          aria-busy={ovLoading}
-        >
-          {[
-            {
-              label: "Waiting",
-              value: overview?.waiting,
-              color: "#2d3a8c",
-              bg: "#eef2ff",
-            },
-            {
-              label: "Serving",
-              value: overview?.serving,
-              color: "#059669",
-              bg: "#d1fae5",
-            },
-            {
-              label: "Done",
-              value: overview?.doneToday,
-              color: "#0891b2",
-              bg: "#e0f2fe",
-            },
-            {
-              label: "Cancelled",
-              value: overview?.cancelled,
-              color: "#dc2626",
-              bg: "#fee2e2",
-            },
-          ].map(({ label, value, color, bg }) => (
-            <div
-              key={label}
-              style={{
-                background: bg,
-                borderRadius: "14px",
-                padding: "16px 18px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-              }}
-            >
-              <span style={{ fontSize: "24px", fontWeight: 800, color }}>
-                {initialLoading ? <Skeleton className="h-9 w-12" /> : ovLoading ? "—" : (value ?? 0)}
-              </span>
-              <span style={{ fontSize: "12px", color }}>{label}</span>
-            </div>
-          ))}
-        </div>
-        <p style={{ margin: "12px 0 0", fontSize: "12px", color: "#64748b" }}>
-          Queues registered today. Serving includes patients who have been
-          called.
-        </p>
       </section>
 
-      {/* Dental age distribution + Patient Volume */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div
-          className="ad-section-pad"
-          style={{
-            background: "#fff",
-            borderRadius: "16px",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-          }}
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:gap-5">
+        <AdminLiveQueueMonitor />
+        <div className="min-w-0 space-y-4">
+          <section className={panelClass} aria-labelledby="today-queue-heading">
+            <h3
+              id="today-queue-heading"
+              className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+            >
+              <ListOrdered
+                size={18}
+                className="text-blue-700"
+                aria-hidden="true"
+              />
+              Queues today
+            </h3>
+            <div className="mt-4 grid grid-cols-2 gap-4" aria-busy={ovLoading}>
+              {[
+                {
+                  label: "Waiting",
+                  count: overview?.waiting,
+                  icon: Users,
+                  color: "text-blue-700",
+                },
+                {
+                  label: "Serving",
+                  count: overview?.serving,
+                  icon: HeartPulse,
+                  color: "text-violet-700",
+                },
+                {
+                  label: "Done",
+                  count: overview?.doneToday,
+                  icon: CheckCircle2,
+                  color: "text-emerald-700",
+                },
+                {
+                  label: "Cancelled",
+                  count: overview?.cancelled,
+                  icon: CircleAlert,
+                  color: "text-rose-700",
+                },
+              ].map((item) => (
+                <div key={item.label} className="min-w-0">
+                  <p
+                    className={`flex items-center gap-2 text-xs ${item.color}`}
+                  >
+                    <item.icon size={15} aria-hidden="true" />
+                    {item.label}
+                  </p>
+                  <div className="mt-1 text-2xl font-bold text-slate-900">
+                    {initialLoading ? (
+                      <Skeleton className="h-8 w-12" />
+                    ) : (
+                      value(item.count)
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className={panelClass} aria-labelledby="attention-heading">
+            <h3
+              id="attention-heading"
+              className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+            >
+              <CircleAlert
+                size={18}
+                className="text-blue-700"
+                aria-hidden="true"
+              />
+              Needs attention
+            </h3>
+            <div className="mt-4 divide-y divide-slate-100">
+              <div className="flex items-center gap-3 pb-3">
+                <span className="rounded-xl bg-orange-50 p-2.5 text-orange-700">
+                  <CalendarClock size={18} aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">
+                    {attention.pending === null
+                      ? "Leave requests"
+                      : `${attention.pending} pending leave request${attention.pending === 1 ? "" : "s"}`}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Doctor leave approvals
+                  </p>
+                </div>
+                <Link
+                  to={ROUTES.ADMIN_LEAVE_REQUESTS}
+                  className="py-2 text-xs font-semibold text-blue-700 underline-offset-4 hover:underline"
+                >
+                  Review
+                </Link>
+              </div>
+              <div className="flex items-center gap-3 pt-3">
+                <span className="rounded-xl bg-orange-50 p-2.5 text-orange-700">
+                  <MessageSquareWarning size={18} aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">
+                    {attention.failed === null
+                      ? "SMS delivery history"
+                      : `${attention.failed} recent SMS failure${attention.failed === 1 ? "" : "s"}`}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Notification delivery status
+                  </p>
+                </div>
+                <Link
+                  to={ROUTES.ADMIN_NOTIFICATIONS}
+                  className="py-2 text-xs font-semibold text-blue-700 underline-offset-4 hover:underline"
+                >
+                  View
+                </Link>
+              </div>
+            </div>
+          </section>
+          <section
+            className={panelClass}
+            aria-labelledby="doctors-today-heading"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3
+                id="doctors-today-heading"
+                className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+              >
+                <Stethoscope
+                  size={18}
+                  className="text-blue-700"
+                  aria-hidden="true"
+                />
+                Doctors today
+              </h3>
+              <Link
+                to={ROUTES.ADMIN_DOCTORS}
+                className="py-2 text-xs font-semibold text-blue-700 underline-offset-4 hover:underline"
+              >
+                Manage
+              </Link>
+            </div>
+            {doctorsError ? (
+              <p className="mt-3 text-sm text-red-700">{doctorsError}</p>
+            ) : doctors.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">
+                No doctors registered yet.
+              </p>
+            ) : (
+              <ul className="mt-2 divide-y divide-slate-100">
+                {doctors.map((doctor) => (
+                  <li
+                    key={doctor.doctor_id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-3 last:pb-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold">
+                        Dr.{" "}
+                        {[
+                          doctor.first_name,
+                          doctor.middle_name,
+                          doctor.last_name,
+                          doctor.suffix,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {doctor.specialization_name || "Dental services"}
+                      </p>
+                    </div>
+                    <StatusBadge
+                      status={
+                        doctor.leave_end
+                          ? "on_leave"
+                          : Number(doctor.is_available)
+                            ? "available"
+                            : "unavailable"
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section
+          className={panelClass}
+          aria-labelledby="age-distribution-heading"
         >
           <h3
-            style={{
-              margin: "0 0 5px",
-              fontSize: "14px",
-              fontWeight: 700,
-              color: "#1e293b",
-            }}
+            id="age-distribution-heading"
+            className="flex items-center gap-2 text-sm font-semibold text-slate-900"
           >
+            <ChartPie size={18} className="text-blue-700" aria-hidden="true" />
             Dental Queues by Age Group
           </h3>
-          <p style={{ margin: "0 0 14px", fontSize: "12px", color: "#64748b" }}>
+          <p className="mb-4 mt-1 text-xs text-slate-500">
             All recorded dental queues · most common age group:{" "}
             {dentalAges.find((row) => row.name !== "Unknown")?.name ?? "—"}
           </p>
-          <div style={{ minHeight: "200px" }} aria-busy={ovLoading}>
-          {initialLoading ? (
-            <div role="status" className="space-y-4">
-              <span className="sr-only">Loading age groups…</span>
-              <Skeleton className="mx-auto h-40 w-40 rounded-full" />
-              <Skeleton className="mx-auto h-4 w-1/2" />
-            </div>
-          ) : ovLoading ? (
-            <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
-              Loading age groups...
-            </p>
-          ) : dentalTotal === 0 ? (
-            <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
-              No dental queues recorded yet.
-            </p>
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "16px",
-                flexWrap: "wrap",
-              }}
-            >
-              <ResponsiveContainer width={160} height={160}>
-                <PieChart>
-                  <Pie
-                    data={dentalAges}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {dentalAges.map((d) => (
-                      <Cell key={d.name} fill={d.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => [
-                      `${Number(value).toLocaleString()} queues`,
-                      "",
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
-                {dentalAges.map((d) => {
-                  const pct = ((d.value / dentalTotal) * 100).toFixed(1);
-                  return (
-                    <div
-                      key={d.name}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
+          <div className="min-h-[250px]" aria-busy={ovLoading}>
+            {initialLoading ? (
+              <div role="status" className="space-y-4 pt-4">
+                <span className="sr-only">Loading age groups…</span>
+                <Skeleton className="mx-auto h-40 w-40 rounded-full" />
+              </div>
+            ) : !overview ? (
+              <p className="py-10 text-sm text-slate-500">
+                Age group data is unavailable.
+              </p>
+            ) : dentalTotal === 0 ? (
+              <p className="py-10 text-sm text-slate-500">
+                No dental queues recorded yet.
+              </p>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-5 sm:flex-row sm:flex-wrap">
+                <div
+                  role="img"
+                  aria-label={`Dental age distribution: ${dentalTotal} queues`}
+                  className="h-[190px] w-[190px] shrink-0"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={dentalAges}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={56}
+                        outerRadius={85}
+                        paddingAngle={2}
+                        dataKey="value"
+                        isAnimationActive={false}
+                      >
+                        {dentalAges.map((row) => (
+                          <Cell key={row.name} fill={row.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(count) => [
+                          `${Number(count).toLocaleString()} queues`,
+                          "Count",
+                        ]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <ul className="w-full min-w-0 space-y-2 text-xs sm:w-auto sm:flex-1">
+                  {dentalAges.map((row) => (
+                    <li
+                      key={row.name}
+                      className="flex flex-wrap items-center gap-2"
                     >
                       <span
-                        style={{
-                          width: "10px",
-                          height: "10px",
-                          borderRadius: "50%",
-                          background: d.color,
-                          flexShrink: 0,
-                        }}
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: row.color }}
+                        aria-hidden="true"
                       />
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          color: "#475569",
-                          flex: 1,
-                          minWidth: 0,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {d.name}
+                      <span className="flex-1 text-slate-600">{row.name}</span>
+                      <span className="font-semibold tabular-nums text-slate-800">
+                        {row.value.toLocaleString()} (
+                        {((row.value / dentalTotal) * 100).toFixed(1)}%)
                       </span>
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          color: "#1e293b",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {d.value.toLocaleString()} ({pct}%)
-                      </span>
-                    </div>
-                  );
-                })}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          )}
+            )}
           </div>
-        </div>
-
-        <div
-          className="ad-section-pad"
-          style={{
-            background: "#fff",
-            borderRadius: "16px",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-          }}
+        </section>
+        <section
+          className={panelClass}
+          aria-labelledby="patient-volume-heading"
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "16px",
-            }}
-          >
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h3
-              style={{
-                margin: 0,
-                fontSize: "14px",
-                fontWeight: 700,
-                color: "#1e293b",
-              }}
+              id="patient-volume-heading"
+              className="flex items-center gap-2 text-sm font-semibold text-slate-900"
             >
+              <BarChart3
+                size={18}
+                className="text-blue-700"
+                aria-hidden="true"
+              />
               Patient Volume
             </h3>
-            <div style={{ display: "flex", gap: "4px" }}>
-              {["Monthly", "Weekly", "Daily"].map((t) => (
+            <div
+              role="group"
+              aria-label="Patient volume period"
+              className="flex gap-1 rounded-lg bg-slate-100 p-1"
+            >
+              {["Monthly", "Weekly", "Daily"].map((period) => (
                 <button
-                  key={t}
+                  key={period}
                   type="button"
-                  aria-pressed={volumeTab === t}
-                  onClick={() => setVolumeTab(t)}
-                  style={{
-                    padding: "3px 10px",
-                    borderRadius: "6px",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    background: volumeTab === t ? BLUE : "#f1f5f9",
-                    color: volumeTab === t ? "#fff" : "#64748b",
-                  }}
+                  aria-pressed={volumeTab === period}
+                  onClick={() => setVolumeTab(period)}
+                  className={`min-h-9 cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-blue-600 ${volumeTab === period ? "bg-[#1a3a8f] text-white" : "text-slate-500 hover:bg-blue-50"}`}
                 >
-                  {t}
+                  {period}
                 </button>
               ))}
             </div>
           </div>
-          <p
-            style={{
-              margin: "-8px 0 12px",
-              fontSize: "11px",
-              color: "#64748b",
-            }}
-          >
+          <p className="mb-4 mt-2 text-xs text-slate-500">
             All queue visits · last{" "}
             {volumeTab === "Monthly"
               ? "12 months"
@@ -544,151 +628,125 @@ export default function AdminOverviewTab({
                 ? "8 weeks"
                 : "7 days"}
           </p>
-          <div style={{ height: "180px" }} aria-busy={ovLoading}>
-          {initialLoading ? (
-            <div role="status" className="flex h-full items-end justify-around gap-3 border-b border-slate-200 px-4 pb-6">
-              <span className="sr-only">Loading patient volume…</span>
-              {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map((height) => <Skeleton key={height} className={`w-6 ${height}`} />)}
-            </div>
-          ) : ovLoading ? (
-            <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
-              Loading patient volume...
-            </p>
-          ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={volumeData} barSize={18}>
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={volumeTab === "Monthly" ? 1 : 0}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  width={32}
-                />
-                <Tooltip
-                  cursor={{ fill: "#f1f5f9" }}
-                  contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
-                  formatter={(value) => [
-                    `${Number(value).toLocaleString()} queues`,
-                    "Patient volume",
-                  ]}
-                />
-                <Bar dataKey="count" fill={BLUE2} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-          </div>
-        </div>
-      </div>
-
-      {/* Doctors Profile */}
-      <div
-        className="ad-section-pad"
-        style={{
-          background: "#fff",
-          borderRadius: "16px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-        }}
-      >
-        <h3
-          style={{
-            margin: "0 0 14px",
-            fontSize: "14px",
-            fontWeight: 700,
-            color: "#1e293b",
-          }}
-        >
-          Doctors Profile
-        </h3>
-        {doctors.length === 0 ? (
-          <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
-            No doctors registered yet.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {doctors.map((d) => (
+          <div className="ad-overview-chart" aria-busy={ovLoading}>
+            {initialLoading ? (
               <div
-                key={d.doctor_id}
-                style={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "12px",
-                  padding: "14px",
-                  textAlign: "center",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
+                role="status"
+                className="flex h-full items-end justify-around gap-3 border-b border-slate-200 px-4 pb-6"
               >
-                <span
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: "#1e293b",
-                  }}
-                >
-                  Dr.{" "}
-                  {[d.first_name, d.middle_name, d.last_name, d.suffix]
-                    .filter(Boolean)
-                    .join(" ")}
-                </span>
-                <StatusBadge
-                  status={d.leave_end ? "on_leave" : d.is_available ? "available" : "unavailable"}
-                />
+                <span className="sr-only">Loading patient volume…</span>
+                {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map(
+                  (height) => (
+                    <Skeleton key={height} className={`w-6 ${height}`} />
+                  ),
+                )}
               </div>
-            ))}
+            ) : !overview ? (
+              <p className="py-10 text-sm text-slate-500">
+                Patient volume data is unavailable.
+              </p>
+            ) : (
+              <div
+                role="img"
+                aria-label={`${volumeTab} patient volume: ${volumeData.map((row) => `${row.label}: ${row.count}`).join(", ")}`}
+                className="h-full min-w-0"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={volumeData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                  >
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: "#64748b" }}
+                      axisLine={false}
+                      tickLine={false}
+                      minTickGap={18}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 11, fill: "#64748b" }}
+                      width={30}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "#f1f5f9" }}
+                      contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
+                      formatter={(count) => [
+                        `${Number(count).toLocaleString()} queues`,
+                        "Patient volume",
+                      ]}
+                    />
+                    <Bar
+                      dataKey="count"
+                      fill="#1e4db7"
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={28}
+                      isAnimationActive={false}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
-        )}
+        </section>
       </div>
 
-      {/* Recent Patient History */}
-      <div
-        className="ad-section-pad"
-        style={{
-          background: "#fff",
-          borderRadius: "16px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-        }}
+      <section
+        className={panelClass}
+        aria-labelledby="recent-appointments-heading"
       >
-        <h3
-          style={{
-            margin: "0 0 14px",
-            fontSize: "14px",
-            fontWeight: 700,
-            color: "#1e293b",
-          }}
-        >
-          Patient History
-        </h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h3
+            id="recent-appointments-heading"
+            className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+          >
+            <CalendarDays
+              size={18}
+              className="text-blue-700"
+              aria-hidden="true"
+            />
+            Recent appointments
+          </h3>
+          <Link
+            to={ROUTES.ADMIN_PATIENT_HISTORY}
+            className="py-2 text-xs font-semibold text-blue-700 underline-offset-4 hover:underline"
+          >
+            View patient history
+          </Link>
+        </div>
         {initialAppointmentsLoading ? (
           <div role="status" aria-busy="true" className="space-y-3">
             <span className="sr-only">Loading recent history…</span>
-            {[0, 1, 2].map((row) => <Skeleton key={row} className="h-12 w-full" />)}
+            {[0, 1, 2].map((row) => (
+              <Skeleton key={row} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : appointmentsError ? (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-2 text-sm text-red-700"
+          >
+            <p>{appointmentsError}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="min-h-11 font-semibold underline"
+            >
+              Retry appointments
+            </button>
           </div>
         ) : apptLoading ? (
-          <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
-            Loading recent history...
-          </p>
+          <p className="text-sm text-slate-500">Loading recent history…</p>
         ) : recentAppointments.length === 0 ? (
-          <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
+          <p className="text-sm text-slate-500">
             No appointments recorded yet.
           </p>
         ) : (
           <>
-            <div className="ad-hide-on-mobile" style={{ overflowX: "auto" }}>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: "13px",
-                }}
-              >
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+            <div className="ad-hide-on-mobile overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-500">
+                  <tr>
                     {[
                       "Patient",
                       "Date",
@@ -696,50 +754,36 @@ export default function AdminOverviewTab({
                       "Doctor",
                       "Service",
                       "Status",
-                    ].map((h) => (
+                    ].map((label) => (
                       <th
-                        key={h}
-                        style={{
-                          padding: "8px 12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          color: "#64748b",
-                          fontSize: "12px",
-                        }}
+                        key={label}
+                        scope="col"
+                        className="px-3 py-3 font-medium"
                       >
-                        {h}
+                        {label}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {recentAppointments.map((appt) => (
-                    <tr
-                      key={appt.appointment_id}
-                      style={{ borderBottom: "1px solid #f1f5f9" }}
-                    >
-                      <td
-                        style={{
-                          padding: "10px 12px",
-                          color: "#1e293b",
-                          fontWeight: 500,
-                        }}
-                      >
+                    <tr key={appt.appointment_id}>
+                      <td className="px-3 py-3 font-medium">
                         {appt.patient_full_name || "—"}
                       </td>
-                      <td style={{ padding: "10px 12px", color: "#64748b" }}>
+                      <td className="px-3 py-3 text-slate-500">
                         {formatAppointmentDate(appt.appointment_date)}
                       </td>
-                      <td style={{ padding: "10px 12px", color: "#64748b" }}>
+                      <td className="px-3 py-3 text-slate-500">
                         {formatAppointmentTime(appt.appointment_time)}
                       </td>
-                      <td style={{ padding: "10px 12px", color: "#64748b" }}>
+                      <td className="px-3 py-3 text-slate-500">
                         {formatDoctorName(appt)}
                       </td>
-                      <td style={{ padding: "10px 12px", color: "#64748b" }}>
+                      <td className="px-3 py-3 text-slate-500">
                         {formatServices(appt)}
                       </td>
-                      <td style={{ padding: "10px 12px" }}>
+                      <td className="px-3 py-3">
                         <StatusBadge status={appt.status} />
                       </td>
                     </tr>
@@ -747,56 +791,34 @@ export default function AdminOverviewTab({
                 </tbody>
               </table>
             </div>
-            <div className="ad-show-on-mobile">
+            <ul className="ad-show-on-mobile">
               {recentAppointments.map((appt) => (
-                <div
+                <li
                   key={appt.appointment_id}
-                  style={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "10px",
-                    padding: "12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "6px",
-                    background: "#f8fafc",
-                  }}
+                  className="space-y-2 border-b border-slate-100 py-3 last:border-0"
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: "10px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        color: "#1e293b",
-                      }}
-                    >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="break-words text-sm font-semibold">
                       {appt.patient_full_name || "—"}
-                    </span>
+                    </p>
                     <StatusBadge status={appt.status} />
                   </div>
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>
+                  <p className="text-xs text-slate-500">
                     {formatDoctorName(appt)}
-                  </span>
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>
+                  </p>
+                  <p className="text-xs text-slate-500">
                     {formatServices(appt)}
-                  </span>
-                  <span style={{ fontSize: "11px", color: "#94a3b8" }}>
-                    {formatAppointmentDate(appt.appointment_date)} at{" "}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {formatAppointmentDate(appt.appointment_date)} ·{" "}
                     {formatAppointmentTime(appt.appointment_time)}
-                  </span>
-                </div>
+                  </p>
+                </li>
               ))}
-            </div>
+            </ul>
           </>
         )}
-      </div>
-
+      </section>
     </div>
   );
 }

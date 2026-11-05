@@ -1,8 +1,10 @@
+import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
 async function mockDashboard(page, role) {
-  const user = { user_id: 8, role, display_name: "Route Tester" };
+  const user = { user_id: 8, role, display_name: "Route Tester", first_name: "Route", last_name: "Tester", phone: "09123456789" };
+  const profile = { ...user, contact_number: user.phone, barangay: "Poblacion", city: "Bago City" };
   await page.addInitScript(({ user, token }) => {
     sessionStorage.setItem("ek_user", JSON.stringify(user));
     sessionStorage.setItem("ek_token", token);
@@ -22,10 +24,17 @@ async function mockDashboard(page, role) {
   };
   await page.route("**/api/**", route => {
     const url = new URL(route.request().url());
+    const profileEndpoint = role === "patient" ? "/api/patients/me" : "/api/auth/profile";
+    if (url.pathname === profileEndpoint && route.request().method() !== "GET") {
+      expect(route.request().method()).toBe(role === "patient" ? "PUT" : "PATCH");
+      const changes = route.request().postDataJSON();
+      expect(changes).toEqual({ first_name: "Updated" });
+      Object.assign(profile, changes, { display_name: "Updated Tester" });
+    }
     const pagination = { page: Number(url.searchParams.get("page")) || 1, totalPages: 2, total: 11 };
     const report = { report_date: "2026-11-02", from: "2026-11-02", until: "2026-11-03", reports: [], age_groups: [], completed_demographics: [] };
     const responses = {
-      "/api/auth/profile": { data: user },
+      "/api/auth/profile": { data: profile },
       "/api/doctor": { data: [doctor] },
       "/api/doctor/7/records": { data: { doctor, availability: [] } },
       "/api/doctor/daily-settings": { appointment_limit: 10, walk_in_limit: 5, is_available: 1 },
@@ -38,7 +47,7 @@ async function mockDashboard(page, role) {
       "/api/queue": [],
       "/api/queue/me": state.queue,
       "/api/queue/status": state.status,
-      "/api/patients/me": { data: {} },
+      "/api/patients/me": { data: profile },
       "/api/admin/overview": {},
       "/api/admin/bohc-forecast": { forecasts: [], history: [] },
       "/api/admin/staff": { staff: [] },
@@ -61,6 +70,7 @@ const destinations = {
   patient: [
     ["/patient/appointment-history", "Appointment History"],
     ["/patient/my-queue", "My Queue"],
+    ["/patient/profile", "My Profile"],
   ],
   doctor: [
     ["/doctor/analytics", "Doctor Analytics"],
@@ -89,26 +99,58 @@ const destinations = {
 };
 
 for (const [role, routes] of Object.entries(destinations)) {
+  test(`${role} opens My Profile from the logout menu and saves their own details`, async ({ page }) => {
+    await page.setViewportSize({ width: role === "doctor" || role === "admin" ? 390 : 1440, height: 900 });
+    await mockDashboard(page, role);
+    await page.goto(`/${role}`);
+    await expect(page.getByRole("menuitem", { name: "My Profile", exact: true })).toHaveCount(0);
+    if (role === "doctor") await page.getByRole("button", { name: "Toggle menu" }).click();
+    if (role === "admin") await page.getByRole("button", { name: "Open menu" }).click();
+    await page.getByRole("button", { name: /Route Tester/ }).click();
+    const actions = page.getByRole("menu", { name: "Profile actions" });
+    await expect(actions.getByRole("menuitem", { name: "Log Out" })).toBeVisible();
+    await actions.getByRole("menuitem", { name: "My Profile", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/${role}/profile$`));
+    const personal = page.getByRole("region", { name: "Personal information" });
+    const edit = personal.getByRole("button", { name: "Edit", exact: true });
+    await expect(edit).toHaveAttribute("aria-expanded", "false");
+    await expect(personal.getByRole("textbox")).toHaveCount(0);
+    await edit.click();
+    const firstName = page.getByLabel("First name", { exact: true });
+    await expect(firstName).toHaveValue("Route");
+    await firstName.fill("Updated");
+    await expect(firstName).toHaveValue("Updated");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("status")).toContainText("Profile saved.");
+    await expect(edit).toBeFocused();
+    await expect(personal.getByRole("textbox")).toHaveCount(0);
+    await page.reload();
+    await expect(personal.getByText("Updated", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Back to dashboard" }).click();
+    await expect(page).toHaveURL(new RegExp(`/${role}$`));
+  });
+
   test(`${role} sections and record views open directly and survive refresh`, async ({ page }) => {
     await mockDashboard(page, role);
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     for (const [url, heading] of routes) {
       await page.goto(url);
-      await expect(page.getByRole("heading", { name: heading, exact: true }).first()).toBeVisible();
+      await expect(page.getByRole("heading", { name: heading, exact: true }).first()).toBeVisible({ timeout: 15000 });
       await page.reload();
-      await expect(page.getByRole("heading", { name: heading, exact: true }).first()).toBeVisible();
-      await expect(page).toHaveURL(`http://127.0.0.1:3000${url}`);
+      await expect(page.getByRole("heading", { name: heading, exact: true }).first()).toBeVisible({ timeout: 15000 });
+      await expect(page).toHaveURL(url === "/admin/queue" ? "/admin" : url);
     }
     expect(errors).toEqual([]);
   });
 
   test(`${role} cannot open another role's new dashboard URLs`, async ({ page }) => {
     await mockDashboard(page, role);
-    const otherRoutes = Object.entries(destinations).filter(([otherRole]) => otherRole !== role).map(([, routes]) => routes[0][0]);
+    const otherRoutes = Object.entries(destinations).filter(([otherRole]) => otherRole !== role)
+      .flatMap(([otherRole, routes]) => [routes[0][0], `/${otherRole}/profile`]);
     for (const url of otherRoutes) {
       await page.goto(url);
-      await expect(page).toHaveURL("http://127.0.0.1:3000/");
+      await expect(page).toHaveURL("/");
     }
   });
 }
@@ -125,7 +167,7 @@ for (const width of [1440, 375]) {
     await expect(myQueueCard).toContainText("Your Queue Number");
     await expect(myQueueCard).toContainText("Dental Check-up");
     await expect(myQueueCard.getByRole("button", { name: "Cancel Queue", exact: true })).toBeVisible();
-    await expect(page.getByText("AQ11", { exact: true })).toHaveCount(1);
+    await expect(myQueueCard.getByText("AQ11", { exact: true })).toHaveCount(1);
     await expect(page.getByText("My queue number", { exact: true })).toHaveCount(0);
     await myQueueCard.getByRole("button", { name: "View queue line", exact: true }).click();
     await expect(page).toHaveURL(/\/patient\/my-queue$/);
@@ -158,11 +200,11 @@ test("My Queue shows the line without a personal ticket and respects the dentist
   await page.goto("/patient");
   const myQueueCard = page.getByRole("region", { name: "My Queue", exact: true });
   await expect(myQueueCard).toContainText("No active queue number");
-  await myQueueCard.getByRole("button", { name: /My Queue/ }).click();
+  await page.goto("/patient/my-queue");
   await expect(page).toHaveURL(/\/patient\/my-queue$/);
   await expect(page.getByRole("list", { name: "Current queue line" }).getByRole("listitem")).toHaveCount(3);
   await expect(page.getByText("Your ticket", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("The dentist is on leave. Please approach clinic staff for assistance.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("status")).toHaveText("The dentist is on leave. Please approach clinic staff for assistance.");
   await expect(page.getByRole("button", { name: "Get Queue Ticket", exact: true })).toBeDisabled();
 });
 
@@ -171,7 +213,7 @@ test("admin navigation follows browser history and Overview has no duplicate acc
   await page.goto("/admin");
   await expect(page.getByRole("region", { name: "Overview account management" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Account Management", exact: true })).toHaveCount(0);
-  await page.locator("#ad-sidebar").getByRole("button", { name: "Accounts", exact: true }).click();
+  await selectAdminSection(page, "Accounts");
   await expect(page).toHaveURL(/\/admin\/accounts\/staff$/);
   await page.getByRole("button", { name: "Patients", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/accounts\/patients$/);

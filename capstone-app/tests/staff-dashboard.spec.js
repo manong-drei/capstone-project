@@ -80,8 +80,7 @@ test('queue SMS toasts distinguish pending, sent, failed, and uncertain results 
   Object.assign(queue, { sms_job_id: 70, sms_state: 'submitted', sms_provider_status: 'sent' });
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/staff');
-  const refresh = page.getByRole('button', { name: 'Refresh', exact: true });
-  await expect(refresh).toBeEnabled();
+  await expect(page.locator('#dental-queue')).toContainText('AP02');
   await expect(page.getByRole('status')).toHaveCount(0);
 
   for (const [sms_job_id, sms_state, sms_provider_status, role, message] of [
@@ -94,7 +93,7 @@ test('queue SMS toasts distinguish pending, sent, failed, and uncertain results 
     [73, 'cancelled', null, 'status', 'was cancelled before sending.'],
   ]) {
     Object.assign(queue, { sms_job_id, sms_state, sms_provider_status });
-    await refresh.click();
+    await page.clock.fastForward(5_000);
     if (role) {
       await expect(page.getByRole(role)).toHaveText(`Queue alert SMS for AP02 ${message}`);
       if (sms_provider_status === 'sent') {
@@ -103,7 +102,7 @@ test('queue SMS toasts distinguish pending, sent, failed, and uncertain results 
       }
       await page.getByRole('button', { name: 'Dismiss notification' }).click();
     }
-    await refresh.click();
+    await page.clock.fastForward(5_000);
     await expect(page.getByRole('status')).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
   }
@@ -151,7 +150,7 @@ test("staff keeps serving order, handles reasons, and calls only the dental queu
   await expect(page.getByRole('region', { name: 'Missed patients' })).toHaveCount(0);
   await page.reload();
   state.queues[0].status = "waiting";
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.clock.fastForward(5_000);
   await page.getByRole("button", { name: "Cancel queue AP02" }).click();
   await page.getByRole("radio", { name: "Schedule conflict / no longer available" }).check();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -383,7 +382,7 @@ test('up next paginates every waiting ticket and handles a shrinking queue', asy
   await expect(next).toBeDisabled();
   await expect(pages).toContainText('11–12 of 12 waiting');
   state.queues = state.queues.filter(queue => queue.id <= 9);
-  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.clock.fastForward(5_000);
   await expect(pages).toContainText('Page 2 of 2');
   await expect(rows).toHaveCount(2);
   await previous.click();

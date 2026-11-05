@@ -8,7 +8,7 @@
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, RouterProvider, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
-import { ROUTES } from "./constants/routes";
+import { ACCOUNT_ROUTES, ROUTES } from "./constants/routes";
 import { ROLES } from "./constants/roles";
 import { PageLoading } from "./components/common/LoadingState";
 
@@ -22,6 +22,7 @@ const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
 const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
 const StaffDashboard = lazy(() => import("./pages/StaffDashboard"));
 const StaffPatientProfile = lazy(() => import("./pages/StaffPatientProfile"));
+const MyProfile = lazy(() => import("./pages/MyProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const GeneralQueueMonitor = lazy(() => import("./pages/GeneralQueueMonitor"));
 const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
@@ -52,14 +53,7 @@ function RoleRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to={ROUTES.LOGIN} replace />;
 
-  const destinations = {
-    [ROLES.PATIENT]: ROUTES.PATIENT_DASHBOARD,
-    [ROLES.DOCTOR]: ROUTES.DOCTOR_DASHBOARD,
-    [ROLES.STAFF]: ROUTES.STAFF_DASHBOARD,
-    [ROLES.ADMIN]: ROUTES.ADMIN_DASHBOARD,
-  };
-
-  return <Navigate to={destinations[user.role] ?? ROUTES.LOGIN} replace />;
+  return <Navigate to={ACCOUNT_ROUTES[user.role]?.dashboard ?? ROUTES.LOGIN} replace />;
 }
 
 function AppRoutes() {
@@ -94,6 +88,14 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           />
+
+          {Object.entries(ACCOUNT_ROUTES).map(([role, { profile }]) => (
+            <Route
+              key={role}
+              path={profile}
+              element={<ProtectedRoute allowedRoles={[role]}><MyProfile /></ProtectedRoute>}
+            />
+          ))}
 
           {/* Protected: Patient */}
           <Route

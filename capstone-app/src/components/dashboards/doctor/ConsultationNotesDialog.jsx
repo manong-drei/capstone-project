@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, ClipboardList, X } from "lucide-react";
 import api from "@/services/api";
 
@@ -21,13 +22,12 @@ export default function ConsultationNotesDialog({ visit, consultationId, onClose
     };
   }, []);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    api.get(`/doctor/consultations/${consultationId}`, { signal: controller.signal })
-      .then((response) => { if (!controller.signal.aborted) setConsultation(response.data); })
-      .catch((err) => { if (!controller.signal.aborted) setError(err.message); });
-    return () => controller.abort();
-  }, [consultationId, retry]);
+  useLiveData(useCallback(async (signal) => {
+    try {
+      const response = await api.get('/doctor/consultations/' + consultationId, { signal });
+      if (!signal.aborted) { setConsultation(response.data); setError(''); }
+    } catch (err) { if (!signal.aborted) setError(err.message); }
+  }, [consultationId]), true, retry);
 
   const details = {
     ...visit,

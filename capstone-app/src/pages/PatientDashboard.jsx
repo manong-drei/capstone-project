@@ -1,188 +1,152 @@
-import { useState, useEffect } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useCallback, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import {
+  History,
+  LayoutDashboard,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { useQueue } from "@/hooks/useQueue";
 import { ROUTES } from "@/constants/routes";
-import { QUEUE_STATUS } from "@/constants/queue";
 import { CANCELLATION_REASONS } from "@/constants/queueReasons";
 import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 import * as queueService from "@/services/queueService";
 import * as patientService from "@/services/patientService";
-
-import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
+import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
 import UserManual from "@/components/common/UserManual";
-import Icon from "@/components/common/AppIcons";
 import GetQueueModal from "@/components/dashboards/patient/GetQueueModal";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import PatientHomeTab from "@/components/dashboards/patient/PatientHomeTab";
 import PatientQueueTab from "@/components/dashboards/patient/PatientQueueTab";
 import PatientAppointmentsTab from "@/components/dashboards/patient/PatientAppointmentsTab";
+import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
+import { formatQueueTime, hasActivePatientPriority } from "@/utils/queueDisplay";
 
-const ORANGE = "#f97316";
-const PATIENT_PAGES = {
+const pages = {
   home: ROUTES.PATIENT_DASHBOARD,
   appointments: ROUTES.PATIENT_APPOINTMENT_HISTORY,
   queue: ROUTES.PATIENT_MY_QUEUE,
 };
-
-const PATIENT_RESPONSIVE_CSS = `
-  .pd-nav { padding: 10px 24px; }
-  .pd-nav-items { display: flex; align-items: center; gap: 4px; }
-  .pd-nav-btn-label { display: inline; }
-  .pd-hamburger { display: none; }
-  .pd-mobile-menu { display: none; }
-  .pd-actions { padding: 28px 24px; }
-  .pd-content-pad { padding: 0 24px 32px; }
-  .pd-tab-pad { padding: 28px 24px; }
-  .pd-hero-pad { padding: 48px 24px; }
-  .pd-doctor-hero-pad { padding: 40px 24px; }
-  @media (max-width: 768px) {
-    .pd-nav { padding: 10px 16px; }
-    .pd-nav-items { gap: 2px; }
-    .pd-nav-btn-label { display: none; }
-    .pd-brand-text { font-size: 14px !important; letter-spacing: 0.06em !important; }
-  }
-  @media (max-width: 640px) {
-    .pd-nav { padding: 10px 14px; }
-    .pd-hamburger { display: flex !important; }
-    .pd-nav-items-desktop { display: none !important; }
-    .pd-mobile-menu.open { display: block; }
-    .pd-actions { padding: 20px 14px; gap: 12px !important; }
-    .pd-content-pad { padding: 0 14px 24px; }
-    .pd-tab-pad { padding: 20px 14px; }
-    .pd-hero-pad { padding: 36px 16px !important; }
-    .pd-doctor-hero-pad { padding: 32px 16px !important; }
-    .pd-brand-logo { width: 32px !important; height: 32px !important; }
-    .pd-action-btn { padding: 16px 18px !important; font-size: 13px !important; flex: 1 1 100% !important; }
-    .pd-info-card { padding: 16px !important; min-height: 110px !important; }
-    .pd-info-card-big { font-size: 18px !important; }
-    .pd-info-card-num { font-size: 24px !important; }
-  }
-`;
-
-const mobileMenuBtn = {
-  display: "flex",
-  alignItems: "center",
-  gap: "10px",
-  background: "none",
-  border: "none",
-  color: "white",
-  fontSize: "14px",
-  fontWeight: 500,
-  cursor: "pointer",
-  padding: "10px 12px",
-  borderRadius: "8px",
-  textAlign: "left",
-  width: "100%",
-};
+const navigation = [
+  {
+    key: "home",
+    label: "Dashboard",
+    mobileLabel: "Home",
+    icon: LayoutDashboard,
+  },
+  {
+    key: "appointments",
+    label: "Appointment history",
+    mobileLabel: "Visits",
+    icon: History,
+  },
+];
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { logout } = useAuth();
   const { identity } = useDashboardIdentity();
-  const { queue, loading, error, fetchMyQueue, submitQueue } = useQueue();
-
-  const activeTab = Object.keys(PATIENT_PAGES).find((tab) => PATIENT_PAGES[tab] === pathname);
-  const setActiveTab = (tab) => navigate(PATIENT_PAGES[tab]);
+  const { queue, loading, error, lastUpdated, fetchMyQueue, submitQueue } =
+    useQueue();
+  const activeTab = Object.keys(pages).find((key) => pages[key] === pathname);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showManual, setShowManual] = useState(false);
-  const [appointments, setAppointments] = useState([]);
-  const [apptLoading, setApptLoading] = useState(false);
-  const [queueStatus, setQueueStatus] = useState({
-    now_serving: null,
-    now_serving_name: null,
-    next_queuing: null,
-    next_queuing_name: null,
-  });
+  const [queueStatus, setQueueStatus] = useState({});
   const [queueStatusError, setQueueStatusError] = useState("");
   const [queueStatusLoaded, setQueueStatusLoaded] = useState(false);
   const [doctorAvailability, setDoctorAvailability] = useState(null);
   const [doctorLeaveEnd, setDoctorLeaveEnd] = useState(null);
-  const [priorityEligible, setPriorityEligible] = useState(false);
-
-  const fetchPriorityEligibility = async () => {
+  const [doctorError, setDoctorError] = useState("");
+  const [profile, setProfile] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [apptLoading, setApptLoading] = useState(true);
+  const [appointmentsError, setAppointmentsError] = useState("");
+  const fetchQueueStatus = useCallback(async (signal) => {
     try {
-      const profile = await patientService.getMyProfile();
-      const category = profile?.data?.priority_category;
-      const expiresAt = profile?.data?.priority_expires_at;
-      const eligible =
-        !!category && (!expiresAt || new Date(expiresAt) > new Date());
-      setPriorityEligible(eligible);
-    } catch {
-      setPriorityEligible(false);
-    }
-  };
-
-  const fetchQueueStatus = async () => {
-    try {
-      setQueueStatus(
-        (await queueService.getQueueStatus('dental')) ?? {
-          now_serving: null,
-          now_serving_name: null,
-          next_queuing: null,
-          next_queuing_name: null,
-        },
-      );
+      const data = await queueService.getQueueStatus("dental", { signal });
+      if (signal?.aborted) return;
+      setQueueStatus(data || {});
       setQueueStatusError("");
     } catch {
-      setQueueStatusError("Unable to refresh the current queue line. Retrying automatically.");
-    } finally {
-      setQueueStatusLoaded(true);
-    }
-  };
-
-  const fetchDoctorAvailability = async () => {
-    try {
-      const doctors = (await api.get("/doctor"))?.data ?? [];
-      if (!doctors.length) {
-        setDoctorAvailability(null);
-        setDoctorLeaveEnd(null);
-        return;
-      }
-      const dentist = [...doctors].sort((a, b) => a.doctor_id - b.doctor_id)[0];
-      setDoctorAvailability(Number(dentist.is_available ?? 1) !== 0 ? 1 : 0);
-      setDoctorLeaveEnd(dentist.leave_end ?? null);
-    } catch {
-      /* silently ignore */
-    }
-  };
-
-  useEffect(() => {
-    let active = true;
-    Promise.all([fetchMyQueue(), fetchQueueStatus(), fetchDoctorAvailability(), fetchPriorityEligibility()])
-      .finally(() => { if (active) setInitialLoading(false); });
-    const interval = setInterval(() => {
-      fetchMyQueue();
-      fetchQueueStatus();
-      fetchDoctorAvailability();
-    }, 15_000);
-    return () => { active = false; clearInterval(interval); };
-  }, [fetchMyQueue]);
-
-  useEffect(() => {
-    if (activeTab === "appointments") loadAppointments();
-  }, [activeTab]);
-
-  const loadAppointments = async () => {
-    setApptLoading(true);
-    try {
-      setAppointments(
-        (await appointmentService.getMyAppointments())?.appointments ?? [],
+      if (signal?.aborted) return;
+      setQueueStatusError(
+        "Unable to refresh the current queue line. Retrying automatically.",
       );
-    } catch {
-      setAppointments([]);
     } finally {
-      setApptLoading(false);
+      if (!signal?.aborted) setQueueStatusLoaded(true);
     }
-  };
+  }, []);
+  const fetchDoctorAvailability = useCallback(async (signal) => {
+    try {
+      const doctors = (await api.get("/doctor", { signal }))?.data ?? [];
+      if (signal?.aborted) return;
+      const dentist = [...doctors].sort((a, b) => a.doctor_id - b.doctor_id)[0];
+      setDoctorAvailability(
+        dentist ? (Number(dentist.is_available ?? 1) !== 0 ? 1 : 0) : null,
+      );
+      setDoctorLeaveEnd(dentist?.leave_end ?? null);
+      setDoctorError("");
+    } catch {
+      if (signal?.aborted) return;
+      setDoctorError(
+        "Unable to refresh dentist availability. Please check with staff.",
+      );
+    }
+  }, []);
+  const fetchProfile = useCallback(async (signal) => {
+    try {
+      const response = await patientService.getMyProfile({ signal });
+      if (!signal?.aborted) setProfile(response?.data ?? null);
+    } catch {
+      /* Keep the last known profile while the connection recovers. */
+    }
+  }, []);
+  const loadAppointments = useCallback(async (signal, background = false) => {
+    if (!background) setApptLoading(true);
+    try {
+      const response = await appointmentService.getMyAppointments({ signal });
+      if (signal?.aborted) return;
+      setAppointments(response?.appointments ?? []);
+      setAppointmentsError("");
+    } catch (err) {
+      if (signal?.aborted) return;
+      setAppointmentsError(
+        err.message || "Unable to load appointment history.",
+      );
+    } finally {
+      if (!signal?.aborted) setApptLoading(false);
+    }
+  }, []);
 
+  useLiveData(useCallback(async (signal, background) => {
+    await Promise.all([
+      fetchMyQueue(signal, background), fetchQueueStatus(signal), fetchDoctorAvailability(signal), fetchProfile(signal),
+    ]);
+    if (!signal.aborted) setInitialLoading(false);
+  }, [fetchMyQueue, fetchQueueStatus, fetchDoctorAvailability, fetchProfile]));
+  useLiveData(loadAppointments, activeTab === "appointments");
+
+  const hasActiveQueue =
+    queue && ["waiting", "called", "serving", "missed"].includes(queue.status);
+  const registrationMessage =
+    queueStatus.registration_message ||
+    (doctorLeaveEnd
+      ? "The dentist is on leave. Please approach clinic staff for assistance."
+      : null);
+  const priorityEligible = hasActivePatientPriority(profile);
+  const go = (tab) => {
+    navigate(pages[tab]);
+  };
+  const handleLogout = () => {
+    logout();
+    navigate(ROUTES.LOGIN);
+  };
   const handleGetQueue = async (payload) => {
     try {
       await submitQueue(payload);
@@ -194,262 +158,148 @@ export default function PatientDashboard() {
       await fetchQueueStatus();
     }
   };
-
-  const handleCancelQueue = async () => {
-    setQueueReasonRequest({ title: "Why are you cancelling your queue?", reasons: CANCELLATION_REASONS });
-  };
-
-  const submitQueueCancellation = async (reason) => {
+  const cancelQueue = async (reason) => {
     try {
       await queueService.cancelQueue(queue.id, reason);
       fetchMyQueue();
+      fetchQueueStatus();
     } catch (err) {
       alert(err.message);
     }
   };
-
-  const handleLogout = () => {
-    logout();
-    navigate(ROUTES.LOGIN);
-  };
-
-  const hasActiveQueue =
-    queue && [QUEUE_STATUS.WAITING, QUEUE_STATUS.CALLED, QUEUE_STATUS.SERVING, QUEUE_STATUS.MISSED].includes(queue.status);
-
   if (!activeTab) return <Navigate to={ROUTES.PATIENT_DASHBOARD} replace />;
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f3f4f6",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <style>{PATIENT_RESPONSIVE_CSS}</style>
-      <UserManual role="patient" isOpen={showManual} onClose={() => setShowManual(false)} />
-
-      {/* ── Navbar ── */}
-      <nav
-        className="pd-nav"
-        style={{
-          background: "linear-gradient(90deg, #1a3a8f 0%, #1e4db7 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexShrink: 0,
-          position: "relative",
-        }}
+    <div className="min-h-dvh bg-slate-50 font-[Poppins,sans-serif] text-slate-800 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_button:disabled]:opacity-60 [&_:is(button,a,input,summary):focus-visible]:outline-2 [&_:is(button,a,input,summary):focus-visible]:outline-offset-4 [&_:is(button,a,input,summary):focus-visible]:outline-blue-600">
+      <UserManual
+        role="patient"
+        isOpen={showManual}
+        onClose={() => setShowManual(false)}
+      />
+      <a
+        href="#patient-main"
+        className="sr-only z-50 rounded-xl bg-white p-3 text-blue-900 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <img
-            src="/assets/Logo.jpg"
-            alt="E-KALUSUGAN"
-            className="pd-brand-logo"
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: "50%",
-              objectFit: "cover",
-              flexShrink: 0,
-            }}
-          />
-          <span
-            className="pd-brand-text"
-            style={{
-              color: "white",
-              fontWeight: 800,
-              fontSize: "16px",
-              letterSpacing: "0.1em",
-            }}
-          >
-            E-KALUSUGAN
-          </span>
-        </div>
-
-        <button
-          className="pd-hamburger"
-          onClick={() => setMobileMenuOpen((v) => !v)}
-          aria-label="Toggle menu"
-          style={{
-            display: "none",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(255,255,255,0.15)",
-            border: "1px solid rgba(255,255,255,0.3)",
-            borderRadius: "8px",
-            width: "38px",
-            height: "38px",
-            cursor: "pointer",
-            color: "white",
-          }}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            {mobileMenuOpen ? (
-              <>
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </>
-            ) : (
-              <>
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </>
-            )}
-          </svg>
-        </button>
-
-        <div
-          className="pd-nav-items pd-nav-items-desktop"
-          style={{ display: "flex", alignItems: "center", gap: "4px" }}
-        >
-          {[
-            { icon: "info", label: "Help" },
-            { icon: "bell", label: "Notification" },
-          ].map(({ icon, label }) => (
-            <button
-              key={label}
-              aria-label={label}
-              onClick={label === "Help" ? () => setShowManual(true) : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "none",
-                border: "none",
-                color: "white",
-                fontSize: "13px",
-                fontWeight: 500,
-                cursor: "pointer",
-                padding: "7px 12px",
-                borderRadius: "8px",
-              }}
+        Skip to content
+      </a>
+      <StaffNavbar
+        identity={identity}
+        onHelp={() => setShowManual(true)}
+        onLogout={handleLogout}
+        sections={navigation.map((item) => ({ ...item, to: pages[item.key], active: activeTab === item.key }))}
+        mobileBar
+      />
+      <main
+        id="patient-main"
+        className="mx-auto w-full max-w-[1440px] scroll-mt-24 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 md:py-8 lg:px-8"
+      >
+        {activeTab === "home" && (
+          <>
+            <div
+              data-testid="patient-hero"
+              className="mb-6 [&_h1]:wrap-anywhere"
             >
-              <Icon name={icon} size={16} color="white" />
-              <span className="pd-nav-btn-label">{label}</span>
-            </button>
-          ))}
-          <div style={{ marginLeft: "8px" }}>
-            <DashboardProfileMenu
-              identity={identity}
-              onLogout={handleLogout}
-              accentColor={ORANGE}
-              chipBg="rgba(255,255,255,0.15)"
-              chipBorder="rgba(255,255,255,0.35)"
-              chipTextColor="#ffffff"
-              subtitleColor="rgba(255,255,255,0.72)"
-            />
-          </div>
-        </div>
-
-        {mobileMenuOpen && (
-          <div
-            className="pd-mobile-menu open"
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              background: "#1e4db7",
-              borderTop: "1px solid rgba(255,255,255,0.15)",
-              padding: "8px 14px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "4px",
-              zIndex: 50,
-              boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
-            }}
-          >
-            <DashboardProfileMenu
-              mobile
-              identity={identity}
-              onLogout={() => {
-                setMobileMenuOpen(false);
-                handleLogout();
-              }}
-              accentColor={ORANGE}
-              panelBg="rgba(255,255,255,0.1)"
-              panelTextColor="#ffffff"
-              panelMutedColor="rgba(255,255,255,0.72)"
-            />
-            {[
-              { icon: "info", label: "Help" },
-              { icon: "bell", label: "Notification" },
-            ].map(({ icon, label }) => (
-              <button
-                key={label}
-                onClick={() => {
-                  if (label === "Help") setShowManual(true);
-                  setMobileMenuOpen(false);
-                }}
-                style={mobileMenuBtn}
+              <StaffHeroBanner
+                identity={identity}
+                doctorAvailable={
+                  doctorError || doctorAvailability === null
+                    ? null
+                    : !doctorLeaveEnd && doctorAvailability !== 0
+                }
+                doctorLeaveEnd={doctorError ? null : doctorLeaveEnd}
+              />
+            </div>
+            {initialLoading ? (
+              <DashboardSkeleton />
+            ) : (
+              <PatientHomeTab
+                queueStatus={queueStatus}
+                doctorAvailability={
+                  doctorError ? null : doctorLeaveEnd ? 0 : doctorAvailability
+                }
+                doctorLeaveEnd={doctorLeaveEnd}
+                hasActiveQueue={hasActiveQueue}
+                registrationMessage={registrationMessage}
+                queue={queue}
+                queueError={error}
+                queueStatusError={queueStatusError}
+                queueStatusLoaded={queueStatusLoaded}
+                lastUpdated={lastUpdated}
+                onGetQueue={() => setShowQueueModal(true)}
+                onCancelQueue={() =>
+                  setQueueReasonRequest({
+                    title: "Why are you cancelling your queue?",
+                    reasons: CANCELLATION_REASONS,
+                  })
+                }
+                onGoQueue={() => go("queue")}
+              />
+            )}
+            {doctorError && (
+              <p
+                role="alert"
+                className="my-3 rounded-xl bg-red-50 p-4 text-sm leading-6 text-red-700"
               >
-                <Icon name={icon} size={16} color="white" /> {label}
-              </button>
-            ))}
-          </div>
+                {doctorError}
+              </p>
+            )}
+          </>
         )}
-      </nav>
-
-      {/* ── Tab Content ── */}
-      {activeTab === "home" && (initialLoading ? <DashboardSkeleton hero /> :
-        <PatientHomeTab
-          queueStatus={queueStatus}
-          doctorAvailability={doctorAvailability}
-          doctorLeaveEnd={doctorLeaveEnd}
-          hasActiveQueue={hasActiveQueue}
-          registrationMessage={queueStatus.registration_message}
-          queue={queue}
-          queueError={error}
-          onGetQueue={() => setShowQueueModal(true)}
-          onCancelQueue={handleCancelQueue}
-          onGoAppointments={() => setActiveTab("appointments")}
-          onGoQueue={() => setActiveTab("queue")}
-        />
-      )}
-      {activeTab === "queue" && (
-        <PatientQueueTab
-          hasActiveQueue={hasActiveQueue}
-          registrationMessage={queueStatus.registration_message || (doctorLeaveEnd ? "The dentist is on leave. Please approach clinic staff for assistance." : null)}
-          queue={queue}
-          loading={loading}
-          error={error}
-          queueStatus={queueStatus}
-          queueStatusError={queueStatusError}
-          queueStatusLoaded={queueStatusLoaded}
-          onGetQueue={() => setShowQueueModal(true)}
-          onCancelQueue={handleCancelQueue}
-          onBack={() => setActiveTab("home")}
-        />
-      )}
-      {activeTab === "appointments" && (
-        <PatientAppointmentsTab
-          appointments={appointments}
-          apptLoading={apptLoading}
-          onBack={() => setActiveTab("home")}
-        />
-      )}
-
-      {/* ── Get Queue Modal ── */}
+        {activeTab === "queue" && (
+          <PatientQueueTab
+            hasActiveQueue={hasActiveQueue}
+            registrationMessage={registrationMessage}
+            queue={queue}
+            loading={loading}
+            error={error}
+            queueStatus={queueStatus}
+            queueStatusError={queueStatusError}
+            queueStatusLoaded={queueStatusLoaded}
+            lastUpdated={lastUpdated}
+            onGetQueue={() => setShowQueueModal(true)}
+            onCancelQueue={() =>
+              setQueueReasonRequest({
+                title: "Why are you cancelling your queue?",
+                reasons: CANCELLATION_REASONS,
+              })
+            }
+            onBack={() => go("home")}
+          />
+        )}
+        {activeTab === "appointments" && (
+          <PatientAppointmentsTab
+            appointments={appointments}
+            apptLoading={apptLoading}
+            error={appointmentsError}
+            onRetry={() => loadAppointments()}
+            onBack={() => go("home")}
+          />
+        )}
+        {lastUpdated && (
+          <p className="mt-8 flex flex-wrap items-center justify-center gap-2 text-center text-xs leading-5 text-slate-500">
+            <span
+              aria-hidden="true"
+              className={`size-1.5 rounded-full ${error || queueStatusError ? "bg-red-500" : "bg-emerald-500"}`}
+            />
+            {error || queueStatusError
+              ? "Refresh unavailable"
+              : "Queue auto-refresh every 5 seconds"}{" "}
+            · Last updated {formatQueueTime(lastUpdated)} PHT
+          </p>
+        )}
+      </main>
       <GetQueueModal
         isOpen={showQueueModal}
         onClose={() => setShowQueueModal(false)}
         onSubmit={handleGetQueue}
         loading={loading}
         priorityEligible={priorityEligible}
-        registrationMessage={queueStatus.registration_message}
+        registrationMessage={registrationMessage}
       />
-      <QueueReasonModal request={queueReasonRequest} onClose={() => setQueueReasonRequest(null)} onSubmit={submitQueueCancellation} />
+      <QueueReasonModal
+        request={queueReasonRequest}
+        onClose={() => setQueueReasonRequest(null)}
+        onSubmit={cancelQueue}
+      />
     </div>
   );
 }

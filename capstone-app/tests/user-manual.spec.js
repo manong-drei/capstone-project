@@ -39,9 +39,10 @@ async function mockDashboard(page, role) {
 }
 
 async function helpButton(page, role, mobile) {
-  if (mobile && ['patient', 'doctor'].includes(role)) {
+  if (mobile && role === 'doctor') {
     await page.getByRole('button', { name: 'Toggle menu', exact: true }).click();
   }
+  if (mobile && role === 'admin') await page.getByRole('button', { name: 'Open menu', exact: true }).click();
   return page.getByRole('button', { name: 'Help', exact: true }).filter({ visible: true });
 }
 
@@ -52,9 +53,9 @@ for (const { role, name, task } of roles) {
       const writes = await mockDashboard(page, role);
       await page.goto(`/${role}`);
       const help = await helpButton(page, role, mobile);
-      const returnFocus = mobile && ['patient', 'doctor'].includes(role)
+      const returnFocus = mobile && role === 'doctor'
         ? page.getByRole('button', { name: 'Toggle menu', exact: true })
-        : help;
+        : mobile && role === 'admin' ? page.getByRole('button', { name: 'Open menu', exact: true }) : help;
       await expect(help).toBeVisible();
       const dashboardUrl = page.url();
       await help.click();
@@ -181,13 +182,13 @@ test('administrator can open Help from an open mobile menu and resume scrolling 
   const previousOverflow = await page.evaluate(() => document.body.style.overflow);
   await page.getByRole('button', { name: 'Open menu', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Close menu', exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe(previousOverflow);
   await page.getByRole('button', { name: 'Help', exact: true }).click();
   const manual = page.getByRole('dialog', { name: 'Administrator user manual', exact: true });
   await expect(manual).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(manual).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Open menu', exact: true })).toBeVisible();
-  await expect(page.locator('#ad-sidebar')).not.toHaveClass(/ad-sidebar-open/);
+  await expect(page.locator('#admin-mobile-menu')).toHaveCount(0);
   expect(await page.evaluate(() => document.body.style.overflow)).toBe(previousOverflow);
 });

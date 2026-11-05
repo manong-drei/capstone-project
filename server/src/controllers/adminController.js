@@ -3,6 +3,7 @@ const audit = require("../services/auditLog");
 const bcrypt = require("bcryptjs");
 const Queue = require("../models/Queue");
 const User = require("../models/User");
+const Staff = require("../models/Staff");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
 const { enqueuePassword, wakeWorker } = require('../services/smsNotifications');
@@ -79,7 +80,7 @@ const getStaff = async (req, res) => {
              s.first_name, s.middle_name, s.last_name, s.suffix,
              NULL AS license_number, NULL AS specialization_id
       FROM   users u
-      JOIN   staff s ON u.user_id = s.user_id
+      LEFT JOIN staff s ON u.user_id = s.user_id
       WHERE  u.role IN ('staff', 'admin')
 
       ORDER BY last_name ASC
@@ -312,6 +313,13 @@ const updateStaff = async (req, res) => {
         LEFT JOIN doctors d ON d.user_id = u.user_id LEFT JOIN staff s ON s.user_id = u.user_id
         WHERE u.user_id = ? FOR UPDATE`, [user_id]);
 
+      if (user.role === "admin") {
+        await Staff.ensureAdminProfile(user_id, {
+          first_name, last_name, middle_name: normalizedMiddleName, suffix: normalizedSuffix,
+          contact_number: normalizedPhone ?? before.phone,
+        }, conn);
+      }
+
       if (email || phone) {
         const fields = [];
         const vals = [];
@@ -416,7 +424,7 @@ const updateStaff = async (req, res) => {
     }
   } catch (err) {
     console.error("updateStaff error:", err);
-    if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
+    if ([400, 404].includes(err.status)) return res.status(err.status).json({ success: false, message: err.message });
     if (err.code === "ER_DUP_ENTRY") {
       return res
         .status(409)

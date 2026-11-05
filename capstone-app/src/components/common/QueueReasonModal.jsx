@@ -12,35 +12,21 @@ export default function QueueReasonModal({ request, onClose, onSubmit }) {
   return (
     <div
       onMouseDown={(event) => event.target === event.currentTarget && close()}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1000,
-        display: "grid",
-        placeItems: "center",
-        padding: "16px",
-        background: "rgba(15,23,42,.55)",
-      }}
+      className="fixed inset-0 z-[1000] grid place-items-center bg-slate-900/55 p-4"
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="queue-reason-title"
-        style={{
-          width: "min(100%, 440px)",
-          padding: "24px",
-          borderRadius: "16px",
-          background: "#fff",
-          boxShadow: "0 20px 60px rgba(15,23,42,.25)",
-        }}
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-110 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
       >
         <h2
           id="queue-reason-title"
-          style={{ margin: "0 0 16px", fontSize: "18px", color: "#1e293b" }}
+          className="mb-4 text-lg font-semibold text-slate-800"
         >
           {request.title}
         </h2>
-        <div style={{ display: "grid", gap: "8px" }}>
+        <div className="grid gap-2">
           {request.reasons.map((option) => {
             const selected = reason === option;
             return (
@@ -68,24 +54,10 @@ export default function QueueReasonModal({ request, onClose, onSubmit }) {
             );
           })}
         </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "10px",
-            marginTop: "20px",
-          }}
-        >
+        <div className="mt-5 flex justify-end gap-2.5">
           <button
             onClick={close}
-            style={{
-              padding: "9px 14px",
-              border: "1px solid #cbd5e1",
-              borderRadius: "9px",
-              background: "#fff",
-              color: "#334155",
-              cursor: "pointer",
-            }}
+            className="min-h-11 cursor-pointer rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -96,14 +68,7 @@ export default function QueueReasonModal({ request, onClose, onSubmit }) {
               close();
               onSubmit(selected);
             }}
-            style={{
-              padding: "9px 14px",
-              border: 0,
-              borderRadius: "9px",
-              background: reason ? "#2d3a8c" : "#cbd5e1",
-              color: "#fff",
-              cursor: reason ? "pointer" : "not-allowed",
-            }}
+            className="min-h-11 cursor-pointer rounded-xl bg-blue-800 px-3.5 py-2.5 text-sm text-white hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             Continue
           </button>

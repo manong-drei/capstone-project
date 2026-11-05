@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import useLiveData from "@/hooks/useLiveData";
+import { useState, useCallback, useRef } from "react";
 import {
-  Link,
   Navigate,
   matchPath,
   useLocation,
@@ -8,11 +8,8 @@ import {
 } from "react-router-dom";
 import {
   BarChart3,
-  CircleHelp,
   ClipboardList,
   LayoutDashboard,
-  Menu,
-  X,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
@@ -21,7 +18,7 @@ import { ROUTES } from "@/constants/routes";
 import { QUEUE_STATUS } from "@/constants/queue";
 import api from "@/services/api";
 
-import DashboardProfileMenu from "@/components/common/DashboardProfileMenu";
+import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
 import UserManual from "@/components/common/UserManual";
 import ConsultationModal from "@/components/dashboards/doctor/ConsultationModal";
@@ -67,7 +64,6 @@ export default function DoctorDashboard() {
             );
   const setActiveTab = (tab) => navigate(DOCTOR_PAGES[tab]);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [showConsultModal, setShowConsultModal] = useState(false);
   const [servingPatient, setServingPatient] = useState(null);
@@ -76,6 +72,8 @@ export default function DoctorDashboard() {
   const [capacityCollapsed, setCapacityCollapsed] = useState(false);
   const [showLimitWarning, setShowLimitWarning] = useState(false);
   const [pendingSettings, setPendingSettings] = useState(null);
+
+  const settingsDirty = useRef(false);
 
   // Daily capacity state
   const [appointmentLimit, setAppointmentLimit] = useState(10);
@@ -93,13 +91,16 @@ export default function DoctorDashboard() {
   const [historyError, setHistoryError] = useState("");
   const [historyRetry, setHistoryRetry] = useState(0);
 
-  const fetchDailySettings = async () => {
+  const fetchDailySettings = useCallback(async (signal) => {
     try {
       const data = await api.get(
-        `/doctor/daily-settings?date=${clinicToday()}`,
+        `/doctor/daily-settings?date=${clinicToday()}`, { signal },
       );
-      setAppointmentLimit(data.appointment_limit ?? 10);
-      setWalkInLimit(data.walk_in_limit ?? 0);
+      if (signal?.aborted) return;
+      if (!settingsDirty.current) {
+        setAppointmentLimit(data.appointment_limit ?? 10);
+        setWalkInLimit(data.walk_in_limit ?? 0);
+      }
       setBookedCount(data.booked_count ?? 0);
       setWalkInCount(data.walkin_count ?? 0);
       setIsAvailable(data.is_available !== 0);
@@ -107,7 +108,7 @@ export default function DoctorDashboard() {
     } catch (err) {
       if (import.meta.env.DEV) console.error("fetchDailySettings error:", err);
     }
-  };
+  }, []);
 
   const persistSettings = async (apptLimit, wiLimit) => {
     setSettingsLoading(true);
@@ -117,6 +118,7 @@ export default function DoctorDashboard() {
         appointment_limit: apptLimit,
         walk_in_limit: wiLimit,
       });
+      settingsDirty.current = false;
       setAppointmentLimit(apptLimit);
       setWalkInLimit(wiLimit);
       setSettingsSaved(true);
@@ -145,6 +147,7 @@ export default function DoctorDashboard() {
   };
 
   const handleCancelWarning = () => {
+    settingsDirty.current = false;
     fetchDailySettings();
     setShowLimitWarning(false);
     setPendingSettings(null);
@@ -159,6 +162,7 @@ export default function DoctorDashboard() {
         walk_in_limit: walkInLimit,
         is_available: val ? 1 : 0,
       });
+      settingsDirty.current = false;
       setIsAvailable(val);
     } catch (err) {
       alert(err.message || "Failed to update availability.");
@@ -167,43 +171,19 @@ export default function DoctorDashboard() {
     }
   };
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([fetchAllQueues(), fetchDailySettings()]).finally(() => {
-      if (active) setInitialLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, [fetchAllQueues]);
+  useLiveData(useCallback(async (signal, background) => {
+    await Promise.all([fetchAllQueues(signal, background), fetchDailySettings(signal)]);
+    if (!signal.aborted) setInitialLoading(false);
+  }, [fetchAllQueues, fetchDailySettings]));
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchAllQueues();
-      fetchDailySettings();
-    }, 30_000);
-    return () => clearInterval(interval);
-  }, [fetchAllQueues]);
-
-  useEffect(() => {
-    if (activeTab !== "history") return;
-    const controller = new AbortController();
-    (async () => {
-      setHistoryLoading(true);
-      setHistoryError("");
-      try {
-        const data = await api.get("/doctor/patient-history", {
-          signal: controller.signal,
-        });
-        if (!controller.signal.aborted) setHistoryVisits(data.visits ?? []);
-      } catch (err) {
-        if (!controller.signal.aborted) setHistoryError(err.message);
-      } finally {
-        if (!controller.signal.aborted) setHistoryLoading(false);
-      }
-    })();
-    return () => controller.abort();
-  }, [activeTab, historyRetry]);
+  useLiveData(useCallback(async (signal, background) => {
+    if (!background) setHistoryLoading(true);
+    try {
+      const data = await api.get('/doctor/patient-history', { signal });
+      if (!signal.aborted) { setHistoryVisits(data.visits ?? []); setHistoryError(''); }
+    } catch (err) { if (!signal.aborted) setHistoryError(err.message); }
+    finally { if (!signal.aborted) setHistoryLoading(false); }
+  }, []), activeTab === "history", historyRetry);
 
   const handleCallNext = async () => {
     if (servingQueue) {
@@ -303,127 +283,16 @@ export default function DoctorDashboard() {
         onClose={() => setShowManual(false)}
       />
 
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-gradient-to-r from-[#1a3a8f] to-[#1e4db7] text-white shadow-sm">
-        <nav
-          aria-label="Doctor navigation"
-          className={`relative flex h-16 items-center justify-between gap-3 ${activeTab === "analytics" || activeTab === "history" ? "w-full px-3 sm:px-4" : CONTENT_CONTAINER}`}
-        >
-          {/* ── Left: Logo (anchored to content's left edge) ── */}
-          <Link
-            to={DOCTOR_PAGES.home}
-            onClick={() => setMobileMenuOpen(false)}
-            aria-label="E-KALUSUGAN doctor dashboard"
-            className="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-white"
-          >
-            <img
-              src="/assets/Logo.jpg"
-              alt=""
-              className="h-9 w-9 rounded-full border-2 border-white/40 object-cover"
-            />
-            <span className="text-sm font-bold tracking-wide">E-KALUSUGAN</span>
-          </Link>
-
-          {/* ── Right cluster: Tabs + Help + Profile (all anchored to right edge) ── */}
-          <div className="hidden min-w-0 items-center gap-1 min-[641px]:flex">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.tab}
-                type="button"
-                aria-label={item.label}
-                aria-current={activeTab === item.tab ? "page" : undefined}
-                onClick={() => setActiveTab(item.tab)}
-                className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-xs font-medium transition hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white ${activeTab === item.tab ? "bg-white/15" : ""}`}
-              >
-                <item.icon size={17} aria-hidden="true" />
-                <span className="hidden xl:inline">{item.label}</span>
-              </button>
-            ))}
-            <button
-              type="button"
-              aria-label="Help"
-              onClick={() => setShowManual(true)}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-xs font-medium hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
-            >
-              <CircleHelp size={17} aria-hidden="true" />
-              <span className="hidden xl:inline">Help</span>
-            </button>
-            <div className="ml-2 rounded-xl border border-white/20 bg-white/10 p-2.5">
-              <DashboardProfileMenu
-                identity={identity}
-                onLogout={handleLogout}
-                accentColor="#f97316"
-                chipTextColor="#ffffff"
-                subtitleColor="rgba(255,255,255,0.75)"
-              />
-            </div>
-          </div>
-
-          {/* ── Mobile: Hamburger toggle ── */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((value) => !value)}
-            aria-label="Toggle menu"
-            aria-expanded={mobileMenuOpen}
-            aria-controls="doctor-mobile-menu"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white min-[641px]:hidden"
-          >
-            {mobileMenuOpen ? (
-              <X size={22} aria-hidden="true" />
-            ) : (
-              <Menu size={22} aria-hidden="true" />
-            )}
-          </button>
-
-          {/* ── Mobile: Drawer ── */}
-          {mobileMenuOpen && (
-            <div
-              id="doctor-mobile-menu"
-              className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] space-y-1 overflow-y-auto border-t border-white/15 bg-[#1e4db7] p-4 shadow-lg min-[641px]:hidden"
-            >
-              <div className="mb-3 rounded-xl border border-white/20 bg-white/10 p-3">
-                <DashboardProfileMenu
-                  mobile
-                  identity={identity}
-                  onLogout={() => {
-                    setMobileMenuOpen(false);
-                    handleLogout();
-                  }}
-                  accentColor="#f97316"
-                  chipTextColor="#ffffff"
-                  subtitleColor="rgba(255,255,255,0.75)"
-                  panelBg="rgba(255,255,255,0.1)"
-                />
-              </div>
-              {NAV_ITEMS.map((item) => (
-                <button
-                  key={item.tab}
-                  type="button"
-                  aria-current={activeTab === item.tab ? "page" : undefined}
-                  onClick={() => {
-                    setActiveTab(item.tab);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white ${activeTab === item.tab ? "bg-white/15" : ""}`}
-                >
-                  <item.icon size={18} aria-hidden="true" />
-                  {item.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowManual(true);
-                  setMobileMenuOpen(false);
-                }}
-                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
-              >
-                <CircleHelp size={18} aria-hidden="true" />
-                Help
-              </button>
-            </div>
-          )}
-        </nav>
-      </header>
+      <StaffNavbar
+        identity={identity}
+        onHelp={() => setShowManual(true)}
+        onLogout={handleLogout}
+        sections={NAV_ITEMS.map((item) => ({
+          ...item,
+          active: activeTab === item.tab,
+          onSelect: () => setActiveTab(item.tab),
+        }))}
+      />
 
       {/* ── Tab Content ── */}
       {activeTab === "home" &&
@@ -442,9 +311,9 @@ export default function DoctorDashboard() {
             capacityCollapsed={capacityCollapsed}
             setCapacityCollapsed={setCapacityCollapsed}
             appointmentLimit={appointmentLimit}
-            setAppointmentLimit={setAppointmentLimit}
+            setAppointmentLimit={(value) => { settingsDirty.current = true; setAppointmentLimit(value); }}
             walkInLimit={walkInLimit}
-            setWalkInLimit={setWalkInLimit}
+            setWalkInLimit={(value) => { settingsDirty.current = true; setWalkInLimit(value); }}
             bookedCount={bookedCount}
             walkInCount={walkInCount}
             walkInPercent={walkInPercent}

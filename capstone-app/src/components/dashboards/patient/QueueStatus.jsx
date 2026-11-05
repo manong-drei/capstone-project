@@ -1,233 +1,77 @@
-import { QUEUE_STATUS } from "@/constants/queue";
-import { DENTAL_SERVICES } from "@/constants/medicalServices";
-import Icon from "@/components/common/AppIcons";
-import { formatQueueTime, getQueueDisplayName } from "@/utils/queueDisplay";
+import { useState } from "react";
+import { Download, Ticket } from "lucide-react";
+import { formatPatientDate, getQueueDisplayName, getServiceLabels, getTicketNotice } from "@/utils/queueDisplay";
+import createQueueTicketImage from "./queueTicketImage";
 
-const STATUS_CONFIG = {
-  [QUEUE_STATUS.WAITING]: {
-    label: "Waiting",
-    color: "#2d3a8c",
-    bg: "#eef2ff",
-    icon: "clock",
-  },
-  [QUEUE_STATUS.CALLED]: {
-    label: "It's your turn!",
-    color: "#059669",
-    bg: "#d1fae5",
-    icon: "checkCircle",
-  },
-  [QUEUE_STATUS.SERVING]: { label: 'Receiving care', color: '#059669', bg: '#d1fae5', icon: 'checkCircle' },
-  [QUEUE_STATUS.MISSED]: { label: 'Missed call', color: '#92400e', bg: '#fef3c7', icon: 'clock' },
-  [QUEUE_STATUS.NO_SHOW]: { label: 'No-show', color: '#b91c1c', bg: '#fee2e2', icon: 'xCircle' },
-  [QUEUE_STATUS.DONE]: {
-    label: "Completed",
-    color: "#6b7280",
-    bg: "#f3f4f6",
-    icon: "checkCircle",
-  },
-  [QUEUE_STATUS.CANCELLED]: {
-    label: "Cancelled",
-    color: "#dc2626",
-    bg: "#fee2e2",
-    icon: "xCircle",
-  },
-};
+const statuses = { waiting: "Waiting", called: "It's your turn!", serving: "Receiving care", missed: "Missed call", no_show: "No-show", done: "Completed", cancelled: "Cancelled" };
 
-/**
- * QueueStatus
- * Displays the patient's active queue ticket.
- *
- * Props:
- *   queue   — queue object { queue_number, status, type, services, created_at }
- *   onCancel — called when patient cancels the queue
- */
-export default function QueueStatus({ queue, onCancel, onViewQueue }) {
+export default function QueueStatus({ queue, onCancel, onViewQueue, lastUpdated, updatesUnavailable = false }) {
+  const [downloadError, setDownloadError] = useState("");
+
   if (!queue) return null;
-
-  const config =
-    STATUS_CONFIG[queue.status] ?? STATUS_CONFIG[QUEUE_STATUS.WAITING];
-  const isPriority = queue.type === "priority";
   const patientName = getQueueDisplayName(queue);
-
+  const services = getServiceLabels(queue.services);
+  const serviceList = services.join(", ") || "Not recorded";
+  const status = statuses[queue.status] || queue.status || "Unknown";
+  const priority = queue.type === "priority";
+  const issuedDate = formatPatientDate(queue.created_at);
+  const issuedTime = issuedDate === "—" ? "—" : `${new Date(queue.created_at).toLocaleTimeString("en-PH", {
+    timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
+  })} PHT`;
+  const notice = getTicketNotice(queue);
+  const fields = [["Patient name", patientName], ["Date issued", issuedDate], ["Time issued", issuedTime], ["Services queued", serviceList]];
+  const downloadTicket = () => {
+    const link = document.createElement('a');
+    setDownloadError('');
+    try {
+      link.href = createQueueTicketImage({
+        number: queue.queue_number,
+        type: priority ? 'Priority' : 'Regular',
+        status,
+        details: [
+          ['Patient name', patientName],
+          ['Services queued', serviceList],
+          ['Issued', issuedDate === "—" ? issuedDate : issuedDate + " · " + issuedTime],
+        ],
+        notice,
+      });
+      link.download = 'queue-ticket-' + queue.queue_number + '.png';
+      document.body.appendChild(link);
+      link.click();
+    } catch {
+      setDownloadError('Could not download your ticket. Please try again.');
+    } finally {
+      link.remove();
+    }
+  };
   return (
-    <div
-      className="h-full min-w-0"
-      style={{
-        background: "#ffffff",
-        border: "1px solid #e5e7eb",
-        borderRadius: "16px",
-        padding: "24px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-      }}
-    >
-      {onViewQueue && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-[#111827]">My Queue</h2>
-          <button
-            type="button"
-            onClick={onViewQueue}
-            className="rounded-lg px-3 py-2 text-sm font-semibold text-[#1e4db7] transition hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100"
-          >
-            View queue line
-          </button>
-        </div>
-      )}
-      {/* Queue Number */}
-      {queue.status === QUEUE_STATUS.MISSED && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">You missed your call. Report to staff before {formatQueueTime(queue.grace_expires_at)} to keep this ticket. The queue is continuing while you return.</p>}
-      {queue.status === QUEUE_STATUS.CALLED && <p role="status" className="mb-4 text-center text-sm text-green-800">Please report to staff now so they can confirm you are here.</p>}
-      {queue.returned_at && queue.status === QUEUE_STATUS.WAITING && <p role="status" className="mb-4 text-center text-sm text-blue-800">Your return is confirmed. You have rejoined behind patients already waiting in your priority group; please stay nearby.</p>}
-      {queue.status === QUEUE_STATUS.NO_SHOW && <p role="status" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">This ticket ended as a no-show. {queue.status_reason} You may request a new ticket subject to today's availability and daily limit.</p>}
-      {queue.status === QUEUE_STATUS.WAITING && (
-        <p role="status" style={{ color: '#475569', fontSize: '13px', textAlign: 'center' }}>
-          {queue.sms_alert_state === 'suppressed'
-            ? 'Please stay nearby; no queue SMS will be sent.'
-            : 'You will receive one SMS when your turn approaches. Follow the queue display; delivery may be delayed.'}
-          {queue.sms_initial_position ? ` Initial position: ${queue.sms_initial_position}. Order may change.` : ''}
-        </p>
-      )}
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
-        <p style={{ margin: "0 0 6px", fontSize: "13px", color: "#6b7280" }}>
-          Your Queue Number
-        </p>
-        <div
-          className="max-w-full flex-wrap justify-center"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "10px",
-            background: config.bg,
-            borderRadius: "14px",
-            padding: "12px 28px",
-          }}
-        >
-          <span
-            className="min-w-0 break-words"
-            style={{
-              fontSize: "42px",
-              fontWeight: 800,
-              color: config.color,
-              lineHeight: 1,
-            }}
-          >
-            {queue.queue_number}
-          </span>
-          {isPriority && (
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 700,
-                color: "#f97316",
-                background: "#fff7ed",
-                borderRadius: "6px",
-                padding: "2px 8px",
-                border: "1px solid #fed7aa",
-              }}
-            >
-              PRIORITY
-            </span>
-          )}
-        </div>
-        <p
-          style={{
-            margin: "8px 0 0",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: "#374151",
-          }}
-        >
-          {patientName}
-        </p>
-      </div>
-
-      {/* Status Badge */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          marginBottom: "16px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            background: config.bg,
-            borderRadius: "20px",
-            padding: "6px 14px",
-          }}
-        >
-          <Icon name={config.icon} size={16} color={config.color} />
-          <span
-            style={{ fontSize: "13px", fontWeight: 600, color: config.color }}
-          >
-            {config.label}
-          </span>
-        </div>
-      </div>
-
-      {/* Services */}
-      {Array.isArray(queue.services) && queue.services.length > 0 && (
-        <div style={{ marginBottom: "16px" }}>
-          <p
-            style={{
-              margin: "0 0 8px",
-              fontSize: "12px",
-              color: "#9ca3af",
-              textAlign: "center",
-            }}
-          >
-            Services
-          </p>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "6px",
-              justifyContent: "center",
-            }}
-          >
-            {queue.services.map((s, i) => (
-              <span
-                key={i}
-                style={{
-                  fontSize: "12px",
-                  color: "#374151",
-                  background: "#f3f4f6",
-                  borderRadius: "6px",
-                  padding: "3px 10px",
-                }}
-              >
-                {s && typeof s === "object"
-                  ? s.label || s.name || s.id
-                  : DENTAL_SERVICES.find(({ id }) => id === String(s ?? "").trim())?.label || s}
-              </span>
-            ))}
+    <article className="min-w-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm" aria-label="My queue ticket">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-blue-950"><Ticket size={18} aria-hidden="true" />My Queue</h2>
+        <span data-status={queue.status} className="inline-flex rounded-full bg-blue-50 px-3 py-1.5 text-[11px] font-medium text-blue-800 data-[status=missed]:bg-red-50 data-[status=missed]:text-red-700 data-[status=no_show]:bg-red-50 data-[status=no_show]:text-red-700 data-[status=called]:bg-emerald-50 data-[status=called]:text-emerald-700 data-[status=serving]:bg-emerald-50 data-[status=serving]:text-emerald-700">{status}</span>
+      </header>
+      <div className="p-5 sm:p-6">
+        <div className={`mb-6 rounded-2xl border p-5 sm:p-6 ${priority ? "border-orange-200/70 bg-orange-50 text-orange-700" : "border-blue-200/70 bg-blue-50 text-blue-700"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-medium">Your Queue Number</p>
+            <span className="rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-bold tracking-widest ring-1 ring-current/10">{priority ? "PRIORITY" : "REGULAR"}</span>
           </div>
+          <strong className="mt-4 block text-5xl leading-none font-black tracking-tight wrap-anywhere tabular-nums sm:text-6xl">{queue.queue_number}</strong>
         </div>
-      )}
-
-      {/* Cancel button — only when waiting */}
-      {[QUEUE_STATUS.WAITING, QUEUE_STATUS.MISSED].includes(queue.status) && onCancel && (
-        <button
-          onClick={onCancel}
-          style={{
-            display: "block",
-            width: "100%",
-            marginTop: "8px",
-            padding: "10px",
-            borderRadius: "10px",
-            border: "1px solid #fecaca",
-            background: "transparent",
-            fontSize: "13px",
-            fontWeight: 500,
-            color: "#dc2626",
-            cursor: "pointer",
-          }}
-        >
-          Cancel Queue
-        </button>
-      )}
-    </div>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
+          {fields.map(([label, value], index) => <div key={label} className={index === 0 || index === 3 ? "col-span-full" : ""}>
+            <dt className="mb-1 text-xs text-slate-500">{label}</dt>
+            <dd className={`font-medium wrap-anywhere ${index === 0 ? "text-base font-semibold text-blue-950" : "text-sm text-slate-700"}`}>{index === 3 && services.length ? <ul className="flex flex-wrap gap-2">{services.map((service, i) => <li key={`${service}-${i}`} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-normal">{service}</li>)}</ul> : value}</dd>
+          </div>)}
+        </dl>
+        {notice && <p role="status" data-status={queue.status} className="mt-6 border-t border-slate-100 pt-4 text-xs leading-6 text-slate-600 data-[status=missed]:text-red-700 data-[status=no_show]:text-red-700 data-[status=called]:font-medium data-[status=called]:text-emerald-700">{notice}</p>}
+      </div>
+      <footer className="flex flex-wrap items-center gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-4 [&>button]:grow sm:[&>button]:grow-0">
+        <button type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50" onClick={downloadTicket} disabled={updatesUnavailable || !lastUpdated}><Download size={16} aria-hidden="true" />Download Ticket</button>
+        {onViewQueue && <button type="button" className="min-h-11 rounded-lg px-2 text-xs font-medium text-blue-800 hover:bg-blue-50" onClick={onViewQueue}>View queue line</button>}
+        {["waiting", "missed"].includes(queue.status) && onCancel && <button type="button" className="min-h-11 rounded-lg px-2 text-xs font-medium text-red-700 hover:bg-red-50" onClick={onCancel}>Cancel Queue</button>}
+        {downloadError && <p role="alert" className="basis-full text-xs text-red-700">{downloadError}</p>}
+      </footer>
+    </article>
   );
 }
