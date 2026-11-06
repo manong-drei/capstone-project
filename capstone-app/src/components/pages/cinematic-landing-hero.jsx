@@ -3,11 +3,7 @@ import { ArrowRight, Bell, Check, MapPin, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ROUTES } from "@/constants/routes";
 import PatientHomeTab from "@/components/dashboards/patient/PatientHomeTab";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import "./cinematic-landing.css";
-
-gsap.registerPlugin(ScrollTrigger);
 
 export function CinematicHero({ onClinicInfo }) {
   const containerRef = useRef(null);
@@ -15,132 +11,29 @@ export function CinematicHero({ onClinicInfo }) {
   const phoneRef = useRef(null);
 
   useEffect(() => {
-    const media = gsap.matchMedia();
+    const motion = window.matchMedia("(prefers-reduced-motion: no-preference)");
+    let disposed = false;
+    let cleanup;
 
-    media.add(
-      "(min-width: 1024px) and (min-height: 718px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
-      () => {
-        const timeline = gsap.timeline({
-          defaults: { ease: "none" },
-          scrollTrigger: {
-            trigger: containerRef.current,
-            start: () => `top ${getComputedStyle(containerRef.current).getPropertyValue("--cinematic-nav-height").trim()}`,
-            end: () => `+=${window.innerHeight * 2}`,
-            pin: true,
-            anticipatePin: 1,
-            scrub: 0.35,
-            invalidateOnRefresh: true,
-          },
-        });
+    async function enableMotion() {
+      if (!motion.matches || cleanup) return;
+      try {
+        const { animateCinematicHero } = await import("./cinematic-hero-motion");
+        if (!disposed && motion.matches && !cleanup) {
+          cleanup = animateCinematicHero(containerRef.current, cardRef.current, phoneRef.current);
+        }
+      } catch (error) {
+        console.warn("Could not load landing page animations.", error);
+      }
+    }
 
-        timeline
-          .fromTo(
-            cardRef.current,
-            { yPercent: 100 },
-            { yPercent: 0, duration: 1.4 },
-            0,
-          )
-          .set(".cinematic-intro", { autoAlpha: 0 })
-          .from(
-            ".cinematic-phone-wrap",
-            {
-              y: 60,
-              opacity: 0,
-              duration: 1.2,
-            },
-            0.7,
-          )
-          .from(
-            ".cinematic-card-copy",
-            { y: 30, opacity: 0, stagger: 0.15, duration: 0.8 },
-            1.1,
-          )
-          .from(
-            ".cinematic-badge",
-            { y: 20, opacity: 0, stagger: 0.15, duration: 0.8 },
-            1.5,
-          )
-          .to({}, { duration: 0.4 });
-      },
-      containerRef,
-    );
-
-    media.add(
-      "(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
-      () => {
-        const card = cardRef.current;
-        const rotateX = gsap.quickTo(phoneRef.current, "rotationX", {
-          duration: 0.6,
-        });
-        const rotateY = gsap.quickTo(phoneRef.current, "rotationY", {
-          duration: 0.6,
-        });
-        const sheenX = gsap.quickTo(".cinematic-sheen", "x", {
-          duration: 0.4,
-        });
-        const sheenY = gsap.quickTo(".cinematic-sheen", "y", {
-          duration: 0.4,
-        });
-        const move = (event) => {
-          const rect = card.getBoundingClientRect();
-          const x = event.clientX - rect.left;
-          const y = event.clientY - rect.top;
-          sheenX(x - rect.width / 2);
-          sheenY(y - rect.height * 0.3);
-          rotateX((0.5 - y / rect.height) * 12);
-          rotateY((x / rect.width - 0.5) * 12);
-        };
-        const reset = () => {
-          rotateX(0);
-          rotateY(0);
-          sheenX(0);
-          sheenY(0);
-        };
-        card.addEventListener("pointermove", move);
-        card.addEventListener("pointerleave", reset);
-        return () => {
-          card.removeEventListener("pointermove", move);
-          card.removeEventListener("pointerleave", reset);
-        };
-      },
-      containerRef,
-    );
-
-    // Short, narrow, and touch viewports use a reveal without pinning the page.
-    media.add(
-      "(prefers-reduced-motion: no-preference) and ((width < 1024px) or (height < 718px) or (hover: none) or (not (pointer: fine)))",
-      () => {
-        gsap.from(".cinematic-intro-copy > *", {
-          y: 24,
-          opacity: 0,
-          duration: 0.9,
-          stagger: 0.12,
-          ease: "power2.out",
-        });
-
-        const revealTargets = gsap.utils.toArray([
-          ".cinematic-card-copy",
-          ".cinematic-phone-wrap",
-          ".cinematic-badge",
-        ]);
-        revealTargets.forEach((el) => {
-          gsap.from(el, {
-            y: 40,
-            opacity: 0,
-            duration: 0.8,
-            ease: "power2.out",
-            scrollTrigger: {
-              trigger: el,
-              start: "top 85%",
-              toggleActions: "play none none reverse",
-            },
-          });
-        });
-      },
-      containerRef,
-    );
-
-    return () => media.revert();
+    void enableMotion();
+    motion.addEventListener("change", enableMotion);
+    return () => {
+      disposed = true;
+      motion.removeEventListener("change", enableMotion);
+      cleanup?.();
+    };
   }, []);
 
   return (
@@ -224,7 +117,7 @@ export function CinematicHero({ onClinicInfo }) {
                 <div className="cinematic-patient-preview" inert>
                   <div className="flex items-center gap-2 bg-[#1e4db7] px-4 py-3 text-white">
                     <img
-                      src="/assets/Logo.webp"
+                      src="/assets/ekalusugan-logo-small.webp"
                       alt="logo"
                       className="size-7 rounded-full"
                     />

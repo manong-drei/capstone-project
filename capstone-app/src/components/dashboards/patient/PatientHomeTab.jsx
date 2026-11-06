@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { DashboardSkeleton } from "@/components/common/LoadingState";
-import QueueStatus from "./QueueStatus";
+import { Skeleton } from "@/components/common/LoadingState";
 import { QUEUE_STATUS } from "@/constants/queue";
 import { formatPatientDate } from "@/utils/queueDisplay";
 
@@ -54,14 +53,16 @@ export default function PatientHomeTab({
   doctorAvailability,
   doctorLeaveEnd,
   doctorError,
+  doctorLoaded = true,
   hasActiveQueue,
   registrationMessage,
   queue,
   queueError,
   queueStatusError,
-  loading,
+  queueStatusLoaded = true,
+  ticketLoading = false,
+  canRequestQueue = true,
   onGetQueue,
-  onCancelQueue,
   onGoAppointments,
   onGoQueue,
 }) {
@@ -116,158 +117,147 @@ export default function PatientHomeTab({
       </section>
 
       <div className="patient-home-content mx-auto w-full max-w-6xl space-y-5 px-4 py-6 sm:space-y-6 sm:px-6 sm:py-8">
-        {loading ? (
-          <DashboardSkeleton />
-        ) : (
-          <>
-            <section
-              aria-label="Live queue status"
-              className="grid grid-cols-2 gap-3 sm:gap-4"
-            >
-              <QueueBanner
-                label={
-                  queueStatus.current_status === QUEUE_STATUS.CALLED
-                    ? "Called — report to staff"
-                    : "Now serving"
-                }
-                value={
-                  queueStatusError
-                    ? "Unavailable"
-                    : queueStatus.now_serving || "—"
-                }
-                color="bg-orange-500 text-slate-950"
-              />
-              <QueueBanner
-                label="Next in queue"
-                value={
-                  queueStatusError
-                    ? "Unavailable"
-                    : queueStatus.next_queuing || "—"
-                }
-                color="bg-[#2d3a8c] text-white"
-              />
-            </section>
-            {queueStatusError && (
-              <p role="alert" className="text-sm font-medium text-red-800">
-                {queueStatusError}
-              </p>
-            )}
-
-            <section
-              aria-label="Quick actions"
-              className="grid grid-cols-2 gap-3"
-            >
-              <button
-                type="button"
-                onClick={onGetQueue}
-                disabled={hasActiveQueue || !!registrationMessage}
-                className="min-h-20 min-w-0 rounded-2xl bg-orange-500 px-3 py-4 text-left text-slate-950 shadow-sm enabled:hover:bg-orange-400 disabled:bg-orange-200 sm:px-6"
-              >
-                <span className="block text-base text-white leading-snug font-bold sm:text-lg">
-                  Get queue ticket
-                </span>
-                <span className="mt-1 block text-sm text-white">
-                  {hasActiveQueue
-                    ? "You already have an active queue"
-                    : registrationMessage
-                      ? "Registration closed"
-                      : "Join the dental queue"}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={onGoAppointments}
-                className="min-h-20 min-w-0 rounded-2xl border border-slate-300 bg-white px-3 py-4 text-left shadow-sm hover:bg-blue-50 sm:px-6"
-              >
-                <span className="block text-base leading-snug font-bold text-blue-950 sm:text-lg">
-                  Appointment history
-                </span>
-                <span className="mt-1 block text-sm text-slate-700">
-                  Review your consultations
-                </span>
-              </button>
-            </section>
-
-            {!hasActiveQueue && registrationMessage && (
-              <p
-                role="status"
-                className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950"
-              >
-                {registrationMessage}
-              </p>
-            )}
-            {queueError && (
-              <p
-                role="alert"
-                className="rounded-xl bg-red-50 p-4 text-sm text-red-800"
-              >
-                {queueError} Displayed ticket information may be outdated.
-              </p>
-            )}
-            {(hasActiveQueue || queue?.status === QUEUE_STATUS.NO_SHOW) && (
-              <section aria-label="My Queue">
-                <QueueStatus
-                  queue={queue}
-                  onCancel={hasActiveQueue ? onCancelQueue : undefined}
-                />
-              </section>
-            )}
-
-            <section
-              aria-label="Patient information"
-              className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3"
-            >
-              <InfoCard
-                title="My queue number"
-                value={
-                  hasActiveQueue ? queue.queue_number : "No active queue number"
-                }
-                color="border-l-orange-500"
-              >
-                {onGoQueue && (
-                  <button
-                    type="button"
-                    onClick={onGoQueue}
-                    className="min-h-11 rounded-sm text-sm font-semibold text-blue-800 underline underline-offset-2 hover:text-blue-950"
-                  >
-                    View queue line
-                  </button>
-                )}
-              </InfoCard>
-              <InfoCard title="Estimated wait" value={estimatedWait.value}>
-                <p>{estimatedWait.detail}</p>
-              </InfoCard>
-              <InfoCard
-                title="Doctor availability"
-                value={availability.value}
-                color={availability.color}
-              >
-                <p>{availability.detail}</p>
-                {doctorError && (
-                  <p role="alert" className="text-red-800">
-                    {doctorError}
-                  </p>
-                )}
-              </InfoCard>
-              <InfoCard
-                title="Appointment history"
-                value="View past visits"
-                onClick={onGoAppointments}
-              />
-              <InfoCard
-                title="Location"
-                value="City Health Office"
-                color="border-l-indigo-900"
-                onClick={() => setShowMap(true)}
-              />
-              <InfoCard
-                title="CHO services"
-                value="Explore available care"
-                color="border-l-orange-500"
-              />
-            </section>
-          </>
+        <section
+          aria-label="Live queue status"
+          aria-busy={!queueStatusLoaded}
+          className="grid grid-cols-2 gap-3 sm:gap-4"
+        >
+          <QueueBanner
+            label={
+              queueStatus.current_status === QUEUE_STATUS.CALLED
+                ? "Called — report to staff"
+                : "Now serving"
+            }
+            value={
+              !queueStatusLoaded
+                ? "Checking…"
+                : queueStatusError ? "Unavailable" : queueStatus.now_serving || "—"
+            }
+            color="bg-orange-500 text-slate-950"
+          />
+          <QueueBanner
+            label="Next in queue"
+            value={
+              !queueStatusLoaded
+                ? "Checking…"
+                : queueStatusError ? "Unavailable" : queueStatus.next_queuing || "—"
+            }
+            color="bg-[#2d3a8c] text-white"
+          />
+        </section>
+        {queueStatusError && (
+          <p role="alert" className="text-sm font-medium text-red-800">
+            {queueStatusError}
+          </p>
         )}
+
+        <section
+          aria-label="Quick actions"
+          className="grid grid-cols-2 gap-3"
+        >
+          <button
+            type="button"
+            onClick={onGetQueue}
+            disabled={!canRequestQueue}
+            className="min-h-20 min-w-0 rounded-2xl bg-orange-500 px-3 py-4 text-left text-slate-950 shadow-sm enabled:hover:bg-orange-400 disabled:bg-orange-200 sm:px-6"
+          >
+            <span className="block text-base text-white leading-snug font-bold sm:text-lg">
+              Get queue ticket
+            </span>
+            <span className="mt-1 block text-sm text-white">
+              {hasActiveQueue
+                ? "You already have an active queue"
+                : registrationMessage
+                  ? "Registration closed"
+                  : canRequestQueue ? "Join the dental queue" : "Queue registration pending"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={onGoAppointments}
+            className="min-h-20 min-w-0 rounded-2xl border border-slate-300 bg-white px-3 py-4 text-left shadow-sm hover:bg-blue-50 sm:px-6"
+          >
+            <span className="block text-base leading-snug font-bold text-blue-950 sm:text-lg">
+              Appointment history
+            </span>
+            <span className="mt-1 block text-sm text-slate-700">
+              Review your consultations
+            </span>
+          </button>
+        </section>
+
+        {!hasActiveQueue && registrationMessage && (
+          <p
+            role="status"
+            className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950"
+          >
+            {registrationMessage}
+          </p>
+        )}
+        {queueError && (
+          <p
+            role="alert"
+            className="rounded-xl bg-red-50 p-4 text-sm text-red-800"
+          >
+            {queueError} Displayed ticket information may be outdated.
+          </p>
+        )}
+
+        <section
+          aria-label="Patient information"
+          className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3"
+        >
+          <InfoCard
+            title="My queue number"
+            value={
+              ticketLoading ? (
+                <span role="status" aria-label="Loading your queue ticket"><Skeleton className="mt-2 h-5 w-24" /></span>
+              ) : hasActiveQueue ? queue.queue_number : queueError ? "Unavailable" : "No active queue number"
+            }
+            color="border-l-orange-500"
+          >
+            {onGoQueue && (
+              <button
+                type="button"
+                onClick={onGoQueue}
+                className="min-h-11 rounded-sm text-sm font-semibold text-blue-800 underline underline-offset-2 hover:text-blue-950"
+              >
+                View queue line
+              </button>
+            )}
+          </InfoCard>
+          <InfoCard title="Estimated wait" value={ticketLoading ? "Checking…" : estimatedWait.value}>
+            <p>{ticketLoading ? "Loading your queue ticket." : estimatedWait.detail}</p>
+          </InfoCard>
+          <InfoCard
+            title="Doctor availability"
+            value={doctorLoaded ? availability.value : "Checking…"}
+            color={availability.color}
+          >
+            <p>{doctorLoaded ? availability.detail : "Checking dentist availability."}</p>
+            {doctorError && (
+              <p role="alert" className="text-red-800">
+                {doctorError}
+              </p>
+            )}
+          </InfoCard>
+          <InfoCard
+            title="Appointment history"
+            value="View past visits"
+            onClick={onGoAppointments}
+          />
+          <InfoCard
+            title="Location"
+            value="City Health Office"
+            color="border-l-indigo-900"
+            onClick={() => setShowMap(true)}
+          />
+          <InfoCard
+            title="CHO services"
+            value="Explore available care"
+            color="border-l-orange-500"
+          />
+        </section>
       </div>
 
       {showMap && <LocationMapModal onClose={() => setShowMap(false)} />}

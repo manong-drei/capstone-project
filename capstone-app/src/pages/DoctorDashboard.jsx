@@ -1,5 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
-import { useState, useCallback, useRef } from "react";
+import { lazy, Suspense, useState, useCallback, useRef } from "react";
 import {
   Navigate,
   matchPath,
@@ -20,13 +20,14 @@ import api from "@/services/api";
 
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
-import UserManual from "@/components/common/UserManual";
+import UserManual from "@/components/common/LazyUserManual";
 import ConsultationModal from "@/components/dashboards/doctor/ConsultationModal";
 import LimitWarningModal from "@/components/dashboards/doctor/LimitWarningModal";
 import DoctorHomeTab from "@/components/dashboards/doctor/DoctorHomeTab";
-import DoctorAnalyticsTab from "@/components/dashboards/doctor/DoctorAnalyticsTab";
 import DoctorAppointmentsTab from "@/components/dashboards/doctor/DoctorAppointmentsTab";
 import DoctorLeaveModal from "@/components/dashboards/doctor/DoctorLeaveModal";
+
+const DoctorAnalyticsTab = lazy(() => import("@/components/dashboards/doctor/DoctorAnalyticsTab"));
 
 const DOCTOR_PAGES = {
   home: ROUTES.DOCTOR_DASHBOARD,
@@ -345,10 +346,12 @@ export default function DoctorDashboard() {
           />
         ))}
       {activeTab === "analytics" && (
-        <DoctorAnalyticsTab
-          dailyEntry={pathname === ROUTES.DOCTOR_DAILY_REPORT}
-          onBack={() => setActiveTab("home")}
-        />
+        <Suspense fallback={<div className={`${CONTENT_CONTAINER} py-6`}><DashboardSkeleton /></div>}>
+          <DoctorAnalyticsTab
+            dailyEntry={pathname === ROUTES.DOCTOR_DAILY_REPORT}
+            onBack={() => setActiveTab("home")}
+          />
+        </Suspense>
       )}
       {activeTab === "history" && (
         <DoctorAppointmentsTab

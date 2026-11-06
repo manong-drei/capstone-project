@@ -9,6 +9,7 @@ export default function GetQueueModal({
   onClose,
   onSubmit,
   loading = false,
+  canRequestQueue,
   priorityEligible = false,
   registrationMessage,
 }) {
@@ -39,8 +40,9 @@ export default function GetQueueModal({
     setSelected((prev) => [...prev, id]);
   };
 
+  const isDisabled = selected.length === 0 || !canRequestQueue;
   const handleSubmit = () => {
-    if (selected.length === 0 || loading || registrationMessage) return;
+    if (isDisabled) return;
     onSubmit({
       services: selected,
       type: priorityEligible ? "priority" : "regular",
@@ -48,7 +50,6 @@ export default function GetQueueModal({
   };
 
   const limitReached = selected.length >= MAX_SELECTED_SERVICES;
-  const isDisabled = selected.length === 0 || loading || !!registrationMessage;
 
   return (
     <dialog

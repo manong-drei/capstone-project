@@ -12,12 +12,14 @@ import * as appointmentService from "@/services/appointmentService";
 import * as queueService from "@/services/queueService";
 import * as patientService from "@/services/patientService";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
-import UserManual from "@/components/common/UserManual";
+import UserManual from "@/components/common/LazyUserManual";
 import GetQueueModal from "@/components/dashboards/patient/GetQueueModal";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import PatientHomeTab from "@/components/dashboards/patient/PatientHomeTab";
 import PatientQueueTab from "@/components/dashboards/patient/PatientQueueTab";
 import PatientAppointmentsTab from "@/components/dashboards/patient/PatientAppointmentsTab";
+import QueueStatus from "@/components/dashboards/patient/QueueStatus";
+import { QUEUE_STATUS } from "@/constants/queue";
 import {
   formatQueueTime,
   hasActivePatientPriority,
@@ -37,7 +39,6 @@ export default function PatientDashboard() {
   const { queue, loading, error, lastUpdated, fetchMyQueue, submitQueue } =
     useQueue();
   const activeTab = Object.keys(pages).find((key) => pages[key] === pathname);
-  const [initialLoading, setInitialLoading] = useState(true);
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [showManual, setShowManual] = useState(false);
@@ -47,7 +48,9 @@ export default function PatientDashboard() {
   const [doctorAvailability, setDoctorAvailability] = useState(null);
   const [doctorLeaveEnd, setDoctorLeaveEnd] = useState(null);
   const [doctorError, setDoctorError] = useState("");
+  const [doctorLoaded, setDoctorLoaded] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [profileError, setProfileError] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState("");
@@ -81,14 +84,22 @@ export default function PatientDashboard() {
       setDoctorError(
         "Unable to refresh dentist availability. Please check with staff.",
       );
+    } finally {
+      if (!signal?.aborted) setDoctorLoaded(true);
     }
   }, []);
   const fetchProfile = useCallback(async (signal) => {
     try {
       const response = await patientService.getMyProfile({ signal });
-      if (!signal?.aborted) setProfile(response?.data ?? null);
+      if (signal?.aborted) return;
+      const data = response?.data;
+      if (!data || typeof data !== "object" || Array.isArray(data)) {
+        throw new Error("Patient profile is unavailable.");
+      }
+      setProfile(data);
+      setProfileError(false);
     } catch {
-      /* Keep the last known profile while the connection recovers. */
+      if (!signal?.aborted) setProfileError(true);
     }
   }, []);
   const loadAppointments = useCallback(async (signal, background = false) => {
@@ -108,20 +119,10 @@ export default function PatientDashboard() {
     }
   }, []);
 
-  useLiveData(
-    useCallback(
-      async (signal, background) => {
-        await Promise.all([
-          fetchMyQueue(signal, background),
-          fetchQueueStatus(signal),
-          fetchDoctorAvailability(signal),
-          fetchProfile(signal),
-        ]);
-        if (!signal.aborted) setInitialLoading(false);
-      },
-      [fetchMyQueue, fetchQueueStatus, fetchDoctorAvailability, fetchProfile],
-    ),
-  );
+  useLiveData(fetchMyQueue);
+  useLiveData(fetchQueueStatus);
+  useLiveData(fetchDoctorAvailability);
+  useLiveData(fetchProfile);
   useLiveData(loadAppointments, activeTab === "appointments");
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -135,6 +136,11 @@ export default function PatientDashboard() {
       ? "The dentist is on leave. Please approach clinic staff for assistance."
       : null);
   const priorityEligible = hasActivePatientPriority(profile);
+  const ticketLoading = !lastUpdated && !error;
+  const canRequestQueue = !ticketLoading && !loading && !error &&
+    queueStatusLoaded && doctorLoaded && !!profile && !hasActiveQueue && !registrationMessage;
+  const showTicket = activeTab !== "appointments" &&
+    (hasActiveQueue || queue?.status === QUEUE_STATUS.NO_SHOW);
   const go = (tab) => {
     navigate(pages[tab]);
   };
@@ -143,6 +149,7 @@ export default function PatientDashboard() {
     navigate(ROUTES.LOGIN);
   };
   const handleGetQueue = async (payload) => {
+    if (!canRequestQueue) return;
     try {
       await submitQueue(payload);
       setShowQueueModal(false);
@@ -155,7 +162,7 @@ export default function PatientDashboard() {
   };
   const cancelQueue = async (reason) => {
     try {
-      await queueService.cancelQueue(queue.id, reason);
+      await queueService.cancelQueue(queueReasonRequest.id, reason);
       fetchMyQueue();
       fetchQueueStatus();
     } catch (err) {
@@ -197,19 +204,16 @@ export default function PatientDashboard() {
             }
             doctorLeaveEnd={doctorLeaveEnd}
             doctorError={doctorError}
+            doctorLoaded={doctorLoaded}
             hasActiveQueue={hasActiveQueue}
             registrationMessage={registrationMessage}
             queue={queue}
             queueError={error}
             queueStatusError={queueStatusError}
-            loading={initialLoading}
+            queueStatusLoaded={queueStatusLoaded}
+            ticketLoading={ticketLoading}
+            canRequestQueue={canRequestQueue}
             onGetQueue={() => setShowQueueModal(true)}
-            onCancelQueue={() =>
-              setQueueReasonRequest({
-                title: "Why are you cancelling your queue?",
-                reasons: CANCELLATION_REASONS,
-              })
-            }
             onGoAppointments={() => go("appointments")}
             onGoQueue={() => go("queue")}
           />
@@ -219,20 +223,20 @@ export default function PatientDashboard() {
             hasActiveQueue={hasActiveQueue}
             registrationMessage={registrationMessage}
             queue={queue}
-            loading={loading}
+            ticketLoading={ticketLoading}
+            canRequestQueue={canRequestQueue}
             error={error}
             queueStatus={queueStatus}
             queueStatusError={queueStatusError}
             queueStatusLoaded={queueStatusLoaded}
             onGetQueue={() => setShowQueueModal(true)}
-            onCancelQueue={() =>
-              setQueueReasonRequest({
-                title: "Why are you cancelling your queue?",
-                reasons: CANCELLATION_REASONS,
-              })
-            }
             onBack={() => go("home")}
           />
+        )}
+        {activeTab !== "appointments" && !profile && profileError && (
+          <p role="alert" className="mx-auto max-w-6xl px-4 text-sm text-red-800">
+            Unable to check your queue eligibility. Retrying automatically.
+          </p>
         )}
         {activeTab === "appointments" && (
           <PatientAppointmentsTab
@@ -256,11 +260,23 @@ export default function PatientDashboard() {
           </p>
         )}
       </main>
+      {showTicket && (
+        <QueueStatus
+          key={queue.id ?? queue.queue_number}
+          queue={queue}
+          onCancel={hasActiveQueue ? () => setQueueReasonRequest({
+            id: queue.id,
+            title: "Why are you cancelling your queue?",
+            reasons: CANCELLATION_REASONS,
+          }) : undefined}
+        />
+      )}
       <GetQueueModal
         isOpen={showQueueModal}
         onClose={() => setShowQueueModal(false)}
         onSubmit={handleGetQueue}
         loading={loading}
+        canRequestQueue={canRequestQueue}
         priorityEligible={priorityEligible}
         registrationMessage={registrationMessage}
       />

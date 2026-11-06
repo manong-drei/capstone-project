@@ -5,7 +5,7 @@ export function Skeleton({ className = "" }) {
 export function PageLoading() {
   return (
     <div role="status" aria-label="Loading page" className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100 px-6 font-[Poppins,sans-serif]">
-      <img src="/assets/Logo.webp" alt="" className="h-14 w-14 rounded-full object-cover" />
+      <img src="/assets/ekalusugan-logo-small.webp" alt="" className="h-14 w-14 rounded-full object-cover" />
       <span aria-hidden="true" className="h-7 w-7 rounded-full border-3 border-blue-200 border-t-blue-800 motion-safe:animate-spin" />
       <p className="text-sm font-medium text-slate-600">Loading page…</p>
     </div>

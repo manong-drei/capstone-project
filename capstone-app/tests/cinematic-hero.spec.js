@@ -4,6 +4,26 @@ test.beforeEach(async ({ page }) => {
   await page.route("https://fonts.googleapis.com/**", route => route.fulfill({ body: "", contentType: "text/css" }));
 });
 
+test("the landing heading and portal link render before the animation module", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  await page.route(/\/cinematic-hero-motion[.-]/, async route => {
+    await pending;
+    await route.continue();
+  });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  try {
+    await expect(page.getByRole("heading", { name: /dental care for the people of bago/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Patient Portal", exact: true })).toBeInViewport();
+    await expect(page.locator(".pin-spacer")).toHaveCount(0);
+  } finally {
+    release();
+  }
+  await expect(page.locator(".pin-spacer")).toHaveCount(1);
+});
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
   test(`desktop hero reveals, reverses and releases the page at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
@@ -33,8 +53,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768
     expect(revealedCard.y + revealedCard.height).toBeCloseTo(viewport.height, 0);
     await expect(intro).toHaveCSS("visibility", "hidden");
 
-    await page.locator("#features").scrollIntoViewIfNeeded();
-    await expect(page.getByRole("heading", { name: /a clearer queue/i })).toBeInViewport();
+    const featuresHeading = page.getByRole("heading", { name: /a clearer queue/i });
+    await featuresHeading.scrollIntoViewIfNeeded();
+    await expect(featuresHeading).toBeInViewport();
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(intro).toHaveCSS("opacity", "1");
     await expect.poll(async () => (await card.boundingBox()).y).toBeCloseTo(viewport.height, 0);

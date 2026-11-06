@@ -7,7 +7,7 @@ import AccountRecovery from "@/components/dashboards/staff/AccountRecovery";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import ProfileCard from "@/components/common/ProfileCard";
 import StatusBadge from "@/components/common/StatusBadge";
-import UserManual from "@/components/common/UserManual";
+import UserManual from "@/components/common/LazyUserManual";
 import { Skeleton } from "@/components/common/LoadingState";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";

@@ -21,7 +21,7 @@ import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
-import UserManual from "@/components/common/UserManual";
+import UserManual from "@/components/common/LazyUserManual";
 import WalkInForm from "@/components/dashboards/staff/WalkInForm";
 import AccountRecoverySearch from "@/components/dashboards/staff/AccountRecoverySearch";
 import ToastNotifications from "@/components/common/ToastNotifications";

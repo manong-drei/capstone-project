@@ -15,6 +15,7 @@ async function mockPatient(page) {
     let body = { data: [] };
     if (path === '/api/queue' && route.request().method() === 'POST') {
       state.posts++;
+      state.ticketType = route.request().postDataJSON().type;
       if (state.rejectRegistration) {
         state.registrationMessage = CAPACITY_MESSAGE;
         return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: CAPACITY_MESSAGE }) });
@@ -23,6 +24,7 @@ async function mockPatient(page) {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(state.queue) });
     }
     if (path === "/api/auth/profile") body = { data: { user_id: 11, role: "patient", display_name: "Queue Patient" } };
+    else if (path === "/api/patients/me") body = { data: {} };
     else if (path === "/api/queue/me") {
       if (state.failQueue) return route.fulfill({ status: 503, json: { message: 'Queue temporarily unavailable.' } });
       body = state.queue;
@@ -36,6 +38,54 @@ async function mockPatient(page) {
 }
 
 const estimatedWaitCard = page => page.getByText('Estimated wait', { exact: true }).locator('..');
+
+test("the ticket and queue line load independently of eligibility", async ({ page }) => {
+  const state = await mockPatient(page);
+  state.started = true;
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  await page.route("**/api/patients/me", async route => {
+    await pending;
+    await route.fulfill({ json: { data: { priority_category: "senior" } } });
+  });
+  await page.goto("/patient");
+  const ticket = page.getByRole("article", { name: "My queue ticket" });
+  const join = page.getByRole("button", { name: /Get queue ticket/i });
+  try {
+    await expect(ticket).toContainText("AQ11");
+    await expect(page.getByRole("region", { name: "Live queue status" })).toContainText("Q02");
+    state.queue = null;
+    await page.clock.fastForward(15_000);
+    await expect(ticket).toHaveCount(0);
+    await expect(join).toBeDisabled();
+  } finally {
+    release();
+  }
+  await join.click();
+  await page.getByRole("checkbox", { name: "Dental Check-up", exact: true }).check();
+  await page.getByRole("button", { name: "Get Queue Ticket", exact: true }).click();
+  await expect(ticket).toContainText("AQ12");
+  expect(state.ticketType).toBe("priority");
+});
+
+test("closing the floating ticket keeps it live and the button reopens it", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const state = await mockPatient(page);
+  await page.goto("/patient");
+  const ticket = page.getByRole("article", { name: "My queue ticket" });
+  const close = ticket.getByRole("button", { name: "Close ticket", exact: true });
+  await expect(close).toBeInViewport();
+  await close.click();
+  const reopen = page.getByRole("button", { name: /My ticket.*AQ11/ });
+  await expect(reopen).toBeFocused();
+  await expect(ticket).toHaveCount(0);
+  state.queue.status = "called";
+  await page.clock.fastForward(15_000);
+  await expect(page.getByRole("status").filter({ hasText: "Please report to staff now" })).toHaveCount(1);
+  await reopen.press("Enter");
+  await expect(ticket).toContainText("It's your turn!");
+  await expect(close).toBeFocused();
+});
 
 for (const width of [320, 375, 768, 1024, 1440]) {
   test(`patient dashboard keeps ticket actions readable without overflow at ${width}px`, async ({ page }, testInfo) => {
@@ -56,8 +106,9 @@ for (const width of [320, 375, 768, 1024, 1440]) {
         await expect(myQueue.getByRole("button", { name: "Cancel Queue", exact: true })).toBeVisible();
         await expect(myQueue.getByRole("button", { name: "View queue line", exact: true })).toHaveCount(0);
         const ticketBounds = await myQueue.boundingBox();
-        const actionsBounds = await page.getByRole("region", { name: "Quick actions" }).boundingBox();
-        expect(ticketBounds.y).toBeGreaterThanOrEqual(actionsBounds.y + actionsBounds.height);
+        await expect(myQueue).toHaveCSS("position", "fixed");
+        expect(ticketBounds.y).toBeGreaterThanOrEqual(0);
+        expect(ticketBounds.y + ticketBounds.height).toBeLessThanOrEqual(900);
         expect(await myQueue.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
       } else {
         await expect(myQueue).toHaveCount(0);
@@ -164,6 +215,7 @@ test("patient clears a staff-cancelled ticket on the next poll", async ({ page }
   const state = await mockPatient(page);
   await page.goto("/patient");
   const joinQueue = page.getByRole("button", { name: /Get queue ticket/i });
+  await expect(page.getByRole("article", { name: "My queue ticket" })).toBeVisible();
   await expect(joinQueue).toBeDisabled();
   state.queue = null;
   await page.clock.fastForward(15_000);

@@ -22,6 +22,7 @@ async function mockDashboard(page, role) {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method())) writes.push({ path, method: request.method() });
     const responses = {
       '/api/auth/profile': { data: user },
+      '/api/patients/me': { data: user },
       '/api/queue': [],
       '/api/queue/me': null,
       '/api/queue/status': {},
@@ -51,6 +52,9 @@ for (const { role, name, task } of roles) {
     test(`${name} Help provides a readable, linked manual on ${mobile ? 'mobile' : 'desktop'}`, async ({ page }, testInfo) => {
       await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
       const writes = await mockDashboard(page, role);
+      const isManual = request => /\/UserManual[.-]/.test(new URL(request.url()).pathname);
+      const manualRequests = [];
+      page.on('request', request => { if (isManual(request)) manualRequests.push(request.url()); });
       await page.goto(`/${role}`);
       const help = await helpButton(page, role, mobile);
       const returnFocus = mobile && role === 'doctor'
@@ -58,10 +62,12 @@ for (const { role, name, task } of roles) {
         : mobile && role === 'admin' ? page.getByRole('button', { name: 'Open menu', exact: true }) : help;
       await expect(help).toBeVisible();
       const dashboardUrl = page.url();
+      expect(manualRequests).toEqual([]);
       await help.click();
 
       const manual = page.getByRole('dialog', { name: `${name} user manual`, exact: true });
       await expect(manual).toBeVisible();
+      expect(manualRequests).toHaveLength(1);
       if (mobile) await expect(manual.getByText(`${name} manual`, { exact: true })).toBeInViewport();
       await expect(manual.getByRole('heading', { name: `${name} user manual`, exact: true })).toBeVisible();
       await expect(manual).toContainText(task);

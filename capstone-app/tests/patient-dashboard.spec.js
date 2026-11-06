@@ -52,7 +52,8 @@ for (const width of [320, 390, 768, 1024, 1440, 1920]) {
     await expect(ticket).toContainText("9:42:19 AM PHT");
     await expect(ticket).toContainText("Oral Prophylaxis");
     await expect(ticket).toHaveCSS("text-align", "center");
-    await expect(ticket.getByRole("button")).toHaveText(["Cancel Queue"]);
+    await expect(ticket.getByRole("button", { name: "Cancel Queue", exact: true })).toBeVisible();
+    await expect(ticket.getByRole("button", { name: "Close ticket", exact: true })).toBeInViewport();
     await expect(page.getByRole("button", { name: /Download Ticket|Print Ticket/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`patient-dashboard-${width}.png`), fullPage: true });
@@ -171,8 +172,8 @@ test("the availability card distinguishes a dentist on leave from an available d
   expect(unknownColor).not.toBe(unavailableColor);
 });
 
-test("long ticket details and missing issuance dates remain readable on mobile", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 900 });
+test("the centered ticket fits long details without scrolling on phone and desktop screens", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 480 });
   const state = await mockPatient(page);
   state.queue.full_name = "Maria Isabel de los Santos Reyes ".repeat(8).trim();
   state.queue.created_at = null;
@@ -181,7 +182,26 @@ test("long ticket details and missing issuance dates remain readable on mobile",
   await expect(ticket).toContainText(state.queue.full_name);
   await expect(ticket.getByText("—", { exact: true })).toHaveCount(2);
   await expect(ticket).not.toContainText(/Invalid Date|NaN|undefined/);
-  expect(await ticket.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  for (const viewport of [
+    { width: 320, height: 480 },
+    { width: 568, height: 320 },
+    { width: 375, height: 812 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const { x, y, width, height } = await ticket.boundingBox();
+    expect(Math.abs(x + width / 2 - viewport.width / 2)).toBeLessThan(1);
+    expect(Math.abs(y + height / 2 - viewport.height / 2)).toBeLessThan(1);
+    if (viewport.height >= 720) {
+      expect(width).toBe(Math.min(viewport.width - 24, 384));
+      await expect(ticket.getByText(state.queue.queue_number, { exact: true })).toHaveCSS("font-size", "36px");
+    }
+    await expect(ticket.getByRole("button", { name: "Close ticket" })).toBeInViewport();
+    await expect(ticket.getByRole("button", { name: "Cancel Queue" })).toBeInViewport();
+    expect(await ticket.evaluate(element =>
+      element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight
+    )).toBe(true);
+  }
 });
 
 test("the ticket's cancellation action confirms a reason and clears the ticket", async ({ page }) => {

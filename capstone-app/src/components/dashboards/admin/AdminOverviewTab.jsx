@@ -1,5 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart3,
@@ -14,22 +14,20 @@ import {
   Stethoscope,
   Users,
 } from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import StatusBadge from "@/components/common/StatusBadge";
 import { Skeleton } from "@/components/common/LoadingState";
 import { ROUTES } from "@/constants/routes";
 import api from "@/services/api";
 import AdminLiveQueueMonitor from "./AdminLiveQueueMonitor";
+
+const AgeDistributionChart = lazy(() => import("./AdminOverviewCharts").then(
+  ({ AgeDistributionChart }) => ({ default: AgeDistributionChart }),
+  () => ({ default: ChartUnavailable }),
+));
+const PatientVolumeChart = lazy(() => import("./AdminOverviewCharts").then(
+  ({ PatientVolumeChart }) => ({ default: PatientVolumeChart }),
+  () => ({ default: ChartUnavailable }),
+));
 
 const AGE_COLORS = [
   "#1e4db7",
@@ -448,10 +446,7 @@ export default function AdminOverviewTab({
             </p>
             <div className="min-h-[150px]" aria-busy={ovLoading}>
               {initialLoading ? (
-                <div role="status" className="space-y-4 pt-4">
-                  <span className="sr-only">Loading age groups…</span>
-                  <Skeleton className="mx-auto h-32 w-32 rounded-full" />
-                </div>
+                <AgeChartSkeleton />
               ) : !overview ? (
                 <p className="py-10 text-sm text-slate-500">
                   Age group data is unavailable.
@@ -462,36 +457,9 @@ export default function AdminOverviewTab({
                 </p>
               ) : (
                 <div className="grid items-center gap-4 min-[480px]:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
-                  <div
-                    role="img"
-                    aria-label={`Dental age distribution: ${dentalTotal} queues`}
-                    className="aspect-square w-full max-w-40 justify-self-center"
-                  >
-                    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 160, height: 160 }}>
-                      <PieChart>
-                        <Pie
-                          data={dentalAges}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius="58%"
-                          outerRadius="90%"
-                          paddingAngle={2}
-                          dataKey="value"
-                          isAnimationActive={false}
-                        >
-                          {dentalAges.map((row) => (
-                            <Cell key={row.name} fill={row.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(count) => [
-                            `${Number(count).toLocaleString()} queues`,
-                            "Count",
-                          ]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <Suspense fallback={<AgeChartSkeleton />}>
+                    <AgeDistributionChart dentalAges={dentalAges} dentalTotal={dentalTotal} />
+                  </Suspense>
                   <ul className="min-w-0 space-y-2 text-xs">
                     {dentalAges.map((row) => (
                       <li
@@ -562,62 +530,15 @@ export default function AdminOverviewTab({
         </p>
         <div className="h-[250px] min-w-0 sm:h-[320px] xl:h-[360px]" aria-busy={ovLoading}>
           {initialLoading ? (
-            <div
-              role="status"
-              className="flex h-full items-end justify-around gap-3 border-b border-slate-200 px-4 pb-6"
-            >
-              <span className="sr-only">Loading patient volume…</span>
-              {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map(
-                (height) => (
-                  <Skeleton key={height} className={`w-6 ${height}`} />
-                ),
-              )}
-            </div>
+            <VolumeChartSkeleton />
           ) : !overview ? (
             <p className="py-10 text-sm text-slate-500">
               Patient volume data is unavailable.
             </p>
           ) : (
-            <div
-              role="img"
-              aria-label={`${volumeTab} patient volume: ${volumeData.map((row) => `${row.label}: ${row.count}`).join(", ")}`}
-              className="h-full min-w-0"
-            >
-              <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 250 }}>
-                <BarChart
-                  data={volumeData}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
-                >
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: "#64748b" }}
-                    axisLine={false}
-                    tickLine={false}
-                    minTickGap={18}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 11, fill: "#64748b" }}
-                    width={30}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "#f1f5f9" }}
-                    contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
-                    formatter={(count) => [
-                      `${Number(count).toLocaleString()} queues`,
-                      "Patient volume",
-                    ]}
-                  />
-                  <Bar
-                    dataKey="count"
-                    fill="#1e4db7"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={54}
-                    isAnimationActive={false}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <Suspense fallback={<VolumeChartSkeleton />}>
+              <PatientVolumeChart volumeTab={volumeTab} volumeData={volumeData} />
+            </Suspense>
           )}
         </div>
       </section>
@@ -750,6 +671,39 @@ export default function AdminOverviewTab({
           </>
         )}
       </section>
+    </div>
+  );
+}
+
+function ChartUnavailable() {
+  return (
+    <p role="status" className="grid min-h-40 place-items-center text-sm text-slate-500">
+      Chart could not load. Reload the page to try again.
+    </p>
+  );
+}
+
+function AgeChartSkeleton() {
+  return (
+    <div role="status" className="grid min-h-40 w-full max-w-40 place-items-center justify-self-center">
+      <span className="sr-only">Loading age groups…</span>
+      <Skeleton className="mx-auto h-32 w-32 rounded-full" />
+    </div>
+  );
+}
+
+function VolumeChartSkeleton() {
+  return (
+    <div
+      role="status"
+      className="flex h-full items-end justify-around gap-3 border-b border-slate-200 px-4 pb-6"
+    >
+      <span className="sr-only">Loading patient volume…</span>
+      {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map(
+        (height) => (
+          <Skeleton key={height} className={`w-6 ${height}`} />
+        ),
+      )}
     </div>
   );
 }

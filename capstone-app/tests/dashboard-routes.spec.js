@@ -169,8 +169,10 @@ for (const width of [1440, 375]) {
     await expect(myQueueCard.getByRole("button", { name: "Cancel Queue", exact: true })).toBeVisible();
     await expect(myQueueCard.getByText("AQ11", { exact: true })).toHaveCount(1);
     await expect(myQueueCard.getByRole("button", { name: "View queue line", exact: true })).toHaveCount(0);
+    await myQueueCard.getByRole("button", { name: "Close ticket", exact: true }).click();
     await page.getByRole("region", { name: "Patient information" }).getByRole("button", { name: "View queue line", exact: true }).click();
     await expect(page).toHaveURL(/\/patient\/my-queue$/);
+    await expect(page.getByRole("button", { name: /My ticket.*AQ11/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Current dental queue line" })).toBeInViewport();
     const line = page.getByRole("list", { name: "Current queue line" });
     await expect(line.getByRole("listitem")).toHaveText([/Q01.*Now serving/, /P02.*Waiting/, /AQ11.*Your ticket.*Waiting/]);

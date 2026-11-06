@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, LockKeyhole, Pencil } from "lucide-react";
 import ProfileCard from "@/components/common/ProfileCard";
-import UserManual from "@/components/common/UserManual";
+import UserManual from "@/components/common/LazyUserManual";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import { ACCOUNT_ROUTES, ROUTES } from "@/constants/routes";
 import { useAuth } from "@/hooks/useAuth";

@@ -59,7 +59,10 @@ for (const dashboard of dashboards) {
       await page.emulateMedia({ reducedMotion: "reduce" });
       const state = await mockDashboard(page, dashboard);
       await page.goto(`/${dashboard.role}`);
-      const skeleton = page.getByRole("status", { name: "Loading dashboard", exact: true });
+      const skeleton = page.getByRole("status", {
+        name: dashboard.role === "patient" ? "Loading your queue ticket" : "Loading dashboard",
+        exact: true,
+      });
       await expect(skeleton).toBeVisible();
       await expect(page.locator("nav")).toBeVisible();
       expect(await skeleton.locator(".bg-slate-200").first().evaluate(element => getComputedStyle(element).animationName)).toBe("none");
@@ -84,7 +87,10 @@ for (const dashboard of dashboards) {
     const state = await mockDashboard(page, dashboard);
     state.fail = true;
     await page.goto(`/${dashboard.role}`);
-    const skeleton = page.getByRole("status", { name: "Loading dashboard", exact: true });
+    const skeleton = page.getByRole("status", {
+      name: dashboard.role === "patient" ? "Loading your queue ticket" : "Loading dashboard",
+      exact: true,
+    });
     await expect(skeleton).toBeVisible();
     state.release();
     await expect(skeleton).toHaveCount(0);

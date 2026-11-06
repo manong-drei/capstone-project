@@ -149,13 +149,13 @@ export default function CinematicLandingPage() {
             aria-label="Bago City Primary Care Facility and E-Kalusugan home"
           >
             <img
-              src="/assets/bago-city-pcf.png"
+              src="/assets/bago-city-pcf-small.webp"
               alt="Bago City Primary Care Facility seal"
               width="52"
               height="52"
             />
             <img
-              src="/assets/Logo.webp"
+              src="/assets/ekalusugan-logo-small.webp"
               alt="E-Kalusugan"
               width="52"
               height="52"
@@ -376,14 +376,14 @@ export default function CinematicLandingPage() {
             <div className="cinematic-footer-brand">
               <div className="cinematic-footer-logos">
                 <img
-                  src="/assets/Logo.webp"
+                  src="/assets/ekalusugan-logo-small.webp"
                   alt="E-Kalusugan"
                   width="48"
                   height="48"
                   loading="lazy"
                 />
                 <img
-                  src="/assets/bago-city-pcf.png"
+                  src="/assets/bago-city-pcf-small.webp"
                   alt="Bago City Primary Care Facility seal"
                   width="48"
                   height="48"

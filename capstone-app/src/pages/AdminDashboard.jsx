@@ -9,9 +9,9 @@ import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
+import UserManual from "@/components/common/LazyUserManual";
 import "./AdminDashboard.css";
 
-const UserManual = lazy(() => import("@/components/common/UserManual"));
 const AdminOverviewTab = lazy(() => import("@/components/dashboards/admin/AdminOverviewTab"));
 const AdminReportsTab = lazy(() => import("@/components/dashboards/admin/AdminReportsTab"));
 const AdminDoctorsTab = lazy(() => import("@/components/dashboards/admin/AdminDoctorsTab"));
@@ -96,7 +96,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="ad-root min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
-      {showManual && <Suspense fallback={<p role="status">Loading help…</p>}><UserManual role="admin" isOpen onClose={() => setShowManual(false)} /></Suspense>}
+      <UserManual role="admin" isOpen={showManual} onClose={() => setShowManual(false)} />
       <StaffNavbar
         identity={identity}
         onHelp={() => setShowManual(true)}
