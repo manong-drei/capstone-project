@@ -3,7 +3,7 @@ import { QUEUE_UPDATES_CHANNEL } from '@/constants/queue'
 import { notifyDataChange } from './dataSync'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: (import.meta.env.PROD && import.meta.env.VITE_API_URL) || '/api',
   headers: { 'Content-Type': 'application/json' },
 })
 

@@ -136,7 +136,7 @@ That check needs the current `queues` and `queue_sequences` schema and uses isol
 
 ### Frontend
 
-The Axios client in `src/services/api.js` uses **`baseURL: '/api'`**. Vite proxies `/api` to `http://localhost:5000` during development. `VITE_API_URL` is not read by the current client.
+The Axios client defaults to `/api`. Vite proxies it to `http://localhost:5000` during development. For direct production API requests, set Vercel's `VITE_API_URL` to `https://ekalusugan-production.up.railway.app/api` and Railway's `ALLOWED_ORIGINS` to the frontend origin, including `https://` and excluding the trailing slash. Direct requests let Railway identify the browser's IP for authentication rate limits.
 
 Optional `capstone-app/.env.development`:
 
@@ -144,7 +144,7 @@ Optional `capstone-app/.env.development`:
 VITE_DEV_BYPASS=false
 ```
 
-`VITE_DEV_BYPASS=true` shows the development login panel; it does not enable backend bypass by itself. Restart Vite after environment changes. For deployment, configure a same-origin `/api` reverse proxy and SPA route fallback. The development proxy is not a production hosting configuration.
+`VITE_DEV_BYPASS=true` shows the development login panel. Backend development bypass is configured separately. Restart Vite after local environment changes. Vercel provides a SPA route fallback and a same-origin `/api` rewrite when `VITE_API_URL` is unset.
 
 ### Backend — `server/.env`
 

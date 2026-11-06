@@ -13,9 +13,9 @@ const {
 // Middleware (direct import)
 const protect = require("../middleware/authenticate"); // <-- changed here
 const requireProfileSession = require("../middleware/requireProfileSession");
-const rateLimit = require('express-rate-limit');
+const rateLimitByIp = require('../middleware/rateLimitByIp');
 const recovery = require('../controllers/passwordRecoveryController');
-const recoveryLimit = max => rateLimit({
+const recoveryLimit = max => rateLimitByIp({
   windowMs: 15 * 60 * 1000, max, standardHeaders: true, legacyHeaders: false,
   message: { success: false, message: 'Too many recovery attempts. Please try again in 15 minutes.' },
 });

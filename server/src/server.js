@@ -7,7 +7,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
+const rateLimitByIp = require("./middleware/rateLimitByIp");
 const db = require("./config/db");
 const { startWorker } = require("./services/smsNotifications");
 const { startWorker: startQueueExpiry } = require("./services/queueExpiry");
@@ -39,7 +39,7 @@ app.use(
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 
-const authLimiter = rateLimit({
+const authLimiter = rateLimitByIp({
   windowMs: 15 * 60 * 1000,
   max: 100,
   // Dashboard profile polling must not consume the credential attempt budget.
