@@ -98,6 +98,8 @@ test('job claim precedes sending, password TTL is preserved, and uncertainty pur
     await notifications.submitOne(conn);
     assert.equal(sends, 1);
     assert.ok(statements.some(row => row.sql.includes('COALESCE(temp_password_expires_at, DATE_ADD(NOW(), INTERVAL 72 HOUR))')));
+    assert.ok(statements.some(row => row.sql.includes('next_submission_at = TIMESTAMPADD(MICROSECOND, ?, NOW(3))')
+      && row.values[0] === 5_000_000));
     assert.ok(statements.some(row => row.sql.includes("'submitted', state), payload = NULL")));
     user = { ...user, credential_version: 2 };
     await notifications.submitOne(conn);
@@ -189,4 +191,31 @@ test('worker excludes another instance and converts interrupted claims to unknow
     await notifications.tick(); assert.equal(recovered, false); assert.equal(released, true);
     acquired = 1; await notifications.tick(); assert.equal(recovered, true);
   } finally { pool.getConnection = saved.getConnection; Queue.projectWaiting = saved.project; Queue.lockCategory = saved.lock; }
+});
+
+test('a queue alert database failure does not block queued SMS delivery', async t => {
+  const errors = t.mock.method(console, 'error', () => {});
+  t.mock.method(recovery, 'reconcile', async () => {});
+  let checkedJobs = false;
+  const connection = {
+    async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
+    async query(sql) {
+      if (sql.includes('GET_LOCK')) return [[{ acquired: 1 }]];
+      if (sql.includes('SELECT *, NOW()')) return [[{ db_now: new Date(0), next_poll_at: new Date(1000) }]];
+      if (sql.includes('SELECT * FROM sms_jobs')) { checkedJobs = true; return [[]]; }
+      return [{}];
+    },
+  };
+  t.mock.method(pool, 'getConnection', async () => connection);
+  t.mock.method(Queue, 'lockCategory', async () => {
+    throw Object.assign(new Error('SQL and data are private'), { code: 'ER_BAD_FIELD_ERROR' });
+  });
+
+  await notifications.tick();
+
+  assert.equal(checkedJobs, true);
+  assert.deepEqual(errors.mock.calls.map(call => call.arguments[0]), [
+    'SMS worker failed during dental queue alerts (ER_BAD_FIELD_ERROR).',
+    'SMS worker failed during general queue alerts (ER_BAD_FIELD_ERROR).',
+  ]);
 });

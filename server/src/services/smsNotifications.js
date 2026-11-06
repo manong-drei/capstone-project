@@ -114,15 +114,15 @@ async function submitOne(conn) {
     await conn.query(`UPDATE sms_jobs SET state = IF(state = 'submitting', 'submitted', state), payload = NULL, provider_message_id = ?,
       provider_status = ?, last_error = IF(state = 'cancelled', last_error, NULL), next_attempt_at = DATE_ADD(NOW(), INTERVAL 30 SECOND) WHERE id = ?`,
     [result.message_id, result.status, job.id]);
-    await conn.query('UPDATE sms_settings SET next_submission_at = ? WHERE id = 1', [new Date(Date.now() + Math.max(5000, result.pauseMs))]);
+    await conn.query('UPDATE sms_settings SET next_submission_at = TIMESTAMPADD(MICROSECOND, ?, NOW(3)) WHERE id = 1', [Math.max(5000, result.pauseMs) * 1000]);
     await conn.commit();
     console.info(`SMS job ${job.id}: submitted (${result.status}).`);
   } catch (error) {
     const failure = failureDisposition(error, job.attempts);
     await conn.query(`UPDATE sms_jobs SET state = ?, payload = IF(? = 'queued', payload, NULL),
-      last_error = ?, next_attempt_at = ? WHERE id = ? AND state = 'submitting'`,
-    [failure.state, failure.state, failure.code, new Date(Date.now() + failure.delayMs), job.id]);
-    if (error.retryAfter) await conn.query('UPDATE sms_settings SET next_submission_at = ? WHERE id = 1', [new Date(Date.now() + error.retryAfter)]);
+      last_error = ?, next_attempt_at = TIMESTAMPADD(MICROSECOND, ?, NOW(3)) WHERE id = ? AND state = 'submitting'`,
+    [failure.state, failure.state, failure.code, failure.delayMs * 1000, job.id]);
+    if (error.retryAfter) await conn.query('UPDATE sms_settings SET next_submission_at = TIMESTAMPADD(MICROSECOND, ?, NOW(3)) WHERE id = 1', [error.retryAfter * 1000]);
     await conn.commit();
     console.warn(`SMS job ${job.id}: ${failure.state} (${failure.code}).`);
   }
@@ -138,31 +138,38 @@ async function pollOne(conn) {
   try {
     const result = await sms.getSMSStatus(job.provider_message_id, job.recipient);
     await conn.query(`UPDATE sms_jobs SET provider_status = ?, last_error = NULL, next_attempt_at = DATE_ADD(NOW(), INTERVAL 60 SECOND) WHERE id = ?`, [result.status, job.id]);
-    await conn.query('UPDATE sms_settings SET next_poll_at = ? WHERE id = 1', [new Date(Date.now() + Math.max(5000, result.pauseMs))]);
+    await conn.query('UPDATE sms_settings SET next_poll_at = TIMESTAMPADD(MICROSECOND, ?, NOW(3)) WHERE id = 1', [Math.max(5000, result.pauseMs) * 1000]);
   } catch (error) {
     const code = failureDisposition(error, 3).code;
-    await conn.query('UPDATE sms_jobs SET last_error = ?, next_attempt_at = ? WHERE id = ?', [code, new Date(Date.now() + Math.max(60000, error.retryAfter || 0)), job.id]);
-    await conn.query('UPDATE sms_settings SET next_poll_at = ? WHERE id = 1', [new Date(Date.now() + Math.max(5000, error.retryAfter || 0))]);
+    await conn.query('UPDATE sms_jobs SET last_error = ?, next_attempt_at = TIMESTAMPADD(MICROSECOND, ?, NOW(3)) WHERE id = ?', [code, Math.max(60000, error.retryAfter || 0) * 1000, job.id]);
+    await conn.query('UPDATE sms_settings SET next_poll_at = TIMESTAMPADD(MICROSECOND, ?, NOW(3)) WHERE id = 1', [Math.max(5000, error.retryAfter || 0) * 1000]);
   }
 }
 
 let running = false;
 let timer;
+function logWorkerFailure(stage, error) {
+  const code = /^[A-Z_0-9]+$/.test(error?.code || '') ? error.code : 'UNKNOWN';
+  console.error(`SMS worker failed during ${stage} (${code}).`);
+}
+
 async function tick() {
   if (running) return;
   running = true;
   let conn;
   let locked = false;
+  let stage = 'worker lock';
   try {
     conn = await pool.getConnection();
     const [[lock]] = await conn.query("SELECT GET_LOCK('sms_notifications_worker', 0) AS acquired");
     locked = lock.acquired === 1;
     if (!locked) return;
+    stage = 'recovery cleanup';
     await recovery.reconcile();
+    stage = 'interrupted job cleanup';
     await conn.query(`UPDATE sms_jobs SET state = 'unknown', payload = NULL, last_error = 'worker_interrupted'
       WHERE state = 'submitting' AND updated_at < DATE_SUB(NOW(), INTERVAL 60 SECOND)`);
-    await reconcileCategory('dental');
-    await reconcileCategory('general');
+    stage = 'job delivery';
     const [[settings]] = await conn.query('SELECT *, NOW() AS db_now FROM sms_settings WHERE id = 1');
     if (!settings.next_submission_at || settings.next_submission_at <= settings.db_now) {
       await conn.query('UPDATE sms_settings SET next_submission_at = DATE_ADD(NOW(), INTERVAL 5 SECOND) WHERE id = 1');
@@ -172,9 +179,12 @@ async function tick() {
       await conn.query('UPDATE sms_settings SET next_poll_at = DATE_ADD(NOW(), INTERVAL 5 SECOND) WHERE id = 1');
       await pollOne(conn);
     }
-  } catch {
+    for (const category of ['dental', 'general']) {
+      await reconcileCategory(category).catch(error => logWorkerFailure(`${category} queue alerts`, error));
+    }
+  } catch (error) {
     if (conn) await conn.rollback().catch(() => {});
-    console.error('SMS worker failed internally; no message content logged.');
+    logWorkerFailure(stage, error);
   } finally {
     if (locked) await conn.query("SELECT RELEASE_LOCK('sms_notifications_worker')").catch(() => {});
     conn?.release();
@@ -187,6 +197,7 @@ async function startWorker() {
   await pool.query('SELECT threshold FROM sms_settings WHERE id = 1');
   timer = setInterval(tick, 5000);
   timer.unref();
+  console.info('SMS worker started.');
   void tick();
 }
 function wakeWorker() { if (timer) setImmediate(tick); }
