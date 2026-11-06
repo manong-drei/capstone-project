@@ -35,8 +35,9 @@ async function mockMonitor(page, supported = true) {
     let body = {};
     if (url.pathname === "/api/queue") {
       expect(url.searchParams.get("category")).toBe("dental");
+      expect(url.searchParams.get("include_clock")).toBe("1");
       state.polls++;
-      body = state.queues;
+      body = state.serverTime === undefined ? state.queues : { data: state.queues, server_time: state.serverTime };
     } else if (url.pathname === "/api/auth/profile") body = { data: { user_id: 8, role: "staff" } };
     await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
   });
@@ -45,6 +46,21 @@ async function mockMonitor(page, supported = true) {
 }
 
 const spokenTickets = (page) => page.evaluate(() => window.announcements);
+
+test('monitor uses the server date and keeps return deadlines accurate when the display clock is wrong', async ({ page }) => {
+  const state = await mockMonitor(page);
+  state.serverTime = Date.parse('2026-10-09T00:30:00+08:00');
+  state.queues[0] = { id: 1, queue_number: 'Q01', status: 'missed', grace_expires_at: '2026-10-09T00:30:10+08:00' };
+  await page.goto('/general-queue-monitor');
+  const skipped = page.getByRole('region', { name: 'Skipped tickets', exact: true });
+  await expect(page.getByText(/Oct 9, 2026/)).toBeVisible();
+  await expect(skipped.getByText('Q01', { exact: true })).toBeVisible();
+
+  await page.route('**/api/queue?category=dental&include_clock=1', route => route.fulfill({ status: 503 }));
+  await page.clock.fastForward(11_000);
+  await expect(page.getByText(/12:30:1\d AM/i)).toBeVisible();
+  await expect(skipped.getByText('Q01', { exact: true })).toHaveCount(0);
+});
 
 test('monitor fetches and announces a new call within one second when browser messaging is unavailable', async ({ page }) => {
   const state = await mockMonitor(page);
@@ -70,7 +86,7 @@ test('monitor coalesces refreshes during a slow request and fetches the latest q
   let held;
   let requests = 0;
   const oldQueue = JSON.stringify(state.queues);
-  await page.route('**/api/queue?category=dental', route => {
+  await page.route('**/api/queue?category=dental&include_clock=1', route => {
     requests++;
     if (requests === 1) held = route;
     else return route.fallback();

@@ -4,7 +4,7 @@ const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
 const DoctorLeave = require("../models/DoctorLeave");
 const Doctor = require("../models/Doctor");
-const { clinicToday } = require("../utils/clinicDate");
+const { clinicDay, clinicToday } = require("../utils/clinicDate");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
@@ -51,8 +51,12 @@ const getQueueStatus = async (req, res) => {
 /** GET /api/queue — all today's active queues (doctor/staff) */
 const getAllQueues = async (req, res) => {
   try {
-    const { category } = req.query;
+    const { category, include_clock } = req.query;
     const queues = await Queue.findTodayActive({ category });
+    if (include_clock === '1') {
+      res.set('Cache-Control', 'no-store');
+      return res.json({ data: queues, server_time: Date.now() });
+    }
     res.json(queues);
   } catch (err) {
     console.error("getAllQueues error:", err);
@@ -172,7 +176,7 @@ const createWalkIn = async (req, res) => {
   const names = first_name !== undefined || last_name !== undefined
     ? { first_name: normalizeName(first_name), last_name: normalizeName(last_name) }
     : name ? splitName(name) : { first_name: "", last_name: "" };
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const today = clinicToday();
   let normalizedSuffix;
   let normalizedMiddleName;
   try {
@@ -244,7 +248,7 @@ const createWalkIn = async (req, res) => {
       const { first_name, last_name } = names;
       const changes = {};
       for (const [key, value] of Object.entries({ first_name, middle_name: effectiveMiddleName, last_name, suffix: effectiveSuffix, date_of_birth, gender: gender[0].toUpperCase() + gender.slice(1), contact_number: phone, barangay, priority_category: priorityCategory || existing.priority_category })) {
-        const old = existing[key] instanceof Date ? existing[key].toISOString().slice(0, 10) : existing[key];
+        const old = existing[key] instanceof Date ? clinicDay(existing[key]) : existing[key];
         if (String(old ?? "") !== String(value ?? "")) changes[key] = { from: old, to: value };
       }
       if (Object.keys(changes).length) {

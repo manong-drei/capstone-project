@@ -64,8 +64,8 @@ async function mockStaff(page) {
     } else if (url.pathname === "/api/patients/search") {
       state.searches.push(url.search);
       const phone = url.searchParams.get("phone");
-      body = { data: url.searchParams.get("name") === "Returning" || (phone && "09123456789".includes(phone)) ? [{ patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1960-01-01", masked_contact: "*******6789" }] : [] };
-    } else if (url.pathname === "/api/patients/20") body = { data: { patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1960-01-01", gender: "Female", barangay: "Abuanan", contact_number: "09123456789", visits: [
+      body = { data: url.searchParams.get("name") === "Returning" || (phone && "09123456789".includes(phone)) ? [{ patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1959-12-31T16:00:00.000Z", masked_contact: "*******6789" }] : [] };
+    } else if (url.pathname === "/api/patients/20") body = { data: { patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1959-12-31T16:00:00.000Z", gender: "Female", barangay: "Abuanan", contact_number: "09123456789", visits: [
       { id: 30, category: "dental", queue_number: "Q-030", status: "done", created_at: "2026-10-07T09:00:00+08:00" },
       { id: 31, category: "general", queue_number: "G-031", status: "done", created_at: "2026-10-07T09:00:00+08:00" },
     ] } };
@@ -166,6 +166,7 @@ test("mobile walk-in registration preserves patient lookup, priority, service li
   await page.getByRole("button", { name: /Returning Patient · 1960-01-01/ }).click();
   await expect(page.getByLabel("First name", { exact: true })).toHaveValue("Returning");
   await expect(page.getByLabel("Last name", { exact: true })).toHaveValue("Patient");
+  await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("1960-01-01");
   await expect(page.getByLabel("Confirmed mobile number")).toHaveValue("9123456789");
   await expect(page.getByText("Previous dental visits: 1")).toBeVisible();
   await expect(page.getByText("Completed", { exact: true })).toBeVisible();

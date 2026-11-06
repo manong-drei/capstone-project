@@ -67,6 +67,11 @@ export default function GeneralQueueMonitor() {
     let fetching = false;
     let refreshPending = false;
     let updates;
+    let clockOffset;
+
+    const updateClock = () => setNow(new Date(
+      clockOffset === undefined ? Date.now() : performance.now() + clockOffset,
+    ));
 
     const fetchQueue = async () => {
       if (fetching) {
@@ -75,8 +80,12 @@ export default function GeneralQueueMonitor() {
       }
       fetching = true;
       try {
-        const data = await getAllQueues("dental");
+        const data = await getAllQueues("dental", { params: { include_clock: "1" } });
         if (cancelled) return;
+        if (Number.isFinite(data?.server_time)) {
+          clockOffset = data.server_time - performance.now();
+          updateClock();
+        }
         const list = Array.isArray(data) ? data : (data?.data ?? []);
         setQueues(list);
       } catch {
@@ -98,7 +107,7 @@ export default function GeneralQueueMonitor() {
     }
     fetchQueue();
     const pollId = setInterval(fetchQueue, POLL_INTERVAL_MS);
-    const clockId = setInterval(() => setNow(new Date()), 1000);
+    const clockId = setInterval(updateClock, 1000);
 
     return () => {
       cancelled = true;

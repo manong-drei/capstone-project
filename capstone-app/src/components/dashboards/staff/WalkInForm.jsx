@@ -18,6 +18,9 @@ import api from "@/services/api";
 const inputClass =
   "w-full min-w-0 scroll-mt-24 rounded-xl border bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:ring-2";
 
+const clinicDay = (value) =>
+  value ? new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) : "";
+
 function RequiredMark() {
   return (
     <span
@@ -88,9 +91,7 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
   const [confirmNew, setConfirmNew] = useState(false);
   const [searching, setSearching] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const today = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Manila",
-  });
+  const today = clinicDay(new Date());
   const [year, month, day] = today.split("-").map(Number);
   const [birthYear, birthMonth, birthDay] = form.dateOfBirth
     .split("-")
@@ -145,7 +146,7 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
         lastName: data.last_name || "",
         middle_name: data.middle_name || "",
         suffix: data.suffix || "",
-        dateOfBirth: String(data.date_of_birth || "").slice(0, 10),
+        dateOfBirth: clinicDay(data.date_of_birth),
         gender: String(data.gender || "").toLowerCase(),
         address: data.barangay || "",
         contact: String(data.contact_number || "").replace(/^(\+?63|0)/, ""),
@@ -448,7 +449,7 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
                     ]
                       .filter(Boolean)
                       .join(" ")}{" "}
-                    · {String(patient.date_of_birth || "").slice(0, 10)} ·{" "}
+                    · {clinicDay(patient.date_of_birth)} ·{" "}
                     {patient.masked_contact || "No phone"}
                   </button>
                 ))}

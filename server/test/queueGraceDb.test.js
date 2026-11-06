@@ -4,6 +4,27 @@ const Queue = require('../src/models/Queue');
 const Doctor = require('../src/models/Doctor');
 const pool = require('../src/config/db');
 
+test.after(() => pool.end());
+
+test('MySQL initializes every queue connection and uses the Manila date at midnight', { skip: process.env.QUEUE_DB_TESTS !== 'true' }, async () => {
+  const sessions = await Promise.all([pool.query('SELECT @@session.time_zone AS zone'), pool.query('SELECT @@session.time_zone AS zone')]);
+  for (const [[{ zone }]] of sessions) assert.equal(zone, '+08:00');
+
+  const connection = await pool.getConnection();
+  try {
+    const midnight = Date.parse('2026-10-09T16:30:00Z');
+    await connection.query('SET timestamp = ?', [midnight / 1000]);
+    const [[{ day, issued, deadline }]] = await connection.query(`
+      SELECT DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS day,
+             NOW(3) AS issued, DATE_ADD(NOW(3), INTERVAL 10 MINUTE) AS deadline`);
+    assert.equal(day, '2026-10-10');
+    assert.equal(issued.getTime(), midnight);
+    assert.equal(deadline.getTime(), midnight + 600_000);
+  } finally {
+    connection.destroy();
+  }
+});
+
 test('MySQL grace lifecycle uses isolated temporary tables and preserves return order', { skip: process.env.QUEUE_DB_TESTS !== 'true' }, async () => {
   const connection = await pool.getConnection();
   const saved = { getConnection: pool.getConnection, query: pool.query };
@@ -70,6 +91,5 @@ test('MySQL grace lifecycle uses isolated temporary tables and preserves return 
     await connection.query('DROP TEMPORARY TABLE IF EXISTS consultations, doctors, users, daily_doctor_settings, doctor_leaves');
     await connection.query('DROP TEMPORARY TABLE IF EXISTS queue_grace_fixture');
     connection.release();
-    await pool.end();
   }
 });

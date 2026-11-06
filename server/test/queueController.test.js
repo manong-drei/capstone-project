@@ -3,10 +3,22 @@ const test = require("node:test");
 const pool = require("../src/config/db");
 const Queue = require("../src/models/Queue");
 const Patient = require("../src/models/Patient");
-const { createQueue, createWalkIn } = require("../src/controllers/queueController");
+const { createQueue, createWalkIn, getAllQueues } = require("../src/controllers/queueController");
 const jwt = require('jsonwebtoken');
 const User = require('../src/models/User');
 const router = require('../src/routes/queueRoutes');
+
+test('the monitor can request server time while other queue readers still receive an array', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-09T16:30:00Z') });
+  const queues = [{ queue_number: 'Q01' }];
+  t.mock.method(Queue, 'findTodayActive', async () => queues);
+  const res = { set(name, value) { this[name] = value; }, json(body) { this.body = body; } };
+  await getAllQueues({ query: { category: 'dental' } }, res);
+  assert.deepEqual(res.body, queues);
+  await getAllQueues({ query: { category: 'dental', include_clock: '1' } }, res);
+  assert.equal(res['Cache-Control'], 'no-store');
+  assert.deepEqual(res.body, { data: queues, server_time: Date.now() });
+});
 
 test("registration assigns source from the endpoint and counts appointment and walk-in tickets independently", async () => {
   const saved = { connection: pool.getConnection, create: Queue.create, find: Queue.findByPatientId, audit: Patient.audit };
