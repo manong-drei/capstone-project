@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const audit = require("../services/auditLog");
 const bcrypt = require("bcryptjs");
 const Queue = require("../models/Queue");
+const Doctor = require("../models/Doctor");
 const User = require("../models/User");
 const Staff = require("../models/Staff");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
@@ -13,7 +14,7 @@ const { parsePagination } = require("../utils/pagination");
 const getOverview = async (req, res) => {
   try {
     const [[patientRow]] = await pool.query("SELECT COUNT(*) AS count FROM queues");
-    const [[doctorRow]] = await pool.query("SELECT COUNT(*) AS count FROM doctors");
+    const totalDoctors = await Doctor.countActive();
 
     const queueStats = await Queue.getTodayStats();
     const [[{ count: totalAppointments }]] = await pool.query("SELECT COUNT(*) AS count FROM appointments");
@@ -45,7 +46,7 @@ const getOverview = async (req, res) => {
     res.json({
       success: true,
       totalPatients: patientRow.count,
-      totalDoctors: doctorRow.count,
+      totalDoctors,
       totalAppointments,
       completedQueues,
       dentalAgeGroups,
@@ -254,6 +255,10 @@ const changeAccountState = (patient, active) => async (req, res) => {
   try {
     const userId = Number(req.params.user_id);
     if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(400).json({ success: false, message: 'Invalid account ID.' });
+    const reason = active ? undefined : req.body?.reason;
+    if (!active && !audit.DEACTIVATION_REASONS.has(reason)) {
+      return res.status(400).json({ success: false, message: 'Select a valid reason for deactivation.' });
+    }
     await audit.transaction(async connection => {
       const [[user]] = await connection.query(
         "SELECT user_id, role, is_active FROM users WHERE user_id = ? FOR UPDATE", [userId]);
@@ -265,7 +270,7 @@ const changeAccountState = (patient, active) => async (req, res) => {
       }
       await connection.query('UPDATE users SET is_active = ? WHERE user_id = ?', [active, userId]);
       await audit.write(req, { action: active ? 'account.reactivated' : 'account.deactivated',
-        target_type: 'user', target_id: userId,
+        target_type: 'user', target_id: userId, reason,
         details: { assigned_role: user.role, changes: { is_active: { from: user.is_active, to: active } } } }, connection);
     });
     res.json({ success: true, message: `${patient ? 'Patient' : 'Staff'} account ${active ? 'reactivated' : 'deactivated'}.` });
@@ -306,17 +311,10 @@ const updateStaff = async (req, res) => {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
-      const [[before]] = await conn.query(`SELECT u.phone, u.email,
-        COALESCE(d.first_name, s.first_name) AS first_name, COALESCE(d.middle_name, s.middle_name) AS middle_name,
-        COALESCE(d.last_name, s.last_name) AS last_name, COALESCE(d.suffix, s.suffix) AS suffix,
-        d.license_number, s.position FROM users u
-        LEFT JOIN doctors d ON d.user_id = u.user_id LEFT JOIN staff s ON s.user_id = u.user_id
-        WHERE u.user_id = ? FOR UPDATE`, [user_id]);
-
       if (user.role === "admin") {
         await Staff.ensureAdminProfile(user_id, {
           first_name, last_name, middle_name: normalizedMiddleName, suffix: normalizedSuffix,
-          contact_number: normalizedPhone ?? before.phone,
+          contact_number: normalizedPhone,
         }, conn);
       }
 
@@ -408,12 +406,6 @@ const updateStaff = async (req, res) => {
         }
       }
 
-      const candidate = { first_name, last_name, middle_name: normalizedMiddleName, suffix: normalizedSuffix,
-        phone: normalizedPhone, email, ...(user.role === 'doctor' ? { license_number } : user.role === 'staff' ? { position } : {}) };
-      const changed = Object.entries(candidate).filter(([key, value]) =>
-        (['middle_name', 'suffix'].includes(key) ? req.body[key] !== undefined : !!value) && String(before[key] ?? '') !== String(value ?? ''));
-      await audit.write(req, { action: 'account.updated', target_type: 'user', target_id: user_id,
-        details: { changed_fields: changed.map(([key]) => key), changes: Object.fromEntries(changed.map(([key, value]) => [key, { from: before[key], to: value }])) } }, conn);
       await conn.commit();
       res.json({ success: true, message: "Staff account updated." });
     } catch (innerErr) {

@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Queue = require('../src/models/Queue');
+const Doctor = require('../src/models/Doctor');
 const pool = require('../src/config/db');
 
 test('MySQL grace lifecycle uses isolated temporary tables and preserves return order', { skip: process.env.QUEUE_DB_TESTS !== 'true' }, async () => {
@@ -13,6 +14,19 @@ test('MySQL grace lifecycle uses isolated temporary tables and preserves return 
     await connection.query('CREATE TEMPORARY TABLE queue_grace_fixture LIKE queue_sequences');
     await connection.query('CREATE TEMPORARY TABLE queue_sequences LIKE queue_grace_fixture');
     await connection.query('DROP TEMPORARY TABLE queue_grace_fixture');
+    await connection.query('CREATE TEMPORARY TABLE consultations (consultation_id INT PRIMARY KEY, queue_id INT, doctor_id INT)');
+    await connection.query('CREATE TEMPORARY TABLE doctors (doctor_id INT PRIMARY KEY, user_id INT)');
+    await connection.query('CREATE TEMPORARY TABLE users (user_id INT PRIMARY KEY, role VARCHAR(20), is_active BOOLEAN)');
+    await connection.query('CREATE TEMPORARY TABLE daily_doctor_settings (doctor_id INT, date DATE, is_available BOOLEAN)');
+    await connection.query('CREATE TEMPORARY TABLE doctor_leaves (doctor_id INT, status VARCHAR(20), start_date DATE, end_date DATE)');
+    await connection.query("INSERT INTO users VALUES (7, 'doctor', 1), (8, 'doctor', 1), (9, 'doctor', 1), (10, 'doctor', 0)");
+    await connection.query('INSERT INTO doctors VALUES (7, 7), (8, 8), (9, 9), (10, 10)');
+    await connection.query('INSERT INTO daily_doctor_settings VALUES (8, CURDATE(), 0)');
+    await connection.query("INSERT INTO doctor_leaves VALUES (9, 'approved', CURDATE() - INTERVAL 1 DAY, CURDATE() + INTERVAL 1 DAY)");
+    assert.equal((await Doctor.findSoleAvailable(connection)).doctor_id, 7);
+    await connection.query('UPDATE daily_doctor_settings SET is_available = 1 WHERE doctor_id = 8');
+    assert.equal(await Doctor.findSoleAvailable(connection), null);
+    await connection.query('UPDATE daily_doctor_settings SET is_available = 0 WHERE doctor_id = 8');
     await connection.query(`INSERT INTO queues (id, patient_id, is_walk_in, queue_number, type, category, services, walk_in_name)
       VALUES (1, 4294967290, 0, 'TEST1', 'regular', 'dental', '[]', 'Grace Test'),
              (2, 4294967291, 1, 'TEST2', 'regular', 'dental', '[]', 'Grace Test'),
@@ -38,7 +52,8 @@ test('MySQL grace lifecycle uses isolated temporary tables and preserves return 
     await Queue.expireMissed();
     assert.equal((await Queue._fetchById(3)).status, 'waiting');
     assert.equal((await Queue.findTodayActive())[1].id, 3);
-    await Queue.updateStatus(2, 'serving'); await Queue.updateStatus(2, 'done');
+    await Queue.updateStatus(2, 'serving');
+    assert.equal((await Queue.updateStatus(2, 'done')).completed_by_doctor_id, 7);
     assert.equal((await Queue.callNext()).id, 3);
     assert.equal((await miss(3)).queue.status, 'no_show');
     assert.equal((await Queue.findLatestNoShow(4294967292)).status, 'no_show');
@@ -52,6 +67,7 @@ test('MySQL grace lifecycle uses isolated temporary tables and preserves return 
     pool.getConnection = saved.getConnection; pool.query = saved.query;
     await connection.query('DROP TEMPORARY TABLE IF EXISTS queue_sequences');
     await connection.query('DROP TEMPORARY TABLE IF EXISTS queues');
+    await connection.query('DROP TEMPORARY TABLE IF EXISTS consultations, doctors, users, daily_doctor_settings, doctor_leaves');
     await connection.query('DROP TEMPORARY TABLE IF EXISTS queue_grace_fixture');
     connection.release();
     await pool.end();

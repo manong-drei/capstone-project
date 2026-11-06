@@ -81,6 +81,33 @@ test("appointment pages preserve global summary counts and deterministic orderin
   assert.match(calls[1].sql, /a\.appointment_id DESC\s+LIMIT \? OFFSET \?/);
 });
 
+test("admin visit history pages appointments and walk-ins together only when requested", async (t) => {
+  const calls = [];
+  const walkIn = { queue_id: 12, visit_type: "walk_in", patient_full_name: "Legacy walk-in" };
+  t.mock.method(pool, "query", async (sql, values) => {
+    calls.push({ sql, values });
+    if (!sql.includes("UNION ALL")) {
+      return sql.includes("COUNT(*) AS total") ? [[{ total: 0, completed: 0, open: 0 }]] : [[]];
+    }
+    return sql.includes("COUNT(*) AS total") ? [[{ total: 6, completed: 4, open: 1, cancelled_or_no_show: "1" }]] : [[walkIn]];
+  });
+  const query = { page: "2", limit: "5", includeWalkIns: "true" };
+  const admin = response();
+  await getAllAppointments({ user: { role: "admin" }, query }, admin);
+  assert.deepEqual(admin.body.pagination, { page: 2, limit: 5, total: 6, totalPages: 2 });
+  assert.deepEqual(admin.body.summary, { total: 6, completed: 4, open: 1, cancelledOrNoShow: 1 });
+  assert.deepEqual(admin.body.data, [walkIn]);
+  assert.match(calls[0].sql, /FROM queues WHERE is_walk_in = 1/);
+  assert.match(calls[0].sql, /SUM\(status IN \('cancelled', 'no_show'\)\)/);
+  assert.match(calls[1].sql, /WHERE q.is_walk_in = 1\s+ORDER BY .* queue_id DESC\s+LIMIT \? OFFSET \?/);
+  assert.deepEqual(calls[1].values, [5, 5]);
+
+  const staff = response();
+  await getAllAppointments({ user: { role: "staff" }, query }, staff);
+  assert.deepEqual(staff.body.data, []);
+  assert.ok(calls.slice(2).every(({ sql }) => !sql.includes("UNION ALL")));
+});
+
 test("empty lists return a usable first page and zero summary counts", async (t) => {
   t.mock.method(pool, "query", async (sql) => sql.includes("COUNT(*) AS total")
     ? [[{ total: 0, completed: 0, open: 0 }]] : [[]]);

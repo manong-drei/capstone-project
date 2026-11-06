@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
-import { ArrowDown, Bell, Check, HeartPulse, ShieldCheck } from "lucide-react";
+import { ArrowRight, Bell, Check, MapPin, ShieldCheck } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ROUTES } from "@/constants/routes";
 import PatientHomeTab from "@/components/dashboards/patient/PatientHomeTab";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -7,7 +9,7 @@ import "./cinematic-landing.css";
 
 gsap.registerPlugin(ScrollTrigger);
 
-export function CinematicHero() {
+export function CinematicHero({ onClinicInfo }) {
   const containerRef = useRef(null);
   const cardRef = useRef(null);
   const phoneRef = useRef(null);
@@ -15,15 +17,14 @@ export function CinematicHero() {
   useEffect(() => {
     const media = gsap.matchMedia();
 
-    // Keep the complete page readable on touch screens and with reduced motion.
     media.add(
-      "(min-width: 1024px) and (min-height: 700px) and (prefers-reduced-motion: no-preference)",
+      "(min-width: 1024px) and (min-height: 718px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
       () => {
         const timeline = gsap.timeline({
           defaults: { ease: "none" },
           scrollTrigger: {
             trigger: containerRef.current,
-            start: "top 72px",
+            start: () => `top ${getComputedStyle(containerRef.current).getPropertyValue("--cinematic-nav-height").trim()}`,
             end: () => `+=${window.innerHeight * 2}`,
             pin: true,
             anticipatePin: 1,
@@ -33,17 +34,13 @@ export function CinematicHero() {
         });
 
         timeline
-          .to(".cinematic-intro", {
-            opacity: 0,
-            yPercent: -6,
-            duration: 1,
-          })
           .fromTo(
             cardRef.current,
-            { yPercent: 110 },
+            { yPercent: 100 },
             { yPercent: 0, duration: 1.4 },
             0,
           )
+          .set(".cinematic-intro", { autoAlpha: 0 })
           .from(
             ".cinematic-phone-wrap",
             {
@@ -109,13 +106,11 @@ export function CinematicHero() {
       containerRef,
     );
 
-    // Phones and tablets (anything under the desktop pin's 1024px breakpoint)
-    // get a simple, non-pinned scroll reveal instead of a static, unanimated
-    // page. Gated by prefers-reduced-motion, same as the desktop timeline.
+    // Short, narrow, and touch viewports use a reveal without pinning the page.
     media.add(
-      "(max-width: 1023px) and (prefers-reduced-motion: no-preference)",
+      "(prefers-reduced-motion: no-preference) and ((width < 1024px) or (height < 718px) or (hover: none) or (not (pointer: fine)))",
       () => {
-        gsap.from(".cinematic-intro > *", {
+        gsap.from(".cinematic-intro-copy > *", {
           y: 24,
           opacity: 0,
           duration: 0.9,
@@ -152,32 +147,38 @@ export function CinematicHero() {
     <section
       ref={containerRef}
       className="cinematic-stage"
-      aria-label="A better healthcare experience"
+      aria-label="Public dental services and E-Kalusugan"
     >
       <div className="cinematic-intro">
-        <p className="cinematic-eyebrow">
-          <span /> BAGO CITY HEALTHCARE FACILITY
-        </p>
-        <h1>
-          Less waiting.
-          <br />
-          <span>More living.</span>
-        </h1>
-        <p className="mx-auto mt-7 max-w-lg text-base leading-relaxed text-blue-50 sm:text-lg">
-          Your time matters. Get your queue ticket, follow your turn, and make
-          room for what matters most.
-        </p>
-        <div className="mt-9 inline-flex items-center gap-2 rounded-full border border-white/25 bg-[#1a3a8f]/60 px-4 py-2 text-xs text-white">
-          <HeartPulse
-            size={15}
-            className="text-orange-300"
-            aria-hidden="true"
-          />{" "}
-          Stay healthy. Stay safe.
-        </div>
-        <div className="cinematic-scroll-cue" aria-hidden="true">
-          <span>SCROLL TO DISCOVER</span>
-          <ArrowDown size={17} />
+        <div className="cinematic-shell cinematic-intro-layout">
+          <div className="cinematic-intro-copy">
+            <p className="cinematic-intro-label">Public dental services</p>
+            <h1>Dental care for <span>the people of Bago.</span></h1>
+            <p className="cinematic-intro-description">
+              Get your dental queue ticket, check dentist availability, and
+              follow your turn with E-Kalusugan. A simpler clinic visit starts here.
+            </p>
+            <div className="cinematic-intro-actions">
+              <Link to={ROUTES.LOGIN} className="cinematic-clinic-button cinematic-dental-button">
+                Get a queue ticket <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+              <a href="#how-it-works" className="cinematic-clinic-button cinematic-visit-button">How it works</a>
+            </div>
+            <div className="cinematic-clinic-links">
+              <button type="button" className="cinematic-clinic-button cinematic-dental-button" aria-haspopup="dialog" onClick={() => onClinicInfo("dental")}>
+                Explore dental services <ArrowRight size={17} aria-hidden="true" />
+              </button>
+              <button type="button" className="cinematic-clinic-button cinematic-visit-button" aria-haspopup="dialog" onClick={() => onClinicInfo("visit")}>
+                <MapPin size={16} aria-hidden="true" /> Plan your visit
+              </button>
+              <button type="button" className="cinematic-clinic-button cinematic-visit-button" aria-haspopup="dialog" onClick={() => onClinicInfo("oral")}>
+                Oral Health
+              </button>
+            </div>
+          </div>
+          <p className="cinematic-photo-caption">
+            <MapPin size={14} aria-hidden="true" /> Bago City Health Center · Brgy. Poblacion
+          </p>
         </div>
       </div>
 
@@ -191,11 +192,11 @@ export function CinematicHero() {
             <h2>
               Your place in line.
               <br />
-              <span className="text-blue-200/65">Your day back.</span>
+              <span className="text-blue-200">Your day back.</span>
             </h2>
-            <p className="mt-5 max-w-sm text-sm leading-7 text-blue-100/70">
-              E-KALUSUGAN brings your healthcare visit closer. Follow your
-              queue, check doctor schedules, and arrive when it’s time.
+            <p className="mt-5 max-w-sm text-sm leading-7 text-blue-100">
+              Your dental queue, right on your phone. Check today's dentist
+              availability, follow your ticket, and stay nearby for your turn.
             </p>
             <div className="mt-7 flex items-center gap-2 text-xs text-blue-100/75">
               <ShieldCheck
@@ -230,7 +231,6 @@ export function CinematicHero() {
                     <span className="text-xs font-bold tracking-widest">
                       E-KALUSUGAN
                     </span>
-                    <Bell size={16} className="ml-auto" />
                   </div>
                   <PatientHomeTab
                     queueStatus={{ now_serving: "05", next_queuing: "06" }}
@@ -258,7 +258,7 @@ export function CinematicHero() {
               className="cinematic-badge cinematic-badge-bottom"
               aria-hidden="true"
             >
-              <span className="cinematic-badge-icon text-emerald-300!">
+              <span className="cinematic-badge-icon">
                 <Check size={18} />
               </span>
               <div>

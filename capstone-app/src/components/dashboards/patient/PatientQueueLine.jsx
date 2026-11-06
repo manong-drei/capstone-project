@@ -26,12 +26,12 @@ export default function PatientQueueLine({
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 rounded-t-2xl px-5 py-4 group-open:border-b group-open:border-slate-100 [&::-webkit-details-marker]:hidden">
-        <h2 className="text-md font-semibold text-blue-950">
+        <h2 className="text-lg font-bold text-blue-950">
           Current dental queue line
         </h2>
         <ChevronDown
           size={18}
-          className="shrink-0 text-slate-400 transition-transform group-open:rotate-180"
+          className="shrink-0 text-slate-600 transition-transform group-open:rotate-180"
           aria-hidden="true"
         />
       </summary>
@@ -44,14 +44,14 @@ export default function PatientQueueLine({
             {error}
           </p>
         ) : !loaded ? (
-          <p role="status" className="py-4 text-sm text-slate-500">
+          <p role="status" className="py-4 text-sm text-slate-700">
             Loading queue line…
           </p>
         ) : (
           <>
             <div className="my-4 grid grid-cols-2 gap-3">
               <div className="grid min-w-0 gap-1 rounded-xl bg-orange-50 p-3 text-orange-800">
-                <span className="text-xs">
+                <span className="text-sm font-medium">
                   {queueStatus.current_status === "called"
                     ? "Now calling"
                     : "Now serving"}
@@ -61,7 +61,7 @@ export default function PatientQueueLine({
                 </strong>
               </div>
               <div className="grid min-w-0 gap-1 rounded-xl bg-orange-50 p-3 text-orange-800">
-                <span className="text-xs">Next in queue</span>
+                <span className="text-sm font-medium">Next in queue</span>
                 <strong className="text-xl font-bold wrap-anywhere tabular-nums">
                   {queueStatus.next_queuing || "—"}
                 </strong>
@@ -76,11 +76,11 @@ export default function PatientQueueLine({
                   return (
                     <li
                       key={ticket.queue_number}
-                      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-3 text-xs ${mine ? "bg-blue-50 text-blue-800" : "border-b border-slate-100 text-slate-700"}`}
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-3 text-sm ${mine ? "bg-blue-50 text-blue-900" : "border-b border-slate-100 text-slate-800"}`}
                       aria-current={mine ? "true" : undefined}
                     >
                       <span className="flex min-w-0 flex-wrap items-center gap-2 wrap-anywhere">
-                        <small className="text-xs text-slate-400">
+                        <small className="text-sm text-slate-600">
                           {index + 1}.
                         </small>
                         <strong className="font-semibold tabular-nums">
@@ -88,7 +88,7 @@ export default function PatientQueueLine({
                         </strong>
                         {mine && <span>Your ticket</span>}
                       </span>
-                      <span className="text-slate-500">
+                      <span className="text-slate-700">
                         {ticket.status === "called"
                           ? "Now calling"
                           : ticket.status === "serving"
@@ -100,11 +100,11 @@ export default function PatientQueueLine({
                 })}
               </ol>
             ) : (
-              <p className="text-xs leading-5 text-slate-500">
+              <p className="text-sm leading-6 text-slate-700">
                 No active tickets in the queue.
               </p>
             )}
-            <p className="mt-4 border-t border-slate-100 pt-4 text-xs leading-5 text-slate-500">
+            <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-700">
               Priority patients may be called first. Follow the displayed order
               rather than comparing ticket numbers.
             </p>

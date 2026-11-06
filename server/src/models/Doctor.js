@@ -6,16 +6,44 @@
 const pool = require('../config/db');
 const { normalizeSuffix, normalizeMiddleName } = require('../utils/name');
 
+const activeRoster = `FROM doctors d JOIN users u ON u.user_id = d.user_id
+  AND u.role = 'doctor' AND u.is_active = 1`;
+const defaultActiveDoctorQuery = `SELECT d.doctor_id ${activeRoster} ORDER BY d.doctor_id ASC LIMIT 1`;
+const approvedLeaveToday = `SELECT 1 FROM doctor_leaves l WHERE l.doctor_id = d.doctor_id
+  AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date`;
+
 const Doctor = {
+  defaultActiveDoctorQuery,
+
+  countActive: async () => {
+    const [[{ count }]] = await pool.query(`SELECT COUNT(*) AS count ${activeRoster}`);
+    return count;
+  },
+
+  findActiveForUpdate: async (connection, doctorId) => {
+    const [[doctor]] = doctorId === undefined
+      ? await connection.query(`${defaultActiveDoctorQuery} FOR UPDATE`)
+      : await connection.query(`SELECT d.doctor_id ${activeRoster} WHERE d.doctor_id = ? FOR UPDATE`, [doctorId]);
+    return doctor;
+  },
+
+  findSoleAvailable: async (connection) => {
+    const [doctors] = await connection.query(`
+      SELECT d.doctor_id ${activeRoster}
+      LEFT JOIN daily_doctor_settings dds ON dds.doctor_id = d.doctor_id AND dds.date = CURDATE()
+      WHERE COALESCE(dds.is_available, 1) = 1 AND NOT EXISTS (${approvedLeaveToday})
+      ORDER BY d.doctor_id LIMIT 2 FOR UPDATE
+    `);
+    return doctors.length === 1 ? doctors[0] : null;
+  },
 
   findAll: async () => {
     const [rows] = await pool.query(`
       SELECT d.*, s.specialization_name,
-        IF(EXISTS(SELECT 1 FROM doctor_leaves l WHERE l.doctor_id = d.doctor_id
-          AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date), 0, COALESCE(dds.is_available, 1)) AS is_available,
+        IF(EXISTS(${approvedLeaveToday}), 0, COALESCE(dds.is_available, 1)) AS is_available,
         (SELECT DATE_FORMAT(l.end_date, '%Y-%m-%d') FROM doctor_leaves l WHERE l.doctor_id = d.doctor_id
           AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date LIMIT 1) AS leave_end
-      FROM   doctors d
+      ${activeRoster}
       LEFT   JOIN specializations s ON d.specialization_id = s.specialization_id
       LEFT   JOIN daily_doctor_settings dds
                ON dds.doctor_id = d.doctor_id AND dds.date = CURDATE()
@@ -64,8 +92,8 @@ const Doctor = {
     return rows;
   },
 
-  findByUserId: async (user_id) => {
-    const [rows] = await pool.query(
+  findByUserId: async (user_id, connection = pool) => {
+    const [rows] = await connection.query(
       'SELECT * FROM doctors WHERE user_id = ?',
       [user_id]
     );

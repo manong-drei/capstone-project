@@ -17,6 +17,7 @@ function fixture() {
   let failCall = false;
   let failPrescription = false;
   let consultations = [];
+  let availableDentists = [{ doctor_id: 7 }];
   let prescriptions = [];
   const statements = [];
   pool.getConnection = async () => {
@@ -47,6 +48,11 @@ function fixture() {
         }
         const data = working || rows;
         const row = data.find(q => q.id === Number(values[0]));
+        if (sql.startsWith('SELECT d.doctor_id FROM doctors')) {
+          if (sql.includes('LIMIT 2')) return [availableDentists];
+          return [values[0] === 7 ? [{ doctor_id: 7 }] : []];
+        }
+        if (sql.startsWith('SELECT doctor_id FROM consultations')) return [workingConsultations.filter(consultation => consultation.queue_id === Number(values[0]))];
         if (sql.startsWith('SELECT consultation_id')) return [workingConsultations.filter(consultation => consultation.queue_id === values[0])];
         if (sql.startsWith('INSERT INTO consultations')) {
           const id = workingConsultations.length + 1;
@@ -84,6 +90,8 @@ function fixture() {
             ? data.filter(q => q.category === values[1] && q.status === 'missed' && new Date(q.grace_expires_at).getTime() <= now)
             : data.filter(q => q.id === values[1]);
           targets.forEach(q => Object.assign(q, { status: 'no_show', status_reason: values[0] }));
+        } else if (sql.includes('completed_by_doctor_id = ?')) {
+          Object.assign(data.find(q => q.id === Number(values[3])), { status: values[0], status_reason: values[1], completed_by_doctor_id: values[2] });
         } else if (sql.startsWith('UPDATE queues SET status = ?')) {
           Object.assign(data.find(q => q.id === Number(values[2])), { status: values[0], status_reason: values[1] });
         } else throw new Error(`Unexpected SQL: ${sql}`);
@@ -94,6 +102,7 @@ function fixture() {
   return {
     advance: ms => { now += ms; }, rows: () => rows, statements,
     consultations: () => consultations, prescriptions: () => prescriptions,
+    availableDentists: ids => { availableDentists = ids.map(doctor_id => ({ doctor_id })); },
     failPrescription: () => { failPrescription = true; },
     failCall: () => { failCall = true; }, close: () => { pool.getConnection = original; },
   };
@@ -153,6 +162,59 @@ test('staff finishes and calls next while the dentist can still save the previou
     assert.equal((await save()).statusCode, 409);
     assert.equal(f.consultations().length, 1);
   } finally { Doctor.findByUserId = originalDoctor; f.close(); }
+});
+
+test('staff completion records the sole available dentist who can add notes later', async t => {
+  const f = fixture();
+  t.mock.method(Doctor, 'findByUserId', async userId => ({ doctor_id: userId === 4 ? 7 : 8 }));
+  try {
+    f.rows()[1].status = 'serving';
+    const completed = await Queue.updateStatus(2, 'done');
+    assert.equal(completed.completed_by_doctor_id, 7);
+    f.availableDentists([8]);
+    assert.equal((await Queue.updateStatus(2, 'done')).completed_by_doctor_id, 7);
+    const save = async userId => {
+      const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json() {} };
+      await createConsultation({ user: { user_id: userId }, body: { queue_id: 2, notes: 'Dental notes' } }, res);
+      return res.statusCode;
+    };
+    assert.equal(await save(5), 403);
+    assert.equal(await save(4), 201);
+    assert.equal(f.consultations()[0].doctor_id, 7);
+    assert.ok(!f.statements.some(sql => sql.startsWith('UPDATE appointments')));
+  } finally { f.close(); }
+});
+
+test('staff can finish a walk-in with an ambiguous roster and record the dentist later through notes', async t => {
+  t.mock.method(Doctor, 'findByUserId', async () => ({ doctor_id: 8 }));
+  for (const roster of [[], [7, 8]]) {
+    const f = fixture();
+    try {
+      f.availableDentists(roster);
+      f.rows()[1].status = 'serving';
+      const completed = await Queue.updateStatus(2, 'done');
+      assert.equal(completed.status, 'done');
+      assert.equal(completed.completed_by_doctor_id, null);
+      const res = { status(code) { this.statusCode = code; return this; }, json() {} };
+      await createConsultation({ user: { user_id: 5 }, body: { queue_id: 2, notes: 'Dental notes' } }, res);
+      assert.equal(res.statusCode, 201);
+      assert.equal(f.consultations()[0].doctor_id, 8);
+    } finally { f.close(); }
+  }
+});
+
+test('a dentist completing a walk-in is identified by their session', async t => {
+  const f = fixture();
+  t.mock.method(Doctor, 'findByUserId', async id => {
+    assert.equal(id, 4);
+    return { doctor_id: 7 };
+  });
+  try {
+    f.rows()[1].status = 'serving';
+    f.availableDentists([8]);
+    const completed = await Queue.updateStatus(2, 'done', null, { doctorUserId: 4 });
+    assert.equal(completed.completed_by_doctor_id, 7);
+  } finally { f.close(); }
 });
 
 test('simultaneous staff completion and dentist saving serialize without losing notes', async () => {

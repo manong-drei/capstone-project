@@ -77,7 +77,7 @@ export default function DoctorHomeTab({
       color: "bg-violet-50 text-violet-700",
     },
     {
-      label: "Done",
+      label: "Completed",
       value: done,
       icon: CheckCircle2,
       color: "bg-emerald-50 text-emerald-700",

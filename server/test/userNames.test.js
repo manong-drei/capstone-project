@@ -145,7 +145,7 @@ test('self-profile updates use the authenticated account and reject managed fiel
     const table = { patient: 'patients', doctor: 'doctors', staff: 'staff', admin: 'staff' }[role];
     assert.equal(writes[0].sql, `UPDATE ${table} SET first_name = ?, suffix = ?, contact_number = ? WHERE user_id = ?`);
     assert.deepEqual(writes[0].values, ['Juan', null, '09123456789', 7]);
-    if (role === 'admin') assert.match(writes[1].sql, /^INSERT INTO audit_logs/);
+    assert.equal(writes.length, 1);
   }
 });
 

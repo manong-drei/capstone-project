@@ -32,6 +32,7 @@ import {
   emptyReport,
   groupOffset,
   normalizeReportBarangay,
+  normalizeReportSex,
   summarizeCompletedVisits,
   sumReports,
 } from "./doctorReport";
@@ -231,9 +232,7 @@ function CompletedTable({ rows }) {
       counts.completed,
       counts.male,
       counts.female,
-      counts.other,
-      counts.unknown,
-      ...[...AGE_GROUPS, "Unknown"].map((age) =>
+      ...AGE_GROUPS.map((age) =>
         entries
           .filter((row) => row.age_group === age)
           .reduce((sum, row) => sum + Number(row.count), 0),
@@ -249,10 +248,7 @@ function CompletedTable({ rows }) {
             "Completed",
             "Male",
             "Female",
-            "Other",
-            "Unknown sex",
             ...AGE_GROUPS,
-            "Unknown age",
           ].map((label) => (
             <th scope="col" key={label}>
               {label}
@@ -510,12 +506,6 @@ function ClinicalCountsReport({ data, measure, onMeasureChange }) {
 
 function CompletedBreakdown({ rows, completed }) {
   const [breakdown, setBreakdown] = useState("barangay");
-  const sexLabel = (row) =>
-    ["male", "female", "other"].includes(String(row.sex).trim().toLowerCase())
-      ? String(row.sex).trim().toLowerCase()
-      : "unknown";
-  const ageLabel = (row) =>
-    AGE_GROUPS.includes(row.age_group) ? row.age_group : "Unknown";
   const labels =
     breakdown === "barangay"
       ? [
@@ -527,16 +517,15 @@ function CompletedBreakdown({ rows, completed }) {
           ),
         ]
       : breakdown === "age"
-        ? [...AGE_GROUPS, "Unknown"]
-        : ["Male", "Female", "Other", "Unknown sex"];
+        ? AGE_GROUPS
+        : ["Male", "Female"];
   const groups = labels.map((label) => {
     const entries = rows.filter((row) =>
       breakdown === "barangay"
         ? normalizeReportBarangay(row.barangay) === label
         : breakdown === "age"
-          ? ageLabel(row) === label
-          : sexLabel(row) ===
-            (label === "Unknown sex" ? "unknown" : label.toLowerCase()),
+          ? row.age_group === label
+          : normalizeReportSex(row.sex) === label.toLowerCase(),
     );
     return {
       label,
@@ -575,7 +564,7 @@ function CompletedBreakdown({ rows, completed }) {
           </select>
         </label>
         <p className="text-xs leading-relaxed text-slate-500">
-          Visits are counted separately from clinical outcomes.
+          The total includes all completed visits. Sex and age breakdowns count only the categories shown.
         </p>
       </aside>
       <div className="min-w-0 space-y-4">
@@ -625,8 +614,6 @@ function CompletedBreakdown({ rows, completed }) {
                     {[
                       ["Male", "male"],
                       ["Female", "female"],
-                      ["Other", "other"],
-                      ["Unknown sex", "unknown"],
                     ].map(([label, key]) => (
                       <div key={key}>
                         <dt className="text-xs text-slate-500">{label}</dt>
@@ -635,16 +622,14 @@ function CompletedBreakdown({ rows, completed }) {
                         </dd>
                       </div>
                     ))}
-                    {[...AGE_GROUPS, "Unknown"].map((age) => (
+                    {AGE_GROUPS.map((age) => (
                       <div key={age}>
-                        <dt className="text-xs text-slate-500">
-                          {age === "Unknown" ? "Unknown age" : age}
-                        </dt>
+                        <dt className="text-xs text-slate-500">{age}</dt>
                         <dd className="text-sm font-semibold">
                           {
                             summarizeCompletedVisits(
                               group.entries.filter(
-                                (entry) => ageLabel(entry) === age,
+                                (entry) => entry.age_group === age,
                               ),
                             ).completed
                           }

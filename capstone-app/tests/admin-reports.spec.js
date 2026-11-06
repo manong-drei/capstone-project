@@ -55,10 +55,14 @@ async function expectChartPoint(chart, series, point, year, recipients) {
 for (const width of [1440, 768, 375]) {
   test(`queue stats move to overview and predictive reports work at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 });
+    const chartWarnings = [];
+    page.on("console", message => {
+      if (/of chart should be greater than 0/.test(message.text())) chartWarnings.push(message.text());
+    });
     await mockAdmin(page);
     const queueStats = page.getByRole("region", { name: "Queues today" });
     await expect(queueStats).toBeVisible();
-    for (const [label, value] of [["Waiting", "7"], ["Serving", "3"], ["Done", "9"], ["Cancelled", "2"]]) {
+    for (const [label, value] of [["Waiting", "7"], ["Serving", "3"], ["Completed", "9"], ["Cancelled", "2"]]) {
       await expect(queueStats.getByText(label, { exact: true }).locator("..")).toContainText(value);
     }
     await openReports(page);
@@ -87,6 +91,8 @@ for (const width of [1440, 768, 375]) {
       await expect(totals.locator("tbody tr").nth(index).locator("td")).toHaveText([`${index + 1} ${index === 0 ? "year" : "years"}`, total]);
     }
     await expect(page.getByRole("img", { name: "Three-year BOHC demand forecast", exact: true })).toBeVisible();
+    await expect(page.getByRole("img", { name: /^Annual BOHC patient volume/ }).locator("svg.recharts-surface").first()).toBeVisible();
+    expect(chartWarnings).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`admin-reports-${width}.png`), fullPage: true, animations: "disabled" });
     const ageChart = page.getByRole("region", { name: "BOHC recipients by age group", exact: true });
     await expect(ageChart.getByRole("combobox", { name: "Age group", exact: true }).locator("option")).toHaveText(ageGroups);

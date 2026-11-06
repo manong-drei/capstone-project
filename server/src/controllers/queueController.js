@@ -3,6 +3,7 @@ const Queue = require("../models/Queue");
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
 const DoctorLeave = require("../models/DoctorLeave");
+const Doctor = require("../models/Doctor");
 const { clinicToday } = require("../utils/clinicDate");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
@@ -118,9 +119,7 @@ const createQueue = async (req, res) => {
     );
     if (todayQueueCount >= 2) throw httpError(409, "You have reached your daily queue limit (2). Please try again tomorrow.");
 
-    const [[doctor]] = await connection.query(
-      "SELECT doctor_id FROM doctors ORDER BY doctor_id ASC LIMIT 1 FOR UPDATE",
-    );
+    const doctor = await Doctor.findActiveForUpdate(connection);
     if (!doctor) throw httpError(409, "No dentist is available today.");
     await DoctorLeave.assertAvailable(doctor.doctor_id, clinicToday(), connection);
 
@@ -216,9 +215,7 @@ const createWalkIn = async (req, res) => {
     await connection.beginTransaction();
     await Queue.lockCategory(queueCategory, connection);
     if (queueCategory === "dental") {
-      const [[doctor]] = await connection.query(
-        "SELECT doctor_id FROM doctors ORDER BY doctor_id ASC LIMIT 1 FOR UPDATE",
-      );
+      const doctor = await Doctor.findActiveForUpdate(connection);
       if (!doctor) throw httpError(409, "No dentist is available today.");
       await DoctorLeave.assertAvailable(doctor.doctor_id, clinicToday(), connection);
 
@@ -350,7 +347,11 @@ const updateStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "A reason is required for cancellation." });
     }
 
-    const updated = await Queue.updateStatus(id, status, status === 'cancelled' ? String(reason).trim() : null, { auditRequest: req });
+    const syncAppointments = req.auditActor?.role === 'admin';
+    const updated = await Queue.updateStatus(id, status, status === 'cancelled' ? String(reason).trim() : null, {
+      syncAppointments,
+      doctorUserId: req.user.role === 'doctor' ? req.user.user_id : undefined,
+    });
     if (updated?.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
     if (!updated) {
       return res
@@ -358,7 +359,7 @@ const updateStatus = async (req, res) => {
         .json({ success: false, message: "Queue entry not found." });
     }
 
-    if (req.auditActor?.role !== 'admin' && status === "cancelled" && updated.patient_id && !updated.is_walk_in) {
+    if (!syncAppointments && status === "cancelled" && updated.patient_id && !updated.is_walk_in) {
       const db = require("../config/db");
       await db.query(
         `UPDATE appointments
@@ -369,7 +370,7 @@ const updateStatus = async (req, res) => {
     }
 
     // When a registered patient's queue is done, mark their appointment as completed
-    if (req.auditActor?.role !== 'admin' && status === "done" && updated.patient_id && !updated.is_walk_in) {
+    if (!syncAppointments && status === "done" && updated.patient_id && !updated.is_walk_in) {
       const db = require("../config/db");
       await db.query(
         `UPDATE appointments

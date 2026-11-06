@@ -1,6 +1,7 @@
 const { createHash } = require('node:crypto');
 const pool = require('../config/db');
 const audit = require('../services/auditLog');
+const Doctor = require('./Doctor');
 const Queue = require('./Queue');
 const { clinicToday } = require('../utils/clinicDate');
 
@@ -39,14 +40,14 @@ const DoctorLeave = {
       FROM appointments a LEFT JOIN patients p ON p.patient_id = a.patient_id
       WHERE a.doctor_id = ? AND a.appointment_date BETWEEN ? AND ? AND a.status IN ('pending', 'confirmed')
       ORDER BY a.appointment_date, a.appointment_id${connection === pool ? '' : ' FOR UPDATE'}`, [leave.doctor_id, leave.start_date, leave.end_date]);
-    // Dental intake uses the lowest-ID dentist throughout the existing queue flow.
+    // Dental intake uses the lowest-ID active dentist.
     const [queues] = await connection.query(`SELECT q.id, q.queue_number, q.status,
       COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, p.last_name), ''), q.walk_in_name, 'Unknown patient') AS patient_name
       FROM queues q LEFT JOIN patients p ON p.patient_id = q.patient_id
       WHERE q.category = 'dental' AND DATE(q.created_at) = CURDATE()
         AND q.status IN ('waiting', 'called', 'serving', 'missed')
         AND CURDATE() BETWEEN ? AND ?
-        AND ? = (SELECT doctor_id FROM doctors ORDER BY doctor_id LIMIT 1)
+        AND ? = (${Doctor.defaultActiveDoctorQuery})
       ORDER BY q.id${connection === pool ? '' : ' FOR UPDATE'}`, [leave.start_date, leave.end_date, leave.doctor_id]);
     const version = createHash('sha256').update(JSON.stringify([
       appointments.map(row => [row.appointment_id, row.status]), queues.map(row => [row.id, row.status]),
@@ -99,7 +100,6 @@ const DoctorLeave = {
       }
       await connection.query(`UPDATE doctor_leaves SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?`,
         [status, note || null, doctorId ? null : req.user.user_id, id]);
-      if (!doctorId) await audit.write(req, { action: `doctor.leave_${status}`, target_type: 'doctor_leave', target_id: id }, connection);
       return { id, status };
     });
   },

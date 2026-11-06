@@ -20,8 +20,19 @@ const requireProfileSession = require("../middleware/requireProfileSession");
 
 const requireRecoverySession = (req, res, next) => {
   res.set("Cache-Control", "no-store");
-  if (req.devBypass || req.user.purpose !== "session" || !Number.isSafeInteger(req.user.user_id) || req.user.user_id < 1) {
-    return res.status(403).json({ success: false, message: "Log in with a real staff or admin account to recover a patient account." });
+  if (
+    req.devBypass ||
+    req.user.purpose !== "session" ||
+    !Number.isSafeInteger(req.user.user_id) ||
+    req.user.user_id < 1
+  ) {
+    return res
+      .status(403)
+      .json({
+        success: false,
+        message:
+          "Log in with a real staff or admin account to recover a patient account.",
+      });
   }
   next();
 };
@@ -31,7 +42,11 @@ const recoveryLimiter = rateLimit({
   keyGenerator: (req) => String(req.user.user_id),
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Too many recovery requests. Please try again in 15 minutes." },
+  message: {
+    success: false,
+    message:
+      "Too many[HERE] recovery requests. Please try again in 15 minutes.",
+  },
 });
 const recoveryPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -40,7 +55,10 @@ const recoveryPasswordLimiter = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Too many password attempts. Please try again in 15 minutes." },
+  message: {
+    success: false,
+    message: "Too many password attempts. Please try again in 15 minutes.",
+  },
 });
 
 // Routes
@@ -49,12 +67,37 @@ const recoveryPasswordLimiter = rateLimit({
 router.get("/me", protect, authorize("patient"), getMyProfile);
 
 // Update patient profile (protected, only "patient" role)
-router.put("/me", protect, authorize("patient"), requireProfileSession, updateProfile);
+router.put(
+  "/me",
+  protect,
+  authorize("patient"),
+  requireProfileSession,
+  updateProfile,
+);
 
 router.get("/search", protect, authorize("staff", "admin"), searchPatients);
-router.get("/:id", protect, authorize("staff", "admin", "doctor"), getPatientById);
+router.get(
+  "/:id",
+  protect,
+  authorize("staff", "admin", "doctor"),
+  getPatientById,
+);
 router.post("/:id/merge", protect, authorize("staff", "admin"), mergePatient);
-router.post("/:id/account-recovery", protect, authorize("staff", "admin"), requireRecoverySession, recoveryLimiter, recoverAccount);
-router.post("/:id/account-recovery/verify-password", protect, authorize("staff", "admin"), requireRecoverySession, recoveryPasswordLimiter, verifyRecoveryPassword);
+router.post(
+  "/:id/account-recovery",
+  protect,
+  authorize("staff", "admin"),
+  requireRecoverySession,
+  recoveryLimiter,
+  recoverAccount,
+);
+router.post(
+  "/:id/account-recovery/verify-password",
+  protect,
+  authorize("staff", "admin"),
+  requireRecoverySession,
+  recoveryPasswordLimiter,
+  verifyRecoveryPassword,
+);
 
 module.exports = router;

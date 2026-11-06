@@ -1,6 +1,8 @@
 import useLiveData from "@/hooks/useLiveData";
 import { useCallback, useState } from "react";
 import Icon from "@/components/common/AppIcons";
+import AccountAction from "./AccountAction";
+import AccountStatusDialog from "./AccountStatusDialog";
 import api from "@/services/api";
 import { getNameFields } from "@/utils/nameDisplay";
 
@@ -69,132 +71,6 @@ function statusBadge(isActive) {
   return isActive
     ? { bg: "#dcfce7", color: "#166534", label: "Active" }
     : { bg: "#fee2e2", color: "#dc2626", label: "Inactive" };
-}
-
-// Inline confirmation modal
-function ConfirmModal({ open, memberName, action, onConfirm, onCancel }) {
-  if (!open) return null;
-  const isDeactivate = action === "deactivate";
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1000,
-        background: "rgba(15,23,42,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
-      onClick={onCancel}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: "16px",
-          padding: "28px 24px",
-          maxWidth: "360px",
-          width: "100%",
-          boxShadow: "0 20px 60px rgba(15,23,42,0.18)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            marginBottom: "14px",
-          }}
-        >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: "10px",
-              background: isDeactivate ? "#fee2e2" : "#dcfce7",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Icon
-              name={isDeactivate ? "xCircle" : "checkCircle"}
-              size={20}
-              color={isDeactivate ? "#dc2626" : "#16a34a"}
-            />
-          </div>
-          <h3
-            style={{
-              margin: 0,
-              fontSize: "16px",
-              fontWeight: 700,
-              color: "#111827",
-            }}
-          >
-            {isDeactivate ? "Deactivate Account" : "Reactivate Account"}
-          </h3>
-        </div>
-        <p
-          style={{
-            margin: "0 0 20px",
-            fontSize: "14px",
-            color: "#6b7280",
-            lineHeight: 1.5,
-          }}
-        >
-          {isDeactivate ? (
-            <>
-              Are you sure you want to deactivate{" "}
-              <strong style={{ color: "#111827" }}>{memberName}</strong>? They
-              will lose access to the system.
-            </>
-          ) : (
-            <>
-              Are you sure you want to reactivate{" "}
-              <strong style={{ color: "#111827" }}>{memberName}</strong>? They
-              will regain access to the system.
-            </>
-          )}
-        </p>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button
-            onClick={onCancel}
-            style={{
-              flex: 1,
-              padding: "9px",
-              borderRadius: "8px",
-              border: "1px solid #e5e7eb",
-              background: "transparent",
-              fontSize: "13px",
-              color: "#374151",
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            style={{
-              flex: 2,
-              padding: "9px",
-              borderRadius: "8px",
-              border: "none",
-              background: isDeactivate ? "#dc2626" : "#16a34a",
-              fontSize: "13px",
-              fontWeight: 600,
-              color: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            {isDeactivate ? "Deactivate" : "Reactivate"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // Edit staff modal
@@ -452,14 +328,20 @@ export default function StaffManager() {
     position: "",
   });
 
-const fetchStaff = useCallback(async (signal, background = false) => {
+  const fetchStaff = useCallback(async (signal, background = false) => {
     if (!background) setLoading(true);
     try {
-      const data = await api.get('/admin/staff', { signal });
-      if (!signal?.aborted) { setStaff(data?.staff ?? []); setFetchError(''); }
+      const data = await api.get("/admin/staff", { signal });
+      if (!signal?.aborted) {
+        setStaff(data?.staff ?? []);
+        setFetchError("");
+      }
     } catch (err) {
-      if (!signal?.aborted) setFetchError(err.message || 'Failed to load staff accounts.');
-    } finally { if (!signal?.aborted) setLoading(false); }
+      if (!signal?.aborted)
+        setFetchError(err.message || "Failed to load staff accounts.");
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
   }, []);
   useLiveData(fetchStaff);
 
@@ -538,11 +420,14 @@ const fetchStaff = useCallback(async (signal, background = false) => {
   const closeConfirm = () =>
     setConfirm({ open: false, memberId: null, memberName: "", action: "" });
 
-  const handleConfirmAction = async () => {
+  const handleConfirmAction = async (reason) => {
     const { memberId, action } = confirm;
     closeConfirm();
     try {
-      await api.patch(`/admin/staff/${memberId}/${action}`);
+      await api.patch(
+        `/admin/staff/${memberId}/${action}`,
+        action === "deactivate" ? { reason } : undefined,
+      );
       fetchStaff();
     } catch (err) {
       alert(err.message);
@@ -558,13 +443,14 @@ const fetchStaff = useCallback(async (signal, background = false) => {
     >
       <style>{STAFF_RESPONSIVE_CSS}</style>
 
-      <ConfirmModal
-        open={confirm.open}
-        memberName={confirm.memberName}
-        action={confirm.action}
-        onConfirm={handleConfirmAction}
-        onCancel={closeConfirm}
-      />
+      {confirm.open && (
+        <AccountStatusDialog
+          name={confirm.memberName}
+          action={confirm.action}
+          onConfirm={handleConfirmAction}
+          onCancel={closeConfirm}
+        />
+      )}
 
       {editMember && (
         <EditStaffModal
@@ -995,57 +881,20 @@ const fetchStaff = useCallback(async (signal, background = false) => {
                     style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}
                   >
                     {!isInactive && (
-                      <button
-                        onClick={() => {
-                          setEditMember(member);
-                        }}
-                        style={{
-                          padding: "4px 9px",
-                          borderRadius: "7px",
-                          border: "none",
-                          background: "#e0e7ff",
-                          color: "#4338ca",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Edit
-                      </button>
+                      <AccountAction
+                        action="edit"
+                        onClick={() => setEditMember(member)}
+                      />
                     )}
-                    {isInactive ? (
-                      <button
-                        onClick={() => openConfirm(member, "reactivate")}
-                        style={{
-                          padding: "4px 9px",
-                          borderRadius: "7px",
-                          border: "none",
-                          background: "#dcfce7",
-                          color: "#16a34a",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Reactivate
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => openConfirm(member, "deactivate")}
-                        style={{
-                          padding: "4px 9px",
-                          borderRadius: "7px",
-                          border: "none",
-                          background: "#fee2e2",
-                          color: "#dc2626",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Deactivate
-                      </button>
-                    )}
+                    <AccountAction
+                      action={isInactive ? "reactivate" : "deactivate"}
+                      onClick={() =>
+                        openConfirm(
+                          member,
+                          isInactive ? "reactivate" : "deactivate",
+                        )
+                      }
+                    />
                   </div>
                 </div>
               );
@@ -1117,57 +966,20 @@ const fetchStaff = useCallback(async (signal, background = false) => {
                       style={{ display: "flex", gap: "6px", marginTop: "2px" }}
                     >
                       {!isInactive && (
-                        <button
-                          onClick={() => {
-                            setEditMember(member);
-                          }}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: "7px",
-                            border: "none",
-                            background: "#e0e7ff",
-                            color: "#4338ca",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Edit
-                        </button>
+                        <AccountAction
+                          action="edit"
+                          onClick={() => setEditMember(member)}
+                        />
                       )}
-                      {isInactive ? (
-                        <button
-                          onClick={() => openConfirm(member, "reactivate")}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: "7px",
-                            border: "none",
-                            background: "#dcfce7",
-                            color: "#16a34a",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Reactivate
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => openConfirm(member, "deactivate")}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: "7px",
-                            border: "none",
-                            background: "#fee2e2",
-                            color: "#dc2626",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Deactivate
-                        </button>
-                      )}
+                      <AccountAction
+                        action={isInactive ? "reactivate" : "deactivate"}
+                        onClick={() =>
+                          openConfirm(
+                            member,
+                            isInactive ? "reactivate" : "deactivate",
+                          )
+                        }
+                      />
                     </div>
                   </div>
                 );

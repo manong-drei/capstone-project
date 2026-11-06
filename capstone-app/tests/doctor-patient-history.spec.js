@@ -50,6 +50,9 @@ for (const width of [1920, 1440, 1024, 768, 375, 320]) {
     const row = ticket => page.locator("tr, .dd-show-on-mobile > div").filter({ has: page.getByText(ticket, { exact: true }) }).filter({ visible: true });
     await expect(row("AQ01")).toContainText("Appointment");
     await expect(row("WQ02")).toContainText("Walk-in");
+    await expect(row("AQ01").getByText("Completed", { exact: true })).toBeVisible();
+    await expect(row("WQ02").getByText("Completed", { exact: true })).toBeVisible();
+    await expect(page.getByText("Done", { exact: true })).toHaveCount(0);
     await expect(row("WQ03")).toContainText("No notes recorded");
     await expect(row("WQ03").getByRole("button", { name: "View Notes" })).toHaveCount(0);
     await expect(page.getByText("Earlier Patient", { exact: true })).toHaveCount(0);

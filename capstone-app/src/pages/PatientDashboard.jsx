@@ -1,10 +1,7 @@
 import useLiveData from "@/hooks/useLiveData";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import {
-  History,
-  LayoutDashboard,
-} from "lucide-react";
+import { History, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { useQueue } from "@/hooks/useQueue";
@@ -15,35 +12,22 @@ import * as appointmentService from "@/services/appointmentService";
 import * as queueService from "@/services/queueService";
 import * as patientService from "@/services/patientService";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
-import { DashboardSkeleton } from "@/components/common/LoadingState";
 import UserManual from "@/components/common/UserManual";
 import GetQueueModal from "@/components/dashboards/patient/GetQueueModal";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import PatientHomeTab from "@/components/dashboards/patient/PatientHomeTab";
 import PatientQueueTab from "@/components/dashboards/patient/PatientQueueTab";
 import PatientAppointmentsTab from "@/components/dashboards/patient/PatientAppointmentsTab";
-import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
-import { formatQueueTime, hasActivePatientPriority } from "@/utils/queueDisplay";
+import {
+  formatQueueTime,
+  hasActivePatientPriority,
+} from "@/utils/queueDisplay";
 
 const pages = {
   home: ROUTES.PATIENT_DASHBOARD,
   appointments: ROUTES.PATIENT_APPOINTMENT_HISTORY,
   queue: ROUTES.PATIENT_MY_QUEUE,
 };
-const navigation = [
-  {
-    key: "home",
-    label: "Dashboard",
-    mobileLabel: "Home",
-    icon: LayoutDashboard,
-  },
-  {
-    key: "appointments",
-    label: "Appointment history",
-    mobileLabel: "Visits",
-    icon: History,
-  },
-];
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
@@ -124,13 +108,24 @@ export default function PatientDashboard() {
     }
   }, []);
 
-  useLiveData(useCallback(async (signal, background) => {
-    await Promise.all([
-      fetchMyQueue(signal, background), fetchQueueStatus(signal), fetchDoctorAvailability(signal), fetchProfile(signal),
-    ]);
-    if (!signal.aborted) setInitialLoading(false);
-  }, [fetchMyQueue, fetchQueueStatus, fetchDoctorAvailability, fetchProfile]));
+  useLiveData(
+    useCallback(
+      async (signal, background) => {
+        await Promise.all([
+          fetchMyQueue(signal, background),
+          fetchQueueStatus(signal),
+          fetchDoctorAvailability(signal),
+          fetchProfile(signal),
+        ]);
+        if (!signal.aborted) setInitialLoading(false);
+      },
+      [fetchMyQueue, fetchQueueStatus, fetchDoctorAvailability, fetchProfile],
+    ),
+  );
   useLiveData(loadAppointments, activeTab === "appointments");
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   const hasActiveQueue =
     queue && ["waiting", "called", "serving", "missed"].includes(queue.status);
@@ -169,7 +164,7 @@ export default function PatientDashboard() {
   };
   if (!activeTab) return <Navigate to={ROUTES.PATIENT_DASHBOARD} replace />;
   return (
-    <div className="min-h-dvh bg-slate-50 font-[Poppins,sans-serif] text-slate-800 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_button:disabled]:opacity-60 [&_:is(button,a,input,summary):focus-visible]:outline-2 [&_:is(button,a,input,summary):focus-visible]:outline-offset-4 [&_:is(button,a,input,summary):focus-visible]:outline-blue-600">
+    <div className="min-h-dvh bg-gray-100 font-[Poppins,sans-serif] text-slate-800 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_:is(button,a,input,summary):focus-visible]:outline-2 [&_:is(button,a,input,summary):focus-visible]:outline-offset-4 [&_:is(button,a,input,summary):focus-visible]:outline-blue-600">
       <UserManual
         role="patient"
         isOpen={showManual}
@@ -185,64 +180,39 @@ export default function PatientDashboard() {
         identity={identity}
         onHelp={() => setShowManual(true)}
         onLogout={handleLogout}
-        sections={navigation.map((item) => ({ ...item, to: pages[item.key], active: activeTab === item.key }))}
-        mobileBar
       />
       <main
         id="patient-main"
-        className="mx-auto w-full max-w-[1440px] scroll-mt-24 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 md:py-8 lg:px-8"
+        className={
+          activeTab === "home"
+            ? "scroll-mt-16 pb-8"
+            : "mx-auto w-full max-w-360 scroll-mt-16 px-4 py-6 sm:px-6 md:py-8 lg:px-8"
+        }
       >
         {activeTab === "home" && (
-          <>
-            <div
-              data-testid="patient-hero"
-              className="mb-6 [&_h1]:wrap-anywhere"
-            >
-              <StaffHeroBanner
-                identity={identity}
-                doctorAvailable={
-                  doctorError || doctorAvailability === null
-                    ? null
-                    : !doctorLeaveEnd && doctorAvailability !== 0
-                }
-                doctorLeaveEnd={doctorError ? null : doctorLeaveEnd}
-              />
-            </div>
-            {initialLoading ? (
-              <DashboardSkeleton />
-            ) : (
-              <PatientHomeTab
-                queueStatus={queueStatus}
-                doctorAvailability={
-                  doctorError ? null : doctorLeaveEnd ? 0 : doctorAvailability
-                }
-                doctorLeaveEnd={doctorLeaveEnd}
-                hasActiveQueue={hasActiveQueue}
-                registrationMessage={registrationMessage}
-                queue={queue}
-                queueError={error}
-                queueStatusError={queueStatusError}
-                queueStatusLoaded={queueStatusLoaded}
-                lastUpdated={lastUpdated}
-                onGetQueue={() => setShowQueueModal(true)}
-                onCancelQueue={() =>
-                  setQueueReasonRequest({
-                    title: "Why are you cancelling your queue?",
-                    reasons: CANCELLATION_REASONS,
-                  })
-                }
-                onGoQueue={() => go("queue")}
-              />
-            )}
-            {doctorError && (
-              <p
-                role="alert"
-                className="my-3 rounded-xl bg-red-50 p-4 text-sm leading-6 text-red-700"
-              >
-                {doctorError}
-              </p>
-            )}
-          </>
+          <PatientHomeTab
+            queueStatus={queueStatus}
+            doctorAvailability={
+              doctorError ? null : doctorLeaveEnd ? 0 : doctorAvailability
+            }
+            doctorLeaveEnd={doctorLeaveEnd}
+            doctorError={doctorError}
+            hasActiveQueue={hasActiveQueue}
+            registrationMessage={registrationMessage}
+            queue={queue}
+            queueError={error}
+            queueStatusError={queueStatusError}
+            loading={initialLoading}
+            onGetQueue={() => setShowQueueModal(true)}
+            onCancelQueue={() =>
+              setQueueReasonRequest({
+                title: "Why are you cancelling your queue?",
+                reasons: CANCELLATION_REASONS,
+              })
+            }
+            onGoAppointments={() => go("appointments")}
+            onGoQueue={() => go("queue")}
+          />
         )}
         {activeTab === "queue" && (
           <PatientQueueTab
@@ -254,7 +224,6 @@ export default function PatientDashboard() {
             queueStatus={queueStatus}
             queueStatusError={queueStatusError}
             queueStatusLoaded={queueStatusLoaded}
-            lastUpdated={lastUpdated}
             onGetQueue={() => setShowQueueModal(true)}
             onCancelQueue={() =>
               setQueueReasonRequest({
@@ -275,7 +244,7 @@ export default function PatientDashboard() {
           />
         )}
         {lastUpdated && (
-          <p className="mt-8 flex flex-wrap items-center justify-center gap-2 text-center text-xs leading-5 text-slate-500">
+          <p className="mt-4 flex flex-wrap items-center justify-center gap-2 px-4 text-center text-sm leading-5 text-slate-600">
             <span
               aria-hidden="true"
               className={`size-1.5 rounded-full ${error || queueStatusError ? "bg-red-500" : "bg-emerald-500"}`}

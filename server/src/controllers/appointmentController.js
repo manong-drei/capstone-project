@@ -6,7 +6,6 @@ const pool = require("../config/db");
 const DoctorLeave = require("../models/DoctorLeave");
 const { clinicToday, validDate } = require("../utils/clinicDate");
 const { parsePagination } = require("../utils/pagination");
-const audit = require("../services/auditLog");
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -31,11 +30,11 @@ const getMyAppointments = async (req, res) => {
 const getAllAppointments = async (req, res) => {
   try {
     const { page: requestedPage, limit } = parsePagination(req.query);
-    const summary = await Appointment.getSummary();
+    const includeWalkIns = req.user?.role === "admin" && req.query?.includeWalkIns === "true";
+    const summary = await Appointment.getSummary({ includeWalkIns });
     const totalPages = Math.max(1, Math.ceil(summary.total / limit));
     const page = Math.min(requestedPage, totalPages);
-    const appointments = await Appointment.findAll({ limit, offset: (page - 1) * limit });
-    await audit.bestEffort(req, { action: 'patient.history_viewed', target_type: 'patient_history' });
+    const appointments = await Appointment.findAll({ limit, offset: (page - 1) * limit, includeWalkIns });
     res.json({
       success: true, count: appointments.length, data: appointments, summary,
       pagination: { page, limit, total: summary.total, totalPages },
@@ -97,10 +96,7 @@ const createAppointment = async (req, res) => {
       await connection.beginTransaction();
       // Serialize admission with queue actions and the capacity check.
       await Queue.lockCategory('dental', connection);
-      const [[doctor]] = await connection.query(
-        "SELECT doctor_id FROM doctors WHERE doctor_id = ? FOR UPDATE",
-        [doctor_id],
-      );
+      const doctor = await Doctor.findActiveForUpdate(connection, doctor_id);
       if (!doctor) throw httpError(404, "Doctor not found.");
       await DoctorLeave.assertAvailable(doctor_id, appointment_date, connection);
 
@@ -172,7 +168,7 @@ const updateAppointmentStatus = async (req, res) => {
       }
     }
 
-    const updated = await Appointment.updateStatus(req.params.id, status, req);
+    const updated = await Appointment.updateStatus(req.params.id, status, req.user.role === "admin");
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error("updateAppointmentStatus error:", err);

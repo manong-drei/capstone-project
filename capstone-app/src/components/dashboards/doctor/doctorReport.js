@@ -50,16 +50,17 @@ export function normalizeReportBarangay(value) {
   return BARANGAYS.find((barangay) => barangay.toLowerCase() === name.toLowerCase()) || original || "Unknown";
 }
 
+export const normalizeReportSex = (value) => String(value ?? "").trim().toLowerCase();
+
 export function summarizeCompletedVisits(rows) {
-  const totals = { completed: 0, male: 0, female: 0, other: 0, unknown: 0, missing: 0 };
+  const totals = { completed: 0, male: 0, female: 0, missing: 0 };
   for (const entry of rows) {
     const count = Number(entry.count);
     if (!Number.isFinite(count) || count <= 0) continue;
-    const sex = String(entry.sex ?? "").trim().toLowerCase();
-    const category = ["male", "female", "other"].includes(sex) ? sex : "unknown";
+    const sex = normalizeReportSex(entry.sex);
     totals.completed += count;
-    totals[category] += count;
-    if (category === "unknown" || !AGE_GROUPS.includes(entry.age_group) || !BARANGAYS.includes(normalizeReportBarangay(entry.barangay)))
+    if (sex === "male" || sex === "female") totals[sex] += count;
+    if (!["male", "female", "other"].includes(sex) || !AGE_GROUPS.includes(entry.age_group) || !BARANGAYS.includes(normalizeReportBarangay(entry.barangay)))
       totals.missing += count;
   }
   return totals;
@@ -233,12 +234,12 @@ export function createDoctorReport(month, doctorName, data, options) {
       row(2, [textCell("A2", "Period"), textCell("B2", periodLabel)]),
       row(3, [textCell("A3", "Doctor"), textCell("B3", doctorName)]),
       row(4, [textCell("A4", "Automatic counts; clinical outcomes are entered separately.")]),
-      ...[["Completed visits", totals.completed], ["Male", totals.male], ["Female", totals.female], ["Other", totals.other], ["Unknown sex", totals.unknown], ["Missing demographics", totals.missing]].map(([label, count], index) => row(index + 6, [textCell(`A${index + 6}`, label), `<c r="B${index + 6}" s="2"><v>${count}</v></c>`])),
+      ...[["Completed visits", totals.completed], ["Male", totals.male], ["Female", totals.female], ["Missing demographics", totals.missing]].map(([label, count], index) => row(index + 6, [textCell(`A${index + 6}`, label), `<c r="B${index + 6}" s="2"><v>${count}</v></c>`])),
       row(14, ["Barangay", "Age group", "Sex", "Completed visits"].map((label, index) => textCell(`${"ABCD"[index]}14`, label, 1))),
       ...demographics.map((entry, index) => row(index + 15, [
         textCell(`A${index + 15}`, normalizeReportBarangay(entry.barangay)),
-        textCell(`B${index + 15}`, entry.age_group || "Unknown"),
-        textCell(`C${index + 15}`, entry.sex || "Unknown"),
+        textCell(`B${index + 15}`, AGE_GROUPS.includes(entry.age_group) ? entry.age_group : ""),
+        textCell(`C${index + 15}`, ["Male", "Female"].find((label) => label.toLowerCase() === normalizeReportSex(entry.sex)) ?? ""),
         `<c r="D${index + 15}" s="2"><v>${Number(entry.count) || 0}</v></c>`,
       ])),
     ];

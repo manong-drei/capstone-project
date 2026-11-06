@@ -145,7 +145,7 @@ test('MySQL leave approvals preserve daily settings, detect conflicts and expire
     await connection.query('SET timestamp = ?', [Math.floor(now / 1000)]);
     await connection.query(fs.readFileSync(path.join(__dirname, '../migrations/007_doctor_leaves.sql'), 'utf8').replace('CREATE TABLE IF NOT EXISTS', 'CREATE TEMPORARY TABLE'));
     await connection.query('CREATE TEMPORARY TABLE doctors (doctor_id INT PRIMARY KEY, user_id INT, first_name VARCHAR(50), middle_name VARCHAR(50), last_name VARCHAR(50), suffix VARCHAR(20), specialization_id INT)');
-    await connection.query('CREATE TEMPORARY TABLE users (user_id INT PRIMARY KEY, phone VARCHAR(20), created_at DATETIME)');
+    await connection.query('CREATE TEMPORARY TABLE users (user_id INT PRIMARY KEY, phone VARCHAR(20), created_at DATETIME, role VARCHAR(20), is_active TINYINT)');
     await connection.query('CREATE TEMPORARY TABLE specializations (specialization_id INT PRIMARY KEY, specialization_name VARCHAR(50))');
     await connection.query('CREATE TEMPORARY TABLE patients (patient_id INT PRIMARY KEY, first_name VARCHAR(50), middle_name VARCHAR(50), last_name VARCHAR(50), suffix VARCHAR(20))');
     await connection.query('CREATE TEMPORARY TABLE appointments (appointment_id INT PRIMARY KEY, patient_id INT, doctor_id INT, appointment_date DATE, appointment_time TIME, status VARCHAR(20))');
@@ -156,6 +156,7 @@ test('MySQL leave approvals preserve daily settings, detect conflicts and expire
     t.mock.method(pool, 'getConnection', async () => connection);
     const auditWrite = t.mock.method(audit, 'write', async () => {});
     await connection.query("INSERT INTO doctors VALUES (1, 4, 'Test', NULL, 'Doctor', NULL, NULL), (2, 5, 'Other', NULL, 'Doctor', NULL, NULL)");
+    await connection.query("INSERT INTO users (user_id, role, is_active) VALUES (4, 'doctor', 1), (5, 'doctor', 1)");
     await connection.query("INSERT INTO patients VALUES (11, 'Test', NULL, 'Patient', NULL)");
     await connection.query("INSERT INTO appointments VALUES (5, 11, 1, '2026-10-29', '09:00', 'confirmed')");
     await connection.query("INSERT INTO queues VALUES (12, 11, 'WQ12', 'dental', 'waiting', '2026-10-29 00:15:00', 1, NULL)");
@@ -178,7 +179,7 @@ test('MySQL leave approvals preserve daily settings, detect conflicts and expire
     await assert.rejects(DoctorLeave.decide(id, 'approved', '', admin, { acknowledge: true, version: impacts.version }), { status: 409 });
     const fresh = await DoctorLeave.reviewDetails(id);
     await DoctorLeave.decide(id, 'approved', 'Approved by admin', admin, { acknowledge: true, version: fresh.impacts.version });
-    assert.equal(auditWrite.mock.calls[0].arguments[1].action, 'doctor.leave_approved');
+    assert.equal(auditWrite.mock.callCount(), 0);
     assert.equal((await DoctorLeave.findApproved(1, '2026-10-29')).id, id);
     assert.equal((await DoctorLeave.findApproved(1, '2026-11-04')).id, id);
     assert.equal(await DoctorLeave.findApproved(1, '2026-11-05'), null);

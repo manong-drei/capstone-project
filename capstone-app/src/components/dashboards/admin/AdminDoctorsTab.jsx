@@ -149,7 +149,7 @@ export default function AdminDoctorsTab({ doctors }) {
         Doctor Availability
       </h3>
       {doctors.length === 0 ? (
-        <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>No doctors registered yet.</p>
+        <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>No active doctors.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {doctors.map((d) => (

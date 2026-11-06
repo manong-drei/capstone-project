@@ -106,7 +106,9 @@ export default function DoctorDashboard() {
       setIsAvailable(data.is_available !== 0);
       setApprovedLeave(data.approved_leave ?? null);
     } catch (err) {
-      if (import.meta.env.DEV) console.error("fetchDailySettings error:", err);
+      if (!signal?.aborted && import.meta.env.DEV) {
+        console.error("fetchDailySettings error:", err);
+      }
     }
   }, []);
 

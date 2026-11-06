@@ -403,7 +403,7 @@ export default function DoctorAppointmentsTab({
                           </button>
                         </th>
                       ))}
-                      {["Visit Type", "Status", "Notes"].map((label) => (
+                      {["Ticket Type", "Status", "Notes"].map((label) => (
                         <th
                           key={label}
                           scope="col"

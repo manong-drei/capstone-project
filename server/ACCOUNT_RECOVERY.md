@@ -20,7 +20,7 @@ Public endpoints, all returning `Cache-Control: no-store`:
 
 Limits return 429, bad inputs/invalid or expired credentials return 400, and unavailable SMS/database/audit services return a generic 503 without credentials. Password/account updates invalidate outstanding grants through credential-version, phone, active-state and patient-link checks. The SMS worker checks eligibility before submitting each code and reconciles expired, cancelled and failed recoveries every five seconds while enabled.
 
-The existing admin **Audit Logs** tab includes recovery requested, phone verified, completed/password changed, failed, expired and cancelled events. Each records a shared recovery ID, patient ID/name, masked number, controlled status/reason and timestamp. Requests/incorrect codes are attributed to an unauthenticated visitor; only successful phone verification identifies the patient actor. Administrators never see OTPs, reset tokens or passwords. State changes and audit records commit together. Reuse the Action filter to distinguish requests from successful completion; match the recovery ID in details to follow one attempt.
+The admin **Audit Logs** tab shows completed and failed SMS recoveries. Each records a shared recovery ID, patient ID/name, masked number, controlled status/reason and timestamp. Failed attempts are attributed to an unauthenticated visitor. Completion identifies the verified patient. Administrators never see OTPs, reset tokens or passwords. These events commit with the recovery state or password change. Use the Action filter to distinguish completion from failures and the recovery ID to correlate events for the same attempt.
 
 ## Staff-assisted fallback
 

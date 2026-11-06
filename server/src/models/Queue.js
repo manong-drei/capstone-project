@@ -1,5 +1,5 @@
-const audit = require("../services/auditLog");
 const pool = require("../config/db");
+const Doctor = require("./Doctor");
 const { projectQueue, alertState } = require('../utils/queueOrder');
 const conflict = message => Object.assign(new Error(message), { status: 409 });
 const NO_SHOW_EXPIRED = 'No-show — did not return within 10 minutes';
@@ -254,32 +254,40 @@ const Queue = {
     finally { conn.release(); }
   },
 
-  updateStatus: (id, status, statusReason = null, { patientOnly = false, auditRequest } = {}) => Queue._withTicket(id, async (ticket, conn) => {
+  updateStatus: (id, status, statusReason = null, { patientOnly = false, syncAppointments = false, doctorUserId } = {}) => Queue._withTicket(id, async (ticket, conn) => {
       if (status === 'done' && ticket.status === 'done' && !patientOnly) return Queue._fetchById(id, conn);
       const allowed = status === 'serving' ? ticket.status === 'called' && !patientOnly
         : status === 'done' ? ticket.status === 'serving' && !patientOnly
         : status === 'cancelled' && (patientOnly ? ['waiting', 'missed'] : ['waiting', 'called', 'serving', 'missed']).includes(ticket.status);
       if (!allowed) throw conflict('This queue status change is not allowed.');
       if (status === 'cancelled' && !String(statusReason || '').trim()) throw conflict('A cancellation reason is required.');
-      await conn.query(
-        `UPDATE queues SET status = ?, status_reason = ?, updated_at = NOW() WHERE id = ?`,
-        [status, statusReason, id],
-      );
-      const appointments = [];
-      if (auditRequest?.auditActor?.role === 'admin' && ticket.patient_id && !ticket.is_walk_in && ['cancelled', 'done'].includes(status)) {
+      if (status === 'done' && ticket.is_walk_in && ticket.category === 'dental') {
+        const [[consultation]] = await conn.query(
+          'SELECT doctor_id FROM consultations WHERE queue_id = ? ORDER BY consultation_id LIMIT 1', [id]);
+        const doctor = consultation || (doctorUserId
+          ? await Doctor.findByUserId(doctorUserId, conn)
+          : await Doctor.findSoleAvailable(conn));
+        if (doctorUserId && (!doctor || (!consultation && !await Doctor.findActiveForUpdate(conn, doctor.doctor_id)))) {
+          throw conflict('An active dentist profile is required to complete this walk-in.');
+        }
+        // shortcut: A shared queue cannot infer the treating dentist when several are available. Use the consultation record when one is saved.
+        await conn.query(
+          'UPDATE queues SET status = ?, status_reason = ?, completed_by_doctor_id = ?, updated_at = NOW() WHERE id = ?',
+          [status, statusReason, doctor?.doctor_id ?? null, id],
+        );
+      } else {
+        await conn.query(
+          'UPDATE queues SET status = ?, status_reason = ?, updated_at = NOW() WHERE id = ?',
+          [status, statusReason, id],
+        );
+      }
+      if (syncAppointments && ticket.patient_id && !ticket.is_walk_in && ['cancelled', 'done'].includes(status)) {
         const dateClause = status === 'cancelled' ? 'DATE(?)' : 'CURDATE()';
         const args = status === 'cancelled' ? [ticket.patient_id, ticket.created_at] : [ticket.patient_id];
-        const [rows] = await conn.query(`SELECT appointment_id, status FROM appointments
-          WHERE patient_id = ? AND appointment_date = ${dateClause} AND status IN ('pending', 'confirmed') FOR UPDATE`, args);
         const nextStatus = status === 'done' ? 'completed' : 'cancelled';
-        for (const row of rows) {
-          await conn.query('UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?', [nextStatus, row.appointment_id]);
-          appointments.push({ appointment_id: row.appointment_id, from: row.status, to: nextStatus });
-        }
+        await conn.query(`UPDATE appointments SET status = ?, updated_at = NOW()
+          WHERE patient_id = ? AND appointment_date = ${dateClause} AND status IN ('pending', 'confirmed')`, [nextStatus, ...args]);
       }
-      await audit.write(auditRequest, { action: 'queue.status_changed', target_type: 'queue', target_id: id,
-        reason: statusReason, details: { patient_id: ticket.patient_id, appointments,
-          changes: { status: { from: ticket.status, to: status } } } }, conn);
       return Queue._fetchById(id, conn);
   }),
 

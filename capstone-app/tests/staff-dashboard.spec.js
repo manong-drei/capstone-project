@@ -19,7 +19,7 @@ async function mockStaff(page) {
     const url = new URL(request.url());
     let body = {};
     if (url.pathname === "/api/auth/profile") body = { data: { user_id: 8, role: "staff", display_name: "Alex Staff" } };
-    else if (url.pathname === "/api/doctor") body = { data: [{ doctor_id: 1, is_available: 1 }] };
+    else if (url.pathname === "/api/doctor") body = { data: [{ doctor_id: 1, first_name: "Maria", last_name: "Santos", is_available: 1 }] };
     else if (url.pathname === "/api/queue") {
       expect(url.searchParams.get("category")).toBe("dental");
       body = state.queues.filter((queue) => ["waiting", "called", "serving", "missed", "done", "no_show"].includes(queue.status));
@@ -168,6 +168,7 @@ test("mobile walk-in registration preserves patient lookup, priority, service li
   await expect(page.getByLabel("Last name", { exact: true })).toHaveValue("Patient");
   await expect(page.getByLabel("Confirmed mobile number")).toHaveValue("9123456789");
   await expect(page.getByText("Previous dental visits: 1")).toBeVisible();
+  await expect(page.getByText("Completed", { exact: true })).toBeVisible();
   await expect(page.getByText(/G-031/)).toHaveCount(0);
   await page.getByRole("checkbox", { name: "Dental Check-up", exact: true }).check();
   await page.getByRole("checkbox", { name: "Oral Prophylaxis", exact: true }).check();
@@ -518,9 +519,11 @@ for (const width of [1440, 375]) {
     if (width === 375) await page.screenshot({ path: 'test-results/staff-called-mobile.png', fullPage: true });
     await queue.getByRole('button', { name: 'Patient present', exact: true }).click();
     await queue.getByRole('button', { name: 'Finish check-up', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Complete walk-in Q10' })).toHaveCount(0);
     await expect(queue.getByRole('button', { name: 'Call next patient', exact: true })).toBeDisabled();
     await expect(page.locator('#staff-call-next-hint')).toHaveText('No patients are waiting to be called.');
     expect(state.queues[1].status).toBe('done');
+    expect(state.updates.at(-1)).toEqual({ id: 2, status: 'done' });
     expect(state.calls).toHaveLength(1);
   });
 }

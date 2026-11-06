@@ -91,7 +91,7 @@ export default function StaffDashboard() {
     try {
       const data = await api.get("/doctor", { signal });
       if (signal?.aborted) return;
-      // Registration uses the dentist with the lowest ID.
+      // Registration uses the active dentist with the lowest ID.
       const dentist = [...(data?.data ?? [])].sort(
         (a, b) => a.doctor_id - b.doctor_id,
       )[0];

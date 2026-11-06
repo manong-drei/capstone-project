@@ -305,10 +305,7 @@ const updateProfile = async (req, res) => {
         `UPDATE ${table} SET ${fields.map((field) => `${field} = ?`).join(", ")} WHERE user_id = ?`,
         [...Object.values(changes), user_id],
       );
-      if (!result.affectedRows) return false;
-      await audit.write(req, { action: "account.updated", target_type: "user", target_id: user_id,
-        details: { changed_fields: fields } }, connection);
-      return true;
+      return result.affectedRows > 0;
     };
 
     const updated = role === "admin" ? await audit.transaction(update) : await update(pool);
@@ -361,7 +358,7 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Choose a different password.' });
     }
     const session = sessionResponse({ ...user, must_change_password: 0, credential_version: user.credential_version + 1 });
-    if (!await User.updatePassword(user.user_id, newPassword, user.credential_version, req)) {
+    if (!await User.updatePassword(user.user_id, newPassword, user.credential_version)) {
       return res.status(401).json({ success: false, message: 'Session has changed. Please log in again.' });
     }
 

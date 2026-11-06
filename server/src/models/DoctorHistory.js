@@ -4,7 +4,7 @@ const patientName = "COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.
 
 module.exports = {
   async findVisits(doctorId, patientId) {
-    // shortcut: Visits without notes use appointment/default dentist ownership; store a treating doctor on queues when multiple dentists share intake.
+    // shortcut: Dental walk-ins without notes use the intake dentist; store a treating doctor on queues when multiple dentists share intake.
     const [visits] = await pool.query(`
       SELECT CONCAT('queue-', q.id) AS visit_id, q.id AS queue_id, q.patient_id,
              q.queue_number, DATE_FORMAT(q.created_at, '%Y-%m-%d') AS visit_date,
@@ -19,10 +19,11 @@ module.exports = {
         SELECT first_visit.consultation_id FROM consultations first_visit
         WHERE first_visit.queue_id = q.id ORDER BY first_visit.consultation_id LIMIT 1
       )
-      WHERE q.category = 'dental' AND COALESCE(
+      WHERE (q.category = 'dental' OR (q.is_walk_in = 1 AND c.doctor_id IS NOT NULL)) AND COALESCE(
         c.doctor_id,
+        q.completed_by_doctor_id,
         (SELECT a.doctor_id FROM appointments a
-         WHERE a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at)
+         WHERE q.is_walk_in = 0 AND a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at)
            AND a.status != 'cancelled' ORDER BY a.appointment_id LIMIT 1),
         (SELECT d.doctor_id FROM doctors d ORDER BY d.doctor_id LIMIT 1)
       ) = ? ${patientId === undefined ? "" : "AND q.patient_id = ?"}

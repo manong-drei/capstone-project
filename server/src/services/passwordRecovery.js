@@ -24,8 +24,7 @@ async function patient(connection, userId, patientId) {
 
 async function record(connection, req, recovery, action, outcome = 'success', reason) {
   const person = await patient(connection, recovery.user_id, recovery.patient_id);
-  // A requested code does not establish that the patient initiated the request.
-  const actor = ['verified', 'completed'].includes(recovery.status)
+  const actor = action === 'completed'
     ? { user_id: recovery.user_id, name: person?.patient_name || `Patient #${recovery.patient_id}`, role: 'patient' } : undefined;
   await audit.write({ ip: req?.ip, auditActor: actor }, {
     action: `password.recovery_${action}`, target_type: 'user', target_id: recovery.user_id, outcome, force: true,
@@ -39,7 +38,9 @@ async function finish(connection, req, recovery, status, reason) {
   recovery.status = status;
   await connection.query(`UPDATE sms_jobs SET state = 'cancelled', payload = NULL, last_error = 'recovery_closed'
     WHERE recovery_id = ? AND state IN ('queued','submitting')`, [recovery.id]);
-  await record(connection, req, recovery, status, status === 'completed' ? 'success' : 'failed', reason);
+  if (status === 'completed' || status === 'failed') {
+    await record(connection, req, recovery, status, status === 'completed' ? 'success' : 'failed', reason);
+  }
 }
 
 async function load(connection, id) {
@@ -55,12 +56,12 @@ async function available(connection, req, recovery, user) {
   if (!recovery || !['pending', 'verified'].includes(recovery.status)) return false;
   if (!user || !user.is_active || user.role !== 'patient' || user.phone !== recovery.phone || user.credential_version !== recovery.credential_version
     || !await patient(connection, recovery.user_id, recovery.patient_id)) {
-    await finish(connection, req, recovery, 'cancelled', 'account_changed');
+    await finish(connection, req, recovery, 'cancelled');
     return false;
   }
   const deadline = recovery.status === 'verified' ? recovery.reset_expires_at : recovery.expires_at;
   if (!deadline || deadline <= user.db_now) {
-    await finish(connection, req, recovery, 'expired', 'expired');
+    await finish(connection, req, recovery, 'expired');
     return false;
   }
   const [[job]] = await connection.query('SELECT state, provider_status FROM sms_jobs WHERE recovery_id = ? LIMIT 1', [recovery.id]);
@@ -87,11 +88,10 @@ async function request(req) {
     if (Number(limits.total) >= 3) return error(429, 'Too many recovery requests. Please try again in 15 minutes.', 900);
     const [previous] = await connection.query("SELECT * FROM password_recoveries WHERE user_id = ? AND status IN ('pending','verified') FOR UPDATE", [user.user_id]);
     for (const recovery of previous) {
-      if (await available(connection, req, recovery, user)) await finish(connection, req, recovery, 'cancelled', 'superseded');
+      if (await available(connection, req, recovery, user)) await finish(connection, req, recovery, 'cancelled');
     }
     const id = crypto.randomUUID();
     const code = generateOtp();
-    const recovery = { id, user_id: user.user_id, patient_id: person.patient_id, phone, status: 'pending' };
     await connection.query(`INSERT INTO password_recoveries
       (id, user_id, patient_id, phone, credential_version, otp_hash, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(3), INTERVAL 5 MINUTE))`,
@@ -100,7 +100,6 @@ async function request(req) {
     await connection.query(`INSERT INTO sms_jobs (purpose, user_id, patient_id, recovery_id, credential_version, recipient, deduplication_key, payload)
       VALUES ('password_recovery', ?, ?, ?, ?, ?, ?, ?)`,
     [user.user_id, person.patient_id, id, user.credential_version, phone, `recovery:${id}`, sms.encryptPayload(message)]);
-    await record(connection, req, recovery, 'requested');
     return { recovery_id: id, expires_in: 300, resend_after: 60 };
   });
 }
@@ -124,8 +123,6 @@ async function verify(req) {
     const token = crypto.randomBytes(32).toString('hex');
     await connection.query(`UPDATE password_recoveries SET status = 'verified', otp_hash = NULL,
       reset_token_hash = ?, reset_expires_at = DATE_ADD(NOW(3), INTERVAL 5 MINUTE) WHERE id = ?`, [tokenHash(token), id]);
-    recovery.status = 'verified';
-    await record(connection, req, recovery, 'verified');
     return { reset_token: token, expires_in: 300 };
   });
 }
@@ -149,7 +146,7 @@ async function reset(req) {
       WHERE user_id = ? AND purpose IN ('temporary_password','password_recovery') AND state IN ('queued','submitting')`, [user.user_id]);
     await finish(connection, req, recovery, 'completed');
     const [others] = await connection.query("SELECT * FROM password_recoveries WHERE user_id = ? AND id <> ? AND status IN ('pending','verified') FOR UPDATE", [user.user_id, id]);
-    for (const other of others) await finish(connection, req, other, 'cancelled', 'account_changed');
+    for (const other of others) await finish(connection, req, other, 'cancelled');
     return { message: 'Password changed successfully. Please log in with your new password.' };
   });
 }

@@ -115,10 +115,11 @@ const Appointment = {
   },
 
   // All appointments — admin/staff
-  findAll: async ({ limit = 10, offset = 0 } = {}) => {
+  findAll: async ({ limit = 10, offset = 0, includeWalkIns = false } = {}) => {
+    const appointmentQueue = includeWalkIns ? "AND q.is_walk_in = 0" : "";
     const [rows] = await pool.query(`
       SELECT
-        a.*,
+        ${includeWalkIns ? "a.appointment_id, a.patient_id, a.appointment_date, a.appointment_time, a.reason, a.status," : "a.*,"}
         p.middle_name AS patient_middle_name, p.suffix AS patient_suffix,
         CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')) AS patient_full_name,
         d.first_name  AS doctor_first_name,
@@ -130,6 +131,7 @@ const Appointment = {
           WHERE q.patient_id = a.patient_id
             AND DATE(q.created_at) = a.appointment_date
             AND q.status != 'cancelled'
+            ${appointmentQueue}
           ORDER BY q.created_at ASC
           LIMIT 1
         ) AS queue_services
@@ -138,26 +140,51 @@ const Appointment = {
           WHERE q.patient_id = a.patient_id
             AND DATE(q.created_at) = a.appointment_date
             AND q.status = 'cancelled'
+            ${appointmentQueue}
           ORDER BY q.updated_at DESC
           LIMIT 1
         ) AS cancellation_reason
+        ${includeWalkIns ? ", 'appointment' AS visit_type, NULL AS queue_id, NULL AS queue_number" : ""}
       FROM   appointments a
       JOIN   patients p ON a.patient_id = p.patient_id
       JOIN   doctors  d ON a.doctor_id  = d.doctor_id
-      ORDER  BY a.appointment_date DESC, a.appointment_time DESC, a.appointment_id DESC
+      ${includeWalkIns ? `
+      UNION ALL
+      SELECT NULL, q.patient_id, DATE(q.created_at), TIME(q.created_at), NULL, q.status,
+             p.middle_name, p.suffix,
+             COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')), ''), q.walk_in_name, 'Unknown patient'),
+             d.first_name, d.middle_name, d.last_name, d.suffix,
+             q.services, q.status_reason, 'walk_in', q.id, q.queue_number
+      FROM queues q
+      LEFT JOIN patients p ON p.patient_id = q.patient_id
+      LEFT JOIN doctors d ON d.doctor_id = COALESCE((
+        SELECT c.doctor_id FROM consultations c
+        WHERE c.queue_id = q.id ORDER BY c.consultation_id LIMIT 1
+      ), q.completed_by_doctor_id)
+      WHERE q.is_walk_in = 1
+      ORDER BY appointment_date DESC, appointment_time DESC, appointment_id DESC, queue_id DESC
+      ` : "ORDER BY a.appointment_date DESC, a.appointment_time DESC, a.appointment_id DESC"}
       LIMIT ? OFFSET ?
     `, [limit, offset]);
     return rows;
   },
 
-  getSummary: async () => {
+  getSummary: async ({ includeWalkIns = false } = {}) => {
     const [[row]] = await pool.query(`
       SELECT COUNT(*) AS total,
-        COALESCE(SUM(status = 'completed'), 0) AS completed,
-        COALESCE(SUM(status IN ('pending', 'confirmed')), 0) AS open
-      FROM appointments
+        COALESCE(SUM(status IN ('completed', 'done')), 0) AS completed,
+        COALESCE(SUM(status IN ('pending', 'confirmed', 'waiting', 'called', 'serving', 'missed')), 0) AS open
+        ${includeWalkIns ? ", COALESCE(SUM(status IN ('cancelled', 'no_show')), 0) AS cancelled_or_no_show" : ""}
+      FROM ${includeWalkIns ? `(
+        SELECT status FROM appointments
+        UNION ALL
+        SELECT status FROM queues WHERE is_walk_in = 1
+      ) visits` : "appointments"}
     `);
-    return { total: Number(row.total), completed: Number(row.completed), open: Number(row.open) };
+    return {
+      total: Number(row.total), completed: Number(row.completed), open: Number(row.open),
+      ...(includeWalkIns && { cancelledOrNoShow: Number(row.cancelled_or_no_show) }),
+    };
   },
 
   // Count appointments created today — used by admin overview
@@ -209,25 +236,13 @@ const Appointment = {
   },
 
   // Update appointment status
-  updateStatus: async (appointment_id, status, req) => {
-    if (req?.auditActor?.role === 'admin') return audit.transaction(async connection => {
-      const [[before]] = await connection.query('SELECT status FROM appointments WHERE appointment_id = ? FOR UPDATE', [appointment_id]);
-      if (!before) return null;
+  updateStatus: async (appointment_id, status, isAdmin) => {
+    const update = async connection => {
       await connection.query('UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?', [status, appointment_id]);
-      await audit.write(req, { action: 'appointment.status_changed', target_type: 'appointment', target_id: appointment_id,
-        details: { changes: { status: { from: before.status, to: status } } } }, connection);
       const [[updated]] = await connection.query('SELECT * FROM appointments WHERE appointment_id = ?', [appointment_id]);
-      return updated;
-    });
-    await pool.query(
-      `UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?`,
-      [status, appointment_id],
-    );
-    const [rows] = await pool.query(
-      "SELECT * FROM appointments WHERE appointment_id = ?",
-      [appointment_id],
-    );
-    return rows[0] || null;
+      return updated || null;
+    };
+    return isAdmin ? audit.transaction(update) : update(pool);
   },
 };
 

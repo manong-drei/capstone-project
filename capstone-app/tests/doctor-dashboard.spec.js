@@ -50,6 +50,9 @@ for (const width of [320, 375, 641, 768, 1024, 1440]) {
     const state = await mockDoctor(page);
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
+    page.on("console", message => {
+      if (message.type() === "error" && message.text().startsWith("fetchDailySettings error:")) errors.push(message.text());
+    });
     await page.goto("/doctor");
     await expect(page.getByRole("heading", { name: "Welcome, Dr. Maria Santos." })).toBeVisible();
     const queue = page.getByRole("region", { name: "Dental queue", exact: true });

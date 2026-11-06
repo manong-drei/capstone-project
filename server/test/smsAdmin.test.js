@@ -5,7 +5,7 @@ const pool = require('../src/config/db');
 const User = require('../src/models/User');
 const sms = require('../src/utils/sms');
 const { createPatient } = require('../src/controllers/adminController');
-const { listJobs, replacePassword } = require('../src/controllers/smsController');
+const { listJobs, reviewFailure, replacePassword } = require('../src/controllers/smsController');
 const adminRouter = require('../src/routes/adminRoutes');
 const response = () => ({ statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
 
@@ -44,6 +44,21 @@ test('SMS history reports database failures without exposing internal errors', a
     assert.equal(res.statusCode, 500);
     assert.deepEqual(res.body, { success: false, message: 'Unable to load SMS history.' });
   } finally { pool.query = savedQuery; }
+});
+
+test('SMS review only acknowledges failed jobs without changing their delivery metadata', async t => {
+  const query = t.mock.method(pool, 'query', async (sql, values) => {
+    assert.match(sql, /reviewed_at = COALESCE\(reviewed_at, NOW\(\)\), updated_at = updated_at/);
+    assert.match(sql, /WHERE id = \? AND \(state = 'failed' OR \(state = 'submitted' AND provider_status IN \('failed', 'refunded'\)\)\)/);
+    assert.doesNotMatch(sql, /SET state|DELETE/);
+    return [{ affectedRows: Number(values[0] === 1) }];
+  });
+  for (const [id, code] of [['0', 400], ['1', 200], ['1', 200], ['2', 404]]) {
+    const res = response();
+    await reviewFailure({ params: { id } }, res);
+    assert.equal(res.statusCode, code);
+  }
+  assert.equal(query.mock.callCount(), 3);
 });
 
 test('patient creation commits the encrypted SMS with the account and exposes only job status', async () => {

@@ -39,7 +39,6 @@ const AGE_COLORS = [
   "#f97316",
   "#eab308",
   "#64748b",
-  "#94a3b8",
 ];
 const AGE_GROUPS = [
   "0–11 months",
@@ -49,7 +48,6 @@ const AGE_GROUPS = [
   "15–19 years",
   "20–59 years",
   "60+ years",
-  "Unknown",
 ];
 const panelClass =
   "min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
@@ -176,15 +174,16 @@ export default function AdminOverviewTab({
     ]);
     if (!signal.aborted) setAttention({
       pending: leaves.status === 'fulfilled' ? (leaves.value.requests ?? []).filter(row => row.status === 'pending').length : null,
-      failed: sms.status === 'fulfilled' ? (sms.value.jobs ?? []).filter(row => row.state === 'failed').length : null,
+      failed: sms.status === 'fulfilled' ? (sms.value.jobs ?? []).filter(row => row.is_failed && !row.reviewed_at).length : null,
     });
   }, []));
 
   const dentalAges = (overview?.dentalAgeGroups ?? [])
+    .filter((row) => AGE_GROUPS.includes(row.age_group))
     .map((row) => ({
       name: row.age_group,
       value: Number(row.count),
-      color: AGE_COLORS[AGE_GROUPS.indexOf(row.age_group)] ?? "#94a3b8",
+      color: AGE_COLORS[AGE_GROUPS.indexOf(row.age_group)],
     }))
     .sort((a, b) => b.value - a.value);
   const dentalTotal = dentalAges.reduce((sum, row) => sum + row.value, 0);
@@ -276,7 +275,7 @@ export default function AdminOverviewTab({
             color: "bg-blue-50 text-blue-700",
           },
           {
-            label: "Total Doctors",
+            label: "Active Doctors",
             count: overview?.totalDoctors,
             icon: Stethoscope,
             color: "bg-violet-50 text-violet-700",
@@ -345,7 +344,7 @@ export default function AdminOverviewTab({
                   color: "text-violet-700",
                 },
                 {
-                  label: "Done",
+                  label: "Completed",
                   count: overview?.doneToday,
                   icon: CheckCircle2,
                   color: "text-emerald-700",
@@ -415,16 +414,16 @@ export default function AdminOverviewTab({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">
-                    {attention.failed === null
-                      ? "SMS delivery history"
-                      : `${attention.failed} recent SMS failure${attention.failed === 1 ? "" : "s"}`}
+                    {attention.failed
+                      ? `${attention.failed} recent SMS failure${attention.failed === 1 ? "" : "s"}`
+                      : "Recent SMS failures"}
                   </p>
                   <p className="text-xs text-slate-500">
                     Notification delivery status
                   </p>
                 </div>
                 <Link
-                  to={ROUTES.ADMIN_NOTIFICATIONS}
+                  to={`${ROUTES.ADMIN_NOTIFICATIONS}?view=failures`}
                   className="py-2 text-xs font-semibold text-blue-700 underline-offset-4 hover:underline"
                 >
                   View
@@ -434,262 +433,194 @@ export default function AdminOverviewTab({
           </section>
           <section
             className={panelClass}
-            aria-labelledby="doctors-today-heading"
+            aria-labelledby="age-distribution-heading"
           >
-            <div className="flex items-center justify-between gap-3">
-              <h3
-                id="doctors-today-heading"
-                className="flex items-center gap-2 text-sm font-semibold text-slate-900"
-              >
-                <Stethoscope
-                  size={18}
-                  className="text-blue-700"
-                  aria-hidden="true"
-                />
-                Doctors today
-              </h3>
-              <Link
-                to={ROUTES.ADMIN_DOCTORS}
-                className="py-2 text-xs font-semibold text-blue-700 underline-offset-4 hover:underline"
-              >
-                Manage
-              </Link>
-            </div>
-            {doctorsError ? (
-              <p className="mt-3 text-sm text-red-700">{doctorsError}</p>
-            ) : doctors.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-500">
-                No doctors registered yet.
-              </p>
-            ) : (
-              <ul className="mt-2 divide-y divide-slate-100">
-                {doctors.map((doctor) => (
-                  <li
-                    key={doctor.doctor_id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-3 last:pb-0"
+            <h3
+              id="age-distribution-heading"
+              className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+            >
+              <ChartPie size={18} className="text-blue-700" aria-hidden="true" />
+              Dental Queues by Age Group
+            </h3>
+            <p className="mb-4 mt-1 text-xs text-slate-500">
+              Dental queues with a recorded age group · most common:{" "}
+              {dentalAges[0]?.name ?? "—"}
+            </p>
+            <div className="min-h-[150px]" aria-busy={ovLoading}>
+              {initialLoading ? (
+                <div role="status" className="space-y-4 pt-4">
+                  <span className="sr-only">Loading age groups…</span>
+                  <Skeleton className="mx-auto h-32 w-32 rounded-full" />
+                </div>
+              ) : !overview ? (
+                <p className="py-10 text-sm text-slate-500">
+                  Age group data is unavailable.
+                </p>
+              ) : dentalTotal === 0 ? (
+                <p className="py-10 text-sm text-slate-500">
+                  No dental queues with a recorded age group.
+                </p>
+              ) : (
+                <div className="grid items-center gap-4 min-[480px]:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
+                  <div
+                    role="img"
+                    aria-label={`Dental age distribution: ${dentalTotal} queues`}
+                    className="aspect-square w-full max-w-40 justify-self-center"
                   >
-                    <div className="min-w-0">
-                      <p className="break-words text-sm font-semibold">
-                        Dr.{" "}
-                        {[
-                          doctor.first_name,
-                          doctor.middle_name,
-                          doctor.last_name,
-                          doctor.suffix,
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {doctor.specialization_name || "Dental services"}
-                      </p>
-                    </div>
-                    <StatusBadge
-                      status={
-                        doctor.leave_end
-                          ? "on_leave"
-                          : Number(doctor.is_available)
-                            ? "available"
-                            : "unavailable"
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
+                    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 160, height: 160 }}>
+                      <PieChart>
+                        <Pie
+                          data={dentalAges}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius="58%"
+                          outerRadius="90%"
+                          paddingAngle={2}
+                          dataKey="value"
+                          isAnimationActive={false}
+                        >
+                          {dentalAges.map((row) => (
+                            <Cell key={row.name} fill={row.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(count) => [
+                            `${Number(count).toLocaleString()} queues`,
+                            "Count",
+                          ]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <ul className="min-w-0 space-y-2 text-xs">
+                    {dentalAges.map((row) => (
+                      <li
+                        key={row.name}
+                        className="flex flex-wrap items-center gap-2"
+                      >
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ background: row.color }}
+                          aria-hidden="true"
+                        />
+                        <span className="flex-1 text-slate-600">{row.name}</span>
+                        <span className="font-semibold tabular-nums text-slate-800">
+                          {row.value.toLocaleString()} (
+                          {((row.value / dentalTotal) * 100).toFixed(1)}%)
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </section>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section
-          className={panelClass}
-          aria-labelledby="age-distribution-heading"
-        >
+      <section
+        className={panelClass}
+        aria-labelledby="patient-volume-heading"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h3
-            id="age-distribution-heading"
+            id="patient-volume-heading"
             className="flex items-center gap-2 text-sm font-semibold text-slate-900"
           >
-            <ChartPie size={18} className="text-blue-700" aria-hidden="true" />
-            Dental Queues by Age Group
+            <BarChart3
+              size={18}
+              className="text-blue-700"
+              aria-hidden="true"
+            />
+            Patient Volume
           </h3>
-          <p className="mb-4 mt-1 text-xs text-slate-500">
-            All recorded dental queues · most common age group:{" "}
-            {dentalAges.find((row) => row.name !== "Unknown")?.name ?? "—"}
-          </p>
-          <div className="min-h-[250px]" aria-busy={ovLoading}>
-            {initialLoading ? (
-              <div role="status" className="space-y-4 pt-4">
-                <span className="sr-only">Loading age groups…</span>
-                <Skeleton className="mx-auto h-40 w-40 rounded-full" />
-              </div>
-            ) : !overview ? (
-              <p className="py-10 text-sm text-slate-500">
-                Age group data is unavailable.
-              </p>
-            ) : dentalTotal === 0 ? (
-              <p className="py-10 text-sm text-slate-500">
-                No dental queues recorded yet.
-              </p>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-5 sm:flex-row sm:flex-wrap">
-                <div
-                  role="img"
-                  aria-label={`Dental age distribution: ${dentalTotal} queues`}
-                  className="h-[190px] w-[190px] shrink-0"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={dentalAges}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={56}
-                        outerRadius={85}
-                        paddingAngle={2}
-                        dataKey="value"
-                        isAnimationActive={false}
-                      >
-                        {dentalAges.map((row) => (
-                          <Cell key={row.name} fill={row.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(count) => [
-                          `${Number(count).toLocaleString()} queues`,
-                          "Count",
-                        ]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <ul className="w-full min-w-0 space-y-2 text-xs sm:w-auto sm:flex-1">
-                  {dentalAges.map((row) => (
-                    <li
-                      key={row.name}
-                      className="flex flex-wrap items-center gap-2"
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: row.color }}
-                        aria-hidden="true"
-                      />
-                      <span className="flex-1 text-slate-600">{row.name}</span>
-                      <span className="font-semibold tabular-nums text-slate-800">
-                        {row.value.toLocaleString()} (
-                        {((row.value / dentalTotal) * 100).toFixed(1)}%)
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+          <div
+            role="group"
+            aria-label="Patient volume period"
+            className="flex gap-1 rounded-lg bg-slate-100 p-1"
+          >
+            {["Monthly", "Weekly", "Daily"].map((period) => (
+              <button
+                key={period}
+                type="button"
+                aria-pressed={volumeTab === period}
+                onClick={() => setVolumeTab(period)}
+                className={`min-h-9 cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-blue-600 ${volumeTab === period ? "bg-[#1a3a8f] text-white" : "text-slate-500 hover:bg-blue-50"}`}
+              >
+                {period}
+              </button>
+            ))}
           </div>
-        </section>
-        <section
-          className={panelClass}
-          aria-labelledby="patient-volume-heading"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3
-              id="patient-volume-heading"
-              className="flex items-center gap-2 text-sm font-semibold text-slate-900"
-            >
-              <BarChart3
-                size={18}
-                className="text-blue-700"
-                aria-hidden="true"
-              />
-              Patient Volume
-            </h3>
+        </div>
+        <p className="mb-4 mt-2 text-xs text-slate-500">
+          All queue visits · last{" "}
+          {volumeTab === "Monthly"
+            ? "12 months"
+            : volumeTab === "Weekly"
+              ? "8 weeks"
+              : "7 days"}
+        </p>
+        <div className="h-[250px] min-w-0 sm:h-[320px] xl:h-[360px]" aria-busy={ovLoading}>
+          {initialLoading ? (
             <div
-              role="group"
-              aria-label="Patient volume period"
-              className="flex gap-1 rounded-lg bg-slate-100 p-1"
+              role="status"
+              className="flex h-full items-end justify-around gap-3 border-b border-slate-200 px-4 pb-6"
             >
-              {["Monthly", "Weekly", "Daily"].map((period) => (
-                <button
-                  key={period}
-                  type="button"
-                  aria-pressed={volumeTab === period}
-                  onClick={() => setVolumeTab(period)}
-                  className={`min-h-9 cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-blue-600 ${volumeTab === period ? "bg-[#1a3a8f] text-white" : "text-slate-500 hover:bg-blue-50"}`}
-                >
-                  {period}
-                </button>
-              ))}
+              <span className="sr-only">Loading patient volume…</span>
+              {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map(
+                (height) => (
+                  <Skeleton key={height} className={`w-6 ${height}`} />
+                ),
+              )}
             </div>
-          </div>
-          <p className="mb-4 mt-2 text-xs text-slate-500">
-            All queue visits · last{" "}
-            {volumeTab === "Monthly"
-              ? "12 months"
-              : volumeTab === "Weekly"
-                ? "8 weeks"
-                : "7 days"}
-          </p>
-          <div className="ad-overview-chart" aria-busy={ovLoading}>
-            {initialLoading ? (
-              <div
-                role="status"
-                className="flex h-full items-end justify-around gap-3 border-b border-slate-200 px-4 pb-6"
-              >
-                <span className="sr-only">Loading patient volume…</span>
-                {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map(
-                  (height) => (
-                    <Skeleton key={height} className={`w-6 ${height}`} />
-                  ),
-                )}
-              </div>
-            ) : !overview ? (
-              <p className="py-10 text-sm text-slate-500">
-                Patient volume data is unavailable.
-              </p>
-            ) : (
-              <div
-                role="img"
-                aria-label={`${volumeTab} patient volume: ${volumeData.map((row) => `${row.label}: ${row.count}`).join(", ")}`}
-                className="h-full min-w-0"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={volumeData}
-                    margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
-                  >
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fontSize: 11, fill: "#64748b" }}
-                      axisLine={false}
-                      tickLine={false}
-                      minTickGap={18}
-                    />
-                    <YAxis
-                      allowDecimals={false}
-                      tick={{ fontSize: 11, fill: "#64748b" }}
-                      width={30}
-                    />
-                    <Tooltip
-                      cursor={{ fill: "#f1f5f9" }}
-                      contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
-                      formatter={(count) => [
-                        `${Number(count).toLocaleString()} queues`,
-                        "Patient volume",
-                      ]}
-                    />
-                    <Bar
-                      dataKey="count"
-                      fill="#1e4db7"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={28}
-                      isAnimationActive={false}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
+          ) : !overview ? (
+            <p className="py-10 text-sm text-slate-500">
+              Patient volume data is unavailable.
+            </p>
+          ) : (
+            <div
+              role="img"
+              aria-label={`${volumeTab} patient volume: ${volumeData.map((row) => `${row.label}: ${row.count}`).join(", ")}`}
+              className="h-full min-w-0"
+            >
+              <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 250 }}>
+                <BarChart
+                  data={volumeData}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                >
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={18}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    width={30}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f1f5f9" }}
+                    contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
+                    formatter={(count) => [
+                      `${Number(count).toLocaleString()} queues`,
+                      "Patient volume",
+                    ]}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="#1e4db7"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={54}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </section>
 
       <section
         className={panelClass}

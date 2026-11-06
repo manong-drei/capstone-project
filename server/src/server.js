@@ -42,6 +42,8 @@ app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  // Dashboard profile polling must not consume the credential attempt budget.
+  skip: (req) => ["GET", "HEAD", "OPTIONS"].includes(req.method),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -122,4 +124,6 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (require.main === module) startServer();
+
+module.exports = app;

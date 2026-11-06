@@ -26,6 +26,7 @@ async function fixture(run) {
   };
   const state = { calls: [], appointments: [], tickets: [], writes: [], locks: 0, rolledBack: 0, onLock: null,
     bookedCount: 0, registrationCount: 0, activeQueue: null,
+    activeDoctorIds: [1],
     patient: { patient_id: 42, priority_category: 'senior' },
     settings: { appointment_limit: 10, is_available: 1 } };
   const connection = {
@@ -41,7 +42,11 @@ async function fixture(run) {
       }
       if (sql.includes('SELECT * FROM patients')) return [[state.patient]];
       if (sql.includes('todayQueueCount')) return [[{ todayQueueCount: state.registrationCount }]];
-      if (sql.includes('FROM doctors')) return [[{ doctor_id: 1 }]];
+      if (sql.includes('FROM doctors')) {
+        assert.match(sql, /JOIN users u[\s\S]*u\.is_active = 1[\s\S]*FOR UPDATE/);
+        const doctorId = values[0] ?? state.activeDoctorIds[0];
+        return [state.activeDoctorIds.includes(doctorId) ? [{ doctor_id: doctorId }] : []];
+      }
       if (sql.includes('FROM daily_doctor_settings')) return [[state.settings]];
       if (sql.includes('FROM doctor_leaves')) return [[]];
       if (sql.includes('AS booked')) return [[{ booked: state.bookedCount }]];
@@ -64,6 +69,19 @@ async function fixture(run) {
     Queue.getPublicStatus = saved.status; Patient.findByUserId = saved.patient; Appointment.create = saved.appointment;
   }
 }
+
+test('dental intake uses the remaining active doctor and rejects an inactive booking target', async () => {
+  await fixture(async state => {
+    state.activeDoctorIds = [4];
+    const queue = response();
+    await createQueue(request(), queue);
+    assert.equal(queue.statusCode, 201);
+    const booking = response();
+    await createAppointment(request({ doctor_id: 1, appointment_date: date(1), appointment_time: '09:00:00' }), booking);
+    assert.equal(booking.statusCode, 404);
+    assert.deepEqual(state.writes, ['appointment']);
+  });
+});
 
 test('new dashboard appointments remain available before the first dental call', async () => {
   await fixture(async state => {

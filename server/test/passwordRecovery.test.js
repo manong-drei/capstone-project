@@ -91,7 +91,10 @@ test('four-digit recovery preserves leading zeros, encrypts SMS and never expose
   assert.equal(result.resend_after, 60); assert.equal(result.expires_in, 300);
   assert.match(sms.decryptPayload(state.jobs[0].payload), /code is 0007/);
   assert.doesNotMatch(JSON.stringify(result), /0007|hash|password/);
+  assert.deepEqual(state.audits, []);
+  assert.equal((await verify(result.recovery_id, '8888')).status, 400);
   assert.doesNotMatch(JSON.stringify(state.audits), /0007|OldPassword|09123456789|otp_hash/);
+  assert.equal(state.audits[0][4], 'password.recovery_failed');
   assert.equal(state.audits[0][0], null);
   assert.equal(JSON.parse(state.audits[0][10]).patient_name, 'Ana Test');
   assert.equal(JSON.parse(state.audits[0][10]).phone, '*******6789');
@@ -137,6 +140,7 @@ test('three wrong codes permanently close the challenge, including racing guesse
   assert.match(results[1].message, /1 attempt remaining/);
   assert.match(results[2].message, /Three incorrect/);
   assert.equal(state.rows[0].status, 'failed'); assert.equal(state.rows[0].otp_hash, null);
+  assert.deepEqual(state.audits.map(values => values[4]), Array(3).fill('password.recovery_failed'));
   assert.equal((await verify(id)).status, 400);
   assert.ok(await bcrypt.compare('OldPassword1', state.user.password_hash));
 });
@@ -159,9 +163,7 @@ test('successful verification is single use; only its short-lived reset token ch
   assert.equal(state.rows[0].reset_token_hash, null);
   assert.equal((await reset(id, token)).status, 400);
   const actions = state.audits.map(values => values[4]);
-  assert.ok(actions.includes('password.recovery_requested'));
-  assert.ok(actions.includes('password.recovery_verified'));
-  assert.ok(actions.includes('password.recovery_completed'));
+  assert.deepEqual(actions, ['password.recovery_completed']);
   assert.doesNotMatch(JSON.stringify(state.audits), new RegExp(`${token}|NewPassword2`));
   t.mock.method(User, 'findById', async () => state.user);
   const res = { status(code) { this.code = code; return this; }, json() {} };
@@ -185,7 +187,7 @@ test('OTP and reset grants expire exactly at five minutes; resend cancels an alr
   assert.equal((await reset(newest, fresh)).status, 400); assert.equal(state.rows.at(-1).status, 'expired');
 });
 
-test('credential changes, deactivation, delivery failures and background expiry close recovery with an audit', async t => {
+test('credential changes and expiry still close recoveries while only delivery failures are audited', async t => {
   const state = await fixture(t);
   const { recovery_id: id } = await recovery.request(req({ phone: state.user.phone }));
   state.user.credential_version++;
@@ -198,18 +200,18 @@ test('credential changes, deactivation, delivery failures and background expiry 
   await recovery.request(req({ phone: state.user.phone }));
   state.now = new Date(state.now.getTime() + 300000);
   await recovery.reconcile(); assert.equal(state.rows.at(-1).status, 'expired');
-  assert.ok(state.audits.some(values => values[4] === 'password.recovery_expired'));
+  assert.deepEqual(state.audits.map(values => values[4]), ['password.recovery_failed']);
+  assert.equal(JSON.parse(state.audits[0][10]).recovery_reason, 'delivery_failed');
 });
 
-test('audit failures roll back code issuance and password changes; recovery routes have independent IP limits', async t => {
+test('code issuance and verification do not need an audit write, but failed and completed recovery do', async t => {
   const state = await fixture(t);
   state.failAudit = true;
-  await assert.rejects(recovery.request(req({ phone: state.user.phone })));
-  assert.equal(state.rows.length, 0); assert.equal(state.jobs.length, 0);
-  state.failAudit = false;
   const { recovery_id: id } = await recovery.request(req({ phone: state.user.phone }));
+  assert.equal(state.jobs.length, 1);
+  await assert.rejects(verify(id, '8888'));
+  assert.equal(state.rows[0].attempts, 0);
   const { reset_token: token } = await verify(id);
-  state.failAudit = true;
   await assert.rejects(reset(id, token));
   assert.ok(await bcrypt.compare('OldPassword1', state.user.password_hash));
   assert.equal(state.rows[0].status, 'verified');
@@ -299,7 +301,7 @@ test('MySQL recovery flow uses isolated temporary tables for real SQL, expiry an
     const [[user]] = await connection.query('SELECT * FROM users WHERE user_id = 7');
     assert.equal(user.credential_version, 3); assert.ok(await bcrypt.compare('NewPassword2', user.password_hash));
     const [events] = await connection.query('SELECT action, details FROM audit_logs ORDER BY id');
-    assert.deepEqual(events.map(row => row.action), ['password.recovery_requested', 'password.recovery_verified', 'password.recovery_completed']);
+    assert.deepEqual(events.map(row => row.action), ['password.recovery_completed']);
     await connection.query('UPDATE password_recoveries SET created_at = DATE_SUB(NOW(3), INTERVAL 16 MINUTE)');
     const pending = await recovery.request(req({ phone: '09123456789' }));
     await connection.query('UPDATE password_recoveries SET expires_at = NOW(3) WHERE id = ?', [pending.recovery_id]);
@@ -308,9 +310,11 @@ test('MySQL recovery flow uses isolated temporary tables for real SQL, expiry an
     assert.equal(expired.status, 'expired');
     await connection.query('UPDATE password_recoveries SET created_at = DATE_SUB(NOW(3), INTERVAL 16 MINUTE)');
     await connection.query("ALTER TABLE audit_logs ADD CONSTRAINT reject_new_events CHECK (ip_address <> '127.0.0.2')");
-    await assert.rejects(recovery.request({ body: { phone: '09123456789' }, ip: '127.0.0.2' }));
-    const [[count]] = await connection.query('SELECT COUNT(*) AS total FROM password_recoveries');
-    assert.equal(count.total, 2);
+    const retry = await recovery.request({ body: { phone: '09123456789' }, ip: '127.0.0.2' });
+    const { reset_token: retryToken } = await verify(retry.recovery_id);
+    await assert.rejects(recovery.reset({ body: { recovery_id: retry.recovery_id, reset_token: retryToken, newPassword: 'AnotherPassword3' }, ip: '127.0.0.2' }));
+    const [[unchanged]] = await connection.query('SELECT credential_version FROM users WHERE user_id = 7');
+    assert.equal(unchanged.credential_version, 3);
   } finally {
     for (const name of ['SMS_ENABLED', 'SMS_ENCRYPTION_KEY', 'SMS_API_KEY', 'SMS_SENDER_NAME']) {
       if (env[name] === undefined) delete process.env[name]; else process.env[name] = env[name];

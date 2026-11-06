@@ -6,7 +6,7 @@ const QUEUE_STAGES = [
   { title: "Waiting", text: "Your ticket is in the queue.", Icon: Clock3 },
   { title: "Called", text: "Report to staff now.", Icon: Megaphone },
   { title: "Serving", text: "The patient is present for care.", Icon: Stethoscope },
-  { title: "Done", text: "The visit is complete.", Icon: CheckCircle2 },
+  { title: "Completed", text: "The visit is complete.", Icon: CheckCircle2 },
 ];
 
 export default function UserManual({ role, isOpen, onClose }) {

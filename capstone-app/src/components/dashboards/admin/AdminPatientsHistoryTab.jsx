@@ -6,11 +6,11 @@ import StatusBadge from "@/components/common/StatusBadge";
 import { getAllAppointments } from "@/services/appointmentService";
 
 const BLUE = "#1a3a8f";
-const ORANGE = "#f97316";
 
 const formatAppointmentDate = (value, withYear = true) => {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
     month: "short",
     day: "numeric",
     ...(withYear ? { year: "numeric" } : {}),
@@ -40,6 +40,24 @@ const formatServices = (appt) => {
   return appt?.cancellation_reason || (appt?.reason === "Same-day queue registration" ? "—" : appt?.reason) || "—";
 };
 
+function HistoryPatient({ visit }) {
+  const name = visit.patient_full_name || "—";
+  return visit.patient_id ? (
+    <Link to={generatePath(ROUTES.ADMIN_PATIENT_PROFILE, { id: String(visit.patient_id) })} className="font-semibold text-blue-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600">
+      {name}
+    </Link>
+  ) : name;
+}
+
+function TicketType({ visit }) {
+  const walkIn = visit.visit_type === "walk_in";
+  return (
+    <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${walkIn ? "bg-orange-50 text-orange-800" : "bg-blue-50 text-blue-800"}`}>
+      {walkIn ? "Walk-in" : "Appointment"}{visit.queue_number ? ` · ${visit.queue_number}` : ""}
+    </span>
+  );
+}
+
 export default function AdminPatientsHistoryTab() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = Math.max(1, parseInt(searchParams.get("page"), 10) || 1);
@@ -54,7 +72,7 @@ export default function AdminPatientsHistoryTab() {
   const pageSize = 10;
   useLiveData(useCallback(async (signal) => {
     try {
-      const response = await getAllAppointments({ page: currentPage, limit: pageSize }, signal);
+      const response = await getAllAppointments({ page: currentPage, limit: pageSize, includeWalkIns: true }, signal);
       if (!signal.aborted) {
         setResult(response); setError('');
         if (response.pagination.page !== currentPage) setCurrentPage(response.pagination.page, { replace: true });
@@ -114,8 +132,7 @@ export default function AdminPatientsHistoryTab() {
             lineHeight: 1.6,
           }}
         >
-          Review appointment activity, service history, assigned doctor, and
-          each patient case status.
+          Review appointments and walk-in visits, including services, doctor, and status.
         </p>
       </div>
 
@@ -135,10 +152,10 @@ export default function AdminPatientsHistoryTab() {
             bg: "#dcfce7",
           },
           {
-            label: "Open Cases",
-            value: result.summary.open ?? 0,
-            color: ORANGE,
-            bg: "#ffedd5",
+            label: "Cancelled / No-shows",
+            value: result.summary.cancelledOrNoShow ?? 0,
+            color: "#b91c1c",
+            bg: "#fee2e2",
           },
         ].map((item) => (
           <div
@@ -189,7 +206,7 @@ export default function AdminPatientsHistoryTab() {
             color: "#1e293b",
           }}
         >
-          Appointment History
+          Visit History
         </h3>
 
         {error ? (
@@ -203,11 +220,11 @@ export default function AdminPatientsHistoryTab() {
           </div>
         ) : apptLoading ? (
           <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
-            Loading appointments...
+            Loading visits...
           </p>
         ) : appointments.length === 0 ? (
           <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
-            No appointments recorded yet.
+            No visits recorded yet.
           </p>
         ) : (
           <>
@@ -231,6 +248,7 @@ export default function AdminPatientsHistoryTab() {
                     <th style={{ padding: "10px 12px" }}>Date</th>
                     <th style={{ padding: "10px 12px" }}>Time</th>
                     <th style={{ padding: "10px 12px" }}>Patient</th>
+                    <th style={{ padding: "10px 12px" }}>Ticket Type</th>
                     <th style={{ padding: "10px 12px" }}>Doctor</th>
                     <th style={{ padding: "10px 12px" }}>Services</th>
                     <th style={{ padding: "10px 12px" }}>Status</th>
@@ -239,7 +257,7 @@ export default function AdminPatientsHistoryTab() {
                 <tbody>
                   {appointments.map((appt) => (
                     <tr
-                      key={appt.appointment_id}
+                      key={appt.queue_id ? `queue-${appt.queue_id}` : `appointment-${appt.appointment_id}`}
                       style={{ borderBottom: "1px solid #f1f5f9" }}
                     >
                       <td
@@ -255,7 +273,10 @@ export default function AdminPatientsHistoryTab() {
                         {formatAppointmentTime(appt.appointment_time)}
                       </td>
                       <td style={{ padding: "12px", color: "#1e293b" }}>
-                        {appt.patient_id ? <Link to={generatePath(ROUTES.ADMIN_PATIENT_PROFILE, { id: String(appt.patient_id) })} className="font-semibold text-blue-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600">{appt.patient_full_name || "—"}</Link> : appt.patient_full_name || "—"}
+                        <HistoryPatient visit={appt} />
+                      </td>
+                      <td style={{ padding: "12px" }}>
+                        <TicketType visit={appt} />
                       </td>
                       <td style={{ padding: "12px", color: "#475569" }}>
                         {formatDoctorName(appt)}
@@ -284,7 +305,7 @@ export default function AdminPatientsHistoryTab() {
             >
               {appointments.map((appt) => (
                 <div
-                  key={appt.appointment_id}
+                  key={appt.queue_id ? `queue-${appt.queue_id}` : `appointment-${appt.appointment_id}`}
                   style={{
                     border: "1px solid #e2e8f0",
                     borderRadius: "12px",
@@ -310,15 +331,14 @@ export default function AdminPatientsHistoryTab() {
                         fontSize: "13px",
                       }}
                     >
-                      {appt.patient_id ? <Link to={generatePath(ROUTES.ADMIN_PATIENT_PROFILE, { id: String(appt.patient_id) })} className="font-semibold text-blue-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600">{appt.patient_full_name || "—"}</Link> : appt.patient_full_name || "—"}
+                      <HistoryPatient visit={appt} />
                     </span>
                     <span style={{ fontSize: "12px", color: "#64748b" }}>
-                      {new Date(appt.appointment_date).toLocaleDateString(
-                        "en-PH",
-                        { month: "short", day: "numeric" },
-                      )}
+                      {formatAppointmentDate(appt.appointment_date, false)}
                     </span>
                   </div>
+                  <TicketType visit={appt} />
+                  <span className="text-xs text-slate-600">Doctor: {formatDoctorName(appt)}</span>
                   <span style={{ fontSize: "12px", color: "#475569" }}>
                     {formatServices(appt)}
                   </span>

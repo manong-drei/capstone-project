@@ -45,17 +45,36 @@ async function updateSettings(req, res) {
       .json({ success: false, message: "Unable to save SMS settings." });
   }
 }
+const failedSms = "(state = 'failed' OR (state = 'submitted' AND provider_status IN ('failed', 'refunded')))";
+
 async function listJobs(req, res) {
   try {
     const [rows] =
       await pool.query(`SELECT id, purpose, user_id, queue_id, state, provider_status, last_error,
       attempts, provider_message_id, CONCAT('*******', RIGHT(recipient, 4)) AS masked_recipient,
-      created_at, updated_at FROM sms_jobs ORDER BY id DESC LIMIT 100`);
+      created_at, updated_at, reviewed_at, COALESCE(${failedSms}, 0) AS is_failed
+      FROM sms_jobs ORDER BY id DESC LIMIT 100`);
     res.json({ success: true, jobs: rows });
   } catch {
     res
       .status(500)
       .json({ success: false, message: "Unable to load SMS history." });
+  }
+}
+
+async function reviewFailure(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) {
+    return res.status(400).json({ success: false, message: "Invalid SMS job ID." });
+  }
+  try {
+    const [result] = await pool.query(`UPDATE sms_jobs
+      SET reviewed_at = COALESCE(reviewed_at, NOW()), updated_at = updated_at
+      WHERE id = ? AND ${failedSms}`, [id]);
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: "SMS failure not found." });
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ success: false, message: "Unable to mark this SMS failure as reviewed." });
   }
 }
 async function replacePassword(req, res) {
@@ -153,4 +172,4 @@ async function replacePassword(req, res) {
     conn?.release();
   }
 }
-module.exports = { getSettings, updateSettings, listJobs, replacePassword };
+module.exports = { getSettings, updateSettings, listJobs, reviewFailure, replacePassword };

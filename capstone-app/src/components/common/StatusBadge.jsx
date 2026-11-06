@@ -29,11 +29,6 @@ const STATUS_VARIANTS = {
     icon: CalendarOff,
     classes: "border-dashed border-slate-300 bg-slate-50 text-slate-600",
   },
-  done: {
-    label: "Done",
-    icon: CheckCheck,
-    classes: "border-emerald-300 bg-emerald-100 text-emerald-800",
-  },
   completed: {
     label: "Completed",
     icon: CheckCheck,
@@ -86,8 +81,7 @@ export default function StatusBadge({ status }) {
     .trim()
     .toLowerCase()
     .replace(/[ -]+/g, "_");
-  // The API uses "cancelled"; accept the alternate spelling for display compatibility.
-  const key = normalized === "canceled" ? "cancelled" : normalized;
+  const key = { canceled: "cancelled", done: "completed" }[normalized] ?? normalized;
   const {
     label,
     icon: Icon,

@@ -40,7 +40,7 @@ for (const [operation, key] of [
     }
 
     await expect(page).toHaveURL(operation === "logout" ? "/login" : "/");
-    await expect(page.getByRole("heading", { name: operation === "logout" ? "Welcome!" : /less waiting/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: operation === "logout" ? "Welcome!" : /dental care for the people of bago/i })).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem("ek_token"))).toBeNull();
     expect(await page.evaluate(() => sessionStorage.getItem("ek_user"))).toBeNull();
     expect(await page.evaluate(() => sessionStorage.getItem("user"))).toBeNull();

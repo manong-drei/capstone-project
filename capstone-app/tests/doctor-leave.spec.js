@@ -135,7 +135,9 @@ for (const width of [1440, 375]) {
         await expect(viewer.getByText(/Dentist on leave through/)).toBeVisible();
         await expect(viewer.getByRole('button', { name: 'Register and assign dental queue' })).toBeDisabled();
       } else {
-        await expect(viewer.getByText(/^Dentist on leave through/)).toBeVisible();
+        const availability = viewer.getByText("Doctor availability", { exact: true }).locator("..");
+        await expect(availability).toContainText("On leave");
+        await expect(availability).toContainText("Through");
         await expect(viewer.getByRole('button', { name: /Get queue ticket/ })).toBeDisabled();
       }
       await expect(viewer.getByText('Private leave reason', { exact: true })).toHaveCount(0);

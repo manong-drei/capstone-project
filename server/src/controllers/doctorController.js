@@ -30,6 +30,7 @@ const reportWindow = (query) => {
 // shortcut: Unlinked visits use the current default dentist and demographics use current profiles; snapshot at completion for immutable history.
 const queueDoctor = `COALESCE(
   (SELECT c.doctor_id FROM consultations c WHERE c.queue_id = q.id ORDER BY c.consultation_id ASC LIMIT 1),
+  q.completed_by_doctor_id,
   (SELECT a.doctor_id FROM appointments a
    WHERE a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at) AND a.status != 'cancelled'
    ORDER BY a.appointment_id ASC LIMIT 1),
@@ -302,7 +303,6 @@ const getDoctorRecords = async (req, res) => {
     const doctor = await Doctor.findAdminProfile(id);
     if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found." });
     const availability = await Doctor.findAvailabilityRecords(id);
-    await audit.bestEffort(req, { action: 'doctor.viewed', target_type: 'doctor', target_id: id });
     res.status(200).json({ success: true, data: { doctor, availability } });
   } catch (err) {
     console.error("getDoctorRecords error:", err);
@@ -368,6 +368,9 @@ const createConsultation = async (req, res) => {
       if (!['serving', 'done'].includes(queueRow.status)) {
         throw Object.assign(new Error('The patient must be serving or finished before saving a consultation.'), { status: 400 });
       }
+      if (queueRow.completed_by_doctor_id && queueRow.completed_by_doctor_id !== doctor.doctor_id) {
+        throw Object.assign(new Error('This walk-in is recorded under a different treating dentist.'), { status: 403 });
+      }
       const [[existing]] = await connection.query('SELECT consultation_id FROM consultations WHERE queue_id = ? LIMIT 1', [id]);
       if (existing) throw Object.assign(new Error('A consultation has already been saved for this patient visit.'), { status: 409 });
 
@@ -386,7 +389,7 @@ const createConsultation = async (req, res) => {
       if (queueRow.status === 'serving') {
         await connection.query(`UPDATE queues SET status = ?, status_reason = ?, updated_at = NOW() WHERE id = ?`, ['done', null, id]);
       }
-      if (queueRow.patient_id) {
+      if (queueRow.patient_id && !queueRow.is_walk_in) {
         await connection.query(
           `UPDATE appointments SET status = 'completed', updated_at = NOW()
            WHERE patient_id = ? AND appointment_date = CURDATE() AND status IN ('pending', 'confirmed')`,

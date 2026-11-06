@@ -74,19 +74,18 @@ test("two tabs keep their own credentials through actions, refresh, and logout",
   }
 
   await patientTab.getByRole("button", { name: "User B Patient", exact: true }).click();
-  await patientTab.getByRole("button", { name: "Log Out", exact: true }).click();
+  await patientTab.getByRole("menuitem", { name: "Log Out", exact: true }).click();
   await patientTab.reload();
   await expect(patientTab).toHaveURL(/\/login$/);
   expect(await patientTab.evaluate(() => sessionStorage.getItem("ek_token"))).toBeNull();
   const refreshed = staffTab.waitForResponse(response => new URL(response.url()).pathname === "/api/queue");
-  await staffTab.getByRole("button", { name: "Refresh", exact: true }).click();
-  expect((await refreshed).request().headers().authorization).toBe(`Bearer ${staffToken}`);
   await staffTab.reload();
+  expect((await refreshed).request().headers().authorization).toBe(`Bearer ${staffToken}`);
   await expect(staffTab.getByRole("button", { name: "User A Staff", exact: true })).toBeVisible();
 
   await login(patientTab, "09987654321", "patient");
   await staffTab.getByRole("button", { name: "User A Staff", exact: true }).click();
-  await staffTab.getByRole("button", { name: "Log Out", exact: true }).click();
+  await staffTab.getByRole("menuitem", { name: "Log Out", exact: true }).click();
   const restored = patientTab.waitForResponse(response => response.url().endsWith("/api/queue/me"));
   await patientTab.reload();
   expect((await restored).request().headers().authorization).toBe(`Bearer ${patientToken}`);

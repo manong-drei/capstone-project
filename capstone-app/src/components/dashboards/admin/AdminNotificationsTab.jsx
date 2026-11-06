@@ -1,5 +1,6 @@
 import useLiveData from "@/hooks/useLiveData";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   BellRing,
@@ -32,7 +33,7 @@ function toneFor(status) {
   const s = String(status).toLowerCase();
   if (["sent", "delivered", "success", "accepted"].includes(s))
     return "emerald";
-  if (["failed", "error", "undelivered", "rejected"].includes(s)) return "rose";
+  if (["failed", "refunded", "error", "undelivered", "rejected"].includes(s)) return "rose";
   if (["unknown", "queued", "pending", "submitted", "submitting", "sending"].includes(s))
     return "amber";
   return "slate";
@@ -52,7 +53,7 @@ const formatDate = (value) =>
   new Date(value).toLocaleString("en-PH", { timeZone: "Asia/Manila" });
 
 function StatusBadge({ job }) {
-  const label = job.state === "cancelled" ? job.state : job.provider_status || job.state || "unknown";
+  const label = ["cancelled", "failed"].includes(job.state) ? job.state : job.provider_status || job.state || "unknown";
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${
@@ -64,7 +65,7 @@ function StatusBadge({ job }) {
   );
 }
 
-function JobDetails({ job }) {
+function JobDetails({ job, onReview, reviewing }) {
   return (
     <div className="space-y-1 text-xs leading-relaxed text-slate-500">
       <p>Job #{job.id} · Attempts: {job.attempts}</p>
@@ -72,6 +73,17 @@ function JobDetails({ job }) {
         <p className="break-all">Provider ref: {job.provider_message_id}</p>
       )}
       {(job.state === "unknown" || job.last_error) && <p>{detailText(job)}</p>}
+      {!!job.is_failed && (job.reviewed_at
+        ? <p className="font-semibold text-emerald-700">Reviewed</p>
+        : <button
+            type="button"
+            disabled={reviewing}
+            onClick={() => onReview(job.id)}
+            aria-label={`Mark SMS job #${job.id} as reviewed`}
+            className="min-h-9 rounded-lg border border-slate-200 px-2 font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50"
+          >
+            Mark reviewed
+          </button>)}
     </div>
   );
 }
@@ -81,6 +93,8 @@ function JobDetails({ job }) {
 /* ------------------------------------------------------------------ */
 
 export default function AdminNotificationsTab() {
+  const [searchParams] = useSearchParams();
+  const failuresOnly = searchParams.get("view") === "failures";
   const [threshold, setThreshold] = useState("5");
   const [jobs, setJobs] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,6 +104,8 @@ export default function AdminNotificationsTab() {
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   const thresholdDirty = useRef(false);
   const mounted = useRef(true);
@@ -107,7 +123,8 @@ export default function AdminNotificationsTab() {
       if (mounted.current && !signal?.aborted) {
         const nextJobs = result.jobs ?? [];
         setJobs(nextJobs);
-        setCurrentPage((page) => Math.min(page, Math.max(1, Math.ceil(nextJobs.length / JOBS_PER_PAGE))));
+        const visibleCount = failuresOnly ? nextJobs.filter(job => job.is_failed).length : nextJobs.length;
+        setCurrentPage((page) => Math.min(page, Math.max(1, Math.ceil(visibleCount / JOBS_PER_PAGE))));
         setJobsError(null);
       }
     } catch (err) {
@@ -118,7 +135,7 @@ export default function AdminNotificationsTab() {
         if (showSpinner) setRefreshing(false);
       }
     }
-  }, []);
+  }, [failuresOnly]);
 
   useLiveData(useCallback(async (signal) => {
     await Promise.all([
@@ -158,14 +175,27 @@ export default function AdminNotificationsTab() {
   };
 
   const disabled = !loaded || busy;
-  const totalPages = Math.max(1, Math.ceil(jobs.length / JOBS_PER_PAGE));
+  const visibleJobs = failuresOnly ? jobs.filter(job => job.is_failed) : jobs;
+  const totalPages = Math.max(1, Math.ceil(visibleJobs.length / JOBS_PER_PAGE));
   const firstJobIndex = (currentPage - 1) * JOBS_PER_PAGE;
-  const pageJobs = jobs.slice(firstJobIndex, firstJobIndex + JOBS_PER_PAGE);
+  const pageJobs = visibleJobs.slice(firstJobIndex, firstJobIndex + JOBS_PER_PAGE);
+  const reviewJob = async (id) => {
+    setReviewing(true);
+    setReviewError("");
+    try {
+      await api.patch(`/admin/sms-jobs/${id}/review`);
+      await loadJobs();
+    } catch (error) {
+      setReviewError(error.message);
+    } finally {
+      setReviewing(false);
+    }
+  };
 
   return (
     <div className="w-full space-y-5">
       {/* ---------------- settings card ---------------- */}
-      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
+      {!failuresOnly && <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
         <div className="flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
             <BellRing className="h-5 w-5" />
@@ -256,7 +286,7 @@ export default function AdminNotificationsTab() {
             <span className="break-words">{message.text}</span>
           </div>
         )}
-      </section>
+      </section>}
 
       {/* ---------------- activity card ---------------- */}
       <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
@@ -264,11 +294,16 @@ export default function AdminNotificationsTab() {
           <div className="flex items-center gap-2.5">
             <MessageSquare className="h-4 w-4 text-slate-400" />
             <h4 className="text-sm font-bold text-slate-800">
-              Recent SMS activity
+              {failuresOnly ? "Recent SMS failures" : "Recent SMS activity"}
             </h4>
           </div>
 
           <div className="flex items-center gap-2">
+            {failuresOnly && (
+              <Link to="?" onClick={() => setCurrentPage(1)} className="rounded-lg px-2 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50">
+                All SMS activity
+              </Link>
+            )}
             <span className="hidden text-[11px] text-slate-400 sm:inline">
               Auto-refreshes every 5s
             </span>
@@ -288,7 +323,7 @@ export default function AdminNotificationsTab() {
         </div>
 
         <p className="mt-2 text-xs text-slate-500">
-          Latest 100 queue alerts and account activation jobs. 10 per page.
+          {failuresOnly ? "Failed deliveries from the latest 100 SMS jobs." : "Latest 100 queue alerts and account activation jobs. 10 per page."}
         </p>
 
         {jobsError && (
@@ -297,19 +332,20 @@ export default function AdminNotificationsTab() {
           </p>
         )}
 
+        {reviewError && <p role="alert" className="mt-3 text-sm text-rose-800">{reviewError}</p>}
         {!jobsLoaded ? (
           <div role="status" className="mt-4 flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading SMS activity…
           </div>
-        ) : !jobs.length ? (
+        ) : !visibleJobs.length ? (
           !jobsError && <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center">
             <Inbox className="h-7 w-7 text-slate-300" />
             <p className="mt-2 text-sm font-medium text-slate-600">
-              No SMS jobs yet
+              {failuresOnly ? "No recent SMS failures" : "No SMS jobs yet"}
             </p>
             <p className="mt-0.5 text-[12px] text-slate-400">
-              Queue alerts and account activation messages will appear here once they are triggered.
+              {failuresOnly ? "Failed deliveries will appear here." : "Queue alerts and account activation messages will appear here once they are triggered."}
             </p>
           </div>
         ) : (
@@ -331,7 +367,7 @@ export default function AdminNotificationsTab() {
                   </p>
 
                   <div className="mt-1.5">
-                    <JobDetails job={job} />
+                    <JobDetails job={job} onReview={reviewJob} reviewing={reviewing} />
                   </div>
 
                   <div className="mt-1.5 space-y-1 text-[11px] text-slate-400">
@@ -384,7 +420,7 @@ export default function AdminNotificationsTab() {
                           <StatusBadge job={job} />
                         </td>
                         <td className="max-w-[22rem] px-4 py-3 text-slate-600">
-                          <JobDetails job={job} />
+                          <JobDetails job={job} onReview={reviewJob} reviewing={reviewing} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                           <p>{formatDate(job.created_at)}</p>
@@ -400,7 +436,7 @@ export default function AdminNotificationsTab() {
             </div>
             <nav aria-label="SMS activity pagination" className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
               <p aria-live="polite" className="text-slate-500">
-                Showing {firstJobIndex + 1}–{Math.min(firstJobIndex + JOBS_PER_PAGE, jobs.length)} of {jobs.length}
+                Showing {firstJobIndex + 1}–{Math.min(firstJobIndex + JOBS_PER_PAGE, visibleJobs.length)} of {visibleJobs.length}
               </p>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}

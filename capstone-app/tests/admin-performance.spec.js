@@ -1,6 +1,7 @@
 import { selectAdminSection } from "./helpers/admin";
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
+import { SYNC_INTERVAL_MS } from "../src/services/dataSync";
 
 async function mockAdmin(page) {
   await page.route("https://fonts.googleapis.com/**", route => route.fulfill({ contentType: "text/css", body: "" }));
@@ -27,6 +28,7 @@ async function mockAdmin(page) {
     const url = new URL(request.url());
     state.requests.push({ path: url.pathname, params: Object.fromEntries(url.searchParams), method: request.method() });
     if (/\/api\/admin\/patients\/\d+\/deactivate$/.test(url.pathname)) {
+      expect(request.postDataJSON()).toEqual({ reason: "Duplicate account" });
       state.patients.find(patient => patient.user_id === Number(url.pathname.split("/").at(-2))).is_active = false;
       return route.fulfill({ json: { success: true } });
     }
@@ -39,7 +41,14 @@ async function mockAdmin(page) {
       const rows = patients ? state.patients.filter(patient =>
         (url.searchParams.get("includeInactive") === "true" || patient.is_active) &&
         [patient.full_name, patient.contact_number, patient.barangay].some(value => value.toLowerCase().includes(search)))
-        : state.appointments;
+        : url.searchParams.get("includeWalkIns") === "true"
+          ? [...state.appointments, {
+              queue_id: 23, queue_number: "WQ23", visit_type: "walk_in",
+              patient_full_name: "Legacy Walk-in", appointment_date: "2026-10-24",
+              appointment_time: "10:00:00", queue_services: ["Check-up"], status: "done",
+              doctor_first_name: "Maria", doctor_last_name: "Santos",
+            }]
+          : state.appointments;
       const limit = Number(url.searchParams.get("limit") || 10);
       const totalPages = Math.max(1, Math.ceil(rows.length / limit));
       const pageNumber = Math.min(Number(url.searchParams.get("page") || 1), totalPages);
@@ -47,7 +56,11 @@ async function mockAdmin(page) {
       return route.fulfill({ json: {
         [patients ? "patients" : "data"]: data,
         pagination: { page: pageNumber, limit, total: rows.length, totalPages },
-        ...(!patients && { summary: { total: rows.length, completed: 12, open: 11 } }),
+        ...(!patients && { summary: {
+          total: rows.length,
+          completed: rows.filter(row => ["done", "completed"].includes(row.status)).length,
+          cancelledOrNoShow: rows.filter(row => ["cancelled", "no_show"].includes(row.status)).length,
+        } }),
       } });
     }
     const responses = {
@@ -111,25 +124,38 @@ for (const width of [1440, 375]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
 
-  test(`appointment history pages retain global totals and support retry at ${width}px`, async ({ page }) => {
+  test(`visit history includes walk-ins in pagination and totals at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const state = await mockAdmin(page);
+    state.appointments.at(-1).status = "cancelled";
+    await page.addInitScript((interval) => {
+      // Let the Retry button recover before polling can clear the error.
+      const schedule = window.setInterval.bind(window);
+      window.setInterval = (callback, delay, ...args) =>
+        schedule(callback, delay === interval ? 60_000 : delay, ...args);
+    }, SYNC_INTERVAL_MS);
     await page.goto("/admin");
     await selectTab(page, "Patients History");
-    await expect(page.getByText("Showing 1–10 of 23", { exact: true })).toBeVisible();
+    await expect(page.getByText("Showing 1–10 of 24", { exact: true })).toBeVisible();
     const completed = page.getByText("Completed", { exact: true }).first().locator("..");
-    await expect(completed).toContainText("12");
+    await expect(completed).toContainText("13");
+    await expect(page.getByText("Cancelled / No-shows", { exact: true }).locator("..")).toContainText("1");
     await page.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(page.getByText("Showing 11–20 of 23", { exact: true })).toBeVisible();
-    await expect(completed).toContainText("12");
+    await expect(page.getByText("Showing 11–20 of 24", { exact: true })).toBeVisible();
+    await expect(completed).toContainText("13");
     expect(state.requests.filter(request => request.path === "/api/appointments").at(-1).params)
-      .toEqual({ page: "2", limit: "10" });
+      .toEqual({ page: "2", limit: "10", includeWalkIns: "true" });
     state.failAppointments = true;
     await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("List temporarily unavailable.");
     state.failAppointments = false;
     await page.getByRole("button", { name: "Retry", exact: true }).click();
-    await expect(page.getByText("Showing 21–23 of 23", { exact: true })).toBeVisible();
+    await expect(page.getByText("Showing 21–24 of 24", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Legacy Walk-in/).filter({ visible: true })).toBeVisible();
+    await expect(page.getByText("Walk-in · WQ23", { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(page.getByText(/Dr\. Maria Santos/).filter({ visible: true })).toBeVisible();
+    await expect(page.getByText("Appointment", { exact: true }).filter({ visible: true })).toHaveCount(3);
+    if (width > 900) await expect(page.getByRole("columnheader", { name: "Ticket Type" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
   });
 }
@@ -148,8 +174,14 @@ test("patient polling stays on the current page, retries failures and recovers a
   expect(state.requests.filter(request => request.path === "/api/admin/patients").at(-1).params.page).toBe("2");
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page.getByText("Showing 21–21 of 21", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Deactivate", exact: true }).filter({ visible: true }).click();
-  await page.getByRole("button", { name: "Deactivate", exact: true }).first().click();
+  const deactivate = page.getByRole("button", { name: "Deactivate", exact: true }).filter({ visible: true });
+  await expect(deactivate).toHaveAttribute("title", "Deactivate");
+  await deactivate.click();
+  const dialog = page.getByRole("dialog", { name: "Deactivate account" });
+  const confirm = dialog.getByRole("button", { name: "Deactivate", exact: true });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel("Reason for deactivation").selectOption("Duplicate account");
+  await confirm.click();
   await expect(page.getByText("Showing 11–20 of 20", { exact: true })).toBeVisible();
   state.failPatients = true;
   await page.clock.runFor(15_000);
@@ -164,6 +196,7 @@ test("finishing an account action refreshes the latest patient search", async ({
   let release;
   const pending = new Promise(resolve => { release = resolve; });
   await page.route("**/api/admin/patients/1/deactivate", async route => {
+    expect(route.request().postDataJSON()).toEqual({ reason: "Account no longer needed" });
     await pending;
     state.patients[0].is_active = false;
     return route.fulfill({ json: { success: true } });
@@ -173,7 +206,9 @@ test("finishing an account action refreshes the latest patient search", async ({
   await page.getByRole("button", { name: "Patients", exact: true }).click();
   await expect(page.getByText("Showing 1–10 of 23", { exact: true })).toBeVisible();
   await page.locator(".pm-table-row").first().getByRole("button", { name: "Deactivate", exact: true }).click();
-  await page.getByRole("button", { name: "Deactivate", exact: true }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Deactivate account" });
+  await dialog.getByLabel("Reason for deactivation").selectOption("Account no longer needed");
+  await dialog.getByRole("button", { name: "Deactivate", exact: true }).click();
   await page.getByPlaceholder("Search by name, phone number, or barangay...").fill("Record 23");
   await expect(page.getByText("Showing 1–1 of 1", { exact: true })).toBeVisible();
   const before = state.requests.filter(request => request.path === "/api/admin/patients").length;

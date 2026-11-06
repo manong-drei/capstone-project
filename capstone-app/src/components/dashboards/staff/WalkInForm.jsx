@@ -1,6 +1,7 @@
 import useLiveData from "@/hooks/useLiveData";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import StatusBadge from "@/components/common/StatusBadge";
 import {
   AlertCircle,
   CheckCircle2,
@@ -513,7 +514,7 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
                     {new Date(visit.created_at).toLocaleDateString("en-PH", {
                       timeZone: "Asia/Manila",
                     })}{" "}
-                    · {visit.queue_number} · {visit.status}
+                    · {visit.queue_number} <StatusBadge status={visit.status} />
                   </p>
                 ))}
               </div>

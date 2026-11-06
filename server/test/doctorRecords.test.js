@@ -26,10 +26,6 @@ test("doctor records route restricts profile/history access to admins and scopes
   t.mock.method(User, "findById", async () => ({ user_id: 8, role, is_active: 1, credential_version: 1, must_change_password: 0 }));
   t.mock.method(pool, "query", async (sql, params) => {
     if (sql.includes('FROM staff')) return [[{ name: 'Test Admin' }]];
-    if (sql.includes('INSERT INTO audit_logs')) {
-      assert.equal(params[4], 'doctor.viewed'); assert.equal(params[6], 7);
-      return [{ insertId: 1 }];
-    }
     queries++;
     assert.deepEqual(params, [7]);
     if (sql.includes("FROM doctors d")) {

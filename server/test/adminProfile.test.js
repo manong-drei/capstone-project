@@ -125,13 +125,13 @@ test('MySQL repairs legacy admins through self-service and account management wi
     const [[{ profiles }]] = await connection.query('SELECT COUNT(*) AS profiles FROM staff');
     assert.equal(profiles, 2);
     const [[{ events }]] = await connection.query("SELECT COUNT(*) AS events FROM audit_logs WHERE action = 'account.updated'");
-    assert.equal(events, 4);
+    assert.equal(events, 0);
 
     const [[{ id }]] = await connection.query('SELECT MAX(id) AS id FROM audit_logs');
-    // Rejecting the audit write must also roll back an admin's name change.
+    // A failed profile update must also roll back creating a missing profile.
     const query = connection.query.bind(connection);
     t.mock.method(pool, 'getConnection', async () => ({
-      async query(sql, values) { if (sql.startsWith('INSERT INTO audit_logs')) throw new Error('Audit unavailable'); return query(sql, values); },
+      async query(sql, values) { if (sql.startsWith('UPDATE staff SET')) throw new Error('Profile update unavailable'); return query(sql, values); },
       beginTransaction: connection.beginTransaction.bind(connection), commit: connection.commit.bind(connection),
       rollback: connection.rollback.bind(connection), release() {},
     }));
@@ -149,7 +149,7 @@ test('MySQL repairs legacy admins through self-service and account management wi
     await auth.updateProfile({ ...request, user: { user_id: 4000000003, role: 'admin' }, body: { first_name: 'Ana', last_name: 'Reyes' } }, res);
     assert.equal(res.statusCode, 500);
     const [[{ count }]] = await connection.query('SELECT COUNT(*) AS count FROM staff WHERE user_id = 4000000003');
-    assert.equal(count, 0, 'Audit failure must also roll back creation of the missing profile');
+    assert.equal(count, 0, 'Update failure must also roll back creation of the missing profile');
   } finally {
     t.mock.restoreAll();
     for (const table of [...tables].reverse()) await connection.query(`DROP TEMPORARY TABLE IF EXISTS ${table}`);

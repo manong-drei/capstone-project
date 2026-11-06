@@ -124,7 +124,7 @@ test("MySQL history combines visits once, preserves repeat visits, and isolates 
   try {
     await connection.query("CREATE TEMPORARY TABLE doctors (doctor_id INT PRIMARY KEY)");
     await connection.query("CREATE TEMPORARY TABLE patients (patient_id INT PRIMARY KEY, first_name VARCHAR(50), middle_name VARCHAR(50), last_name VARCHAR(50), suffix VARCHAR(10))");
-    await connection.query("CREATE TEMPORARY TABLE queues (id INT PRIMARY KEY, patient_id INT, queue_number VARCHAR(20), created_at DATETIME, is_walk_in TINYINT, status VARCHAR(20), category VARCHAR(20), services TEXT, status_reason VARCHAR(255), walk_in_name VARCHAR(100))");
+    await connection.query("CREATE TEMPORARY TABLE queues (id INT PRIMARY KEY, patient_id INT, queue_number VARCHAR(20), created_at DATETIME, is_walk_in TINYINT, status VARCHAR(20), category VARCHAR(20), services TEXT, status_reason VARCHAR(255), walk_in_name VARCHAR(100), completed_by_doctor_id INT)");
     await connection.query("CREATE TEMPORARY TABLE appointments (appointment_id INT PRIMARY KEY, patient_id INT, doctor_id INT, appointment_date DATE, appointment_time TIME, reason VARCHAR(255), status VARCHAR(20))");
     await connection.query("CREATE TEMPORARY TABLE consultations (consultation_id INT PRIMARY KEY, queue_id INT, doctor_id INT, chief_complaint TEXT, notes TEXT, diagnosis TEXT)");
     await connection.query("CREATE TEMPORARY TABLE prescriptions (consultation_id INT, medication_name TEXT)");
@@ -138,7 +138,12 @@ test("MySQL history combines visits once, preserves repeat visits, and isolates 
       (4, 4, 'WQ04', '2026-10-24 10:00:00', 1, 'done', 'dental', '[]', NULL),
       (5, 5, 'AQ05', '2026-10-24 11:00:00', 0, 'done', 'dental', '[]', NULL),
       (6, 1, 'AQ06', '2026-10-25 11:00:00', 0, 'done', 'dental', '[]', NULL),
-      (7, 2, 'AQ07', '2026-10-23 09:00:00', 0, 'cancelled', 'dental', '[]', NULL)`);
+      (7, 2, 'AQ07', '2026-10-23 09:00:00', 0, 'cancelled', 'dental', '[]', NULL),
+      (8, 4, 'WQ08', '2026-10-24 14:00:00', 1, 'done', 'dental', '[]', NULL),
+      (9, NULL, 'WQ09', '2026-10-24 15:00:00', 1, 'done', 'general', '[]', 'Doctor-treated walk-in'),
+      (10, NULL, 'WQ10', '2026-10-24 16:00:00', 1, 'done', 'general', '[]', 'Unassigned walk-in')`);
+    await connection.query(`INSERT INTO queues (id, queue_number, created_at, is_walk_in, status, category, walk_in_name, completed_by_doctor_id)
+      VALUES (11, 'WQ11', '2026-10-24 17:00:00', 1, 'done', 'dental', 'Dentist recorded without notes', 9)`);
     await connection.query(`INSERT INTO appointments VALUES
       (1, 1, 7, '2026-10-25', '09:00:00', 'Check-up', 'completed'),
       (2, 2, 7, '2026-10-26', '09:00:00', 'Scheduled', 'confirmed'),
@@ -150,10 +155,15 @@ test("MySQL history combines visits once, preserves repeat visits, and isolates 
       (11, 1, 7, 'First visit', NULL, 'First diagnosis'),
       (12, 2, 7, 'Return visit', 'Additional notes', 'Second diagnosis'),
       (13, 4, 9, 'Other doctor private notes', NULL, NULL),
-      (14, 6, 7, 'Another visit', NULL, NULL)`);
+      (14, 6, 7, 'Another visit', NULL, NULL),
+      (15, 9, 7, 'General visit', NULL, NULL)`);
     await connection.query("INSERT INTO prescriptions VALUES (12, 'Follow-up instructions')");
     const visits = await DoctorHistory.findVisits(7);
-    assert.deepEqual(new Set(visits.map((row) => row.visit_id)), new Set(["queue-1", "queue-2", "queue-3", "queue-6", "queue-7", "appointment-2", "appointment-3"]));
+    assert.deepEqual(new Set(visits.map((row) => row.visit_id)), new Set(["queue-1", "queue-2", "queue-3", "queue-6", "queue-7", "queue-8", "queue-9", "appointment-2", "appointment-3"]));
+    const otherVisits = await DoctorHistory.findVisits(9);
+    assert.ok(otherVisits.some((row) => row.visit_id === "queue-4"));
+    assert.equal(otherVisits.find((row) => row.visit_id === "queue-11")?.consultation_id, null);
+    assert.ok(otherVisits.every((row) => !["queue-8", "queue-9", "queue-10"].includes(row.visit_id)));
     assert.equal(visits[0].visit_id, "appointment-2");
     assert.equal(visits.filter((row) => row.patient_full_name === "Ana M Santos").length, 4);
     assert.equal(visits.find((row) => row.visit_id === "queue-2").visit_type, "walk_in");

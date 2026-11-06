@@ -15,8 +15,8 @@ export const USER_MANUALS = {
         steps: [
           "Select “Get queue ticket”. The “Get Queue Ticket” window opens.",
           "Choose one or two dental services for your visit. To change a selection after choosing two, clear one first.",
-          "Select “Get Queue Ticket” and wait for confirmation. Your assigned ticket appears on Home; keep this number to identify your visit to staff.",
-          "Read the notice above your ticket. It tells you whether to stay nearby without an SMS or expect a possible text reminder as your turn approaches.",
+          "Select “Get Queue Ticket” and wait for confirmation. The “My Queue” ticket appears below the quick actions on Home. Keep your assigned number handy for staff.",
+          "Read the notice below “Services queued”. It tells you whether to stay nearby without an SMS or expect a text reminder as your turn approaches.",
         ],
         note: "You can have one active dental ticket and make at most two dental queue registrations per day. Cancelled tickets and no-shows still count. Online registration can continue after service starts, subject to dentist availability and capacity. A new regular online ticket cannot pass earlier regular walk-ins waiting for their first turn.",
       },
@@ -24,6 +24,7 @@ export const USER_MANUALS = {
         id: "follow-ticket", title: "Follow your turn", summary: "Your ticket status tells you what to do next.",
         steps: [
           "On Home, compare your ticket with “Now serving” and “Next in queue”. The display updates about every 5 seconds while the page is open.",
+          "Select “View queue line” in the “My queue number” card to open My Queue. It shows the current order alongside your ticket when you have one. Check “Estimated wait” on Home for an estimate when available.",
           "While your ticket is “Waiting”, stay nearby and keep checking. Verified priority patients go first in entry order. Confirmed returns rejoin behind patients already waiting in the same priority group.",
           "When “It’s your turn!” or “Called — report to staff” appears, report to staff immediately. Staff must confirm that you are present before care begins.",
           "If you see “Missed call”, report to staff before the displayed deadline. Staff must record your return; reopening the page does not confirm your arrival.",
@@ -33,7 +34,7 @@ export const USER_MANUALS = {
       {
         id: "cancel-ticket", title: "Cancel a ticket", summary: "Cancel when you can no longer attend and your ticket is still eligible.",
         steps: [
-          "Find your active ticket on Home. “Cancel Queue” is available while Waiting or Missed call.",
+          "Find your active ticket on Home or open it through “View queue line”. “Cancel Queue” is available while Waiting or Missed call.",
           "Select “Cancel Queue”, choose the reason that fits, then select “Continue”.",
           "Wait for the updated ticket display. If you are already called or receiving care, speak to staff about your change of plans.",
         ],
@@ -42,18 +43,10 @@ export const USER_MANUALS = {
       {
         id: "patient-history", title: "View history and clinic location", summary: "Use the navigation for previous visits and Home for the clinic map.",
         steps: [
-          "Select “Appointment history” in the navigation, or “Visits” on mobile, to see recorded appointments. Expand a visit for readable service names, its status, diagnosis, and recorded prescription or recommendations.",
+          "Select “Appointment history” on Home or in the navigation menu to see recorded appointments. Expand a visit for readable service names, its status, diagnosis, and recorded prescription or recommendations.",
           "Select “Back” to return to Home. History is a viewing screen; ask staff if a record needs attention.",
-          "Select “Clinic location” below the current queue line on Home to view the City Health Office of Bago map. The service directory is unavailable at the moment.",
+          "Select “Location” on Home to view the City Health Office of Bago map.",
         ],
-      },
-      {
-        id: "patient-print-ticket", title: "Print your ticket", summary: "Print an image of your dental queue ticket.",
-        steps: [
-          "On your ticket, select “Download Ticket” to save a 4:3 PNG image directly. The image includes your queue number, name, services, queue status, and issue time including seconds. Priority numbers use orange; regular numbers use blue.",
-          "Choose your printer in the print dialog. Printing is available once your queue status has been verified.",
-        ],
-        note: "Follow the live ticket and clinic staff for your current turn.",
       },
       {
         id: "patient-updates-profile", title: "Manage your profile", summary: "Review and update your saved personal information.",
@@ -64,9 +57,9 @@ export const USER_MANUALS = {
     ],
     screen: {
       src: "/assets/manual/patient-ticket.png",
-      alt: "Sample patient ticket AQ07 with numbered markers for the ticket and SMS notice, Waiting status, and Cancel Queue button.",
-      description: "Use this example to locate the important parts of your ticket. All labels are explained below so you do not have to read the small text in the image.",
-      labels: ["Ticket and notice: read your assigned number and the instruction about staying nearby or receiving an SMS.", "Status: “Waiting” means you are still in line. A called or missed status requires prompt action.", "Cancel Queue: opens the reason selection for an eligible cancellation."],
+      alt: "Sample My Queue ticket AQ07 with numbered markers for Waiting status, the queue number, the stay-nearby notice, and Cancel Queue.",
+      description: "The ticket shows your status, number, queue type, name, date and time issued, and the services you selected.",
+      labels: ["Status: “Waiting” means you are still in line. Report to staff promptly when called or when the ticket shows a missed call.", "Your Queue Number: give this number to staff when asked. The Regular or Priority label appears below it.", "Ticket notice: read the current instruction. This example asks the patient to stay nearby because no queue SMS will be sent.", "Cancel Queue: opens the reason selection for an eligible cancellation."],
     },
     troubleshooting: [
       ["I cannot request a ticket.", "Read the registration message. You may already have an active ticket, have reached two registrations today, or be outside the available capacity. When new online registration is closed, approach staff about walk-in registration."],
@@ -98,8 +91,8 @@ export const USER_MANUALS = {
       {
         id: "daily-capacity", title: "Set availability and daily capacity", summary: "Availability saves immediately; capacity changes need “Apply”.",
         steps: [
-          "Under “Today's Availability”, select “Available” or “Unavailable” to change your status. Wait for saving to finish. Approved leave shows “On leave” and prevents switching availability on during its dates.",
-          "Open “Daily Capacity” if collapsed. Adjust “Appointment Limit” from 0 to 10 and “Walk-In Capacity” from 0 to 30.",
+          "On Home, find “Today's availability” and select the current “Available” or “Unavailable” button to switch status. Wait for saving to finish. Approved leave shows “On leave” and prevents switching availability on during its dates.",
+          "Expand “Daily capacity”. Adjust the “Appointment Limit” slider from 0 to 10 and enter “Walk-In Capacity” from 0 to 30. The progress bars show how many slots are already used today.",
           "Select “Apply” and look for “Saved ✓”. If “Lower Appointment Limit?” appears, review the existing booked count before selecting “Continue”. Existing bookings remain.",
         ],
         note: "Walk-In Capacity of 0 means “Not set”, so it does not set a zero-patient limit. Recheck the date and settings when starting a new day.",
@@ -155,9 +148,9 @@ export const USER_MANUALS = {
       },
     ],
     screen: {
-      src: "/assets/manual/doctor-capacity.png", alt: "Doctor Daily Capacity example with markers for the panel, Appointment Limit slider, Walk-In Capacity field, and Apply button.",
+      src: "/assets/manual/doctor-capacity.png", alt: "Expanded doctor Daily capacity panel with numbered markers for its toggle, Appointment Limit slider, Walk-In Capacity field, and Apply button.",
       description: "This annotated example shows where to set today's capacity. The numbers shown are examples, not required clinic limits.",
-      labels: ["Daily Capacity: select the panel heading to expand or collapse it.", "Appointment Limit: use the slider to set the daily appointment limit, up to 10.", "Walk-In Capacity: enter the capacity; 0 is displayed as “Not set”.", "Apply: saves the selected capacity values. Wait for the saved confirmation."],
+      labels: ["Daily capacity: select the heading to expand or collapse the controls.", "Appointment Limit: use the slider to set the daily appointment limit, up to 10.", "Walk-In Capacity: enter the daily walk-in capacity. An empty field or 0 is displayed as “Not set”.", "Apply: saves the selected capacity values. Wait for the saved confirmation."],
     },
     troubleshooting: [
       ["Next is unavailable or another patient is active.", "Resolve the called or serving ticket first. Confirm presence, complete care, or follow the recall/skip controls as appropriate. Check that waiting tickets remain and no update is still running."],
@@ -188,7 +181,7 @@ export const USER_MANUALS = {
       {
         id: "staff-walk-in", title: "Register a dental walk-in", summary: "Find an existing patient first to avoid duplicate records.",
         steps: [
-          "In “Register dental walk-in”, use “Find an existing patient”. Enter at least two name characters or any four consecutive digits from the mobile number.",
+          "On the staff Dashboard, find “Register dental walk-in”. Use “Find an existing patient” and enter at least two name characters or any four consecutive digits from the mobile number.",
           "Compare the name, birthday, and partly hidden phone number, then select the correct patient. Use “Open patient profile” to review the record or “Clear selection” to choose again.",
           "If the matches are different people, verify them before choosing “I checked these records; create a new patient.” Complete First name, Last name, Date of birth, Gender, Barangay, and Confirmed mobile number. The form supplies +63; enter ten digits starting with 9.",
           "Choose one or two “Dental services” at the top of the form. Complete the fields marked with an asterisk (*). Senior Citizen priority is assigned automatically from the patient's 60th birthday. For other priority patients, select “Priority” and the appropriate category: PWD (Person with Disability) or Pregnant.",
@@ -245,9 +238,9 @@ export const USER_MANUALS = {
       },
     ],
     screen: {
-      src: "/assets/manual/staff-registration.png", alt: "Staff walk-in registration example showing up to two dental services, Regular or Priority queue type, and Register and assign dental queue.",
-      description: "Choose services at the top of the walk-in form and confirm patient details before assigning a ticket.",
-      labels: ["Dental services: choose one or two requested services.", "Queue type: Senior Citizen priority is automatic for patients aged 60 or older; other priority patients need a category.", "Register and assign dental queue: submits the visit after a service is selected. Read the confirmation before handing over the ticket."],
+      src: "/assets/manual/staff-registration.png", alt: "Staff walk-in form with numbered markers for Dental services, Find an existing patient, Queue type, and Register and assign dental queue.",
+      description: "The example has Dental Check-up selected. Look up the patient and confirm their details before assigning a ticket.",
+      labels: ["Dental services: choose one or two requested services.", "Find an existing patient: search for a match before adding a record.", "Queue type: Senior Citizen priority is automatic for patients aged 60 or older. Other priority patients need a category.", "Register and assign dental queue: submits the visit after the required information is complete. Read the confirmation before handing over the ticket."],
     },
     troubleshooting: [
       ["No patient match appears.", "Use at least two name characters or four consecutive mobile digits. Check the spelling or number with the patient. Review possible matches before confirming a new record."],
@@ -280,10 +273,10 @@ export const USER_MANUALS = {
       {
         id: "admin-overview", title: "Review clinic activity and queue", summary: "Review today's live queue directly on the Dashboard overview.",
         steps: [
-          "Open “Dashboard” to review Total Patient Visits, Total Doctors, Total Appointments, and Total Queues Completed. In today's queue statistics, Serving includes called patients.",
+          "Open “Dashboard” to review Total Patient Visits, Active Doctors, Total Appointments, and Total Queues Completed. In today's queue statistics, Serving includes called patients.",
           "On “Dashboard”, use “Live queue monitor” to see the dental patient now being served and up next. Review today's tickets, queue types, statuses, and recorded reasons. It refreshes every 5 seconds; use “Refresh live queue” for an immediate update. Dental age distribution and the Monthly, Weekly, and Daily patient-volume bar graph are also on Dashboard.",
           "To withdraw an eligible active ticket, select its “Cancel” button, choose the reason in “Reason for cancellation”, then select “Continue”. Staff and doctors handle calls and physical presence.",
-          "Open “Management” and choose “Doctors & leave” to read Doctor Availability and review leave requests. Choose “Patient history” for Appointment History; use “Previous” and “Next” to move through ten-record pages.",
+          "Open “Management” and choose “Doctors & leave” to read Doctor Availability and review leave requests. Choose “Patient history” to review appointments and walk-ins. Select a linked patient name to open their record, or use “Previous” and “Next” to move through ten-record pages.",
         ],
         note: "Doctors and Patients History are viewing screens here. Doctor availability is changed by the doctor. Cancelled tickets may no longer appear in the active queue list.",
       },
@@ -303,7 +296,7 @@ export const USER_MANUALS = {
           "In “New Staff Account”, select the role and fill Phone, First Name, Last Name, Email, and Password. Doctors also require License Number; staff require Position.",
           "Select “Create Account”. Use a valid Philippine mobile number and check any error about an existing phone, email, or license.",
           "Use “Edit” and “Save Changes” to update supported account details. This form does not change the role or password.",
-          "Use “Deactivate” or “Reactivate” and review the confirmation to change access. Enable “Show inactive” to find deactivated accounts. You cannot deactivate your own administrator account.",
+          "Use “Deactivate” or “Reactivate” and review the confirmation to change access. Deactivation requires a reason, which appears in Audit logs. Enable “Show inactive” to find deactivated accounts. You cannot deactivate your own administrator account.",
         ],
       },
       {
@@ -312,7 +305,7 @@ export const USER_MANUALS = {
           "Open “Management” → “Accounts”, choose “Patients”, then select “Add Patient”.",
           "Complete First Name, Last Name, Phone, Date of Birth, Gender, and Barangay. Set Priority Status only when appropriate, then select “Create Account”.",
           "Check the account confirmation and SMS status. Creating the account queues its activation password message; it does not register a queue ticket.",
-          "Use “Search by name, contact, or barangay...” and “Show inactive” to find accounts. Use “Deactivate” or “Reactivate” when account access needs to change.",
+          "Use “Search by name, contact, or barangay...” and “Show inactive” to find accounts. To remove access, select “Deactivate”, choose a reason, and confirm. To restore access, select “Reactivate” and confirm.",
           "For an active account still awaiting its first password change, “Issue replacement password” may be shown. Verify identity and the registered phone, check SMS history, then review the confirmation before replacing the password.",
         ],
         note: "A replacement makes the previous temporary password and any open password-setup session unusable. If the SMS status is unknown, verify the text-message provider's history before issuing another password.",
@@ -331,8 +324,9 @@ export const USER_MANUALS = {
         steps: [
           "Open “Activity” and select “SMS notifications” in Activity view. Set “Notify within the next” to a whole number from 1 to 100 patients. Select “Audit logs” in Activity view to review administrator events and account recovery.",
           "Select “Save”. One alert can be sent per eligible ticket as the patient's turn approaches.",
-          "Review “Recent SMS activity” for Purpose, Recipient, Status, Details, and Created. Select “Refresh” for an update; the list also updates about every 5 seconds.",
-          "Read status details before taking action. Queued, submitted, or pending does not confirm delivery; unknown means submission is uncertain and must be checked against provider history.",
+          "Review “Recent SMS activity” for Purpose, Recipient, Status, Details, and Created. The list includes queue alerts, account activation, and password recovery. Select “Refresh” for an update. It also refreshes about every 5 seconds.",
+          "For failed deliveries, open “View” beside recent SMS failures under “Needs attention” on the Dashboard, or find the failed job in “Recent SMS activity”. Check its details, then select “Mark reviewed” to record that you checked it. This does not resend the message. Use “All SMS activity” to return from the failures view.",
+          "Read status details before taking action. Queued, submitted, or pending does not confirm delivery. Unknown means submission is uncertain and must be checked against provider history.",
         ],
         note: "Patients who join already within the alert range receive no queue SMS and must stay nearby. Changing this setting does not enable alerts for tickets already marked to receive none. A sent status does not prove that a patient read the message.",
       },
@@ -347,9 +341,9 @@ export const USER_MANUALS = {
       },
     ],
     screen: {
-      src: "/assets/manual/admin-notifications.png", alt: "Administrator Notifications example with markers on the Notifications menu, alert range field, Save button, and Recent SMS activity Refresh button.",
-      description: "This example shows notification controls. An empty activity list means there are no jobs in the displayed results.",
-      labels: ["Notifications: opens the SMS settings and recent activity.", "Notify within the next: enter the approach-alert range, from 1 to 100 patients.", "Save: applies the alert setting. Read the stay-nearby rule for tickets already within range.", "Refresh: updates Recent SMS activity so you can check the latest status and details."],
+      src: "/assets/manual/admin-notifications.png", alt: "Administrator Activity page with markers for Activity view, the SMS alert range, Save, Refresh, and Mark reviewed on a failed delivery.",
+      description: "The SMS notifications view contains the alert setting and recent message activity. This example shows fictional deliveries and masked recipients.",
+      labels: ["Activity view: choose SMS notifications or Audit logs.", "Notify within the next: enter the approach-alert range, from 1 to 100 patients.", "Save: applies the alert setting. Read the stay-nearby rule for tickets already within range.", "Refresh: updates Recent SMS activity so you can check the latest status and details.", "Mark reviewed: records that you checked this failed delivery. The job remains in the activity history."],
     },
     troubleshooting: [
       ["An account seems to be missing.", "Enable “Show inactive”, clear the patient search, and check the correct Staff or Patients section. Use Previous/Next where available."],

@@ -71,10 +71,17 @@ test("completed visits stay separate and manual edits survive selectors, failed 
   for (const [barangay, value] of [["Abuanan", "5"], ["Unknown", "3"], ["Elsewhere", "1"]]) {
     await expect(page.getByRole("progressbar", { name: `${barangay} completed visits`, exact: true })).toHaveAttribute("value", value);
   }
+  const taloc = page.locator("details").filter({ has: page.getByRole("progressbar", { name: "Taloc completed visits", exact: true }) });
+  await taloc.locator("summary").click();
+  await expect(taloc.getByText("5–9 years", { exact: true })).toBeVisible();
+  await expect(taloc.getByText(/^(Other|Unknown age|Unknown sex)$/)).toHaveCount(0);
   await page.getByRole("combobox", { name: "Breakdown", exact: true }).selectOption("age");
-  await expect(page.getByRole("progressbar", { name: "Unknown completed visits", exact: true })).toHaveAttribute("value", "3");
+  await expect(page.getByRole("progressbar", { name: "Unknown completed visits", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("progressbar", { name: "5–9 years completed visits", exact: true })).toHaveAttribute("value", "2");
   await page.getByRole("combobox", { name: "Breakdown", exact: true }).selectOption("sex");
-  await expect(page.getByRole("progressbar", { name: "Other completed visits", exact: true })).toHaveAttribute("value", "2");
+  await expect(page.getByRole("progressbar")).toHaveCount(2);
+  await expect(page.getByRole("progressbar", { name: "Male completed visits", exact: true })).toHaveAttribute("value", "5");
+  await expect(page.getByRole("progressbar", { name: "Female completed visits", exact: true })).toHaveAttribute("value", "1");
   await openClinical(page);
   await expect(page.getByText("No saved entries for this measure in the selected period.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Daily barangay entries", exact: true }).click();
@@ -175,6 +182,7 @@ test("daily, weekly and monthly ranges export every clinical measure and both pr
   await expect(printable).toBeVisible();
   await expect(printable.locator(".da-month-table:not(.da-completed-table)")).toHaveCount(2);
   await expect(printable.locator(".da-completed-table")).toHaveCount(1);
+  await expect(printable.locator(".da-completed-table").getByRole("columnheader", { name: /^(Other|Unknown age|Unknown sex)$/ })).toHaveCount(0);
   await expect(printable.getByRole("heading", { name: "Automatic completed visits · 11 visits", exact: true })).toBeVisible();
   const pdf = await page.pdf({ path: testInfo.outputPath("doctor-report.pdf"), format: "A3", landscape: true, printBackground: true });
   expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) || []).length).toBe(2);

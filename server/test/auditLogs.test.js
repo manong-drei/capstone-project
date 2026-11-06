@@ -53,21 +53,20 @@ test('migration refuses to overwrite an existing legacy archive', async () => {
 test('audit details allowlist excludes secrets, clinical data, and identity answers while masking phones', async t => {
   let values;
   const req = request();
-  await audit.write(req, { action: 'account.updated', target_type: 'user', target_id: 9,
+  await audit.write(req, { action: 'account.deactivated', target_type: 'user', target_id: 9,
     reason: 'Private medical information', details: {
       password: 'secret', password_hash: 'hash', token: 'token', notes: 'private', verification: { phone: true },
       phone: '09123456789', assigned_role: 'admin',
       changed_fields: ['first_name', 'phone', 'password', 'diagnosis'],
       changes: { first_name: { from: 'Private Name', to: 'Other Name' }, phone: { from: '09123456780', to: '09123456789' },
-        status: { from: 'waiting', to: 'cancelled' }, password: { from: 'secret', to: 'secret' } },
+        is_active: { from: 1, to: 0 }, password: { from: 'secret', to: 'secret' } },
     } }, { async query(sql, args) { assert.match(sql, /UTC_TIMESTAMP\(3\)/); values = args; } });
   assert.equal(values[0], 4);
   assert.equal(values[8], 'Reason recorded in source record');
   const details = JSON.parse(values[10]);
   assert.equal(details.phone, '*******6789');
-  assert.deepEqual(details.changed_fields, ['first_name', 'phone']);
-  assert.deepEqual(details.changes.status, { from: 'waiting', to: 'cancelled' });
-  assert.deepEqual(details.changes.phone, { from: '*******6780', to: '*******6789' });
+  assert.equal(details.changed_fields, undefined);
+  assert.deepEqual(details.changes, { is_active: { from: 1, to: 0 } });
   assert.doesNotMatch(JSON.stringify(values), /secret|hash|token|Private Name|Private medical|09123456789|verification|diagnosis/);
   t.mock.method(pool, 'query', async () => { throw new Error('Should not write'); });
   await audit.write({ user: { role: 'admin' }, body: { auditActor: req.auditActor } }, { action: 'account.created' });
@@ -80,7 +79,7 @@ test('Philippine date ranges are inclusive across UTC midnight; all filters and 
   assert.ok(!result.where.includes('OR 1=1'));
   for (const query of [
     { dateFrom: '2026-02-30' }, { dateTo: 'bad' }, { dateFrom: '2026-10-30', dateTo: '2026-10-29' },
-    { actor: ['4'] }, { actor: 'a'.repeat(201) }, { action: 'unknown' }, { outcome: 'unknown' },
+    { actor: ['4'] }, { actor: 'a'.repeat(201) }, { action: 'unknown' }, { action: 'patient.viewed' }, { outcome: 'unknown' },
     { page: '0' }, { limit: '101' }, { dateFrom: '2026-01-01T00:00:00Z' },
   ]) assert.throws(() => filters(query), { status: 400 });
 });
@@ -94,8 +93,13 @@ test('audit listing has deterministic ordering, pagination, UTC serialization an
   const res = response();
   await getAuditLogs({ query: { page: '2', limit: '20' } }, res);
   assert.deepEqual(res.body.pagination, { page: 2, limit: 20, total: 21, totalPages: 2 });
-  assert.deepEqual(calls[1].values, [20, 20]);
-  assert.match(calls[1].sql, /ORDER BY created_at DESC, id DESC LIMIT \? OFFSET \?/);
+  assert.match(calls[0].sql, /WHERE action IN \(\?\)/);
+  assert.match(calls[1].sql, /WHERE action IN \(\?\)/);
+  assert.deepEqual(calls[0].values, [audit.ACTIONS]);
+  assert.deepEqual(calls[1].values, [audit.ACTIONS, 20, 20]);
+  assert.match(calls[1].sql, /ORDER BY audit_logs\.created_at DESC, id DESC LIMIT \? OFFSET \?/);
+  assert.match(calls[1].sql, /ORDER BY entry\.created_at DESC, entry\.id DESC/);
+  assert.match(calls[1].sql, /AS target_name/);
   assert.match(calls[1].sql, /AS created_at/);
   t.mock.method(console, 'error', () => {});
   queryMock.mock.mockImplementation(async () => { throw new Error('secret connection string'); });
@@ -123,15 +127,31 @@ test('audit endpoint is read-only and only a current verified admin can access i
   assert.equal(passed, false);
 });
 
-test('account status changes commit accurate before/after values and roll back on audit failure', async t => {
+test('account deactivation requires an allowed reason before opening a transaction', async t => {
+  const connection = t.mock.method(pool, 'getConnection', async () => { throw Error('Unexpected transaction'); });
+  for (const deactivate of [admin.deactivatePatient, admin.deactivateStaff]) {
+    for (const reason of [undefined, '', 'Unstructured note', ['Duplicate account']]) {
+      const req = request();
+      req.params.user_id = '9';
+      req.body = { reason };
+      const res = response();
+      await deactivate(req, res);
+      assert.equal(res.statusCode, 400);
+    }
+  }
+  assert.equal(connection.mock.callCount(), 0);
+});
+
+test('account status changes record the reason and before/after values and roll back on audit failure', async t => {
   for (const fails of [false, true]) {
     const calls = [];
     const conn = {
       async beginTransaction() { calls.push('begin'); }, async commit() { calls.push('commit'); },
       async rollback() { calls.push('rollback'); }, release() { calls.push('release'); },
       async query(sql, values) {
-        if (sql.startsWith('SELECT')) return [[{ user_id: 9, role: 'patient', is_active: 1 }]];
+        if (sql.startsWith('SELECT')) return [[{ user_id: 9, role: fails ? 'patient' : 'staff', is_active: 1 }]];
         if (sql.includes('INSERT INTO audit_logs')) {
+          assert.equal(values[8], 'Duplicate account');
           assert.deepEqual(JSON.parse(values[10]).changes.is_active, { from: 1, to: 0 });
           calls.push('audit'); if (fails) throw new Error('audit unavailable');
         } else calls.push('update');
@@ -140,8 +160,9 @@ test('account status changes commit accurate before/after values and roll back o
     };
     const connectionMock = t.mock.method(pool, 'getConnection', async () => conn);
     const errorMock = t.mock.method(console, 'error', () => {});
-    const req = request(); req.params.user_id = '9'; const res = response();
-    await admin.deactivatePatient(req, res);
+    const req = request(); req.params.user_id = '9'; req.body.reason = 'Duplicate account'; const res = response();
+    const deactivate = fails ? admin.deactivatePatient : admin.deactivateStaff;
+    await deactivate(req, res);
     assert.equal(res.statusCode, fails ? 500 : 200);
     assert.deepEqual(calls, ['begin', 'update', 'audit', fails ? 'rollback' : 'commit', 'release']);
     connectionMock.mock.restore(); errorMock.mock.restore();
@@ -162,51 +183,64 @@ test('SMS threshold changes record the locked previous value and rollback on aud
   assert.equal(res.statusCode, 500); assert.deepEqual(calls, ['update', 'rollback']);
 });
 
-test('patient hooks produce one merge event, distinct duplicate override, and exclude verification details', async t => {
+test('patient hooks preserve source audit and only emit merge, credential issuance and duplicate override events', async t => {
   const events = [];
-  const conn = { async query(sql, values) { if (sql.includes('INSERT INTO audit_logs')) events.push({ action: values[4], details: JSON.parse(values[10]) }); return [{}]; } };
+  const sourceActions = [];
+  const conn = { async query(sql, values) {
+    if (sql.includes('INSERT INTO patient_audit')) sourceActions.push(values[2]);
+    if (sql.includes('INSERT INTO audit_logs')) events.push({ action: values[4], targetId: values[6], details: JSON.parse(values[10]) });
+    return [{}];
+  } };
   const req = request();
   await Patient.audit(1, 4, 'merged_into', { target_patient_id: 2 }, conn, req);
   await Patient.audit(2, 4, 'merged_from', { source_patient_id: 1 }, conn, req);
   await Patient.audit(1, 4, 'account_recovery', { user_id: 8, verification: { date_of_birth: true }, temp_password: 'secret' }, conn, req);
   await Patient.audit(3, 4, 'create', { duplicate_override: true, possible_patient_ids: [1] }, conn, req);
-  assert.deepEqual(events.map(event => event.action), ['patient.merged', 'account.recovered', 'patient.created', 'patient.duplicate_override']);
+  for (const action of ['view', 'create', 'update', 'queue']) await Patient.audit(1, 4, action, null, conn, req);
+  assert.deepEqual(events.map(event => event.action), ['patient.merged', 'password.issued', 'patient.duplicate_override']);
+  assert.deepEqual(events[1], { action: 'password.issued', targetId: 8, details: { patient_id: 1, method: 'in_person' } });
+  assert.deepEqual(sourceActions, ['merged_into', 'merged_from', 'account_recovery', 'create', 'view', 'create', 'update', 'queue']);
   assert.doesNotMatch(JSON.stringify(events), /verification|date_of_birth|secret/);
   t.mock.method(pool, 'query', async () => { throw Error('audit unavailable'); });
   t.mock.method(console, 'error', () => {});
   await Patient.audit(1, 4, 'view', null, pool, req);
 });
 
-test('queue changes and related appointments share the same audit transaction and previous statuses', async t => {
+test('queue changes and related appointments still share the same transaction without an audit write', async t => {
   const statements = [];
   const conn = { async query(sql, values) {
     statements.push({ sql, values });
-    if (sql.startsWith('SELECT appointment_id')) return [[{ appointment_id: 8, status: 'confirmed' }]];
     return [[]];
   } };
-  t.mock.method(Queue, '_withTicket', async (id, change) => change({ id, status: 'waiting', patient_id: 5, is_walk_in: 0, created_at: new Date() }, conn));
+  const created = new Date();
+  t.mock.method(Queue, '_withTicket', async (id, change) => change({ id, status: 'waiting', patient_id: 5, is_walk_in: 0, created_at: created }, conn));
   t.mock.method(Queue, '_fetchById', async () => ({ id: 7, status: 'cancelled' }));
-  await Queue.updateStatus(7, 'cancelled', 'Wait time too long', { auditRequest: request() });
-  const entry = statements.find(row => row.sql.includes('INSERT INTO audit_logs'));
-  assert.deepEqual(JSON.parse(entry.values[10]).changes.status, { from: 'waiting', to: 'cancelled' });
-  assert.deepEqual(JSON.parse(entry.values[10]).appointments, [{ appointment_id: 8, from: 'confirmed', to: 'cancelled' }]);
-  assert.ok(statements.find(row => row.sql.startsWith('UPDATE appointments')));
-  assert.equal(entry.values[8], 'Wait time too long');
+  await Queue.updateStatus(7, 'cancelled', 'Wait time too long', { syncAppointments: true });
+  assert.deepEqual(statements.map(row => row.values), [
+    ['cancelled', 'Wait time too long', 7],
+    ['cancelled', 5, created],
+  ]);
+  assert.match(statements[0].sql, /^UPDATE queues/);
+  assert.match(statements[1].sql, /^UPDATE appointments[\s\S]*status IN \('pending', 'confirmed'\)/);
 });
 
-test('appointment and admin password changes roll back when auditing fails', async t => {
-  let rollbacks = 0; let commits = 0;
+test('appointment and self-service password changes do not depend on audit writes', async t => {
+  let commits = 0;
   t.mock.method(pool, 'getConnection', async () => ({
-    async beginTransaction() {}, async commit() { commits++; }, async rollback() { rollbacks++; }, release() {},
+    async beginTransaction() {}, async commit() { commits++; }, async rollback() {}, release() {},
     async query(sql) {
-      if (sql.startsWith('SELECT')) return [[{ status: 'pending' }]];
-      if (sql.includes('INSERT INTO audit_logs')) throw Error('audit unavailable');
+      assert.doesNotMatch(sql, /audit_logs/);
+      if (sql.startsWith('SELECT')) return [[{ status: 'cancelled' }]];
       return [{ affectedRows: 1 }];
     },
   }));
-  await assert.rejects(Appointment.updateStatus(1, 'cancelled', request()));
-  await assert.rejects(User.updatePassword(4, 'ValidPassword1', 1, request()));
-  assert.equal(rollbacks, 2); assert.equal(commits, 0);
+  t.mock.method(pool, 'query', async sql => {
+    assert.match(sql, /^UPDATE users/);
+    return [{ affectedRows: 1 }];
+  });
+  assert.deepEqual(await Appointment.updateStatus(1, 'cancelled', true), { status: 'cancelled' });
+  assert.equal(await User.updatePassword(4, 'ValidPassword1', 1), true);
+  assert.equal(commits, 1);
 });
 
 test('failed admin sign-in identifies the target without claiming an authenticated actor; success is best effort', async t => {
@@ -234,29 +268,32 @@ test('rejected/denied requests use trusted actors, include a safe outcome, and d
   };
   await finish({ path: '/admin/staff', method: 'POST', user: { role: 'admin' } }, 401);
   await finish({ ...request(), path: '/queue/7/status', method: 'PATCH' }, 409);
+  await finish({ ...request(), path: '/queue/7/status', method: 'PATCH' }, 403);
+  await finish({ ...request(), path: '/admin/staff/9/deactivate', method: 'PATCH' }, 400);
   await finish({ auditActor: { user_id: 9, role: 'patient' }, path: '/doctor/7/records', method: 'GET' }, 403);
   await finish({ ...request(), path: '/admin/staff', method: 'POST' }, 201);
-  assert.equal(events.length, 3); assert.equal(events[0].outcome, 'denied'); assert.equal(events[0].force, true);
-  assert.equal(events[1].action, 'queue.status_changed'); assert.equal(events[1].outcome, 'failed');
-  assert.equal(events[2].force, true); assert.equal(events[2].target_type, 'doctor');
+  assert.deepEqual(events.map(event => event.action), ['access.denied', 'access.denied', 'account.deactivated', 'access.denied']);
+  assert.equal(events[0].force, true);
+  assert.equal(events[1].target_type, 'queue'); assert.equal(events[1].target_id, '7');
+  assert.equal(events[2].outcome, 'failed');
+  assert.equal(events[3].force, true); assert.equal(events[3].target_type, 'doctor');
 });
 
 test('development identities are explicit and cannot be mistaken for named production admins', async t => {
   const req = {};
   await audit.setActor(req, { id: 4, role: 'admin' }, true);
   const values = [];
-  await audit.write(req, { action: 'doctor.viewed', target_type: 'doctor', target_id: 7 }, { async query(sql, args) { values.push(args); } });
+  await audit.write(req, { action: 'auth.login', target_type: 'user', target_id: 7 }, { async query(sql, args) { values.push(args); } });
   assert.equal(values[0][3], 1); assert.equal(values[0][1], 'Development admin');
 });
 
-test('account creation, staff edits and replacement passwords audit on the mutation connection', async t => {
+test('account creation and password issuance or replacement audit on the mutation connection while staff edits stay quiet', async t => {
   const entries = [];
   let committed = false;
   const conn = {
     async beginTransaction() { committed = false; }, async commit() { committed = true; }, async rollback() {}, release() {},
     async query(sql, values) {
       if (sql.includes('INSERT INTO audit_logs')) { assert.equal(committed, false); entries.push({ action: values[4], details: JSON.parse(values[10]) }); }
-      if (sql.startsWith('SELECT u.phone')) return [[{ phone: '09123456780', first_name: 'Before', email: 'old@example.com' }]];
       if (sql.includes('SELECT * FROM users')) return [[{ user_id: 9, is_active: 1, must_change_password: 1, phone: '09123456789', credential_version: 1 }]];
       if (sql.includes('SELECT patient_id FROM patients')) return [[{ patient_id: 42 }]];
       return [{ insertId: sql.includes('INSERT INTO users') ? 9 : sql.includes('INSERT INTO patients') ? 42 : 1 }];
@@ -269,14 +306,14 @@ test('account creation, staff edits and replacement passwords audit on the mutat
   assert.equal(entries[0].action, 'account.created'); assert.equal(entries[0].details.assigned_role, 'admin');
   req.params.user_id = '9'; req.body = { first_name: 'PrivateName', phone: '09123456789' };
   res = response(); await admin.updateStaff(req, res); assert.equal(res.statusCode, 200);
-  assert.deepEqual(entries[1].details.changed_fields, ['first_name', 'phone']);
+  assert.equal(entries.length, 1);
   const key = process.env.SMS_ENCRYPTION_KEY; process.env.SMS_ENCRYPTION_KEY = 'ab'.repeat(32);
   t.after(() => { if (key === undefined) delete process.env.SMS_ENCRYPTION_KEY; else process.env.SMS_ENCRYPTION_KEY = key; });
   req.body = { first_name: 'Private', last_name: 'Patient', phone: '09123456789', address: 'Poblacion', date_of_birth: '1990-01-01', gender: 'Female' };
   res = response(); await admin.createPatient(req, res); assert.equal(res.statusCode, 201);
   req.body = { identity_confirmed: true };
   res = response(); await sms.replacePassword(req, res); assert.equal(res.statusCode, 201);
-  assert.deepEqual(entries.map(row => row.action), ['account.created', 'account.updated', 'account.created', 'password.issued', 'password.replaced']);
+  assert.deepEqual(entries.map(row => row.action), ['account.created', 'account.created', 'password.issued', 'password.replaced']);
   assert.doesNotMatch(JSON.stringify(entries), /PrivateName|PrivatePassword|1990-01-01|Poblacion|09123456789/);
 });
 
@@ -288,32 +325,40 @@ test('MySQL audit schema supports rollback, filters and Philippine midnight usin
     await connection.query('CREATE TEMPORARY TABLE audit_logs LIKE audit_fixture');
     await connection.query('DROP TEMPORARY TABLE audit_fixture');
     await connection.query('CREATE TEMPORARY TABLE users (user_id INT PRIMARY KEY, role VARCHAR(20), is_active BOOLEAN) ENGINE=InnoDB');
+    for (const [table, key] of [['patients', 'patient_id'], ['doctors', 'doctor_id'], ['staff', 'staff_id']]) {
+      await connection.query(`CREATE TEMPORARY TABLE ${table} (${key} INT PRIMARY KEY, user_id INT, first_name VARCHAR(50), middle_name VARCHAR(50), last_name VARCHAR(50), suffix VARCHAR(10))`);
+    }
     await connection.query("INSERT INTO users VALUES (9, 'patient', 1)");
+    await connection.query("INSERT INTO patients VALUES (45, 9, 'Ana', NULL, 'Santos', NULL), (46, 9, 'Duplicate', NULL, 'Profile', NULL)");
     const databaseErrors = [];
     pool.getConnection = async () => ({
       async query(...args) { try { return await connection.query(...args); } catch (error) { databaseErrors.push(error.code); throw error; } }, beginTransaction: connection.beginTransaction.bind(connection),
       commit: connection.commit.bind(connection), rollback: connection.rollback.bind(connection), release() {},
     });
     pool.query = connection.query.bind(connection);
-    const req = request(); req.params.user_id = '9';
+    const req = request(); req.params.user_id = '9'; req.body.reason = 'Duplicate account';
     const res = response(); await admin.deactivatePatient(req, res); assert.equal(res.statusCode, 200, databaseErrors.join(', '));
     const [[entry]] = await connection.query('SELECT * FROM audit_logs');
+    assert.equal(entry.reason, 'Duplicate account');
     assert.deepEqual(JSON.parse(entry.details).changes.is_active, { from: 1, to: 0 });
     await connection.query("UPDATE audit_logs SET created_at = '2026-10-28 16:00:00.000'");
     await connection.query("INSERT INTO audit_logs (actor_name, action, target_type, outcome, details, created_at) VALUES ('Visitor', 'access.denied', 'admin', 'denied', '{}', '2026-10-29 15:59:59.999'), ('Visitor', 'access.denied', 'admin', 'denied', '{}', '2026-10-29 16:00:00.000')");
+    await connection.query("INSERT INTO audit_logs (actor_name, action, target_type, outcome, details, created_at) VALUES ('Admin', 'patient.viewed', 'patient', 'success', '{}', '2026-10-29 12:00:00.000')");
     const logs = response(); await getAuditLogs({ query: { dateFrom: '2026-10-29', dateTo: '2026-10-29' } }, logs);
     assert.equal(logs.statusCode, 200); assert.equal(logs.body.pagination.total, 2);
     assert.equal(logs.body.events[1].created_at, '2026-10-28T16:00:00.000Z');
+    assert.equal(logs.body.events[1].target_name, 'Ana Santos');
+    assert.equal(logs.body.events[1].target_role, 'patient');
     // Reject a new success audit at the database layer, then verify the account update rolled back too.
     await connection.query('ALTER TABLE audit_logs ADD CONSTRAINT audit_reject_success CHECK (target_id IS NULL OR target_id = 9)');
     await connection.query("INSERT INTO users VALUES (10, 'patient', 1)");
     req.params.user_id = '10'; const rejected = response(); await admin.deactivatePatient(req, rejected);
     assert.equal(rejected.statusCode, 500);
     const [[user]] = await connection.query('SELECT is_active FROM users WHERE user_id = 10'); assert.equal(user.is_active, 1);
-    const [[count]] = await connection.query('SELECT COUNT(*) AS total FROM audit_logs'); assert.equal(count.total, 3);
+    const [[count]] = await connection.query('SELECT COUNT(*) AS total FROM audit_logs'); assert.equal(count.total, 4);
   } finally {
     pool.query = saved.query; pool.getConnection = saved.getConnection;
-    await connection.query('DROP TEMPORARY TABLE IF EXISTS audit_logs, users');
+    await connection.query('DROP TEMPORARY TABLE IF EXISTS audit_logs, users, patients, doctors, staff');
     connection.release();
   }
 });

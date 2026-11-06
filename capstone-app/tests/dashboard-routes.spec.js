@@ -168,9 +168,10 @@ for (const width of [1440, 375]) {
     await expect(myQueueCard).toContainText("Dental Check-up");
     await expect(myQueueCard.getByRole("button", { name: "Cancel Queue", exact: true })).toBeVisible();
     await expect(myQueueCard.getByText("AQ11", { exact: true })).toHaveCount(1);
-    await expect(page.getByText("My queue number", { exact: true })).toHaveCount(0);
-    await myQueueCard.getByRole("button", { name: "View queue line", exact: true }).click();
+    await expect(myQueueCard.getByRole("button", { name: "View queue line", exact: true })).toHaveCount(0);
+    await page.getByRole("region", { name: "Patient information" }).getByRole("button", { name: "View queue line", exact: true }).click();
     await expect(page).toHaveURL(/\/patient\/my-queue$/);
+    await expect(page.getByRole("heading", { name: "Current dental queue line" })).toBeInViewport();
     const line = page.getByRole("list", { name: "Current queue line" });
     await expect(line.getByRole("listitem")).toHaveText([/Q01.*Now serving/, /P02.*Waiting/, /AQ11.*Your ticket.*Waiting/]);
     state.status.line = [{ queue_number: "AQ11", status: "called" }];
@@ -198,7 +199,7 @@ test("My Queue shows the line without a personal ticket and respects the dentist
   state.queue = null;
   state.doctor.leave_end = "2026-11-04";
   await page.goto("/patient");
-  const myQueueCard = page.getByRole("region", { name: "My Queue", exact: true });
+  const myQueueCard = page.getByRole("region", { name: "Patient information" });
   await expect(myQueueCard).toContainText("No active queue number");
   await page.goto("/patient/my-queue");
   await expect(page).toHaveURL(/\/patient\/my-queue$/);

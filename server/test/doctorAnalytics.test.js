@@ -128,6 +128,7 @@ test("MySQL reports count each completed visit once and apply consultation, appo
       (8, NULL, '2026-10-12 08:00:00', 'done', 'dental', 'regular', 1, NULL, NULL),
       (9, NULL, '2026-10-11 15:00:00', 'done', 'general', 'regular', 1, NULL, NULL),
       (10, NULL, '2026-10-11 16:00:00', 'done', 'dental', 'regular', 1, '2027-01-01', NULL)`);
+    await connection.query("ALTER TABLE queues ADD COLUMN completed_by_doctor_id INT");
     await connection.query("INSERT INTO appointments VALUES (1, 1, 7, '2026-10-11', 'cancelled'), (2, 1, 9, '2026-10-11', 'completed'), (3, 1, 7, '2026-10-11', 'confirmed'), (4, 3, 7, '2026-10-11', 'completed')");
     await connection.query("INSERT INTO consultations VALUES (1, 3, 9), (2, 4, 7), (3, 4, 9)");
     const ownReport = Array.from({ length: 24 }, () => Array(24).fill(null));

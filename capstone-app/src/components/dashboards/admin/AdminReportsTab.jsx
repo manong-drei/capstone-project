@@ -152,7 +152,7 @@ export default function AdminReportsTab() {
             </p>
             <div className="ar-scroll" role="region" aria-label="Annual patient volume chart" tabIndex={0}>
               <div className="ar-chart ar-trend-chart" role="img" aria-label="Three-year BOHC demand forecast">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 820, height: 340 }}>
                   <LineChart data={trendData} margin={{ top: 16, right: 24, bottom: 8, left: 10 }}>
                     <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
                     <XAxis dataKey="year" interval={0} tick={{ fontSize: 11 }} height={50} label={{ value: "Year", position: "insideBottom", offset: 0 }} />
@@ -213,7 +213,7 @@ export default function AdminReportsTab() {
             </div>
             <div className="ar-scroll" role="region" aria-label="BOHC recipients chart" tabIndex={0}>
               <div className="ar-chart" role="img" aria-label={`Annual BOHC patient volume for ${ageGroup}, 2014–2028`}>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 820, height: 340 }}>
                   <LineChart data={chartData} margin={{ top: 16, right: 24, bottom: 8, left: 10 }}>
                     <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
                     <XAxis

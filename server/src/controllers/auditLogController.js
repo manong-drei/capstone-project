@@ -2,6 +2,10 @@ const pool = require('../config/db');
 const { parsePagination } = require('../utils/pagination');
 const { ACTIONS, OUTCOMES } = require('../services/auditLog');
 
+const fullName = alias => `NULLIF(TRIM(CONCAT_WS(' ', ${alias}.first_name,
+  NULLIF(TRIM(${alias}.middle_name), ''), ${alias}.last_name,
+  NULLIF(TRIM(${alias}.suffix), ''))), '')`;
+
 function filters(query) {
   const { page, limit } = parsePagination(query, 20);
   const conditions = [];
@@ -31,7 +35,11 @@ function filters(query) {
     if (!allowed.includes(query[name])) invalid();
     conditions.push(`${name} = ?`); values.push(query[name]);
   }
-  return { page, limit, where: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '', values };
+  if (!query.action) {
+    conditions.push('action IN (?)');
+    values.push(ACTIONS);
+  }
+  return { page, limit, where: `WHERE ${conditions.join(' AND ')}`, values };
 }
 
 async function getAuditLogs(req, res) {
@@ -42,10 +50,31 @@ async function getAuditLogs(req, res) {
     const total = Number(count.total);
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const page = Math.min(requestedPage, totalPages);
-    const [events] = await pool.query(`SELECT id, actor_user_id, actor_name, actor_role, is_development,
-      action, target_type, target_id, outcome, reason, ip_address, details,
-      CONCAT(DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.'), LPAD(MICROSECOND(created_at) DIV 1000, 3, '0'), 'Z') AS created_at
-      FROM audit_logs ${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, [...values, limit, (page - 1) * limit]);
+    const [events] = await pool.query(`
+      SELECT entry.*,
+        COALESCE(
+          (SELECT ${fullName('p')} FROM patients p
+           WHERE (entry.target_type = 'patient' AND p.patient_id = entry.target_id)
+              OR (u.role = 'patient' AND p.user_id = u.user_id)
+           ORDER BY p.patient_id LIMIT 1),
+          (SELECT ${fullName('d')} FROM doctors d
+           WHERE (entry.target_type = 'doctor' AND d.doctor_id = entry.target_id)
+              OR (u.role = 'doctor' AND d.user_id = u.user_id)
+           ORDER BY d.doctor_id LIMIT 1),
+          (SELECT ${fullName('s')} FROM staff s
+           WHERE u.role IN ('staff', 'admin') AND s.user_id = u.user_id
+           ORDER BY s.staff_id LIMIT 1)
+        ) AS target_name,
+        CASE entry.target_type WHEN 'patient' THEN 'patient' WHEN 'doctor' THEN 'doctor'
+          ELSE u.role END AS target_role
+      FROM (
+        SELECT id, actor_user_id, actor_name, actor_role, is_development,
+          action, target_type, target_id, outcome, reason, ip_address, details,
+          CONCAT(DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.'), LPAD(MICROSECOND(created_at) DIV 1000, 3, '0'), 'Z') AS created_at
+        FROM audit_logs ${where} ORDER BY audit_logs.created_at DESC, id DESC LIMIT ? OFFSET ?
+      ) entry
+      LEFT JOIN users u ON entry.target_type = 'user' AND u.user_id = entry.target_id
+      ORDER BY entry.created_at DESC, entry.id DESC`, [...values, limit, (page - 1) * limit]);
     res.json({ success: true, events, pagination: { page, limit, total, totalPages } });
   } catch (error) {
     if (error.status === 400) return res.status(400).json({ success: false, message: error.message });

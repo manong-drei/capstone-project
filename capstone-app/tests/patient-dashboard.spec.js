@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { test, expect } from "@playwright/test";
 import { createTestToken } from "./helpers/auth";
 
@@ -17,6 +16,11 @@ async function mockPatient(page) {
     if (path === "/api/auth/change-password") {
       expect(request.postDataJSON()).toEqual({ oldPassword: "OldPassword1", newPassword: "NewPassword2" });
       return route.fulfill({ json: { success: true, user, token: createTestToken({ ...user, credential_version: 2 }) } });
+    }
+    if (path === "/api/queue/71/cancel" && request.method() === "PATCH") {
+      expect(request.postDataJSON()).toEqual({ reason: "No longer needs the service" });
+      state.queue = null;
+      return route.fulfill({ json: { success: true } });
     }
     if ((path === "/api/doctor" && state.failDoctor) || (path === "/api/queue/me" && state.failQueue) || (path === "/api/patients/me" && state.failProfile) || (path === "/api/appointments/me" && state.failHistory)) return route.fulfill({ status: 503, json: { message: "Temporarily unavailable." } });
     const responses = {
@@ -38,8 +42,8 @@ for (const width of [320, 390, 768, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     const state = await mockPatient(page);
     await page.goto("/patient");
-    await expect(page.getByRole("heading", { name: "Welcome, Maria Test.", exact: true })).toBeVisible();
-    await expect(page.getByTestId("patient-hero").locator("section")).toHaveCSS("background-image", /BGHero\.webp/);
+    await expect(page.getByRole("heading", { name: /Your Health, Schedule/ })).toBeVisible();
+    await expect(page.getByTestId("patient-hero")).toHaveCSS("background-image", /BGHero\.webp/);
     await expect(page.getByRole("region", { name: "Patient tools", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "My queue", exact: true })).toHaveCount(0);
     const ticket = page.getByRole("article", { name: "My queue ticket", exact: true });
@@ -47,18 +51,24 @@ for (const width of [320, 390, 768, 1024, 1440, 1920]) {
     await expect(ticket).toContainText("November 5, 2026");
     await expect(ticket).toContainText("9:42:19 AM PHT");
     await expect(ticket).toContainText("Oral Prophylaxis");
-    await expect(ticket.getByRole("button", { name: "Download Ticket", exact: true })).toBeEnabled();
+    await expect(ticket).toHaveCSS("text-align", "center");
+    await expect(ticket.getByRole("button")).toHaveText(["Cancel Queue"]);
+    await expect(page.getByRole("button", { name: /Download Ticket|Print Ticket/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`patient-dashboard-${width}.png`), fullPage: true });
-    await expect(page.getByRole("link", { name: /^(My )?Profile$/i })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Toggle menu", exact: true })).toHaveCount(0);
-    if (width < 768) {
-      const mobileNav = page.getByRole("navigation", { name: "Mobile patient navigation" });
-      await expect(mobileNav.getByRole("link", { name: "Home" })).toBeVisible();
-      await expect(mobileNav.getByRole("link", { name: "Visits" })).toBeVisible();
+    const nav = page.getByRole("navigation", { name: "Patient navigation" });
+    const menu = nav.getByRole("button", { name: "Toggle menu", exact: true });
+    if (width <= 640) {
+      await expect(menu).toHaveAttribute("aria-expanded", "false");
+      await menu.click();
+      await expect(menu).toHaveAttribute("aria-expanded", "true");
+    } else {
+      await expect(menu).toHaveCount(0);
     }
+    await expect(nav.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Appointment history", exact: true })).toBeVisible();
     await page.getByRole("button", { name: /Maria Test/ }).click();
-    await page.getByRole("group", { name: "Profile actions" }).getByRole("link", { name: "My Profile" }).click();
+    await nav.getByRole("menuitem", { name: "My Profile", exact: true }).click();
     const card = page.getByRole("region", { name: "Maria Test", exact: true });
     await expect(card.getByText("Regular", { exact: true })).toHaveClass(/bg-blue-100/);
     const password = card.getByRole("link", { name: "Change password", exact: true });
@@ -133,145 +143,72 @@ test("the retired notifications URL returns patients to their dashboard", async 
   await expect(page.getByRole("navigation", { name: "Patient navigation" }).getByRole("link", { name: /Notifications/i })).toHaveCount(0);
 });
 
-test("dental availability uses distinct indicators and does not show leave as available", async ({ page }) => {
+test("the availability card distinguishes a dentist on leave from an available dentist", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 });
   const state = await mockPatient(page);
   await page.goto("/patient");
-  const hero = page.getByTestId("patient-hero");
-  const indicator = hero.locator("p > span");
-  await expect(hero.getByText("Dentist available today", { exact: true })).toBeVisible();
-  const availableColor = await indicator.evaluate(element => getComputedStyle(element).backgroundColor);
+  const availability = page.getByText("Doctor availability", { exact: true }).locator("..");
+  await expect(availability).toContainText("Available today");
+  const availableColor = await availability.evaluate(element => getComputedStyle(element).borderLeftColor);
   state.availability = 0;
   await page.clock.fastForward(15_000);
-  await expect(hero.getByText("Dentist unavailable today", { exact: true })).toBeVisible();
-  const unavailableColor = await indicator.evaluate(element => getComputedStyle(element).backgroundColor);
+  await expect(availability).toContainText("Unavailable today");
+  const unavailableColor = await availability.evaluate(element => getComputedStyle(element).borderLeftColor);
   expect(unavailableColor).not.toBe(availableColor);
   state.availability = 1;
   state.leaveEnd = "2026-11-10";
   await page.clock.fastForward(15_000);
-  await expect(hero.getByText(/Dentist on leave through/)).toBeVisible();
-  await expect(indicator).toHaveCSS("background-color", unavailableColor);
+  await expect(availability).toContainText("On leave");
+  await expect(availability).toContainText("Through November 10, 2026");
+  await expect(availability).toHaveCSS("border-left-color", unavailableColor);
   await expect(page.getByText("Estimated wait", { exact: true }).locator("..")).toContainText("Paused");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   state.failDoctor = true;
   await page.clock.fastForward(15_000);
-  await expect(hero.getByText("Dentist availability unknown", { exact: true })).toBeVisible();
-  const unknownColor = await indicator.evaluate(element => getComputedStyle(element).backgroundColor);
+  await expect(availability).toContainText("Availability unknown");
+  const unknownColor = await availability.evaluate(element => getComputedStyle(element).borderLeftColor);
   expect(unknownColor).not.toBe(availableColor);
   expect(unknownColor).not.toBe(unavailableColor);
 });
 
-async function trackTicketDrawing(page) {
-  await page.evaluate(() => {
-    const fillText = CanvasRenderingContext2D.prototype.fillText;
-    window.ticketDraws = [];
-    window.printCalls = 0;
-    CanvasRenderingContext2D.prototype.fillText = function (text, ...args) {
-      window.ticketDraws.push({ text, color: this.fillStyle, y: args[1], font: this.font });
-      return fillText.call(this, text, ...args);
-    };
-    window.print = () => { window.printCalls++; };
-  });
-}
-
-for (const [type, number, accent] of [['regular', 'AQ07', '#1d4ed8'], ['priority', 'AP07', '#c2410c']]) {
-  test('Download Ticket saves a 4:3 ' + type + ' PNG directly', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 390, height: 900 });
-    const state = await mockPatient(page);
-    Object.assign(state.queue, { type, queue_number: number, sms_initial_position: 4 });
-    await page.goto('/patient');
-    await trackTicketDrawing(page);
-    const ticket = page.getByRole('article', { name: 'My queue ticket', exact: true });
-    await expect(ticket).not.toContainText(/Status last checked|Initial position|Order may change/i);
-    await expect(ticket).toContainText('9:42:19 AM PHT');
-    await expect(ticket.getByText(type.toUpperCase(), { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Print Ticket|Print.*PDF/i })).toHaveCount(0);
-    const pending = page.waitForEvent('download');
-    await ticket.getByRole('button', { name: 'Download Ticket', exact: true }).click();
-    const download = await pending;
-    expect(download.suggestedFilename()).toBe('queue-ticket-' + number + '.png');
-    const path = testInfo.outputPath(type + '-queue-ticket.png');
-    await download.saveAs(path);
-    const png = await readFile(path);
-    expect(png.subarray(1, 4).toString()).toBe('PNG');
-    const width = png.readUInt32BE(16);
-    const height = png.readUInt32BE(20);
-    expect(width * 3).toBe(height * 4);
-    expect(width).toBeGreaterThanOrEqual(1440);
-    const draws = await page.evaluate(() => window.ticketDraws);
-    const content = draws.map(draw => draw.text).join(' ');
-    expect(content).toContain('November 5, 2026 · 9:42:19 AM PHT');
-    for (const text of ['Maria Test', number, type.toUpperCase(), 'Waiting', '9:42:19 AM PHT', 'Dental Check-up, Oral Prophylaxis']) expect(content).toContain(text);
-    expect(content).not.toMatch(/STATUS LAST CHECKED|Initial position|Order may change/i);
-    expect(draws.find(draw => draw.text === number).color).toBe(accent);
-    for (const draw of draws) expect(draw.y + Number(draw.font.match(/([0-9.]+)px/)[1])).toBeLessThan(height / 2 - 12);
-    expect(await page.evaluate(() => window.printCalls)).toBe(0);
-    await expect(page.locator('#patient-ticket-print, a[download]')).toHaveCount(0);
-    await page.getByRole('button', { name: 'View queue line', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'My Queue', exact: true, level: 1 })).toBeVisible();
-    const second = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Download Ticket', exact: true }).click();
-    expect((await second).suggestedFilename()).toBe('queue-ticket-' + number + '.png');
-  });
-}
-
-test('long ticket details remain inside a 4:3 downloaded image', async ({ page }, testInfo) => {
+test("long ticket details and missing issuance dates remain readable on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
   const state = await mockPatient(page);
-  state.queue.full_name = 'Maria Isabel de los Santos Reyes '.repeat(8).trim();
-  await page.goto('/patient');
-  await trackTicketDrawing(page);
-  const pending = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download Ticket', exact: true }).click();
-  const download = await pending;
-  const path = testInfo.outputPath('long-queue-ticket.png');
-  await download.saveAs(path);
-  const png = await readFile(path);
-  const width = png.readUInt32BE(16);
-  const height = png.readUInt32BE(20);
-  expect(width * 3).toBe(height * 4);
-  expect(height).toBeGreaterThan(1080);
-  const draws = await page.evaluate(() => window.ticketDraws);
-  for (const draw of draws) expect(draw.y + Number(draw.font.match(/([0-9.]+)px/)[1])).toBeLessThan(height / 2 - 12);
-});
-
-test('a failed ticket render shows an error and can be retried', async ({ page }) => {
-  await mockPatient(page);
-  await page.goto('/patient');
-  await page.evaluate(() => {
-    window.originalGetContext = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = () => null;
-  });
-  await page.getByRole('button', { name: 'Download Ticket', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Could not download your ticket.');
-  await expect(page.locator('a[download]')).toHaveCount(0);
-  await page.evaluate(() => { HTMLCanvasElement.prototype.getContext = window.originalGetContext; });
-  const pending = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download Ticket', exact: true }).click();
-  expect((await pending).suggestedFilename()).toBe('queue-ticket-AQ07.png');
-  await expect(page.getByRole('alert')).toHaveCount(0);
-});
-
-test('a ticket with no issuance date downloads without invalid timestamps', async ({ page }) => {
-  const state = await mockPatient(page);
+  state.queue.full_name = "Maria Isabel de los Santos Reyes ".repeat(8).trim();
   state.queue.created_at = null;
-  await page.goto('/patient');
-  await trackTicketDrawing(page);
-  const pending = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download Ticket', exact: true }).click();
-  await pending;
-  const content = await page.evaluate(() => window.ticketDraws.map(draw => draw.text).join(' '));
-  expect(content).toContain('—');
-  expect(content).not.toMatch(/Invalid Date|NaN|undefined/);
+  await page.goto("/patient");
+  const ticket = page.getByRole("article", { name: "My queue ticket" });
+  await expect(ticket).toContainText(state.queue.full_name);
+  await expect(ticket.getByText("—", { exact: true })).toHaveCount(2);
+  await expect(ticket).not.toContainText(/Invalid Date|NaN|undefined/);
+  expect(await ticket.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
 
-test("failed refresh blocks downloading and failed sections show retry instead of empty results", async ({ page }) => {
+test("the ticket's cancellation action confirms a reason and clears the ticket", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const state = await mockPatient(page);
   await page.goto("/patient");
-  const downloadButton = page.getByRole("button", { name: "Download Ticket", exact: true });
-  await expect(downloadButton).toBeEnabled();
+  const ticket = page.getByRole("article", { name: "My queue ticket" });
+  await ticket.getByRole("button", { name: "Cancel Queue", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Why are you cancelling your queue?" });
+  const confirm = dialog.getByRole("button", { name: "Continue", exact: true });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByRole("radio", { name: "No longer needs the service" }).check();
+  await confirm.click();
+  await expect(ticket).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Get queue ticket/i })).toBeEnabled();
+  expect(state.writes).toEqual([{ path: "/api/queue/71/cancel", method: "PATCH" }]);
+});
+
+test("failed sections display a warning or retry while preserving available information", async ({ page }) => {
+  const state = await mockPatient(page);
+  await page.goto("/patient");
+  const ticket = page.getByRole("article", { name: "My queue ticket" });
+  await expect(ticket).toContainText("AQ07");
   state.failQueue = true;
   await page.clock.fastForward(15_000);
-  await expect(downloadButton).toBeDisabled();
+  await expect(page.getByRole("alert")).toContainText("Displayed ticket information may be outdated.");
+  await expect(ticket).toContainText("AQ07");
   state.failHistory = true;
   await page.goto("/patient/appointment-history");
   await expect(page.getByRole("button", { name: "Retry history", exact: true })).toBeVisible();

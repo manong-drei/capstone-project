@@ -4,7 +4,7 @@ import { QUEUE_STATUS } from '@/constants/queue'
 const statusColors = {
   [QUEUE_STATUS.WAITING]: { color: '#2d3a8c', bg: '#eef2ff', label: 'Waiting' },
   [QUEUE_STATUS.SERVING]: { color: '#059669', bg: '#d1fae5', label: 'Serving' },
-  [QUEUE_STATUS.DONE]:    { color: '#6b7280', bg: '#f3f4f6', label: 'Done' },
+  [QUEUE_STATUS.DONE]:    { color: '#6b7280', bg: '#f3f4f6', label: 'Completed' },
 }
 
 /**
@@ -156,7 +156,7 @@ export default function PatientQueue({ queues = [], onCallNext, onMarkDone, load
                       fontSize: '12px', fontWeight: 600, cursor: 'pointer',
                     }}
                   >
-                    Mark Done
+                    Mark Complete
                   </button>
                 )}
               </div>
