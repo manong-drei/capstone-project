@@ -101,6 +101,35 @@ test('monitor coalesces refreshes during a slow request and fetches the latest q
   expect(requests).toBe(2);
 });
 
+test('a hung refresh keeps the last tickets visibly stale and polling recovers', async ({ page }) => {
+  const state = await mockMonitor(page);
+  state.serverTime = Date.parse('2026-10-10T09:00:00+08:00');
+  await page.goto('/general-queue-monitor');
+  await expect(page.getByText('Live queue', { exact: true })).toBeVisible();
+  await expect(page.getByText('Q01', { exact: true })).toBeVisible();
+
+  let requests = 0;
+  let recovered = false;
+  await page.route('**/api/queue?category=dental&include_clock=1', route => {
+    requests++;
+    if (recovered) return route.fallback();
+    if (requests > 1) return route.fulfill({ status: 503 });
+  });
+  await page.clock.fastForward(1_000);
+  const stale = page.getByText(/Queue display is stale/);
+  await expect(stale).toBeVisible({ timeout: 8_000 });
+  await expect(stale).toContainText(/Last updated.*Oct 10, 2026.*9:00:00 AM/i);
+  await expect(page.getByText('Live queue', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Q01', { exact: true })).toBeVisible();
+
+  recovered = true;
+  state.queues[0].queue_number = 'Q02';
+  await page.clock.fastForward(1_000);
+  await expect(page.getByText('Q02', { exact: true })).toBeVisible();
+  await expect(page.getByText('Live queue', { exact: true })).toBeVisible();
+  await expect(stale).toHaveCount(0);
+});
+
 for (const viewport of [{ width: 1440, height: 640 }, { width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
   test(`monitor follows the concept layout at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
     const state = await mockMonitor(page);

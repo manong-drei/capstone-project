@@ -67,7 +67,7 @@ async function submitOne(conn) {
   // Commit the claim before contacting Semaphore: a crash must never return it to the send queue.
   await conn.beginTransaction();
   const [[job]] = await conn.query(`SELECT * FROM sms_jobs WHERE state = 'queued' AND next_attempt_at <= NOW()
-    ORDER BY id LIMIT 1 FOR UPDATE`);
+    ORDER BY next_attempt_at, id LIMIT 1 FOR UPDATE`);
   if (!job) { await conn.commit(); return; }
   await conn.query("UPDATE sms_jobs SET state = 'submitting', attempts = attempts + 1, updated_at = NOW() WHERE id = ?", [job.id]);
   await conn.commit();
@@ -102,9 +102,16 @@ async function submitOne(conn) {
       const waiting = await Queue.projectWaiting(queue.category, conn);
       const position = waiting.findIndex(q => q.id === job.queue_id) + 1;
       const [[settings]] = await conn.query('SELECT threshold FROM sms_settings WHERE id = 1 FOR UPDATE');
-      if (!position || position > settings.threshold || queue.sms_alert_state !== 'enqueued' ||
+      if (!position || queue.sms_alert_state !== 'enqueued' ||
           await queueRecipient(conn, queue) !== job.recipient) {
         await cancelJob(conn, job.id); await conn.commit(); return;
+      }
+      if (position > settings.threshold) {
+        // The provider was never contacted, so defer this job without consuming an attempt.
+        await conn.query(`UPDATE sms_jobs SET state = 'queued', attempts = attempts - 1,
+          next_attempt_at = DATE_ADD(NOW(), INTERVAL 15 SECOND) WHERE id = ? AND state = 'submitting'`, [job.id]);
+        await conn.commit();
+        return;
       }
       message = queueMessage(queue, position);
     }

@@ -11,7 +11,7 @@ const otpHash = (id, code) => crypto.createHmac('sha256', process.env.SMS_ENCRYP
 const tokenHash = token => crypto.createHash('sha256').update(token).digest('hex');
 const matches = (left, right) => typeof left === 'string' && /^[a-f\d]{64}$/.test(left)
   && crypto.timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'));
-const error = (status, message, retryAfter) => ({ status, message, retryAfter });
+const error = (status, message) => ({ status, message });
 const invalidCode = () => error(400, 'Invalid or expired code. Request a new code if needed.');
 
 async function patient(connection, userId, patientId) {
@@ -77,20 +77,21 @@ async function request(req) {
   if (!phone) return error(400, 'invalid phone number');
   if (process.env.SMS_ENABLED !== 'true') return error(503, 'SMS recovery is unavailable. Please visit clinic reception for help.');
   sms.validateConfig();
+  // Use the same response for unsent challenges so a caller cannot look up accounts.
+  const id = crypto.randomUUID();
+  const response = { recovery_id: id, expires_in: 300, resend_after: 60 };
   return audit.transaction(async connection => {
     const [[user]] = await connection.query("SELECT *, NOW(3) AS db_now FROM users WHERE phone = ? AND role = 'patient' AND is_active = 1 FOR UPDATE", [phone]);
     const person = user && await patient(connection, user.user_id);
-    if (!person) return error(400, 'invalid phone number');
+    if (!person) return response;
     const [[limits]] = await connection.query(`SELECT COUNT(*) AS total, MAX(created_at) AS last_sent FROM password_recoveries
       WHERE phone = ? AND created_at > DATE_SUB(NOW(3), INTERVAL 15 MINUTE)`, [phone]);
     const wait = limits.last_sent ? Math.ceil((limits.last_sent.getTime() + 60000 - user.db_now.getTime()) / 1000) : 0;
-    if (wait > 0) return error(429, `Please wait ${wait} seconds before requesting another code.`, wait);
-    if (Number(limits.total) >= 3) return error(429, 'Too many recovery requests. Please try again in 15 minutes.', 900);
+    if (wait > 0 || Number(limits.total) >= 3) return response;
     const [previous] = await connection.query("SELECT * FROM password_recoveries WHERE user_id = ? AND status IN ('pending','verified') FOR UPDATE", [user.user_id]);
     for (const recovery of previous) {
       if (await available(connection, req, recovery, user)) await finish(connection, req, recovery, 'cancelled');
     }
-    const id = crypto.randomUUID();
     const code = generateOtp();
     await connection.query(`INSERT INTO password_recoveries
       (id, user_id, patient_id, phone, credential_version, otp_hash, expires_at)
@@ -100,7 +101,7 @@ async function request(req) {
     await connection.query(`INSERT INTO sms_jobs (purpose, user_id, patient_id, recovery_id, credential_version, recipient, deduplication_key, payload)
       VALUES ('password_recovery', ?, ?, ?, ?, ?, ?, ?)`,
     [user.user_id, person.patient_id, id, user.credential_version, phone, `recovery:${id}`, sms.encryptPayload(message)]);
-    return { recovery_id: id, expires_in: 300, resend_after: 60 };
+    return response;
   });
 }
 
@@ -115,10 +116,10 @@ async function verify(req) {
       await connection.query('UPDATE password_recoveries SET attempts = ? WHERE id = ?', [attempts, id]);
       if (attempts >= 3) {
         await finish(connection, req, recovery, 'failed', 'attempts_exhausted');
-        return error(400, 'Three incorrect attempts. Request a new code.');
+        return invalidCode();
       }
       await record(connection, req, recovery, 'failed', 'failed', 'incorrect_code');
-      return error(400, `Incorrect code. ${3 - attempts} attempt${attempts === 1 ? 's' : ''} remaining.`);
+      return invalidCode();
     }
     const token = crypto.randomBytes(32).toString('hex');
     await connection.query(`UPDATE password_recoveries SET status = 'verified', otp_hash = NULL,

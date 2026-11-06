@@ -124,7 +124,7 @@ test("MySQL history combines visits once, preserves repeat visits, and isolates 
   try {
     await connection.query("CREATE TEMPORARY TABLE doctors (doctor_id INT PRIMARY KEY)");
     await connection.query("CREATE TEMPORARY TABLE patients (patient_id INT PRIMARY KEY, first_name VARCHAR(50), middle_name VARCHAR(50), last_name VARCHAR(50), suffix VARCHAR(10))");
-    await connection.query("CREATE TEMPORARY TABLE queues (id INT PRIMARY KEY, patient_id INT, queue_number VARCHAR(20), created_at DATETIME, is_walk_in TINYINT, status VARCHAR(20), category VARCHAR(20), services TEXT, status_reason VARCHAR(255), walk_in_name VARCHAR(100), completed_by_doctor_id INT)");
+    await connection.query("CREATE TEMPORARY TABLE queues (id INT PRIMARY KEY, patient_id INT, queue_number VARCHAR(20), created_at DATETIME, is_walk_in TINYINT, status VARCHAR(20), category VARCHAR(20), services TEXT, status_reason VARCHAR(255), walk_in_name VARCHAR(100), completed_by_doctor_id INT, appointment_id INT)");
     await connection.query("CREATE TEMPORARY TABLE appointments (appointment_id INT PRIMARY KEY, patient_id INT, doctor_id INT, appointment_date DATE, appointment_time TIME, reason VARCHAR(255), status VARCHAR(20))");
     await connection.query("CREATE TEMPORARY TABLE consultations (consultation_id INT PRIMARY KEY, queue_id INT, doctor_id INT, chief_complaint TEXT, notes TEXT, diagnosis TEXT)");
     await connection.query("CREATE TEMPORARY TABLE prescriptions (consultation_id INT, medication_name TEXT)");

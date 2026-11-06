@@ -9,7 +9,7 @@ test("the patient queue line keeps projected ticket order and excludes private r
   const original = Queue.findTodayActive;
   Queue.findTodayActive = async () => [
     { queue_number: 'Q01', status: 'serving', full_name: 'Other Patient', contact_number: '09123456789' },
-    { queue_number: 'P02', status: 'waiting', patient_id: 9, services: ['PRIVATE'] },
+    { queue_number: 'P02', status: 'waiting', full_name: 'Next Patient', patient_id: 9, services: ['PRIVATE'] },
     { queue_number: 'AQ11', status: 'waiting', patient_id: 11 },
     { queue_number: 'Q03', status: 'missed' },
     { queue_number: 'Q04', status: 'done' },
@@ -24,6 +24,8 @@ test("the patient queue line keeps projected ticket order and excludes private r
     ]);
     assert.equal(status.now_serving, 'Q01');
     assert.equal(status.next_queuing, 'P02');
+    assert.equal(Object.hasOwn(status, 'now_serving_name'), false);
+    assert.equal(Object.hasOwn(status, 'next_queuing_name'), false);
   } finally { Queue.findTodayActive = original; }
 });
 

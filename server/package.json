@@ -14,13 +14,15 @@
     "migrate:queue-status-reason": "node src/config/migrateQueueStatusReason.js",
     "migrate:queue-no-show": "node src/config/migrateQueueNoShow.js",
     "migrate:queue-grace": "node src/config/migrateQueueGracePeriod.js",
+    "migrate:queue-appointments": "node src/config/migrateQueueAppointments.js",
     "migrate:walkin-patients": "node src/config/migrateWalkInPatients.js",
     "migrate:walkin-doctor": "node src/config/migrateWalkInDoctor.js",
     "migrate:doctor-daily-reports": "node src/config/migrateDoctorDailyReports.js",
     "migrate:user-names": "node src/config/migrateUserNames.js",
     "migrate:audit": "node src/config/migrateAuditLogs.js",
     "migrate:doctor-leaves": "node src/config/migrateDoctorLeaves.js",
-    "migrate:password-recovery": "node src/config/migratePasswordRecovery.js"
+    "migrate:password-recovery": "node src/config/migratePasswordRecovery.js",
+    "migrate:prescription-text": "node src/config/migratePrescriptionText.js"
   },
   "dependencies": {
     "axios": "^1.20.0",

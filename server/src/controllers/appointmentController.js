@@ -80,6 +80,11 @@ const createAppointment = async (req, res) => {
     if (!validDate(appointment_date)) {
       return res.status(400).json({ success: false, message: "Invalid appointment_date format. Use YYYY-MM-DD." });
     }
+    if (typeof appointment_time !== 'string' || !/^(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(appointment_time)) {
+      return res.status(400).json({ success: false, message: "Invalid appointment_time format. Use HH:MM or HH:MM:SS." });
+    }
+    const [hour, minute, second = '00'] = appointment_time.split(':');
+    const time = `${hour.padStart(2, '0')}:${minute}:${second}`;
     if (appointment_date < clinicToday()) {
       return res.status(400).json({ success: false, message: "Appointment date cannot be in the past." });
     }
@@ -90,6 +95,7 @@ const createAppointment = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Patient profile not found." });
     }
+    const booking = { patient_id: patient.patient_id, doctor_id, appointment_date, appointment_time: time };
 
     const connection = await pool.getConnection();
     try {
@@ -98,6 +104,11 @@ const createAppointment = async (req, res) => {
       await Queue.lockCategory('dental', connection);
       const doctor = await Doctor.findActiveForUpdate(connection, doctor_id);
       if (!doctor) throw httpError(404, "Doctor not found.");
+      const existing = await Appointment.findExistingBooking(booking, connection);
+      if (existing) {
+        await connection.commit();
+        return res.json({ success: true, data: existing });
+      }
       await DoctorLeave.assertAvailable(doctor_id, appointment_date, connection);
 
       const [[settings]] = await connection.query(
@@ -119,10 +130,7 @@ const createAppointment = async (req, res) => {
       }
 
       const appointment = await Appointment.create({
-        patient_id: patient.patient_id,
-        doctor_id,
-        appointment_date,
-        appointment_time,
+        ...booking,
         reason,
         notes,
       }, connection);

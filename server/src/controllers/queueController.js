@@ -123,7 +123,8 @@ const createQueue = async (req, res) => {
     );
     if (todayQueueCount >= 2) throw httpError(409, "You have reached your daily queue limit (2). Please try again tomorrow.");
 
-    const doctor = await Doctor.findActiveForUpdate(connection);
+    const existingAppointment = await Appointment.findActiveToday(patient.patient_id, connection);
+    const doctor = await Doctor.findActiveForUpdate(connection, existingAppointment?.doctor_id);
     if (!doctor) throw httpError(409, "No dentist is available today.");
     await DoctorLeave.assertAvailable(doctor.doctor_id, clinicToday(), connection);
 
@@ -134,7 +135,7 @@ const createQueue = async (req, res) => {
     );
     if (settings?.is_available === 0) throw httpError(409, "The dentist is unavailable today.");
 
-    const existingAppointment = await Appointment.findActiveToday(patient.patient_id, connection);
+    let appointmentId = existingAppointment?.appointment_id;
     if (!existingAppointment) {
       const [[{ booked }]] = await connection.query(
         `SELECT COUNT(*) AS booked FROM appointments
@@ -142,16 +143,18 @@ const createQueue = async (req, res) => {
         [doctor.doctor_id],
       );
       if (booked >= (settings?.appointment_limit ?? 10)) throw httpError(409, "No appointment slots available for today.");
-      await connection.query(
+      const [result] = await connection.query(
         `INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, reason, status)
          VALUES (?, ?, CURDATE(), CURTIME(), ?, 'confirmed')`,
         [patient.patient_id, doctor.doctor_id, "Same-day queue registration"],
       );
+      appointmentId = result.insertId;
     }
 
     const queueType = type === "priority" ? "priority" : "regular";
     const queue = await Queue.create({
       patient_id: patient.patient_id,
+      appointment_id: appointmentId,
       queue_number: await Queue.nextQueueNumber({ category: "dental", type: queueType, is_walk_in: false }, connection),
       type: queueType,
       category: "dental",
@@ -351,9 +354,7 @@ const updateStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "A reason is required for cancellation." });
     }
 
-    const syncAppointments = req.auditActor?.role === 'admin';
     const updated = await Queue.updateStatus(id, status, status === 'cancelled' ? String(reason).trim() : null, {
-      syncAppointments,
       doctorUserId: req.user.role === 'doctor' ? req.user.user_id : undefined,
     });
     if (updated?.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
@@ -361,27 +362,6 @@ const updateStatus = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Queue entry not found." });
-    }
-
-    if (!syncAppointments && status === "cancelled" && updated.patient_id && !updated.is_walk_in) {
-      const db = require("../config/db");
-      await db.query(
-        `UPDATE appointments
-         SET status = 'cancelled', updated_at = NOW()
-         WHERE patient_id = ? AND appointment_date = DATE(?) AND status IN ('pending', 'confirmed')`,
-        [updated.patient_id, updated.created_at],
-      );
-    }
-
-    // When a registered patient's queue is done, mark their appointment as completed
-    if (!syncAppointments && status === "done" && updated.patient_id && !updated.is_walk_in) {
-      const db = require("../config/db");
-      await db.query(
-        `UPDATE appointments
-         SET status = 'completed', updated_at = NOW()
-         WHERE patient_id = ? AND appointment_date = CURDATE() AND status IN ('pending', 'confirmed')`,
-        [updated.patient_id],
-      );
     }
 
     res.json(updated);
@@ -404,8 +384,7 @@ const cancelQueue = async (req, res) => {
         .json({ success: false, message: "Patient profile not found." });
     }
 
-    const db = require("../config/db");
-    const [[queueRow]] = await db.query("SELECT * FROM queues WHERE id = ?", [
+    const [[queueRow]] = await pool.query("SELECT patient_id FROM queues WHERE id = ?", [
       id,
     ]);
     if (!queueRow) {
@@ -427,14 +406,7 @@ const cancelQueue = async (req, res) => {
 
     const updated = await Queue.updateStatus(id, "cancelled", String(reason).trim(), { patientOnly: true });
     if (updated?.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
-    if (updated.patient_id && !updated.is_walk_in) {
-      await db.query(
-        `UPDATE appointments
-         SET status = 'cancelled', updated_at = NOW()
-         WHERE patient_id = ? AND appointment_date = DATE(?) AND status IN ('pending', 'confirmed')`,
-        [updated.patient_id, updated.created_at],
-      );
-    }
+    if (!updated) return res.status(404).json({ success: false, message: "Queue entry not found." });
     res.json(updated);
     wakeWorker();
   } catch (err) {

@@ -160,6 +160,7 @@ test('MySQL leave approvals preserve daily settings, detect conflicts and expire
     await connection.query("INSERT INTO patients VALUES (11, 'Test', NULL, 'Patient', NULL)");
     await connection.query("INSERT INTO appointments VALUES (5, 11, 1, '2026-10-29', '09:00', 'confirmed')");
     await connection.query("INSERT INTO queues VALUES (12, 11, 'WQ12', 'dental', 'waiting', '2026-10-29 00:15:00', 1, NULL)");
+    await connection.query('ALTER TABLE queues ADD COLUMN appointment_id INT');
     await connection.query("INSERT INTO daily_doctor_settings VALUES (1, '2026-10-29', 10, 5, 1), (1, '2026-11-05', 8, 4, 0)");
     const id = await DoctorLeave.request(1, '2026-10-29', '2026-11-04', 'Private leave reason');
     assert.equal((await DoctorLeave.list(1))[0].status, 'pending');
@@ -189,8 +190,10 @@ test('MySQL leave approvals preserve daily settings, detect conflicts and expire
     assert.equal(doctors.find(row => row.doctor_id === 1).leave_end, '2026-11-04');
     assert.ok(doctors.every(row => !Object.hasOwn(row, 'reason')));
     const req = { user: { user_id: 4 }, query: { date: '2026-10-29' } };
+    await connection.query("INSERT INTO queues (id, patient_id, queue_number, category, status, created_at, is_walk_in) VALUES (13, 11, 'G-013', 'general', 'waiting', '2026-10-29 00:20:00', 1)");
     const daily = response(); await getDailySettings(req, daily);
     assert.equal(daily.data.is_available, 0); assert.equal(daily.data.daily_is_available, 1);
+    assert.equal(daily.data.walkin_count, 1);
     const capacity = response();
     await upsertDailySettings({ ...req, body: { date: '2026-10-29', appointment_limit: 8, walk_in_limit: 4 } }, capacity);
     assert.equal(capacity.statusCode, 200);

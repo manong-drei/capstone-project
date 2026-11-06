@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
+const fs = require('node:fs');
 const jwt = require('jsonwebtoken');
 const pool = require('../src/config/db');
 const audit = require('../src/services/auditLog');
@@ -48,6 +49,17 @@ test('migration refuses to overwrite an existing legacy archive', async () => {
       : [[{ count: 1 }]];
   } }), /refusing to overwrite/);
   assert.equal(calls.length, 2);
+});
+
+test('migration checks its SQL file before touching the audit table', async t => {
+  const originalRead = fs.readFileSync;
+  const db = { query: t.mock.fn() };
+  t.mock.method(fs, 'readFileSync', (file, ...args) => {
+    if (String(file).endsWith('006_admin_audit_logs.sql')) throw new Error('Migration file missing');
+    return originalRead(file, ...args);
+  });
+  await assert.rejects(migrate(db), /Migration file missing/);
+  assert.equal(db.query.mock.callCount(), 0);
 });
 
 test('audit details allowlist excludes secrets, clinical data, and identity answers while masking phones', async t => {
@@ -212,16 +224,15 @@ test('queue changes and related appointments still share the same transaction wi
     statements.push({ sql, values });
     return [[]];
   } };
-  const created = new Date();
-  t.mock.method(Queue, '_withTicket', async (id, change) => change({ id, status: 'waiting', patient_id: 5, is_walk_in: 0, created_at: created }, conn));
+  t.mock.method(Queue, '_withTicket', async (id, change) => change({ id, status: 'waiting', patient_id: 5, appointment_id: 22 }, conn));
   t.mock.method(Queue, '_fetchById', async () => ({ id: 7, status: 'cancelled' }));
-  await Queue.updateStatus(7, 'cancelled', 'Wait time too long', { syncAppointments: true });
+  await Queue.updateStatus(7, 'cancelled', 'Wait time too long');
   assert.deepEqual(statements.map(row => row.values), [
     ['cancelled', 'Wait time too long', 7],
-    ['cancelled', 5, created],
+    ['cancelled', 22, 5],
   ]);
   assert.match(statements[0].sql, /^UPDATE queues/);
-  assert.match(statements[1].sql, /^UPDATE appointments[\s\S]*status IN \('pending', 'confirmed'\)/);
+  assert.match(statements[1].sql, /^UPDATE appointments[\s\S]*WHERE appointment_id = \? AND patient_id = \? AND status IN \('pending', 'confirmed'\)/);
 });
 
 test('appointment and self-service password changes do not depend on audit writes', async t => {

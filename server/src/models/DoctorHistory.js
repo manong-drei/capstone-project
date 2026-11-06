@@ -22,8 +22,9 @@ module.exports = {
       WHERE (q.category = 'dental' OR (q.is_walk_in = 1 AND c.doctor_id IS NOT NULL)) AND COALESCE(
         c.doctor_id,
         q.completed_by_doctor_id,
+        (SELECT booking.doctor_id FROM appointments booking WHERE booking.appointment_id = q.appointment_id),
         (SELECT a.doctor_id FROM appointments a
-         WHERE q.is_walk_in = 0 AND a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at)
+         WHERE q.appointment_id IS NULL AND q.is_walk_in = 0 AND a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at)
            AND a.status != 'cancelled' ORDER BY a.appointment_id LIMIT 1),
         (SELECT d.doctor_id FROM doctors d ORDER BY d.doctor_id LIMIT 1)
       ) = ? ${patientId === undefined ? "" : "AND q.patient_id = ?"}
@@ -37,8 +38,10 @@ module.exports = {
       WHERE a.doctor_id = ? ${patientId === undefined ? "" : "AND a.patient_id = ?"} AND NOT EXISTS (
         SELECT 1 FROM queues q WHERE q.patient_id = a.patient_id
           AND q.category = 'dental' AND q.is_walk_in = 0
-          AND DATE(q.created_at) = a.appointment_date
-          AND (a.status = 'cancelled') = (q.status = 'cancelled')
+          AND (q.appointment_id = a.appointment_id OR (
+            q.appointment_id IS NULL AND DATE(q.created_at) = a.appointment_date
+            AND (a.status = 'cancelled') = (q.status = 'cancelled')
+          ))
       )
       ORDER BY visit_date DESC, visit_time DESC, visit_id DESC
     `, patientId === undefined ? [doctorId, doctorId] : [doctorId, patientId, doctorId, patientId]);

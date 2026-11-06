@@ -118,6 +118,7 @@ test('stale queue jobs never submit; fresh jobs use the current position instead
   const job = { id: 10, purpose: 'queue_alert', queue_id: 6, patient_id: 42, recipient: '09123456789', attempts: 0 };
   let waiting = [{ ...ticket }];
   let contact = job.recipient;
+  let cancellations = 0;
   const delivered = [];
   const conn = {
     async beginTransaction() {}, async commit() {},
@@ -126,6 +127,7 @@ test('stale queue jobs never submit; fresh jobs use the current position instead
       if (sql.includes('SELECT * FROM queues')) return [[{ ...ticket }]];
       if (sql.includes('SELECT threshold')) return [[{ threshold: 5 }]];
       if (sql.includes('FROM patients p')) return [[{ user_id: 7, phone: contact, is_active: 1 }]];
+      if (sql.includes("state = 'cancelled', payload = NULL")) cancellations++;
       return [{ affectedRows: 1 }];
     },
   };
@@ -141,7 +143,55 @@ test('stale queue jobs never submit; fresh jobs use the current position instead
     await notifications.submitOne(conn); assert.equal(delivered.length, 1);
     contact = job.recipient; waiting = Array.from({ length: 5 }, (_, i) => ({ id: 100 + i })).concat(ticket);
     await notifications.submitOne(conn); assert.equal(delivered.length, 1);
+    assert.equal(cancellations, 2);
   } finally { sms.sendSMS = saved.send; Queue.projectWaiting = saved.project; Queue.lockCategory = saved.lock; }
+});
+
+test('an out-of-range queue alert retries without spending an attempt and sends only once', async t => {
+  const ticket = { id: 6, patient_id: 42, category: 'dental', queue_number: 'AQ06', sms_alert_state: 'enqueued' };
+  const job = { id: 10, purpose: 'queue_alert', queue_id: ticket.id, patient_id: ticket.patient_id, recipient: '09123456789',
+    state: 'queued', attempts: 1, payload: 'encrypted', dueAt: 0 };
+  let now = 0;
+  let waiting = Array.from({ length: 5 }, (_, index) => ({ id: 100 + index })).concat(ticket);
+  t.mock.method(Queue, 'lockCategory', async () => {});
+  t.mock.method(Queue, 'projectWaiting', async () => waiting);
+  const send = t.mock.method(sms, 'sendSMS', async () => ({ message_id: '42', status: 'queued', pauseMs: 0 }));
+  const conn = {
+    async beginTransaction() {}, async commit() {},
+    async query(sql) {
+      if (sql.includes('SELECT * FROM sms_jobs')) {
+        assert.match(sql, /ORDER BY next_attempt_at, id/);
+        return [[job.state === 'queued' && job.dueAt <= now ? { ...job } : undefined]];
+      }
+      if (sql.includes('SELECT * FROM queues')) return [[ticket]];
+      if (sql.includes('SELECT threshold')) return [[{ threshold: 5 }]];
+      if (sql.includes('FROM patients p')) return [[{ user_id: 7, phone: job.recipient, is_active: 1 }]];
+      if (sql.includes('attempts = attempts + 1')) { job.state = 'submitting'; job.attempts++; }
+      if (sql.includes('attempts = attempts - 1')) {
+        assert.match(sql, /next_attempt_at = DATE_ADD\(NOW\(\), INTERVAL 15 SECOND\)/);
+        job.state = 'queued'; job.attempts--; job.dueAt = now + 15;
+      }
+      if (sql.includes("'submitted', state), payload = NULL")) { job.state = 'submitted'; job.payload = null; }
+      return [{}];
+    },
+  };
+
+  await notifications.submitOne(conn);
+  assert.equal(job.state, 'queued');
+  assert.equal(job.attempts, 1);
+  assert.equal(job.payload, 'encrypted');
+  assert.equal(send.mock.callCount(), 0);
+
+  waiting = [ticket];
+  await notifications.submitOne(conn);
+  assert.equal(send.mock.callCount(), 0);
+  now = 15;
+  await notifications.submitOne(conn);
+  await notifications.submitOne(conn);
+  assert.equal(job.state, 'submitted');
+  assert.equal(job.attempts, 2);
+  assert.equal(send.mock.callCount(), 1);
+  assert.match(send.mock.calls[0].arguments[1], /next 1 patient to be called/);
 });
 
 test('status polling updates delivery status and never resubmits after a polling failure', async () => {

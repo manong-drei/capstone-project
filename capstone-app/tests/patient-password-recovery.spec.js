@@ -53,18 +53,17 @@ for (const width of [1440, 375]) {
   });
 }
 
-test('unknown phone errors, incorrect codes, resend cooldown and latest challenge work together', async ({ page }) => {
+test('unknown numbers get the generic prompt and resend uses the latest challenge', async ({ page }) => {
   await page.clock.install();
   const state = await setup(page);
-  state.requestError = 'invalid phone number';
   await page.getByLabel('Registered mobile number').fill('09999999999');
   await page.getByRole('button', { name: 'Send code', exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('invalid phone number');
-  state.requestError = '';
+  await expect(page.getByText('If this number is eligible, a code will be sent by SMS.')).toBeVisible();
+  await page.getByRole('button', { name: 'Use another number' }).click();
   await page.getByLabel('Registered mobile number').fill('09123456789');
   await page.getByRole('button', { name: 'Send code', exact: true }).click();
   await page.getByLabel('Four-digit code').fill('1234');
-  state.verifyError = 'Three incorrect attempts. Request a new code.';
+  state.verifyError = 'Invalid or expired code. Request a new code if needed.';
   await page.getByRole('button', { name: 'Verify code' }).click();
   await expect(page.getByRole('alert')).toHaveText(state.verifyError);
   await page.clock.fastForward(59000);

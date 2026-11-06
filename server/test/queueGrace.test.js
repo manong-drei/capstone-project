@@ -11,11 +11,18 @@ function fixture() {
   const original = pool.getConnection;
   let now = Date.parse('2026-10-10T09:00:00+08:00');
   let rows = [1, 2, 3].map(id => ({ id, category: 'dental', patient_id: id, queue_number: `Q${id}`,
+    appointment_id: id === 1 ? 11 : null,
     status: 'waiting', call_count: 0, is_walk_in: id === 2 ? 1 : 0, type: 'regular',
     services: '[]', created_at: new Date(now - 1000), last_called_at: null, returned_at: null }));
   let tail = Promise.resolve();
   let failCall = false;
+  let failAppointment = false;
+  let appointments = [
+    { appointment_id: 11, patient_id: 1, status: 'confirmed' },
+    { appointment_id: 12, patient_id: 1, status: 'confirmed' },
+  ];
   let failPrescription = false;
+  let prescriptionWarning = null;
   let consultations = [];
   let availableDentists = [{ doctor_id: 7 }];
   let prescriptions = [];
@@ -24,11 +31,15 @@ function fixture() {
     let working;
     let workingConsultations;
     let workingPrescriptions;
+    let workingAppointments;
     let unlock;
     return {
       async beginTransaction() {},
       async commit() {
-        if (working) { rows = working; consultations = workingConsultations; prescriptions = workingPrescriptions; }
+        if (working) {
+          rows = working; consultations = workingConsultations; prescriptions = workingPrescriptions;
+          appointments = workingAppointments;
+        }
         unlock?.(); unlock = null;
       },
       async rollback() { working = null; unlock?.(); unlock = null; },
@@ -44,6 +55,7 @@ function fixture() {
           working = structuredClone(rows);
           workingConsultations = structuredClone(consultations);
           workingPrescriptions = structuredClone(prescriptions);
+          workingAppointments = structuredClone(appointments);
           return [[{ last_number: 0 }]];
         }
         const data = working || rows;
@@ -61,10 +73,18 @@ function fixture() {
         }
         if (sql.startsWith('INSERT INTO prescriptions')) {
           if (failPrescription) throw Object.assign(new Error('Prescription save failed.'), { status: 503 });
-          workingPrescriptions.push({ consultation_id: values[0], medication_name: values[1] });
+          const medication_name = prescriptionWarning === 'truncation' ? values[1].slice(0, 150) : values[1];
+          const insertId = workingPrescriptions.push({ consultation_id: values[0], medication_name });
+          return [{ insertId, warningStatus: Number(prescriptionWarning !== null) }];
+        }
+        if (sql.startsWith('SELECT medication_name')) return [[workingPrescriptions[values[0] - 1]]];
+        if (sql.startsWith('UPDATE appointments')) {
+          if (failAppointment) throw new Error('Simulated appointment update failure');
+          const [status, appointmentId, patientId] = values;
+          const appointment = workingAppointments.find(a => a.appointment_id === appointmentId && a.patient_id === patientId);
+          if (['pending', 'confirmed'].includes(appointment?.status)) appointment.status = status;
           return [{ affectedRows: 1 }];
         }
-        if (sql.startsWith('UPDATE appointments')) return [{ affectedRows: 1 }];
         if (sql.startsWith('SELECT category')) return [[...row ? [{ category: row.category }] : []]];
         if (sql.startsWith('SELECT *, TIMESTAMPDIFF')) return [[{ ...row,
           call_ready: now - new Date(row.last_called_at) >= 15_000,
@@ -101,12 +121,30 @@ function fixture() {
   };
   return {
     advance: ms => { now += ms; }, rows: () => rows, statements,
-    consultations: () => consultations, prescriptions: () => prescriptions,
+    consultations: () => consultations, prescriptions: () => prescriptions, appointments: () => appointments,
     availableDentists: ids => { availableDentists = ids.map(doctor_id => ({ doctor_id })); },
     failPrescription: () => { failPrescription = true; },
+    warnPrescription: kind => { prescriptionWarning = kind; },
+    failAppointment: () => { failAppointment = true; },
     failCall: () => { failCall = true; }, close: () => { pool.getConnection = original; },
   };
 }
+
+test('ticket cancellation changes only the linked booking and rolls back if its update fails', async () => {
+  const cancelled = fixture();
+  try {
+    await Queue.updateStatus(1, 'cancelled', 'Patient requested cancellation', { patientOnly: true });
+    assert.deepEqual(cancelled.appointments().map(appointment => appointment.status), ['cancelled', 'confirmed']);
+  } finally { cancelled.close(); }
+
+  const failed = fixture();
+  try {
+    failed.failAppointment();
+    await assert.rejects(Queue.updateStatus(1, 'cancelled', 'Patient requested cancellation'), /appointment update failure/);
+    assert.equal(failed.rows()[0].status, 'waiting');
+    assert.deepEqual(failed.appointments().map(appointment => appointment.status), ['confirmed', 'confirmed']);
+  } finally { failed.close(); }
+});
 
 test('two calls enforce both 15-second waits; skip starts one grace window and calls next', async () => {
   const f = fixture();
@@ -251,6 +289,32 @@ test('a failed prescription rolls back the consultation and leaves the patient s
     assert.equal(f.prescriptions().length, 0);
     assert.equal(f.rows()[0].status, 'serving');
   } finally { Doctor.findByUserId = originalDoctor; f.close(); }
+});
+
+test('prescription directions survive in full or the consultation rolls back on a write warning', async t => {
+  const f = fixture();
+  t.mock.method(Doctor, 'findByUserId', async () => ({ doctor_id: 7 }));
+  const logged = t.mock.method(console, 'error', () => {});
+  const prescription = 'A'.repeat(180) + ' Final directions';
+  const req = { user: { user_id: 4 }, body: { queue_id: 1, notes: 'Completed notes', prescription } };
+  const res = { status(code) { this.statusCode = code; return this; }, json() {} };
+  try {
+    await Queue.callNext();
+    await Queue.updateStatus(1, 'serving');
+    await createConsultation({ ...req, body: { ...req.body, prescription: {} } }, res);
+    assert.equal(res.statusCode, 400);
+    f.warnPrescription('truncation');
+    await createConsultation(req, res);
+    assert.equal(res.statusCode, 500);
+    assert.equal(f.prescriptions().length, 0);
+    assert.equal(f.consultations().length, 0);
+    assert.equal(f.rows()[0].status, 'serving');
+    assert.deepEqual(logged.mock.calls[0].arguments, ['Consultation could not be saved.']);
+    f.warnPrescription('unrelated');
+    await createConsultation(req, res);
+    assert.equal(res.statusCode, 201);
+    assert.equal(f.prescriptions()[0].medication_name, prescription);
+  } finally { f.close(); }
 });
 
 test('timely return keeps the original ticket beyond expiry and a second miss is final', async () => {

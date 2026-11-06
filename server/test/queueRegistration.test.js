@@ -49,6 +49,12 @@ async function fixture(run) {
       }
       if (sql.includes('FROM daily_doctor_settings')) return [[state.settings]];
       if (sql.includes('FROM doctor_leaves')) return [[]];
+      if (sql.includes('appointment_time = ?')) {
+        assert.match(sql, /FOR UPDATE/);
+        const [patientId, doctorId, day, time] = values;
+        return [state.appointments.filter(row => row.patient_id === patientId && row.doctor_id === doctorId
+          && row.day === day && row.appointment_time === time && row.status !== 'cancelled')];
+      }
       if (sql.includes('AS booked')) return [[{ booked: state.bookedCount }]];
       if (sql.includes('INSERT INTO appointments')) { state.writes.push('appointment'); return [{ insertId: 2 }]; }
       throw new Error(`Unexpected SQL: ${sql}`);
@@ -61,7 +67,12 @@ async function fixture(run) {
   Queue.create = async input => { state.tickets.push(input); return { id: 2, ...input }; };
   Queue.getPublicStatus = async () => ({ now_serving: null, next_queuing: null });
   Patient.findByUserId = async () => ({ patient_id: 42 });
-  Appointment.create = async input => { state.writes.push('appointment'); return { appointment_id: 2, ...input }; };
+  Appointment.create = async input => {
+    state.writes.push('appointment');
+    const appointment = { appointment_id: 2, status: 'pending', day: input.appointment_date, ...input };
+    state.appointments.push(appointment);
+    return appointment;
+  };
   try { await run(state); }
   finally {
     pool.getConnection = saved.connection; pool.query = saved.query;
@@ -134,6 +145,7 @@ test('active bookings are reused; inactive or unrelated bookings require a new c
     }
     assert.equal(state.tickets.length, 8);
     assert.equal(state.writes.length, 4);
+    assert.deepEqual(state.tickets.map(ticket => ticket.appointment_id), [1, 1, 1, 1, 2, 2, 2, 2]);
   });
 });
 
@@ -167,6 +179,25 @@ test('a concurrent first call does not close intake; registration retains the ca
     assert.equal(state.tickets.length, 1);
     assert.equal(state.writes.length, 2);
     assert.equal(state.locks, 2);
+  });
+});
+
+test('booking retries reuse the same slot even when it filled the remaining capacity', async () => {
+  await fixture(async state => {
+    state.settings.appointment_limit = 1;
+    const submit = async appointment_time => {
+      const res = response();
+      await createAppointment(request({ doctor_id: 1, appointment_date: today, appointment_time }), res);
+      return res;
+    };
+    const first = await submit('09:00');
+    assert.equal(first.statusCode, 201);
+    state.bookedCount = 1;
+    const retry = await submit('9:00:00');
+    assert.equal(retry.statusCode, 200);
+    assert.equal(retry.body.data.appointment_id, first.body.data.appointment_id);
+    assert.equal((await submit('09:30')).statusCode, 409);
+    assert.deepEqual(state.writes, ['appointment']);
   });
 });
 

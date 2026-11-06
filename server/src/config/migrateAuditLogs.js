@@ -4,6 +4,8 @@ const path = require('node:path');
 const pool = require('./db');
 
 async function migrate(database = pool) {
+  const sql = fs.readFileSync(path.join(__dirname, '../../migrations/006_admin_audit_logs.sql'), 'utf8');
+  if (!sql.trim()) throw new Error('Audit schema migration is empty.');
   const [columns] = await database.query(`SELECT COLUMN_NAME AS name FROM information_schema.columns
     WHERE table_schema = DATABASE() AND table_name = 'audit_logs'`);
   const names = new Set(columns.map(column => column.name));
@@ -18,7 +20,6 @@ async function migrate(database = pool) {
     await database.query('RENAME TABLE audit_logs TO audit_logs_legacy');
     console.log('Previous audit table preserved as audit_logs_legacy.');
   }
-  const sql = fs.readFileSync(path.join(__dirname, '../../migrations/006_admin_audit_logs.sql'), 'utf8');
   await database.query(sql);
   console.log('Admin audit log table installed. Existing audit history was preserved.');
 }

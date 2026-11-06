@@ -3,15 +3,31 @@ const pool = require("../config/db");
 
 const Appointment = {
   findActiveToday: async (patient_id, connection = pool) => {
-    const [[appointment]] = await connection.query(`SELECT appointment_id FROM appointments
+    const [[appointment]] = await connection.query(`SELECT appointment_id, doctor_id FROM appointments
       WHERE patient_id = ? AND appointment_date = CURDATE()
-        AND status IN ('pending', 'confirmed') LIMIT 1 FOR UPDATE`, [patient_id]);
+        AND status IN ('pending', 'confirmed')
+      ORDER BY appointment_time, appointment_id LIMIT 1 FOR UPDATE`, [patient_id]);
+    return appointment || null;
+  },
+
+  updateFromTicket: async ({ appointment_id, patient_id }, status, connection) => {
+    if (!appointment_id || !['done', 'cancelled'].includes(status)) return;
+    await connection.query(`UPDATE appointments SET status = ?, updated_at = NOW()
+      WHERE appointment_id = ? AND patient_id = ? AND status IN ('pending', 'confirmed')`,
+    [status === 'done' ? 'completed' : 'cancelled', appointment_id, patient_id]);
+  },
+
+  findExistingBooking: async ({ patient_id, doctor_id, appointment_date, appointment_time }, connection) => {
+    const [[appointment]] = await connection.query(`SELECT * FROM appointments
+      WHERE patient_id = ? AND doctor_id = ? AND appointment_date = ? AND appointment_time = ?
+        AND status != 'cancelled' ORDER BY appointment_id LIMIT 1 FOR UPDATE`,
+    [patient_id, doctor_id, appointment_date, appointment_time]);
     return appointment || null;
   },
 
   // Patient's own appointments
   findByPatientId: async (patient_id) => {
-    // shortcut: Link clinical details only for an unambiguous patient/dentist/day; store a queue reference on appointments to distinguish multiple visits.
+    // shortcut: For older unlinked visits, show clinical details only for an unambiguous patient/dentist/day.
     const [rows] = await pool.query(
       `
       SELECT
@@ -23,18 +39,16 @@ const Appointment = {
         s.specialization_name,
         (
           SELECT q.services FROM queues q
-          WHERE q.patient_id = a.patient_id
-            AND DATE(q.created_at) = a.appointment_date
+          WHERE q.appointment_id = a.appointment_id
             AND q.status != 'cancelled'
-          ORDER BY q.created_at ASC
+          ORDER BY q.created_at DESC, q.id DESC
           LIMIT 1
         ) AS queue_services
         , (
           SELECT q.status_reason FROM queues q
-          WHERE q.patient_id = a.patient_id
-            AND DATE(q.created_at) = a.appointment_date
+          WHERE q.appointment_id = a.appointment_id
             AND q.status = 'cancelled'
-          ORDER BY q.updated_at DESC
+          ORDER BY q.updated_at DESC, q.id DESC
           LIMIT 1
         ) AS cancellation_reason
         , c.diagnosis, pr.medication_name AS recommendation,
@@ -46,19 +60,21 @@ const Appointment = {
         SELECT visit.consultation_id FROM consultations visit
         JOIN queues ticket ON ticket.id = visit.queue_id
         WHERE ticket.patient_id = a.patient_id AND visit.patient_id = a.patient_id
-          AND visit.doctor_id = a.doctor_id AND ticket.category = 'dental'
-          AND ticket.is_walk_in = 0 AND ticket.status = 'done'
-          AND DATE(ticket.created_at) = a.appointment_date
-          AND (SELECT COUNT(*) FROM queues same_day
-               WHERE same_day.patient_id = a.patient_id AND same_day.category = 'dental'
-                 AND same_day.is_walk_in = 0 AND same_day.status = 'done'
-                 AND DATE(same_day.created_at) = a.appointment_date) = 1
-          AND (SELECT COUNT(*) FROM appointments same_day_appointment
-               WHERE same_day_appointment.patient_id = a.patient_id
-                 AND same_day_appointment.doctor_id = a.doctor_id
-                 AND same_day_appointment.appointment_date = a.appointment_date
-                 AND same_day_appointment.status = 'completed') = 1
-        ORDER BY visit.consultation_id DESC LIMIT 1
+          AND ticket.category = 'dental' AND ticket.is_walk_in = 0 AND ticket.status = 'done'
+          AND (ticket.appointment_id = a.appointment_id OR (
+            ticket.appointment_id IS NULL AND visit.doctor_id = a.doctor_id
+            AND DATE(ticket.created_at) = a.appointment_date
+            AND (SELECT COUNT(*) FROM queues same_day
+                 WHERE same_day.patient_id = a.patient_id AND same_day.category = 'dental'
+                   AND same_day.is_walk_in = 0 AND same_day.status = 'done'
+                   AND DATE(same_day.created_at) = a.appointment_date) = 1
+            AND (SELECT COUNT(*) FROM appointments same_day_appointment
+                 WHERE same_day_appointment.patient_id = a.patient_id
+                   AND same_day_appointment.doctor_id = a.doctor_id
+                   AND same_day_appointment.appointment_date = a.appointment_date
+                   AND same_day_appointment.status = 'completed') = 1
+          ))
+        ORDER BY ticket.appointment_id IS NULL, visit.consultation_id DESC LIMIT 1
       )
       LEFT JOIN prescriptions pr ON pr.consultation_id = c.consultation_id
       WHERE  a.patient_id = ?
@@ -90,18 +106,16 @@ const Appointment = {
         CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')) AS patient_full_name,
         (
           SELECT q.services FROM queues q
-          WHERE q.patient_id = a.patient_id
-            AND DATE(q.created_at) = a.appointment_date
+          WHERE q.appointment_id = a.appointment_id
             AND q.status != 'cancelled'
-          ORDER BY q.created_at ASC
+          ORDER BY q.created_at DESC, q.id DESC
           LIMIT 1
         ) AS queue_services
         , (
           SELECT q.status_reason FROM queues q
-          WHERE q.patient_id = a.patient_id
-            AND DATE(q.created_at) = a.appointment_date
+          WHERE q.appointment_id = a.appointment_id
             AND q.status = 'cancelled'
-          ORDER BY q.updated_at DESC
+          ORDER BY q.updated_at DESC, q.id DESC
           LIMIT 1
         ) AS cancellation_reason
       FROM   appointments a
@@ -116,7 +130,6 @@ const Appointment = {
 
   // All appointments — admin/staff
   findAll: async ({ limit = 10, offset = 0, includeWalkIns = false } = {}) => {
-    const appointmentQueue = includeWalkIns ? "AND q.is_walk_in = 0" : "";
     const [rows] = await pool.query(`
       SELECT
         ${includeWalkIns ? "a.appointment_id, a.patient_id, a.appointment_date, a.appointment_time, a.reason, a.status," : "a.*,"}
@@ -128,20 +141,16 @@ const Appointment = {
         d.suffix      AS doctor_suffix,
         (
           SELECT q.services FROM queues q
-          WHERE q.patient_id = a.patient_id
-            AND DATE(q.created_at) = a.appointment_date
+          WHERE q.appointment_id = a.appointment_id
             AND q.status != 'cancelled'
-            ${appointmentQueue}
-          ORDER BY q.created_at ASC
+          ORDER BY q.created_at DESC, q.id DESC
           LIMIT 1
         ) AS queue_services
         , (
           SELECT q.status_reason FROM queues q
-          WHERE q.patient_id = a.patient_id
-            AND DATE(q.created_at) = a.appointment_date
+          WHERE q.appointment_id = a.appointment_id
             AND q.status = 'cancelled'
-            ${appointmentQueue}
-          ORDER BY q.updated_at DESC
+          ORDER BY q.updated_at DESC, q.id DESC
           LIMIT 1
         ) AS cancellation_reason
         ${includeWalkIns ? ", 'appointment' AS visit_type, NULL AS queue_id, NULL AS queue_number" : ""}

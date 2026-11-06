@@ -105,21 +105,30 @@ test('four-digit recovery preserves leading zeros, encrypts SMS and never expose
   assert.equal(response.code, 401);
 });
 
-test('unknown, malformed, inactive, nonpatient and unlinked numbers return invalid phone number without SMS', async t => {
+test('unknown and ineligible numbers get the same public response without SMS', async t => {
   const state = await fixture(t);
-  for (const phone of [null, [], {}, '123', '09999999999']) assert.equal((await recovery.request(req({ phone }))).message, 'invalid phone number');
-  state.user.role = 'admin'; assert.equal((await recovery.request(req({ phone: state.user.phone }))).status, 400);
-  state.user.role = 'patient'; state.user.is_active = 0; assert.equal((await recovery.request(req({ phone: state.user.phone }))).status, 400);
-  state.user.is_active = 1; state.person = null; assert.equal((await recovery.request(req({ phone: state.user.phone }))).status, 400);
-  assert.equal(state.jobs.length, 0);
+  for (const phone of [null, [], {}, '123']) assert.equal((await recovery.request(req({ phone }))).message, 'invalid phone number');
+  const valid = await recovery.request(req({ phone: state.user.phone }));
+  const unknown = await recovery.request(req({ phone: '09999999999' }));
+  const assertPublicResponse = response => {
+    assert.match(response.recovery_id, /^[a-f\d-]{36}$/);
+    assert.deepEqual({ ...response, recovery_id: valid.recovery_id }, valid);
+  };
+  assertPublicResponse(unknown);
+  state.user.role = 'admin'; assertPublicResponse(await recovery.request(req({ phone: state.user.phone })));
+  state.user.role = 'patient'; state.user.is_active = 0; assertPublicResponse(await recovery.request(req({ phone: state.user.phone })));
+  state.user.is_active = 1; state.person = null; assertPublicResponse(await recovery.request(req({ phone: state.user.phone })));
+  assert.equal(state.jobs.length, 1);
   process.env.SMS_ENABLED = 'false'; assert.equal((await recovery.request(req({ phone: state.user.phone }))).status, 503);
 });
 
 test('60-second cooldown, durable three-send limit and simultaneous requests allow only one new code', async t => {
   const state = await fixture(t);
   const requests = await Promise.all([1, 2].map(() => recovery.request(req({ phone: state.user.phone }))));
-  assert.equal(requests.filter(row => row.recovery_id).length, 1);
-  assert.equal(requests.filter(row => row.status === 429).length, 1);
+  assert.equal(requests.filter(row => row.recovery_id).length, 2);
+  assert.equal(state.rows.length, 1);
+  const decoy = requests.find(row => row.recovery_id !== state.rows[0].id);
+  assert.deepEqual(await verify(decoy.recovery_id, '8888'), await verify(state.rows[0].id, '8888'));
   for (let i = 0; i < 2; i++) {
     state.now = new Date(state.now.getTime() + 60000);
     assert.ok((await recovery.request(req({ phone: state.user.phone }))).recovery_id);
@@ -127,7 +136,9 @@ test('60-second cooldown, durable three-send limit and simultaneous requests all
   assert.deepEqual(state.rows.map(row => row.status), ['cancelled', 'cancelled', 'pending']);
   assert.deepEqual(state.jobs.map(row => row.state), ['cancelled', 'cancelled', 'queued']);
   state.now = new Date(state.now.getTime() + 60000);
-  assert.equal((await recovery.request(req({ phone: state.user.phone }))).retryAfter, 900);
+  const limited = await recovery.request(req({ phone: state.user.phone }));
+  assert.ok(limited.recovery_id);
+  assert.equal(state.rows.length, 3);
   state.now = new Date(state.now.getTime() + 900000);
   assert.ok((await recovery.request(req({ phone: state.user.phone }))).recovery_id);
 });
@@ -136,9 +147,7 @@ test('three wrong codes permanently close the challenge, including racing guesse
   const state = await fixture(t);
   const { recovery_id: id } = await recovery.request(req({ phone: state.user.phone }));
   const results = await Promise.all([1, 2, 3].map(() => verify(id, '8888')));
-  assert.match(results[0].message, /2 attempts remaining/);
-  assert.match(results[1].message, /1 attempt remaining/);
-  assert.match(results[2].message, /Three incorrect/);
+  assert.ok(results.every(result => result.status === 400 && result.message === 'Invalid or expired code. Request a new code if needed.'));
   assert.equal(state.rows[0].status, 'failed'); assert.equal(state.rows[0].otp_hash, null);
   assert.deepEqual(state.audits.map(values => values[4]), Array(3).fill('password.recovery_failed'));
   assert.equal((await verify(id)).status, 400);
@@ -294,7 +303,10 @@ test('MySQL recovery flow uses isolated temporary tables for real SQL, expiry an
     t.mock.method(pool, 'query', proxy.query);
     t.mock.method(crypto, 'randomInt', () => 7);
     const { recovery_id: id } = await recovery.request(req({ phone: '09123456789' }));
-    assert.equal((await recovery.request(req({ phone: '09123456789' }))).status, 429);
+    const limited = await recovery.request(req({ phone: '09123456789' }));
+    assert.ok(limited.recovery_id);
+    const [[{ total }]] = await connection.query('SELECT COUNT(*) AS total FROM password_recoveries');
+    assert.equal(Number(total), 1);
     const { reset_token: token } = await verify(id);
     assert.ok(token);
     assert.equal((await reset(id, token)).message, 'Password changed successfully. Please log in with your new password.');

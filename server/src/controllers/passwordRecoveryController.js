@@ -5,7 +5,6 @@ const handle = action => async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
     const result = await recovery[action](req);
-    if (result.retryAfter) res.set('Retry-After', String(result.retryAfter));
     if (result.status) return res.status(result.status).json({ success: false, message: result.message });
     if (action === 'request') notifications.wakeWorker();
     res.json({ success: true, ...result });

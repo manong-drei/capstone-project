@@ -6,7 +6,21 @@ const reset = require('../reset-test-data');
 
 test.after(() => pool.end());
 
+function demoTarget(t, { host = '127.0.0.1', database = 'ekalusugan_demo', environment = 'test' } = {}) {
+  const config = pool.pool.config.connectionConfig;
+  const original = { host: config.host, database: config.database };
+  const previousEnvironment = process.env.NODE_ENV;
+  Object.assign(config, { host, database });
+  process.env.NODE_ENV = environment;
+  t.after(() => {
+    Object.assign(config, original);
+    if (previousEnvironment === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousEnvironment;
+  });
+}
+
 function fixture(t, { empty = false, fail = false } = {}) {
+  demoTarget(t);
   const calls = [];
   const connection = {
     async beginTransaction() { calls.push('begin'); },
@@ -26,9 +40,26 @@ function fixture(t, { empty = false, fail = false } = {}) {
   return calls;
 }
 
+test('reset refuses unsafe or unconfirmed targets before acquiring a connection', async t => {
+  const connect = t.mock.method(pool, 'getConnection', async () => assert.fail('unexpected database access'));
+  for (const [label, target, confirmation] of [
+    ['missing confirmation', {}, undefined],
+    ['wrong confirmation', {}, 'different_demo'],
+    ['production mode', { environment: 'production' }, 'ekalusugan_demo'],
+    ['remote host', { host: 'production.example' }, 'ekalusugan_demo'],
+    ['ordinary local database', { database: 'ekalusugan_db' }, 'ekalusugan_db'],
+  ]) {
+    await t.test(label, async test => {
+      demoTarget(test, target);
+      await assert.rejects(reset(confirmation), /Reset requires a local ekalusugan_demo database/);
+    });
+  }
+  assert.equal(connect.mock.callCount(), 0);
+});
+
 test('reset locks both categories and deletes only captured queue records in dependency order', async t => {
   const calls = fixture(t);
-  const result = await reset();
+  const result = await reset('ekalusugan_demo');
   assert.equal(result.today, '2026-10-10');
   assert.equal(result.deleted.queues, 1);
   assert.equal(result.sequencesReset, 1);
@@ -47,7 +78,7 @@ test('reset locks both categories and deletes only captured queue records in dep
 
 test('reset cleans orphan auto-appointments and counters even when there are no queues', async t => {
   const calls = fixture(t, { empty: true });
-  const result = await reset();
+  const result = await reset('ekalusugan_demo');
   assert.equal(result.deleted.queues, 0);
   assert.equal(result.deleted.prescriptions, 0);
   assert.equal(result.deleted.appointments, 1);
@@ -58,7 +89,7 @@ test('reset cleans orphan auto-appointments and counters even when there are no 
 
 test('a failed reset rolls back earlier deletes and releases its connection', async t => {
   const calls = fixture(t, { fail: true });
-  await assert.rejects(reset(), /delete failed/);
+  await assert.rejects(reset('ekalusugan_demo'), /delete failed/);
   assert.ok(!calls.includes('commit'));
   assert.deepEqual(calls.slice(-2), ['rollback', 'release']);
 });
@@ -108,14 +139,15 @@ test('MySQL reset preserves other days and manual records, rolls back failure, a
         rollback: connection.rollback.bind(connection), release() {},
       };
       t.mock.method(pool, 'getConnection', async () => transaction);
-      await assert.rejects(reset(), /test rollback/);
+      demoTarget(t);
+      await assert.rejects(reset('ekalusugan_demo'), /test rollback/);
       for (const [table, expected] of [['queues', 3], ['consultations', 2], ['prescriptions', 2], ['vital_signs', 2], ['medical_records', 3], ['sms_jobs', 3], ['appointments', 3]]) {
         const [[{ count }]] = await connection.query(`SELECT COUNT(*) AS count FROM ${table}`);
         assert.equal(count, expected, `${table} restored after rollback`);
       }
 
       fail = false;
-      const result = await reset();
+      const result = await reset('ekalusugan_demo');
       assert.deepEqual(result.deleted, { prescriptions: 1, vital_signs: 1, medical_records: 1, consultations: 1, sms_jobs: 1, queues: 2, appointments: 1 });
       const [queues] = await connection.query('SELECT id FROM queues');
       assert.deepEqual(queues.map(queue => queue.id), [3]);
@@ -132,7 +164,7 @@ test('MySQL reset preserves other days and manual records, rolls back failure, a
         assert.equal(await Queue.nextQueueNumber({ category, type, is_walk_in }, connection), expected);
       }
       await connection.query("INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, reason) VALUES (4294967290, 4294967290, CURDATE(), '08:00:00', 'Same-day queue registration')");
-      const empty = await reset();
+      const empty = await reset('ekalusugan_demo');
       assert.equal(empty.deleted.queues, 0);
       assert.equal(empty.deleted.appointments, 1);
       assert.equal(await Queue.nextQueueNumber({ category: 'dental', type: 'regular', is_walk_in: true }, connection), 'Q01');

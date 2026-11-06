@@ -54,7 +54,7 @@ const maskPhone = (value) => {
 const STEP_INTRO = {
   phone: () => "Enter the mobile number registered to your patient account.",
   code: (phone) =>
-    `Enter the four-digit code sent to ${maskPhone(phone)}. It expires after five minutes. You have three attempts.`,
+    `Enter the four-digit code for ${maskPhone(phone)}. It expires after five minutes. You have three attempts.`,
   password: () =>
     "Your phone number is verified. Choose a new password within five minutes.",
 };
@@ -135,7 +135,7 @@ export default function PasswordRecoveryDialog({ onClose }) {
       setFields({ ...EMPTY_FLOW, recoveryId: result.recovery_id });
       setResendAt(current + result.resend_after * 1000);
       setStep("code");
-      setNotice("Your recovery code has been queued for SMS delivery.");
+      setNotice("If this number is eligible, a code will be sent by SMS.");
     } catch (err) {
       setError(err.message);
       if (step === "phone") setShaking(true);

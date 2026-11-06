@@ -1,6 +1,7 @@
 /**
  * reset-test-data.js
- * Run from server/ with:  node reset-test-data.js
+ * With DB_NAME=ekalusugan_demo and a local DB_HOST, run from server/:
+ * node reset-test-data.js ekalusugan_demo
  *
  * Demo databases only: deletes ALL today's queues and their clinical records,
  * queue SMS jobs, and auto-created same-day appointments; resets daily counters.
@@ -10,7 +11,14 @@
 const pool = require('./src/config/db');
 const Queue = require('./src/models/Queue');
 
-async function reset() {
+async function reset(confirmedDatabase) {
+  const { host, database } = pool.pool.config.connectionConfig;
+  if (process.env.NODE_ENV?.toLowerCase() === 'production' ||
+      !['localhost', '127.0.0.1', '::1'].includes(host) ||
+      database !== 'ekalusugan_demo' || confirmedDatabase !== database) {
+    throw new Error('Reset requires a local ekalusugan_demo database, outside production, and the exact database name as confirmation.');
+  }
+
   const connection = await pool.getConnection();
   const deleted = {
     prescriptions: 0, vital_signs: 0, medical_records: 0,
@@ -65,13 +73,13 @@ async function reset() {
 module.exports = reset;
 
 if (require.main === module) {
-  reset().then(({ today, deleted, sequencesReset }) => {
+  reset(process.argv[2]).then(({ today, deleted, sequencesReset }) => {
     console.log(`Cleanup done for ${today}:`);
     for (const [table, count] of Object.entries(deleted)) console.log(`  ${table} deleted: ${count}`);
     console.log(`  Daily counters reset: ${sequencesReset}`);
     console.log('Dental counters restart at 1 (AQ/Q regular, AP/P priority); general restarts at G-001.');
   }).catch(err => {
-    console.error('Reset failed; changes rolled back:', err.message);
+    console.error('Reset failed:', err.message);
     process.exitCode = 1;
   }).finally(() => pool.end());
 }

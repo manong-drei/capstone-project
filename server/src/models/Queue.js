@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const Doctor = require("./Doctor");
+const Appointment = require("./Appointment");
 const { projectQueue, alertState } = require('../utils/queueOrder');
 const conflict = message => Object.assign(new Error(message), { status: 409 });
 const NO_SHOW_EXPIRED = 'No-show — did not return within 10 minutes';
@@ -144,6 +145,7 @@ const Queue = {
   // Insert a new queue entry (supports both patient self-queue and staff walk-in)
   create: async ({
     patient_id,
+    appointment_id = null,
     is_walk_in,
     queue_number,
     type,
@@ -156,10 +158,11 @@ const Queue = {
   }, connection = pool) => {
     await Queue.lockCategory(category || 'dental', connection);
     const [result] = await connection.query(
-      `INSERT INTO queues (patient_id, is_walk_in, queue_number, type, category, services, walk_in_name, walk_in_dob, walk_in_gender, walk_in_contact)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO queues (patient_id, appointment_id, is_walk_in, queue_number, type, category, services, walk_in_name, walk_in_dob, walk_in_gender, walk_in_contact)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         patient_id || null,
+        appointment_id,
         is_walk_in ? 1 : 0,
         queue_number,
         type || "regular",
@@ -254,7 +257,7 @@ const Queue = {
     finally { conn.release(); }
   },
 
-  updateStatus: (id, status, statusReason = null, { patientOnly = false, syncAppointments = false, doctorUserId } = {}) => Queue._withTicket(id, async (ticket, conn) => {
+  updateStatus: (id, status, statusReason = null, { patientOnly = false, doctorUserId } = {}) => Queue._withTicket(id, async (ticket, conn) => {
       if (status === 'done' && ticket.status === 'done' && !patientOnly) return Queue._fetchById(id, conn);
       const allowed = status === 'serving' ? ticket.status === 'called' && !patientOnly
         : status === 'done' ? ticket.status === 'serving' && !patientOnly
@@ -281,13 +284,7 @@ const Queue = {
           [status, statusReason, id],
         );
       }
-      if (syncAppointments && ticket.patient_id && !ticket.is_walk_in && ['cancelled', 'done'].includes(status)) {
-        const dateClause = status === 'cancelled' ? 'DATE(?)' : 'CURDATE()';
-        const args = status === 'cancelled' ? [ticket.patient_id, ticket.created_at] : [ticket.patient_id];
-        const nextStatus = status === 'done' ? 'completed' : 'cancelled';
-        await conn.query(`UPDATE appointments SET status = ?, updated_at = NOW()
-          WHERE patient_id = ? AND appointment_date = ${dateClause} AND status IN ('pending', 'confirmed')`, [nextStatus, ...args]);
-      }
+      await Appointment.updateFromTicket(ticket, status, conn);
       return Queue._fetchById(id, conn);
   }),
 
@@ -344,10 +341,8 @@ const Queue = {
     const waiting = rows.find((r) => r.status === "waiting");
     return {
       now_serving: serving?.queue_number ?? null,
-      now_serving_name: serving?.full_name ?? null,
       current_status: serving?.status ?? null,
       next_queuing: waiting?.queue_number ?? null,
-      next_queuing_name: waiting?.full_name ?? null,
       line: rows.filter((row) => ['called', 'serving', 'waiting'].includes(row.status))
         .map(({ queue_number, status }) => ({ queue_number, status })),
     };

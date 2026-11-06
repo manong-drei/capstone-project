@@ -8,6 +8,7 @@ const DoctorLeave = require("../models/DoctorLeave");
 const { clinicToday, validDate } = require("../utils/clinicDate");
 const audit = require("../services/auditLog");
 const Queue = require("../models/Queue");
+const Appointment = require("../models/Appointment");
 const pool = require("../config/db");
 
 const validReportDate = (date) => typeof date === "string" && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date) &&
@@ -31,8 +32,9 @@ const reportWindow = (query) => {
 const queueDoctor = `COALESCE(
   (SELECT c.doctor_id FROM consultations c WHERE c.queue_id = q.id ORDER BY c.consultation_id ASC LIMIT 1),
   q.completed_by_doctor_id,
+  (SELECT booking.doctor_id FROM appointments booking WHERE booking.appointment_id = q.appointment_id),
   (SELECT a.doctor_id FROM appointments a
-   WHERE a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at) AND a.status != 'cancelled'
+   WHERE q.appointment_id IS NULL AND a.patient_id = q.patient_id AND a.appointment_date = DATE(q.created_at) AND a.status != 'cancelled'
    ORDER BY a.appointment_id ASC LIMIT 1),
   (SELECT d.doctor_id FROM doctors d ORDER BY d.doctor_id ASC LIMIT 1)
 )`;
@@ -209,7 +211,7 @@ const getDailySettings = async (req, res) => {
 
     const [[{ walkin_count }]] = await pool.query(
       `SELECT COUNT(*) AS walkin_count FROM queues
-       WHERE is_walk_in = 1 AND DATE(created_at) = ?`,
+       WHERE category = 'dental' AND is_walk_in = 1 AND DATE(created_at) = ?`,
       [date],
     );
 
@@ -354,6 +356,10 @@ const createConsultation = async (req, res) => {
         .status(400)
         .json({ success: false, message: "queue_id and notes are required." });
     }
+    if ([diagnosis, prescription].some(value => value != null && typeof value !== 'string')) {
+      return res.status(400).json({ success: false, message: 'Diagnosis and prescription must be text.' });
+    }
+    const directions = prescription?.trim();
 
     // Get the doctor profile from the logged-in user
     const doctor = await Doctor.findByUserId(req.user.user_id);
@@ -380,22 +386,20 @@ const createConsultation = async (req, res) => {
         [id, doctor.doctor_id, queueRow.patient_id, notes, diagnosis || null, null],
       );
       const consultation_id = consultResult.insertId;
-      if (prescription && prescription.trim()) {
-        await connection.query(
+      if (directions) {
+        const [saved] = await connection.query(
           `INSERT INTO prescriptions (consultation_id, medication_name) VALUES (?, ?)`,
-          [consultation_id, prescription.trim()],
+          [consultation_id, directions],
         );
+        if (saved.warningStatus) {
+          const [[stored]] = await connection.query('SELECT medication_name FROM prescriptions WHERE prescription_id = ?', [saved.insertId]);
+          if (stored?.medication_name !== directions) throw new Error('Prescription text changed during the write.');
+        }
       }
       if (queueRow.status === 'serving') {
         await connection.query(`UPDATE queues SET status = ?, status_reason = ?, updated_at = NOW() WHERE id = ?`, ['done', null, id]);
       }
-      if (queueRow.patient_id && !queueRow.is_walk_in) {
-        await connection.query(
-          `UPDATE appointments SET status = 'completed', updated_at = NOW()
-           WHERE patient_id = ? AND appointment_date = CURDATE() AND status IN ('pending', 'confirmed')`,
-          [queueRow.patient_id],
-        );
-      }
+      await Appointment.updateFromTicket(queueRow, 'done', connection);
       return { consultation_id };
     });
     if (!result) return res.status(404).json({ success: false, message: 'Queue entry not found.' });
@@ -406,7 +410,7 @@ const createConsultation = async (req, res) => {
       .status(201)
       .json({ success: true, message: "Consultation saved.", consultation_id: result.consultation_id });
   } catch (err) {
-    if (!err.status) console.error("createConsultation error:", err);
+    if (!err.status) console.error("Consultation could not be saved.");
     res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
   }
 };
