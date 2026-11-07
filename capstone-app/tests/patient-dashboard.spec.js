@@ -63,13 +63,14 @@ for (const width of [320, 390, 768, 1024, 1440, 1920]) {
       await expect(menu).toHaveAttribute("aria-expanded", "false");
       await menu.click();
       await expect(menu).toHaveAttribute("aria-expanded", "true");
+      await expect(nav.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+      await expect(nav.getByRole("link", { name: "Appointment history", exact: true })).toBeVisible();
+      await nav.getByRole("link", { name: "My Profile", exact: true }).click();
     } else {
       await expect(menu).toHaveCount(0);
+      await nav.getByRole("button", { name: /Maria Test/ }).click();
+      await nav.getByRole("menuitem", { name: "My Profile", exact: true }).click();
     }
-    await expect(nav.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Appointment history", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: /Maria Test/ }).click();
-    await nav.getByRole("menuitem", { name: "My Profile", exact: true }).click();
     const card = page.getByRole("region", { name: "Maria Test", exact: true });
     await expect(card.getByText("Regular", { exact: true })).toHaveClass(/bg-blue-100/);
     const password = card.getByRole("link", { name: "Change password", exact: true });

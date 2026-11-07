@@ -6,15 +6,11 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import {
-  BarChart3,
-  ClipboardList,
-  LayoutDashboard,
-} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { useQueue } from "@/hooks/useQueue";
 import { ROUTES } from "@/constants/routes";
+import { DASHBOARD_NAVIGATION } from "@/constants/dashboardNavigation";
 import { QUEUE_STATUS } from "@/constants/queue";
 import api from "@/services/api";
 
@@ -29,18 +25,8 @@ import DoctorLeaveModal from "@/components/dashboards/doctor/DoctorLeaveModal";
 
 const DoctorAnalyticsTab = lazy(() => import("@/components/dashboards/doctor/DoctorAnalyticsTab"));
 
-const DOCTOR_PAGES = {
-  home: ROUTES.DOCTOR_DASHBOARD,
-  analytics: ROUTES.DOCTOR_ANALYTICS,
-  history: ROUTES.DOCTOR_PATIENT_HISTORY,
-};
 const clinicToday = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-const NAV_ITEMS = [
-  { tab: "home", icon: LayoutDashboard, label: "Dashboard" },
-  { tab: "analytics", icon: BarChart3, label: "Analytics" },
-  { tab: "history", icon: ClipboardList, label: "Patient History" },
-];
 
 /** Shared desktop container — keep the header and every tab's content on the same axis. */
 const CONTENT_CONTAINER = "mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8";
@@ -60,10 +46,7 @@ export default function DoctorDashboard() {
         ? "analytics"
         : matchPath(ROUTES.DOCTOR_CONSULTATION, pathname)
           ? "history"
-          : Object.keys(DOCTOR_PAGES).find(
-              (tab) => DOCTOR_PAGES[tab] === pathname,
-            );
-  const setActiveTab = (tab) => navigate(DOCTOR_PAGES[tab]);
+          : DASHBOARD_NAVIGATION.doctor.find((item) => item.path === pathname)?.key;
   const [initialLoading, setInitialLoading] = useState(true);
   const [showManual, setShowManual] = useState(false);
   const [showConsultModal, setShowConsultModal] = useState(false);
@@ -290,10 +273,10 @@ export default function DoctorDashboard() {
         identity={identity}
         onHelp={() => setShowManual(true)}
         onLogout={handleLogout}
-        sections={NAV_ITEMS.map((item) => ({
+        sections={DASHBOARD_NAVIGATION.doctor.map((item) => ({
           ...item,
-          active: activeTab === item.tab,
-          onSelect: () => setActiveTab(item.tab),
+          active: activeTab === item.key,
+          onSelect: () => navigate(item.path),
         }))}
       />
 
@@ -349,7 +332,7 @@ export default function DoctorDashboard() {
         <Suspense fallback={<div className={`${CONTENT_CONTAINER} py-6`}><DashboardSkeleton /></div>}>
           <DoctorAnalyticsTab
             dailyEntry={pathname === ROUTES.DOCTOR_DAILY_REPORT}
-            onBack={() => setActiveTab("home")}
+            onBack={() => navigate(ROUTES.DOCTOR_DASHBOARD)}
           />
         </Suspense>
       )}
@@ -359,13 +342,13 @@ export default function DoctorDashboard() {
           loading={historyLoading}
           error={historyError}
           onRetry={() => setHistoryRetry((value) => value + 1)}
-          onBack={() => setActiveTab("home")}
+          onBack={() => navigate(ROUTES.DOCTOR_DASHBOARD)}
         />
       )}
       {leaveOpen && (
         <DoctorLeaveModal
           onClose={() => {
-            setActiveTab("home");
+            navigate(ROUTES.DOCTOR_DASHBOARD);
             fetchDailySettings();
           }}
         />

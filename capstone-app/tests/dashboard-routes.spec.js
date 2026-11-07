@@ -98,19 +98,38 @@ const destinations = {
   ],
 };
 
+const menuSections = {
+  patient: ["Dashboard", "My queue", "Appointment history"],
+  doctor: ["Dashboard", "Analytics", "Patient History"],
+  staff: ["Dashboard", "Walk-in registration", "Account recovery"],
+  admin: ["Dashboard", "Management", "Analytics", "Activity"],
+};
+
 for (const [role, routes] of Object.entries(destinations)) {
-  test(`${role} opens My Profile from the logout menu and saves their own details`, async ({ page }) => {
-    await page.setViewportSize({ width: role === "doctor" || role === "admin" ? 390 : 1440, height: 900 });
+  test(`${role} opens My Profile from the mobile menu and saves their own details`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
     await mockDashboard(page, role);
     await page.goto(`/${role}`);
-    await expect(page.getByRole("menuitem", { name: "My Profile", exact: true })).toHaveCount(0);
-    if (role === "doctor") await page.getByRole("button", { name: "Toggle menu" }).click();
-    if (role === "admin") await page.getByRole("button", { name: "Open menu" }).click();
-    await page.getByRole("button", { name: /Route Tester/ }).click();
-    const actions = page.getByRole("menu", { name: "Profile actions" });
-    await expect(actions.getByRole("menuitem", { name: "Log Out" })).toBeVisible();
-    await actions.getByRole("menuitem", { name: "My Profile", exact: true }).click();
+    const toggle = page.getByRole("button", { name: role === "admin" ? "Open menu" : "Toggle menu" });
+    const actions = page.getByRole("group", { name: "Dashboard menu", exact: true });
+    await expect(actions).toHaveCount(0);
+    await toggle.click();
+    await expect(actions.getByText("Route Tester", { exact: true })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Log Out" })).toBeVisible();
+    for (const name of menuSections[role]) {
+      await expect(actions.getByRole(role === "doctor" || role === "admin" ? "button" : "link", { name, exact: true })).toBeVisible();
+    }
+    await actions.getByRole("link", { name: "My Profile", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/${role}/profile$`));
+    await expect(page.getByRole("heading", { name: "My Profile", exact: true })).toBeVisible();
+    await expect(actions).toHaveCount(0);
+    await toggle.click();
+    for (const name of menuSections[role]) {
+      await expect(actions.getByRole("link", { name, exact: true })).toBeVisible();
+    }
+    await page.keyboard.press("Escape");
+    await expect(actions).toHaveCount(0);
+    await expect(toggle).toBeFocused();
     const personal = page.getByRole("region", { name: "Personal information" });
     const edit = personal.getByRole("button", { name: "Edit", exact: true });
     await expect(edit).toHaveAttribute("aria-expanded", "false");

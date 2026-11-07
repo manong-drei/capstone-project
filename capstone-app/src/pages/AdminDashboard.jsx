@@ -1,10 +1,11 @@
 import useLiveData from "@/hooks/useLiveData";
 import { useCallback, lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, matchPath, useLocation, useNavigate } from "react-router-dom";
-import { ChartNoAxesCombined, ClipboardList, History, LayoutDashboard, Stethoscope, UserRoundCog, UsersRound } from "lucide-react";
+import { ClipboardList, Stethoscope, UserRoundCog, UsersRound } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
+import { DASHBOARD_NAVIGATION } from "@/constants/dashboardNavigation";
 import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
@@ -28,12 +29,6 @@ const pages = [
   [ROUTES.ADMIN_PATIENT_HISTORY, "history"], [ROUTES.ADMIN_STAFF_ACCOUNTS, "accounts"],
   [ROUTES.ADMIN_PATIENT_ACCOUNTS, "accounts"], [ROUTES.ADMIN_NOTIFICATIONS, "notifications"],
   [ROUTES.ADMIN_AUDIT_LOGS, "auditlogs"],
-];
-const navigation = [
-  { key: "overview", label: "Dashboard", icon: LayoutDashboard, path: ROUTES.ADMIN_DASHBOARD },
-  { key: "management", label: "Management", icon: UsersRound, path: ROUTES.ADMIN_DOCTORS },
-  { key: "reports", label: "Analytics", icon: ChartNoAxesCombined, path: ROUTES.ADMIN_ANALYTICS },
-  { key: "activity", label: "Activity", icon: History, path: ROUTES.ADMIN_NOTIFICATIONS },
 ];
 const managementSections = [
   { key: "doctors", label: "Doctors & leave", icon: Stethoscope, path: ROUTES.ADMIN_DOCTORS },
@@ -101,7 +96,7 @@ export default function AdminDashboard() {
         identity={identity}
         onHelp={() => setShowManual(true)}
         onLogout={handleLogout}
-        sections={navigation.map((item) => ({
+        sections={DASHBOARD_NAVIGATION.admin.map((item) => ({
           ...item,
           active: activeGroup === item.key,
           onSelect: () => goTo(item.path),

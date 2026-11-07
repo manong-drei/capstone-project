@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { ACCOUNT_ROUTES } from "@/constants/routes";
 
-export function ProfileChip({
+function ProfileChip({
   identity,
   onClick,
   isOpen = false,
@@ -41,15 +41,13 @@ export function ProfileChip({
 
 export function ProfileActions({
   role,
+  identity,
   onProfileClick,
   onLogout,
-  mobile = false,
+  children,
 }) {
+  const mobile = Boolean(identity);
   const profilePath = ACCOUNT_ROUTES[role]?.profile;
-
-  const panelClass = mobile
-    ? "min-w-full border border-white/20 bg-white/10 backdrop-blur-sm"
-    : "min-w-52 border border-slate-200 bg-white shadow-xl shadow-slate-900/10";
 
   const profileLinkClass = mobile
     ? "text-white hover:bg-white/15 focus-visible:outline-white"
@@ -71,16 +69,27 @@ export function ProfileActions({
 
   return (
     <div
-      role="menu"
-      aria-label="Profile actions"
-      className={`overflow-hidden rounded-xl p-1.5 ${panelClass}`}
+      role={mobile ? "group" : "menu"}
+      aria-label={mobile ? "Dashboard menu" : "Profile actions"}
+      className={mobile ? "space-y-1" : "min-w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-900/10"}
     >
       {profilePath && (
-        <>
+        <div className={mobile ? "mb-3 space-y-2 rounded-xl border border-white/20 bg-white/10 p-2 shadow-sm" : ""}>
+          {mobile && (
+            <div className="flex items-center gap-3 border-b border-white/15 px-2.5 py-2.5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white/15">
+                <User size={18} aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="break-words text-sm font-bold">{identity.displayName}</p>
+                <p className="text-xs text-white/70">{identity.subtitle}</p>
+              </div>
+            </div>
+          )}
           <Link
             to={profilePath}
             onClick={onProfileClick}
-            role="menuitem"
+            role={mobile ? undefined : "menuitem"}
             className={`group flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 ${profileLinkClass}`}
           >
             <span
@@ -90,13 +99,14 @@ export function ProfileActions({
             </span>
             My Profile
           </Link>
-          <div role="separator" className={`mx-2 my-1 h-px ${dividerClass}`} />
-        </>
+          {!mobile && <div role="separator" className={`mx-2 my-1 h-px ${dividerClass}`} />}
+        </div>
       )}
+      {children}
       <button
         type="button"
         onClick={onLogout}
-        role="menuitem"
+        role={mobile ? undefined : "menuitem"}
         className={`group flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 ${logoutClass}`}
       >
         <span
@@ -113,7 +123,6 @@ export function ProfileActions({
 export default function DashboardProfileMenu({
   identity,
   onLogout,
-  mobile = false,
   chipClassName,
   subtitleClassName,
 }) {
@@ -124,7 +133,7 @@ export default function DashboardProfileMenu({
   const toggle = useCallback(() => setOpen((prev) => !prev), []);
 
   useEffect(() => {
-    if (mobile || !open) return undefined;
+    if (!open) return undefined;
 
     const handlePointerDown = (event) => {
       if (rootRef.current && !rootRef.current.contains(event.target)) {
@@ -143,34 +152,12 @@ export default function DashboardProfileMenu({
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [mobile, open, close]);
+  }, [open, close]);
 
   const handleLogout = useCallback(() => {
     close();
     onLogout();
   }, [close, onLogout]);
-
-  if (mobile) {
-    return (
-      <div className="grid gap-2">
-        <ProfileChip
-          identity={identity}
-          onClick={toggle}
-          isOpen={open}
-          chipClassName={chipClassName}
-          subtitleClassName={subtitleClassName}
-        />
-        {open ? (
-          <ProfileActions
-            mobile
-            role={identity.role}
-            onProfileClick={close}
-            onLogout={handleLogout}
-          />
-        ) : null}
-      </div>
-    );
-  }
 
   return (
     <div ref={rootRef} className="relative">

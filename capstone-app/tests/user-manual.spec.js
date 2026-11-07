@@ -40,10 +40,7 @@ async function mockDashboard(page, role) {
 }
 
 async function helpButton(page, role, mobile) {
-  if (mobile && role === 'doctor') {
-    await page.getByRole('button', { name: 'Toggle menu', exact: true }).click();
-  }
-  if (mobile && role === 'admin') await page.getByRole('button', { name: 'Open menu', exact: true }).click();
+  if (mobile) await page.getByRole('button', { name: role === 'admin' ? 'Open menu' : 'Toggle menu', exact: true }).click();
   return page.getByRole('button', { name: 'Help', exact: true }).filter({ visible: true });
 }
 
@@ -57,9 +54,9 @@ for (const { role, name, task } of roles) {
       page.on('request', request => { if (isManual(request)) manualRequests.push(request.url()); });
       await page.goto(`/${role}`);
       const help = await helpButton(page, role, mobile);
-      const returnFocus = mobile && role === 'doctor'
-        ? page.getByRole('button', { name: 'Toggle menu', exact: true })
-        : mobile && role === 'admin' ? page.getByRole('button', { name: 'Open menu', exact: true }) : help;
+      const returnFocus = mobile
+        ? page.getByRole('button', { name: role === 'admin' ? 'Open menu' : 'Toggle menu', exact: true })
+        : help;
       await expect(help).toBeVisible();
       const dashboardUrl = page.url();
       expect(manualRequests).toEqual([]);
