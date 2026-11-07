@@ -16,11 +16,13 @@ import {
 } from "lucide-react";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
 import QueueRecovery from "@/components/common/QueueRecovery";
+import { DashboardSkeleton } from "@/components/common/LoadingState";
 import { generatePath, Link } from "react-router-dom";
 import { ROUTES } from "@/constants/routes";
 
 export default function DoctorHomeTab({
   identity,
+  initialLoading,
   isAvailable,
   approvedLeave,
   availLoading,
@@ -128,10 +130,10 @@ export default function DoctorHomeTab({
             <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 font-medium">
               <Stethoscope size={16} className="shrink-0" aria-hidden="true" />
               <span
-                className={`h-2 w-2 shrink-0 rounded-full ${isAvailable && !approvedLeave ? "bg-emerald-300" : "bg-amber-300"}`}
+                className={`h-2 w-2 shrink-0 rounded-full ${!initialLoading && isAvailable && !approvedLeave ? "bg-emerald-300" : "bg-amber-300"}`}
                 aria-hidden="true"
               />
-              {approvedLeave
+              {initialLoading ? "Checking availability…" : approvedLeave
                 ? `On leave through ${leaveEnd}`
                 : isAvailable
                   ? "Available today"
@@ -140,6 +142,8 @@ export default function DoctorHomeTab({
           </div>
         </div>
       </section>
+      {initialLoading ? <DashboardSkeleton /> : (
+      <>
       <div>
         <h2 className="text-lg font-bold text-[#1a3a8f]">
           Dental queue management
@@ -676,6 +680,8 @@ export default function DoctorHomeTab({
         />
         {error ? "Refresh unavailable" : "Auto-refresh every 5 seconds"}
       </p>
+      </>
+      )}
     </main>
   );
 }

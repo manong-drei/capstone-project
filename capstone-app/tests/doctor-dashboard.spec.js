@@ -44,6 +44,24 @@ async function mockDoctor(page) {
   return state;
 }
 
+test("the doctor banner renders while queue data is still loading", async ({ page }) => {
+  await mockDoctor(page);
+  const { promise, resolve } = Promise.withResolvers();
+  await page.route("**/api/queue", async (route) => {
+    await promise;
+    await route.fallback();
+  });
+  try {
+    await page.goto("/doctor");
+    await expect(page.getByRole("heading", { name: "Welcome, Dr. Maria Santos." })).toBeVisible();
+    await expect(page.getByText("Checking availability…")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Dental queue", exact: true })).toHaveCount(0);
+  } finally {
+    resolve();
+  }
+  await expect(page.getByRole("region", { name: "Dental queue", exact: true })).toContainText("AP02");
+});
+
 for (const width of [320, 375, 641, 768, 1024, 1440]) {
   test(`doctor dashboard and consultation fit at ${width}px and save the existing payload`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });

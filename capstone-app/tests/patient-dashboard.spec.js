@@ -44,6 +44,8 @@ for (const width of [320, 390, 768, 1024, 1440, 1920]) {
     await page.goto("/patient");
     await expect(page.getByRole("heading", { name: /Your Health, Schedule/ })).toBeVisible();
     await expect(page.getByTestId("patient-hero")).toHaveCSS("background-image", /BGHero\.webp/);
+    await expect(page.locator('head link[rel="preload"][as="image"][href="/assets/BGHero.webp"]'))
+      .toHaveAttribute("fetchpriority", "high");
     await expect(page.getByRole("region", { name: "Patient tools", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "My queue", exact: true })).toHaveCount(0);
     const ticket = page.getByRole("article", { name: "My queue ticket", exact: true });

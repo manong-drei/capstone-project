@@ -20,10 +20,10 @@ import UserManual from "@/components/common/LazyUserManual";
 import ConsultationModal from "@/components/dashboards/doctor/ConsultationModal";
 import LimitWarningModal from "@/components/dashboards/doctor/LimitWarningModal";
 import DoctorHomeTab from "@/components/dashboards/doctor/DoctorHomeTab";
-import DoctorAppointmentsTab from "@/components/dashboards/doctor/DoctorAppointmentsTab";
-import DoctorLeaveModal from "@/components/dashboards/doctor/DoctorLeaveModal";
 
 const DoctorAnalyticsTab = lazy(() => import("@/components/dashboards/doctor/DoctorAnalyticsTab"));
+const DoctorAppointmentsTab = lazy(() => import("@/components/dashboards/doctor/DoctorAppointmentsTab"));
+const DoctorLeaveModal = lazy(() => import("@/components/dashboards/doctor/DoctorLeaveModal"));
 
 const clinicToday = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
@@ -285,53 +285,49 @@ export default function DoctorDashboard() {
       />
 
       {/* ── Tab Content ── */}
-      {activeTab === "home" &&
-        (initialLoading ? (
-          <div className={`${CONTENT_CONTAINER} py-6`}>
-            <DashboardSkeleton hero />
-          </div>
-        ) : (
-          <DoctorHomeTab
-            identity={identity}
-            isAvailable={isAvailable}
-            approvedLeave={approvedLeave}
-            availLoading={availLoading}
-            onToggleAvailability={handleToggleAvailability}
-            onRequestLeave={() => navigate(ROUTES.DOCTOR_LEAVE_REQUESTS)}
-            capacityCollapsed={capacityCollapsed}
-            setCapacityCollapsed={setCapacityCollapsed}
-            appointmentLimit={appointmentLimit}
-            setAppointmentLimit={(value) => { settingsDirty.current = true; setAppointmentLimit(value); }}
-            walkInLimit={walkInLimit}
-            setWalkInLimit={(value) => { settingsDirty.current = true; setWalkInLimit(value); }}
-            bookedCount={bookedCount}
-            walkInCount={walkInCount}
-            walkInPercent={walkInPercent}
-            apptPercent={apptPercent}
-            apptFull={apptFull}
-            settingsLoading={settingsLoading}
-            settingsSaved={settingsSaved}
-            onApplySettings={handleApplySettings}
-            waiting={waiting}
-            serving={serving}
-            doneQueues={doneQueues}
-            servingQueue={servingQueue}
-            nextQueue={nextQueue}
-            done={done}
-            priority={priority}
-            queueLoading={loading || queueActionLoading}
-            onCallNext={handleCallNext}
-            onMarkDone={handleMarkDone}
-            onConsult={(patient) => {
-              setServingPatient(patient);
-              setShowConsultModal(true);
-            }}
-            calledQueue={calledQueue}
-            missedQueues={missedQueues}
-            onQueueAction={handleQueueAction}
-            error={error}
-          />
-        ))}
+      {activeTab === "home" && (
+        <DoctorHomeTab
+          identity={identity}
+          initialLoading={initialLoading}
+          isAvailable={isAvailable}
+          approvedLeave={approvedLeave}
+          availLoading={availLoading}
+          onToggleAvailability={handleToggleAvailability}
+          onRequestLeave={() => navigate(ROUTES.DOCTOR_LEAVE_REQUESTS)}
+          capacityCollapsed={capacityCollapsed}
+          setCapacityCollapsed={setCapacityCollapsed}
+          appointmentLimit={appointmentLimit}
+          setAppointmentLimit={(value) => { settingsDirty.current = true; setAppointmentLimit(value); }}
+          walkInLimit={walkInLimit}
+          setWalkInLimit={(value) => { settingsDirty.current = true; setWalkInLimit(value); }}
+          bookedCount={bookedCount}
+          walkInCount={walkInCount}
+          walkInPercent={walkInPercent}
+          apptPercent={apptPercent}
+          apptFull={apptFull}
+          settingsLoading={settingsLoading}
+          settingsSaved={settingsSaved}
+          onApplySettings={handleApplySettings}
+          waiting={waiting}
+          serving={serving}
+          doneQueues={doneQueues}
+          servingQueue={servingQueue}
+          nextQueue={nextQueue}
+          done={done}
+          priority={priority}
+          queueLoading={loading || queueActionLoading}
+          onCallNext={handleCallNext}
+          onMarkDone={handleMarkDone}
+          onConsult={(patient) => {
+            setServingPatient(patient);
+            setShowConsultModal(true);
+          }}
+          calledQueue={calledQueue}
+          missedQueues={missedQueues}
+          onQueueAction={handleQueueAction}
+          error={error}
+        />
+      )}
       {activeTab === "analytics" && (
         <Suspense fallback={<div className={`${CONTENT_CONTAINER} py-6`}><DashboardSkeleton /></div>}>
           <DoctorAnalyticsTab
@@ -341,21 +337,25 @@ export default function DoctorDashboard() {
         </Suspense>
       )}
       {activeTab === "history" && (
-        <DoctorAppointmentsTab
-          visits={historyVisits}
-          loading={historyLoading}
-          error={historyError}
-          onRetry={() => setHistoryRetry((value) => value + 1)}
-          onBack={() => navigate(ROUTES.DOCTOR_DASHBOARD)}
-        />
+        <Suspense fallback={<div className={`${CONTENT_CONTAINER} py-6`}><DashboardSkeleton /></div>}>
+          <DoctorAppointmentsTab
+            visits={historyVisits}
+            loading={historyLoading}
+            error={historyError}
+            onRetry={() => setHistoryRetry((value) => value + 1)}
+            onBack={() => navigate(ROUTES.DOCTOR_DASHBOARD)}
+          />
+        </Suspense>
       )}
       {leaveOpen && (
-        <DoctorLeaveModal
-          onClose={() => {
-            navigate(ROUTES.DOCTOR_DASHBOARD);
-            fetchDailySettings();
-          }}
-        />
+        <Suspense fallback={<p role="status" className="fixed right-4 bottom-4 z-50 rounded-lg bg-white px-4 py-2 text-sm">Loading leave requests…</p>}>
+          <DoctorLeaveModal
+            onClose={() => {
+              navigate(ROUTES.DOCTOR_DASHBOARD);
+              fetchDailySettings();
+            }}
+          />
+        </Suspense>
       )}
 
       {/* ── Modals ── */}

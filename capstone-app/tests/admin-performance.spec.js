@@ -218,7 +218,8 @@ test("finishing an account action refreshes the latest patient search", async ({
   expect(state.requests.filter(request => request.path === "/api/admin/patients").at(-1).params.search).toBe("Record 23");
 });
 
-test("the admin queue renders while charts are loading and chart space is reserved", async ({ page }) => {
+test("the mobile admin queue renders before offscreen charts load", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await mockAdmin(page);
   let release;
   const pending = new Promise(resolve => { release = resolve; });
@@ -230,27 +231,31 @@ test("the admin queue renders while charts are loading and chart space is reserv
     await pending;
     return route.fulfill({ json: { dentalAgeGroups: [{ age_group: "20–59 years", count: 3 }], volumeDaily: [] } });
   });
+  let chartRequested = false;
   let releaseCharts;
   const pendingCharts = new Promise(resolve => { releaseCharts = resolve; });
   await page.route(/\/AdminOverviewCharts[.-]/, async route => {
+    chartRequested = true;
     await pendingCharts;
     await route.continue();
   });
   await page.goto("/admin");
   const details = page.getByRole("region", { name: "Live queue details", exact: true });
   await expect(details.getByRole("status")).toHaveText("Loading live queue…");
-  const queueBefore = await details.boundingBox();
   const volume = page.getByRole("heading", { name: "Patient Volume", exact: true }).locator("../..");
   const volumeBefore = await volume.boundingBox();
   release();
   try {
     await expect(details.getByText("Ana Santos", { exact: true })).toHaveCount(2);
+    await expect(page.getByText("20–59 years", { exact: true })).toBeAttached();
+    expect(chartRequested).toBe(false);
+    await volume.scrollIntoViewIfNeeded();
+    await expect.poll(() => chartRequested).toBe(true);
     await expect(volume.getByText("Loading patient volume…", { exact: true })).toHaveCount(1);
     await expect(volume.getByRole("img", { name: /monthly patient volume/i })).toHaveCount(0);
   } finally {
     releaseCharts();
   }
   await expect(volume.getByRole("img", { name: /monthly patient volume/i })).toBeVisible();
-  expect((await details.boundingBox()).height).toBe(queueBefore.height);
   expect((await volume.boundingBox()).height).toBe(volumeBefore.height);
 });

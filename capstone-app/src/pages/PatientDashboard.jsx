@@ -1,5 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { History, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,13 +16,15 @@ import UserManual from "@/components/common/LazyUserManual";
 import GetQueueModal from "@/components/dashboards/patient/GetQueueModal";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import PatientHomeTab from "@/components/dashboards/patient/PatientHomeTab";
-import PatientQueueTab from "@/components/dashboards/patient/PatientQueueTab";
-import PatientAppointmentsTab from "@/components/dashboards/patient/PatientAppointmentsTab";
+import { DashboardSkeleton } from "@/components/common/LoadingState";
 import QueueStatus from "@/components/dashboards/patient/QueueStatus";
 import { QUEUE_STATUS } from "@/constants/queue";
 import {
   hasActivePatientPriority,
 } from "@/utils/queueDisplay";
+
+const PatientQueueTab = lazy(() => import("@/components/dashboards/patient/PatientQueueTab"));
+const PatientAppointmentsTab = lazy(() => import("@/components/dashboards/patient/PatientAppointmentsTab"));
 
 const pages = {
   home: ROUTES.PATIENT_DASHBOARD,
@@ -218,19 +220,21 @@ export default function PatientDashboard() {
           />
         )}
         {activeTab === "queue" && (
-          <PatientQueueTab
-            hasActiveQueue={hasActiveQueue}
-            registrationMessage={registrationMessage}
-            queue={queue}
-            ticketLoading={ticketLoading}
-            canRequestQueue={canRequestQueue}
-            error={error}
-            queueStatus={queueStatus}
-            queueStatusError={queueStatusError}
-            queueStatusLoaded={queueStatusLoaded}
-            onGetQueue={() => setShowQueueModal(true)}
-            onBack={() => go("home")}
-          />
+          <Suspense fallback={<DashboardSkeleton />}>
+            <PatientQueueTab
+              hasActiveQueue={hasActiveQueue}
+              registrationMessage={registrationMessage}
+              queue={queue}
+              ticketLoading={ticketLoading}
+              canRequestQueue={canRequestQueue}
+              error={error}
+              queueStatus={queueStatus}
+              queueStatusError={queueStatusError}
+              queueStatusLoaded={queueStatusLoaded}
+              onGetQueue={() => setShowQueueModal(true)}
+              onBack={() => go("home")}
+            />
+          </Suspense>
         )}
         {activeTab !== "appointments" && !profile && profileError && (
           <p role="alert" className="mx-auto max-w-6xl px-4 text-sm text-red-800">
@@ -238,13 +242,15 @@ export default function PatientDashboard() {
           </p>
         )}
         {activeTab === "appointments" && (
-          <PatientAppointmentsTab
-            appointments={appointments}
-            apptLoading={apptLoading}
-            error={appointmentsError}
-            onRetry={() => loadAppointments()}
-            onBack={() => go("home")}
-          />
+          <Suspense fallback={<DashboardSkeleton />}>
+            <PatientAppointmentsTab
+              appointments={appointments}
+              apptLoading={apptLoading}
+              error={appointmentsError}
+              onRetry={() => loadAppointments()}
+              onBack={() => go("home")}
+            />
+          </Suspense>
         )}
       </main>
       {showTicket && (

@@ -1,5 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
-import { lazy, Suspense, useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart3,
@@ -54,15 +54,18 @@ const dateKey = (date) =>
 
 function buildVolumeData(rows, period) {
   const today = new Date();
-  const sum = (start, end) =>
-    rows.reduce(
+  const sum = (start, end) => {
+    const startDay = dateKey(start);
+    const endDay = dateKey(end);
+    return rows.reduce(
       (total, row) =>
         total +
-        (row.day >= dateKey(start) && row.day < dateKey(end)
+        (row.day >= startDay && row.day < endDay
           ? Number(row.count)
           : 0),
       0,
     );
+  };
   const count = period === "Monthly" ? 12 : period === "Weekly" ? 8 : 7;
   const monday = new Date(
     today.getFullYear(),
@@ -457,9 +460,9 @@ export default function AdminOverviewTab({
                 </p>
               ) : (
                 <div className="grid items-center gap-4 min-[480px]:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
-                  <Suspense fallback={<AgeChartSkeleton />}>
+                  <DeferredChart fallback={<AgeChartSkeleton />}>
                     <AgeDistributionChart dentalAges={dentalAges} dentalTotal={dentalTotal} />
-                  </Suspense>
+                  </DeferredChart>
                   <ul className="min-w-0 space-y-2 text-xs">
                     {dentalAges.map((row) => (
                       <li
@@ -536,9 +539,9 @@ export default function AdminOverviewTab({
               Patient volume data is unavailable.
             </p>
           ) : (
-            <Suspense fallback={<VolumeChartSkeleton />}>
+            <DeferredChart fallback={<VolumeChartSkeleton />}>
               <PatientVolumeChart volumeTab={volumeTab} volumeData={volumeData} />
-            </Suspense>
+            </DeferredChart>
           )}
         </div>
       </section>
@@ -680,6 +683,28 @@ function ChartUnavailable() {
     <p role="status" className="grid min-h-40 place-items-center text-sm text-slate-500">
       Chart could not load. Reload the page to try again.
     </p>
+  );
+}
+
+function DeferredChart({ children, fallback }) {
+  const chartRef = useRef(null);
+  const [nearViewport, setNearViewport] = useState(() => !("IntersectionObserver" in window));
+
+  useEffect(() => {
+    if (!("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      setNearViewport(true);
+      observer.disconnect();
+    }, { rootMargin: "200px" });
+    observer.observe(chartRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={chartRef} className="grid h-full min-w-0">
+      {nearViewport ? <Suspense fallback={fallback}>{children}</Suspense> : fallback}
+    </div>
   );
 }
 

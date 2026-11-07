@@ -116,9 +116,9 @@ export function CinematicHero({ onClinicInfo }) {
               CARE, ON YOUR TERMS
             </p>
             <h2>
-              Your place in line.
+              Bringing convenience
               <br />
-              <span className="text-blue-200">Your day back.</span>
+              <span className="text-blue-200">Closer to your smile.</span>
             </h2>
             <p className="mt-5 max-w-sm text-sm leading-7 text-blue-100">
               Your dental queue, right on your phone. Check today's dentist
@@ -195,9 +195,7 @@ export function CinematicHero({ onClinicInfo }) {
           </div>
 
           <div className="cinematic-card-copy cinematic-copy-right">
-            <span className="cinematic-wordmark">
-              E-KALUSUGAN.
-            </span>
+            <span className="cinematic-wordmark">E-KALUSUGAN.</span>
             <span className="mt-5 block text-xs leading-6 tracking-wide text-blue-100/60">
               Healthcare that
               <br />
