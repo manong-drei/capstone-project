@@ -21,7 +21,6 @@ import PatientAppointmentsTab from "@/components/dashboards/patient/PatientAppoi
 import QueueStatus from "@/components/dashboards/patient/QueueStatus";
 import { QUEUE_STATUS } from "@/constants/queue";
 import {
-  formatQueueTime,
   hasActivePatientPriority,
 } from "@/utils/queueDisplay";
 
@@ -246,18 +245,6 @@ export default function PatientDashboard() {
             onRetry={() => loadAppointments()}
             onBack={() => go("home")}
           />
-        )}
-        {lastUpdated && (
-          <p className="mt-4 flex flex-wrap items-center justify-center gap-2 px-4 text-center text-sm leading-5 text-slate-600">
-            <span
-              aria-hidden="true"
-              className={`size-1.5 rounded-full ${error || queueStatusError ? "bg-red-500" : "bg-emerald-500"}`}
-            />
-            {error || queueStatusError
-              ? "Refresh unavailable"
-              : "Queue auto-refresh every 5 seconds"}{" "}
-            · Last updated {formatQueueTime(lastUpdated)} PHT
-          </p>
         )}
       </main>
       {showTicket && (

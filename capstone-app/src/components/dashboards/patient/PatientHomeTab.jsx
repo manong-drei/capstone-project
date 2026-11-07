@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/common/LoadingState";
+import DentalQueueGuide from "./DentalQueueGuide";
 import { QUEUE_STATUS } from "@/constants/queue";
 import { formatPatientDate } from "@/utils/queueDisplay";
 
@@ -67,6 +68,7 @@ export default function PatientHomeTab({
   onGoQueue,
 }) {
   const [showMap, setShowMap] = useState(false);
+  const [showQueueGuide, setShowQueueGuide] = useState(false);
   const estimatedWait = getWaitDisplay(
     queue,
     hasActiveQueue,
@@ -84,13 +86,13 @@ export default function PatientHomeTab({
         ? {
             value: "On leave",
             detail: `Through ${formatPatientDate(doctorLeaveEnd)}`,
-            color: "border-l-red-600",
+            color: "border-l-red-600 bg-red-50! [&>strong]:text-red-800",
           }
         : doctorAvailability === 0
           ? {
               value: "Unavailable today",
               detail: "Please check again later.",
-              color: "border-l-red-600",
+              color: "border-l-red-600 bg-red-50! [&>strong]:text-red-800",
             }
           : {
               value: "Available today",
@@ -104,14 +106,14 @@ export default function PatientHomeTab({
         data-testid="patient-hero"
         className="relative isolate grid min-h-64 place-items-center bg-[url('/assets/BGHero.webp')] bg-cover bg-center px-4 py-10 text-center sm:min-h-[360px] sm:px-6"
       >
-        <div className="absolute inset-0 -z-10 bg-white/45" />
+        <div className="absolute inset-0 -z-10 bg-neutral-950/75" />
         <div>
-          <p className="inline-block rounded-full bg-white px-3 py-1.5 text-xs font-bold tracking-wide text-blue-950 shadow-sm sm:text-sm">
+          <p className="inline-block rounded-full bg-white px-3 py-1.5 text-xs font-bold tracking-wide text-neutral-900 shadow-sm sm:text-sm">
             E-KALUSUGAN PATIENT PORTAL
           </p>
-          <h1 className="mt-4 text-2xl leading-tight font-extrabold tracking-tight text-slate-950 min-[390px]:text-3xl sm:text-4xl">
+          <h1 className="mt-5 text-3xl leading-tight font-extrabold tracking-tight text-white sm:text-5xl">
             Your Health, Schedule.
-            <span className="block text-[#1a3a8f]">No More Long Waits.</span>
+            <span className="mt-1 block text-orange-300">No More Long Waits.</span>
           </h1>
         </div>
       </section>
@@ -189,7 +191,7 @@ export default function PatientHomeTab({
         {!hasActiveQueue && registrationMessage && (
           <p
             role="status"
-            className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950"
+            className="rounded-xl bg-orange-50 p-4 text-sm text-orange-950"
           >
             {registrationMessage}
           </p>
@@ -232,7 +234,7 @@ export default function PatientHomeTab({
           <InfoCard
             title="Doctor availability"
             value={doctorLoaded ? availability.value : "Checking…"}
-            color={availability.color}
+            color={doctorLoaded ? availability.color : undefined}
           >
             <p>{doctorLoaded ? availability.detail : "Checking dentist availability."}</p>
             {doctorError && (
@@ -242,9 +244,8 @@ export default function PatientHomeTab({
             )}
           </InfoCard>
           <InfoCard
-            title="Appointment history"
-            value="View past visits"
-            onClick={onGoAppointments}
+            value="How the dental queue works"
+            onClick={() => setShowQueueGuide(true)}
           />
           <InfoCard
             title="Location"
@@ -261,6 +262,7 @@ export default function PatientHomeTab({
       </div>
 
       {showMap && <LocationMapModal onClose={() => setShowMap(false)} />}
+      {showQueueGuide && <DentalQueueGuide onClose={() => setShowQueueGuide(false)} />}
     </>
   );
 }
@@ -293,7 +295,7 @@ function InfoCard({
       {...(onClick ? { type: "button", onClick } : {})}
       className={`min-w-0 rounded-2xl border border-slate-200 border-l-4 bg-white p-3 text-left text-sm leading-relaxed text-slate-700 shadow-sm sm:p-5 ${color} ${onClick ? "hover:bg-blue-50" : ""}`}
     >
-      <span className="block font-bold text-slate-600">{title}</span>
+      {title && <span className="block font-bold text-slate-600">{title}</span>}
       <strong className="mt-1 block text-base leading-snug font-bold wrap-anywhere text-blue-950 sm:text-lg">
         {value}
       </strong>

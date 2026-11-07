@@ -161,12 +161,14 @@ test("the availability card distinguishes a dentist on leave from an available d
   state.availability = 0;
   await page.clock.fastForward(15_000);
   await expect(availability).toContainText("Unavailable today");
+  await expect(availability).toHaveClass(/bg-red-50!/);
   const unavailableColor = await availability.evaluate(element => getComputedStyle(element).borderLeftColor);
   expect(unavailableColor).not.toBe(availableColor);
   state.availability = 1;
   state.leaveEnd = "2026-11-10";
   await page.clock.fastForward(15_000);
   await expect(availability).toContainText("On leave");
+  await expect(availability).toHaveClass(/bg-red-50!/);
   await expect(availability).toContainText("Through November 10, 2026");
   await expect(availability).toHaveCSS("border-left-color", unavailableColor);
   await expect(page.getByText("Estimated wait", { exact: true }).locator("..")).toContainText("Paused");
@@ -177,6 +179,39 @@ test("the availability card distinguishes a dentist on leave from an available d
   const unknownColor = await availability.evaluate(element => getComputedStyle(element).borderLeftColor);
   expect(unknownColor).not.toBe(availableColor);
   expect(unknownColor).not.toBe(unavailableColor);
+});
+
+test("patients can navigate the home queue guide and reopen it at step one", async ({ page }, testInfo) => {
+  const state = await mockPatient(page);
+  state.queue = null;
+  await page.goto("/patient");
+  await expect(page.getByRole("button", { name: /^Appointment history/ })).toHaveCount(1);
+  await expect(page.getByText(/queue auto-refresh/i)).toHaveCount(0);
+  const trigger = page.getByRole("button", { name: "How the dental queue works", exact: true });
+  const guide = page.getByRole("dialog", { name: "How the dental queue works" });
+  await trigger.click();
+  await expect(guide.getByRole("heading", { name: "Get a queue ticket", exact: true })).toBeVisible();
+  await expect(guide.getByRole("button", { name: "Back" })).toBeDisabled();
+  await guide.getByRole("button", { name: "Next" }).click();
+  await expect(guide.getByText("Step 2 of 4")).toBeVisible();
+  await guide.getByRole("button", { name: "Step 4: Receive dental care" }).click();
+  await guide.getByRole("button", { name: "Back" }).click();
+  await expect(guide.getByRole("heading", { name: "Report when called" })).toBeVisible();
+  const example = guide.getByRole("figure");
+  await expect(example).toContainText("Sample queue");
+  await expect(example).toContainText("Called · Report to staff");
+  await guide.screenshot({ path: testInfo.outputPath("queue-guide-desktop.png") });
+  await page.setViewportSize({ width: 320, height: 640 });
+  expect(await guide.evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
+  await guide.screenshot({ path: testInfo.outputPath("queue-guide-mobile.png") });
+  await guide.getByRole("button", { name: "Next" }).click();
+  await guide.getByRole("button", { name: "Done" }).click();
+  await expect(guide).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await expect(guide.getByText("Step 1 of 4")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(guide).not.toBeVisible();
 });
 
 test("the centered ticket fits long details without scrolling on phone and desktop screens", async ({ page }) => {
