@@ -84,7 +84,7 @@ const ChangePasswordPage = () => {
   };
 
   return (
-    <AuthPageLayout>
+    <AuthPageLayout logoTo={!setup && user.role === ROLES.PATIENT ? profilePath : ROUTES.HOME}>
       <div className="text-center mb-6 sm:mb-7">
         <h2 className="font-bold mb-1 text-xl sm:text-2xl tracking-[-0.01em] text-gray-900">
           Change Your Password

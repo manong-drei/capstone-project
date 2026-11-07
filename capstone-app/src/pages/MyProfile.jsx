@@ -222,7 +222,7 @@ export default function MyProfile() {
           }
           headerAction={
             <Link
-              to={ROUTES.CHANGE_PASSWORD}
+              to={isPatient ? ROUTES.PATIENT_CHANGE_PASSWORD : ROUTES.CHANGE_PASSWORD}
               className="inline-flex min-h-11 max-w-28 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 sm:max-w-none sm:gap-2 sm:px-4 sm:text-sm"
             >
               <LockKeyhole size={16} className="shrink-0" aria-hidden="true" />{" "}

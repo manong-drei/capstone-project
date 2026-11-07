@@ -99,6 +99,14 @@ function AppRoutes() {
 
           {/* Protected: Patient */}
           <Route
+            path={ROUTES.PATIENT_CHANGE_PASSWORD}
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.PATIENT]}>
+                <ChangePasswordPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={`${ROUTES.PATIENT_DASHBOARD}/*`}
             element={
               <ProtectedRoute allowedRoles={[ROLES.PATIENT]}>

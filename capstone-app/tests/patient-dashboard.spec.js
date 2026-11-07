@@ -127,7 +127,13 @@ test("patient status sits beside the role tag and follows priority eligibility",
 test("patients can change their password from My Profile", async ({ page }) => {
   const state = await mockPatient(page);
   await page.goto("/patient/profile");
-  await page.getByRole("link", { name: "Change password", exact: true }).click();
+  const changePassword = page.getByRole("link", { name: "Change password", exact: true });
+  await changePassword.click();
+  await expect(page).toHaveURL("/patient/profile/change-password");
+  await page.reload();
+  await page.getByRole("link", { name: "E-KALUSUGAN", exact: true }).click();
+  await expect(page).toHaveURL("/patient/profile");
+  await changePassword.click();
   await page.getByLabel("Current Password", { exact: true }).fill("OldPassword1");
   await page.getByLabel("New Password", { exact: true }).fill("NewPassword2");
   await page.getByLabel("Confirm New Password", { exact: true }).fill("NewPassword2");

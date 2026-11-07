@@ -171,9 +171,11 @@ for (const [role, marker] of [["patient", /Your Health, Schedule/], ["doctor", /
 test("password setup remains required after refresh even with a stale cache flag", async ({ page }) => {
   await mockSession(page, { role: "patient", purpose: "password_setup" }, JSON.stringify({ user_id: 8, role: "patient", must_change_password: false }));
   await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/change-password$/);
+  await expect(page).toHaveURL("/change-password");
   await expect(page.getByRole("heading", { name: "Change Your Password" })).toBeVisible();
   await page.reload();
   await expect(page).toHaveURL(/\/change-password$/);
   await expect(page.locator('input[name="oldPassword"]')).toHaveCount(0);
+  await page.goto("/patient/profile/change-password");
+  await expect(page).toHaveURL("/change-password");
 });

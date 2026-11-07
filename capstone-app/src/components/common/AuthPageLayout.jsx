@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 
-const AuthPageLayout = ({ children }) => (
+const AuthPageLayout = ({ children, logoTo = "/" }) => (
   <div className="min-h-screen flex flex-col bg-[linear-gradient(160deg,#dbeafe_0%,#bfdbfe_60%,#dbeafe_100%)]">
   <nav className="w-full px-4 sm:px-6 py-3 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-[#1a3a8f] to-[#1e4db7]">
-    <Link to="/" className="flex items-center gap-2">
+    <Link to={logoTo} className="flex items-center gap-2">
       <img
         src="/assets/ekalusugan-logo-small.webp"
         alt=""

@@ -7,6 +7,7 @@ export const ROUTES = {
   PATIENT_APPOINTMENT_HISTORY: "/patient/appointment-history",
   PATIENT_MY_QUEUE: "/patient/my-queue",
   PATIENT_PROFILE: "/patient/profile",
+  PATIENT_CHANGE_PASSWORD: "/patient/profile/change-password",
   DOCTOR_DASHBOARD: "/doctor",
   DOCTOR_PROFILE: "/doctor/profile",
   DOCTOR_ANALYTICS: "/doctor/analytics",
