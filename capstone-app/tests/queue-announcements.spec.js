@@ -155,7 +155,7 @@ for (const viewport of [{ width: 1440, height: 640 }, { width: 1280, height: 720
     const nextBox = await next.boundingBox();
     const upcomingBox = await upcoming.boundingBox();
     const skippedBox = await skipped.boundingBox();
-    const imageBox = await page.locator('img[src="/assets/BGHero.png"]').boundingBox();
+    const imageBox = await page.locator('img[src="/assets/BGHero.webp"]').boundingBox();
     expect(currentBox.width).toBeGreaterThan(nextBox.width);
     expect(upcomingBox.x).toBeCloseTo(currentBox.x, 1);
     expect(skippedBox.x).toBeCloseTo(nextBox.x, 1);
@@ -221,7 +221,7 @@ test('skipped tickets show only recoverable numbers, expire locally, and leave t
   await page.screenshot({ path: testInfo.outputPath('skipped-tickets-monitor.png'), fullPage: true });
   const panel = await skipped.boundingBox();
   const upcoming = await page.getByRole('region', { name: 'Upcoming', exact: true }).boundingBox();
-  const image = await page.locator('img[src="/assets/BGHero.png"]').boundingBox();
+  const image = await page.locator('img[src="/assets/BGHero.webp"]').boundingBox();
   expect(panel.x).toBeGreaterThan(upcoming.x + upcoming.width);
   expect(panel.y).toBeCloseTo(upcoming.y, 1);
   expect(panel.x + panel.width).toBeLessThanOrEqual(image.x);

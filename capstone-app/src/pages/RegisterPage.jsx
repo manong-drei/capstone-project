@@ -254,7 +254,7 @@ const RegisterPage = () => {
       <div
         className="flex-1 flex items-center justify-center px-4 py-8"
         style={{
-          backgroundImage: "url('/assets/BGHero.png')",
+          backgroundImage: "url('/assets/BGHero.webp')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
