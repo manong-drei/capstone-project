@@ -196,7 +196,7 @@ export function CinematicHero({ onClinicInfo }) {
 
           <div className="cinematic-card-copy cinematic-copy-right">
             <span className="cinematic-wordmark">
-              E-KALU<span>SUGAN.</span>
+              E-KALUSUGAN.
             </span>
             <span className="mt-5 block text-xs leading-6 tracking-wide text-blue-100/60">
               Healthcare that

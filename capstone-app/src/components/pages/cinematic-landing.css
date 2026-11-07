@@ -534,11 +534,13 @@
   color: var(--clinic-orange);
 }
 .cinematic-copy-right {
+  display: none;
   text-align: center;
 }
 .cinematic-wordmark {
   display: block;
-  font-size: clamp(2rem, 4.3vw, 4.2rem);
+  font-size: clamp(2rem, 3.4vw, 4.2rem);
+  white-space: nowrap;
   line-height: 1;
   letter-spacing: -0.065em;
   font-weight: 800;
@@ -547,9 +549,6 @@
   color: transparent;
   background-clip: text;
   filter: drop-shadow(0 8px 12px #0006);
-}
-.cinematic-wordmark > span {
-  display: block;
 }
 .cinematic-cta {
   display: grid;
@@ -576,15 +575,13 @@
     justify-content: start;
   }
   .cinematic-copy-right {
+    display: block;
     grid-column: 1 / -1;
-  }
-  .cinematic-wordmark > span {
-    display: inline;
   }
 }
 @media (min-width: 1024px) {
   .cinematic-card-grid {
-    grid-template-columns: 1fr 1.1fr 0.8fr;
+    grid-template-columns: minmax(0, 1fr) 310px minmax(0, 1.1fr);
     gap: 30px;
     padding: 40px 5%;
     min-height: 640px;
@@ -597,6 +594,7 @@
     justify-content: start;
   }
   .cinematic-copy-right {
+    display: block;
     text-align: right;
   }
   .cinematic-badge-top {

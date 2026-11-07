@@ -105,3 +105,27 @@ test.describe("large touch screens", () => {
     await expect(page.getByRole("link", { name: "Patient Portal", exact: true })).toBeInViewport();
   });
 });
+
+test("the hero wordmark fits on one line and is hidden on small screens", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const wordmark = page.locator(".cinematic-wordmark");
+
+  for (const width of [768, 1024, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(wordmark).toBeVisible();
+    expect(await wordmark.evaluate(element => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const text = range.getBoundingClientRect();
+      const phone = document.querySelector(".cinematic-phone").getBoundingClientRect();
+      return range.getClientRects().length === 1
+        && text.left >= 0
+        && text.right <= document.documentElement.clientWidth
+        && (text.left >= phone.right || text.top >= phone.bottom);
+    })).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 767, height: 900 });
+  await expect(wordmark).toBeHidden();
+});
