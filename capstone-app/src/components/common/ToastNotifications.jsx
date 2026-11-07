@@ -30,7 +30,7 @@ function Toast({ toast, onDismiss }) {
 
 export default function ToastNotifications({ toasts, onDismiss }) {
   return (
-    <div aria-label="SMS notifications" className="pointer-events-none fixed right-4 top-4 z-[2000] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm flex-col gap-3 overflow-y-auto">
+    <div className="pointer-events-none fixed right-4 top-4 z-[2000] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm flex-col gap-3 overflow-y-auto">
       {toasts.map((toast) => <Toast key={toast.id} toast={toast} onDismiss={onDismiss} />)}
     </div>
   );

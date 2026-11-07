@@ -361,7 +361,7 @@ export default function StaffDashboard() {
             </div>
           </>
         )}
-        <p className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+        <p className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-600">
           <span
             className={`h-2 w-2 rounded-full ${error ? "bg-amber-500" : "bg-emerald-500"}`}
             aria-hidden="true"

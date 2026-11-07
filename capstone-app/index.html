@@ -6,7 +6,7 @@
     <title>E-KALUSUGAN | Bago City Health Center</title>
     <meta name="description" content="Get a dental queue ticket, check dentist availability, and follow your turn at Bago City Health Center with E-Kalusugan." />
     <script>
-      if (location.pathname === "/" || /^\/(admin|doctor)\/?$/i.test(location.pathname)) {
+      if (location.pathname === "/" || /^\/(admin|doctor|staff)\/?$/i.test(location.pathname)) {
         const heroPreload = document.createElement("link");
         heroPreload.rel = "preload";
         heroPreload.as = "image";
