@@ -50,6 +50,7 @@
 }
 .cinematic-masthead {
   display: grid;
+  padding-inline: 8px;
   min-height: var(--cinematic-nav-height);
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;

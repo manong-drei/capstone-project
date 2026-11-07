@@ -142,7 +142,7 @@ export default function CinematicLandingPage() {
         Skip to content
       </a>
       <header className="cinematic-nav">
-        <div className="cinematic-shell cinematic-masthead">
+        <div className="cinematic-masthead">
           <Link
             to={ROUTES.HOME}
             className="cinematic-brand"
