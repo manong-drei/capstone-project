@@ -53,6 +53,7 @@ async function database(t) {
         events.push({ sql, values });
         if (sql.includes("FOR UPDATE")) await lock();
         if (sql.startsWith("SELECT patient_id")) return [[working.patient].filter(Boolean)];
+        if (sql.startsWith("SELECT login_failures, login_locked_until")) return [[working.user]];
         if (sql.startsWith("SELECT user_id") || sql.startsWith("SELECT *")) {
           if (sql.startsWith("SELECT *")) return [[working.user && { ...working.user, db_now: now }].filter(Boolean)];
           assert.match(sql, /DATE_ADD\(NOW\(\), INTERVAL 30 MINUTE\)/);
@@ -70,7 +71,10 @@ async function database(t) {
           if (failAudit) throw new Error("synthetic audit failure");
           working.audits.push({ patient_id: values[0], actor_user_id: values[1], action: values[2], details: JSON.parse(values[3]) });
         } else if (sql.includes("temp_password_used_at = IF")) working.user.temp_password_used_at = now;
-        else if (sql.includes("login_failures = IF")) working.user.login_failures++;
+        else if (sql.includes("login_failures = IF")) {
+          working.user.login_failures = working.user.login_locked_until ? 1 : working.user.login_failures + 1;
+          working.user.login_locked_until = working.user.login_failures >= values[0] ? new Date(now.getTime() + 15 * 60000) : null;
+        }
         return [{ affectedRows: 1 }];
       },
       async commit() { Object.assign(state, working); events.push({ sql: "COMMIT" }); unlock?.(); },
@@ -227,6 +231,26 @@ test("audit failure rolls back and simultaneous issuances with the same version 
   assert.equal(res.body.data, undefined);
 });
 
+test("login distinguishes incorrect credentials from an account lockout", async t => {
+  const { state } = await database(t);
+  state.user.login_failures = 0;
+  state.user.login_locked_until = null;
+  const attempt = async password => {
+    const res = response();
+    await login({ body: { phone: state.user.phone, password } }, res);
+    return res;
+  };
+  for (let remaining = 4; remaining > 0; remaining--) {
+    const incorrect = await attempt("WrongPassword");
+    assert.equal(incorrect.statusCode, 401);
+    assert.equal(incorrect.body.message, `Invalid phone or password. ${remaining} ${remaining === 1 ? "attempt" : "attempts"} remaining before a 15-minute lockout.`);
+  }
+  const locked = await attempt("WrongPassword");
+  assert.equal(locked.statusCode, 429);
+  assert.match(locked.body.message, /Too many login attempts/);
+  assert.equal((await attempt("OldPassword1")).statusCode, 429);
+});
+
 test("recovered credentials expire exactly at 30 minutes, redeem once, invalidate prior sessions and complete password setup", async t => {
   const { state, now } = await database(t);
   const previousSecret = process.env.JWT_SECRET;
@@ -234,7 +258,7 @@ test("recovered credentials expire exactly at 30 minutes, redeem once, invalidat
   t.after(() => { if (previousSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = previousSecret; });
   const oldSession = sessionResponse(state.user);
   await recoverAccount(request(), response());
-  assert.equal(await User.authenticate(state.user.phone, "OldPassword1"), null);
+  assert.deepEqual(await User.authenticate(state.user.phone, "OldPassword1"), { attemptsRemaining: 4 });
   const expiry = state.user.temp_password_expires_at;
   state.user.temp_password_expires_at = now;
   assert.equal(await User.authenticate(state.user.phone, "012345"), null);

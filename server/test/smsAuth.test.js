@@ -53,7 +53,7 @@ test('temporary login atomically redeems once, rejects expiry at 72h, and enforc
     assert.equal(await User.authenticate(user.phone, '012345'), null);
     user.temp_password_expires_at = new Date(now.getTime() + 1);
     user.login_locked_until = new Date(now.getTime() + 15 * 60000);
-    assert.equal(await User.authenticate(user.phone, '012345'), null);
+    assert.deepEqual(await User.authenticate(user.phone, '012345'), { locked: true });
   } finally {
     pool.getConnection = saved;
     if (savedSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = savedSecret;

@@ -26,13 +26,11 @@ const requireRecoverySession = (req, res, next) => {
     !Number.isSafeInteger(req.user.user_id) ||
     req.user.user_id < 1
   ) {
-    return res
-      .status(403)
-      .json({
-        success: false,
-        message:
-          "Log in with a real staff or admin account to recover a patient account.",
-      });
+    return res.status(403).json({
+      success: false,
+      message:
+        "Log in with a real staff or admin account to recover a patient account.",
+    });
   }
   next();
 };
@@ -44,8 +42,7 @@ const recoveryLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     success: false,
-    message:
-      "Too many[HERE] recovery requests. Please try again in 15 minutes.",
+    message: "Too many recovery requests. Please try again in 15 minutes.",
   },
 });
 const recoveryPasswordLimiter = rateLimit({

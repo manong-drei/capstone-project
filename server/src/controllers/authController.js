@@ -32,7 +32,15 @@ const buildDisplayName = (row) => {
 
   const firstName = pickFirst(row.first_name);
   const lastName = pickFirst(row.last_name);
-  const combined = [firstName, pickFirst(row.middle_name), lastName, pickFirst(row.suffix)].filter(Boolean).join(" ").trim();
+  const combined = [
+    firstName,
+    pickFirst(row.middle_name),
+    lastName,
+    pickFirst(row.suffix),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
   if (combined) return combined;
 
   return pickFirst(ROLE_LABELS[row.role], "User");
@@ -131,28 +139,63 @@ const login = async (req, res) => {
     const { phone, password } = req.body;
 
     const normalizedPhone = normalizePhilippineMobilePhone(phone);
-    if (!normalizedPhone || typeof password !== 'string' || !password || password.length > 128) {
-      return res.status(401).json({ success: false, message: "Invalid phone or password." });
-    }
-    const session = await User.authenticate(normalizedPhone, password);
-    if (!session) {
-      try {
-        const [[target]] = await pool.query('SELECT user_id, role FROM users WHERE phone = ? LIMIT 1', [normalizedPhone]);
-        if (target?.role === 'admin') await audit.bestEffort(req, { action: 'auth.login', target_type: 'user',
-          target_id: target.user_id, outcome: 'failed', reason: 'Invalid credentials or unavailable account',
-          force: true, details: { phone: normalizedPhone } });
-      } catch { console.error('Login audit lookup failed.'); }
+    if (
+      !normalizedPhone ||
+      typeof password !== "string" ||
+      !password ||
+      password.length > 128
+    ) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid phone or password." });
     }
+    const session = await User.authenticate(normalizedPhone, password);
+    if (!session?.user) {
+      try {
+        const [[target]] = await pool.query(
+          "SELECT user_id, role FROM users WHERE phone = ? LIMIT 1",
+          [normalizedPhone],
+        );
+        if (target?.role === "admin")
+          await audit.bestEffort(req, {
+            action: "auth.login",
+            target_type: "user",
+            target_id: target.user_id,
+            outcome: "failed",
+            reason: "Invalid credentials or unavailable account",
+            force: true,
+            details: { phone: normalizedPhone },
+          });
+      } catch {
+        console.error("Login audit lookup failed.");
+      }
+      if (session?.locked) {
+        return res.status(429).json({
+          success: false,
+          message: "Too many login attempts. Please try again in 15 minutes.",
+        });
+      }
+      let message = "Invalid phone or password.";
+      const remaining = session?.attemptsRemaining;
+      if (remaining !== undefined) {
+        message += ` ${remaining} ${remaining === 1 ? "attempt" : "attempts"} remaining.`;
+      }
+      return res.status(401).json({ success: false, message });
+    }
 
-    if (session.user.role === 'admin') {
+    if (session.user.role === "admin") {
       let actor = session.user;
-      try { actor = await User.findById(session.user.user_id) || actor; }
-      catch { console.error('Login audit actor lookup failed.'); }
+      try {
+        actor = (await User.findById(session.user.user_id)) || actor;
+      } catch {
+        console.error("Login audit actor lookup failed.");
+      }
       await audit.setActor(req, actor);
-      await audit.bestEffort(req, { action: 'auth.login', target_type: 'user', target_id: session.user.user_id });
+      await audit.bestEffort(req, {
+        action: "auth.login",
+        target_type: "user",
+        target_id: session.user.user_id,
+      });
     }
     res.status(200).json({
       success: true,
@@ -243,13 +286,17 @@ const getProfile = async (req, res) => {
           ? row.doctor_first_name
           : row.role === "staff" || row.role === "admin"
             ? row.staff_first_name
-            : row.role === "patient" ? row.patient_first_name : null,
+            : row.role === "patient"
+              ? row.patient_first_name
+              : null,
       last_name:
         row.role === "doctor"
           ? row.doctor_last_name
           : row.role === "staff" || row.role === "admin"
             ? row.staff_last_name
-            : row.role === "patient" ? row.patient_last_name : null,
+            : row.role === "patient"
+              ? row.patient_last_name
+              : null,
       suffix:
         row.role === "patient"
           ? row.patient_suffix
@@ -292,7 +339,10 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   const { role, user_id } = req.user;
   if (!["doctor", "staff", "admin"].includes(role)) {
-    return res.status(403).json({ success: false, message: "Use the patient profile to update your details." });
+    return res.status(403).json({
+      success: false,
+      message: "Use the patient profile to update your details.",
+    });
   }
 
   try {
@@ -300,7 +350,8 @@ const updateProfile = async (req, res) => {
     const fields = Object.keys(changes);
     const table = role === "doctor" ? "doctors" : "staff";
     const update = async (connection) => {
-      if (role === "admin") await Staff.ensureAdminProfile(user_id, changes, connection);
+      if (role === "admin")
+        await Staff.ensureAdminProfile(user_id, changes, connection);
       const [result] = await connection.query(
         `UPDATE ${table} SET ${fields.map((field) => `${field} = ?`).join(", ")} WHERE user_id = ?`,
         [...Object.values(changes), user_id],
@@ -308,13 +359,22 @@ const updateProfile = async (req, res) => {
       return result.affectedRows > 0;
     };
 
-    const updated = role === "admin" ? await audit.transaction(update) : await update(pool);
-    if (!updated) return res.status(404).json({ success: false, message: "Profile not found." });
+    const updated =
+      role === "admin" ? await audit.transaction(update) : await update(pool);
+    if (!updated)
+      return res
+        .status(404)
+        .json({ success: false, message: "Profile not found." });
     return getProfile(req, res);
   } catch (err) {
-    if ([400, 404].includes(err.status)) return res.status(err.status).json({ success: false, message: err.message });
+    if ([400, 404].includes(err.status))
+      return res
+        .status(err.status)
+        .json({ success: false, message: err.message });
     console.error("Account profile update failed:", err.code || err.name);
-    return res.status(500).json({ success: false, message: "Unable to update your profile." });
+    return res
+      .status(500)
+      .json({ success: false, message: "Unable to update your profile." });
   }
 };
 
@@ -323,8 +383,11 @@ const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    const setup = req.user.purpose === 'password_setup';
-    if ((!setup && typeof oldPassword !== 'string') || typeof newPassword !== 'string') {
+    const setup = req.user.purpose === "password_setup";
+    if (
+      (!setup && typeof oldPassword !== "string") ||
+      typeof newPassword !== "string"
+    ) {
       return res.status(400).json({
         success: false,
         message: "Old password and new password are required.",
@@ -332,22 +395,34 @@ const changePassword = async (req, res) => {
     }
 
     // Reuse basic password validation (same as register)
-    if (newPassword.length < 8 || Buffer.byteLength(newPassword, 'utf8') > 72 || !/[0-9]/.test(newPassword)) {
+    if (
+      newPassword.length < 8 ||
+      Buffer.byteLength(newPassword, "utf8") > 72 ||
+      !/[0-9]/.test(newPassword)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Password must contain at least 8 characters and a number, and fit within 72 UTF-8 bytes.",
+        message:
+          "Password must contain at least 8 characters and a number, and fit within 72 UTF-8 bytes.",
       });
     }
 
     const user = await User.findByIdWithHash(req.user.user_id);
-    if (!user || !user.is_active || user.credential_version !== req.user.credential_version) {
+    if (
+      !user ||
+      !user.is_active ||
+      user.credential_version !== req.user.credential_version
+    ) {
       return res.status(404).json({
         success: false,
         message: "User not found. user without password hash.",
       });
     }
 
-    if (!setup && !await User.verifyPassword(oldPassword, user.password_hash)) {
+    if (
+      !setup &&
+      !(await User.verifyPassword(oldPassword, user.password_hash))
+    ) {
       return res.status(401).json({
         success: false,
         message: "Current password is incorrect.",
@@ -355,11 +430,26 @@ const changePassword = async (req, res) => {
     }
 
     if (await User.verifyPassword(newPassword, user.password_hash)) {
-      return res.status(400).json({ success: false, message: 'Choose a different password.' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Choose a different password." });
     }
-    const session = sessionResponse({ ...user, must_change_password: 0, credential_version: user.credential_version + 1 });
-    if (!await User.updatePassword(user.user_id, newPassword, user.credential_version)) {
-      return res.status(401).json({ success: false, message: 'Session has changed. Please log in again.' });
+    const session = sessionResponse({
+      ...user,
+      must_change_password: 0,
+      credential_version: user.credential_version + 1,
+    });
+    if (
+      !(await User.updatePassword(
+        user.user_id,
+        newPassword,
+        user.credential_version,
+      ))
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Session has changed. Please log in again.",
+      });
     }
 
     res.status(200).json({
