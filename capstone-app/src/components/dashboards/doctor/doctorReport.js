@@ -53,13 +53,14 @@ export function normalizeReportBarangay(value) {
 export const normalizeReportSex = (value) => String(value ?? "").trim().toLowerCase();
 
 export function summarizeCompletedVisits(rows) {
-  const totals = { completed: 0, male: 0, female: 0, missing: 0 };
+  const totals = { completed: 0, male: 0, female: 0, other: 0, unknown: 0, missing: 0 };
   for (const entry of rows) {
     const count = Number(entry.count);
     if (!Number.isFinite(count) || count <= 0) continue;
     const sex = normalizeReportSex(entry.sex);
     totals.completed += count;
-    if (sex === "male" || sex === "female") totals[sex] += count;
+    if (["male", "female", "other"].includes(sex)) totals[sex] += count;
+    else totals.unknown += count;
     if (!["male", "female", "other"].includes(sex) || !AGE_GROUPS.includes(entry.age_group) || !BARANGAYS.includes(normalizeReportBarangay(entry.barangay)))
       totals.missing += count;
   }
@@ -156,10 +157,32 @@ function zip(files) {
   return result;
 }
 
+const letterPrintSetup =
+  '<printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.25" bottom="0.25" header="0.1" footer="0.1"/><pageSetup orientation="landscape" paperSize="1" fitToWidth="1" fitToHeight="1"/>';
+
+function completedVisitCounts(demographics) {
+  const data = emptyReport();
+  for (const entry of demographics) {
+    const barangay = BARANGAYS.indexOf(normalizeReportBarangay(entry.barangay));
+    const age = AGE_GROUPS.indexOf(entry.age_group);
+    const sex = ["male", "female"].indexOf(normalizeReportSex(entry.sex));
+    const count = Number(entry.count);
+    if (barangay < 0 || age < 0 || sex < 0 || !Number.isSafeInteger(count) || count <= 0) continue;
+
+    // The first age group follows the three clinical-only measures.
+    const column = groupOffset(age + 3) + sex;
+    data[barangay][column] = (data[barangay][column] ?? 0) + count;
+  }
+  return data;
+}
+
 export function createDoctorReport(month, doctorName, data, options) {
   const title = `${{ today: "DAILY", weekly: "WEEKLY", monthly: "MONTHLY" }[options?.period] || "MONTHLY"} DENTAL SERVICE REPORT`;
   const end = options?.until ? new Date(new Date(`${options.until}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10) : options?.from;
   const periodLabel = options?.from ? options.from === end ? options.from : `${options.from} – ${end}` : month;
+  const reportData = options?.reportType === "completed"
+    ? completedVisitCounts(options.completed_demographics || [])
+    : data;
   const periodCells = [textCell("A2", options ? "Period" : "Month"), textCell("B2", periodLabel), textCell("H2", "Doctor"), textCell("I2", doctorName)];
   const columns = "ABCDEFGHIJKLMNOPQR";
   const groups = ["B:D", "E:G", "H:J", "K:M", "N:R"];
@@ -170,7 +193,7 @@ export function createDoctorReport(month, doctorName, data, options) {
     row(4, [textCell("A4", ""), ...[...Array(4)].flatMap((_, i) => ["M", "F", "Total"].map((label, j) => textCell(`${columns[1 + i * 3 + j]}4`, label, 1))), ...[...PREGNANT_AGES, "Total"].map((label, i) => textCell(`${columns[13 + i]}4`, label, 1))], 26),
     ...BARANGAYS.map((barangay, index) => {
       const line = index + 5;
-      const values = data?.[index] || [];
+      const values = reportData?.[index] || [];
       const cells = [textCell(`A${line}`, barangay)];
       for (let group = 0; group < 4; group++) {
         const left = columns[1 + group * 3];
@@ -194,7 +217,7 @@ export function createDoctorReport(month, doctorName, data, options) {
     row(4, [textCell("A4", ""), ...REPORT_GROUPS.slice(4).flatMap((_, i) => ["M", "F", "Total"].map((label, j) => textCell(`${columns2[1 + i * 3 + j]}4`, label, 1)))], 26),
     ...BARANGAYS.map((barangay, index) => {
       const line = index + 5;
-      const values = data?.[index] || [];
+      const values = reportData?.[index] || [];
       const cells = [textCell(`A${line}`, barangay)];
       for (let group = 0; group < 6; group++) {
         const left = columns2[1 + group * 3];
@@ -208,45 +231,35 @@ export function createDoctorReport(month, doctorName, data, options) {
     row(29, [textCell("A29", "TOTAL", 1), ...columns2.slice(1).split("").map((column) => formulaCell(`${column}29`, `IF(COUNT(${column}5:${column}28)=0,"",SUM(${column}5:${column}28))`))]),
   ];
   const makeSheet = (sheetRows, lastColumn, merged) =>
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="1" width="21" customWidth="1"/><col min="2" max="${lastColumn === "R" ? 18 : 19}" width="9" customWidth="1"/></cols><sheetData>${sheetRows.join("")}</sheetData><mergeCells count="${merged.length + 1}"><mergeCell ref="A1:${lastColumn}1"/>${merged.map((range) => `<mergeCell ref="${range}"/>`).join("")}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.2" right="0.2" top="0.3" bottom="0.3" header="0.1" footer="0.1"/><pageSetup orientation="landscape" paperSize="8" fitToWidth="1" fitToHeight="1"/></worksheet>`;
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="1" width="21" customWidth="1"/><col min="2" max="${lastColumn === "R" ? 18 : 19}" width="${lastColumn === "R" ? 8.5 : 8}" customWidth="1"/></cols><sheetData>${sheetRows.join("")}</sheetData><mergeCells count="${merged.length + 1}"><mergeCell ref="A1:${lastColumn}1"/>${merged.map((range) => `<mergeCell ref="${range}"/>`).join("")}</mergeCells>${letterPrintSetup}</worksheet>`;
   const sheet = makeSheet(rows, "R", groups.map((range) => `${range.replace(":", "3:")}3`));
   const sheet2 = makeSheet(rows2, "S", REPORT_GROUPS.slice(4).map((_, i) => `${columns2[1 + i * 3]}3:${columns2[3 + i * 3]}3`));
 
+  return doctorWorkbook([
+    { name: "Report page 1", content: sheet, printArea: "$A$1:$R$29" },
+    { name: "Report page 2", content: sheet2, printArea: "$A$1:$S$29" },
+  ]);
+}
+
+function doctorWorkbook(sheets) {
+  const worksheetTypes = sheets.map((_, index) => `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("");
+  const worksheetNames = sheets.map(({ name }, index) => `<sheet name="${name}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("");
+  const worksheetRelations = sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("");
+  const printAreas = sheets.map(({ name, printArea }, index) => printArea
+    ? `<definedName name="_xlnm.Print_Area" localSheetId="${index}">'${name}'!${printArea}</definedName>`
+    : "").join("");
   const files = {
     "[Content_Types].xml":
-      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
+      `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${worksheetTypes}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
     "_rels/.rels":
       '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
     "xl/workbook.xml":
-      '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="Report page 1" sheetId="1" r:id="rId1"/><sheet name="Report page 2" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'Report page 1\'!$A$1:$R$29</definedName><definedName name="_xlnm.Print_Area" localSheetId="1">\'Report page 2\'!$A$1:$S$29</definedName></definedNames><calcPr fullCalcOnLoad="1"/></workbook>',
+      `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${worksheetNames}</sheets>${printAreas ? `<definedNames>${printAreas}</definedNames>` : ""}<calcPr fullCalcOnLoad="1"/></workbook>`,
     "xl/_rels/workbook.xml.rels":
-      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
+      `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${worksheetRelations}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
     "xl/styles.xml":
       '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="8"/><name val="Arial"/></font><font><b/><sz val="8"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>',
-    "xl/worksheets/sheet1.xml": sheet,
-    "xl/worksheets/sheet2.xml": sheet2,
   };
-  if (options) {
-    const demographics = options.completed_demographics || [];
-    const totals = summarizeCompletedVisits(demographics);
-    const completedRows = [
-      row(1, [textCell("A1", `${title} · COMPLETED VISITS`, 1)]),
-      row(2, [textCell("A2", "Period"), textCell("B2", periodLabel)]),
-      row(3, [textCell("A3", "Doctor"), textCell("B3", doctorName)]),
-      row(4, [textCell("A4", "Automatic counts; clinical outcomes are entered separately.")]),
-      ...[["Completed visits", totals.completed], ["Male", totals.male], ["Female", totals.female], ["Missing demographics", totals.missing]].map(([label, count], index) => row(index + 6, [textCell(`A${index + 6}`, label), `<c r="B${index + 6}" s="2"><v>${count}</v></c>`])),
-      row(14, ["Barangay", "Age group", "Sex", "Completed visits"].map((label, index) => textCell(`${"ABCD"[index]}14`, label, 1))),
-      ...demographics.map((entry, index) => row(index + 15, [
-        textCell(`A${index + 15}`, normalizeReportBarangay(entry.barangay)),
-        textCell(`B${index + 15}`, AGE_GROUPS.includes(entry.age_group) ? entry.age_group : ""),
-        textCell(`C${index + 15}`, ["Male", "Female"].find((label) => label.toLowerCase() === normalizeReportSex(entry.sex)) ?? ""),
-        `<c r="D${index + 15}" s="2"><v>${Number(entry.count) || 0}</v></c>`,
-      ])),
-    ];
-    files["xl/worksheets/sheet3.xml"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="3" width="24" customWidth="1"/><col min="4" max="4" width="18" customWidth="1"/></cols><sheetData>${completedRows.join("")}</sheetData><mergeCells count="2"><mergeCell ref="A1:D1"/><mergeCell ref="A4:D4"/></mergeCells></worksheet>`;
-    files["[Content_Types].xml"] = files["[Content_Types].xml"].replace("</Types>", '<Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
-    files["xl/workbook.xml"] = files["xl/workbook.xml"].replace("</sheets>", '<sheet name="Completed visits" sheetId="3" r:id="rId4"/></sheets>');
-    files["xl/_rels/workbook.xml.rels"] = files["xl/_rels/workbook.xml.rels"].replace("</Relationships>", '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/></Relationships>');
-  }
+  sheets.forEach(({ content }, index) => { files[`xl/worksheets/sheet${index + 1}.xml`] = content; });
   return zip(files);
 }

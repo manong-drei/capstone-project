@@ -137,7 +137,7 @@ test("completed visits stay separate and manual edits survive selectors, failed 
   await expect(seniorFemale).toHaveValue("1");
 });
 
-test("daily, weekly and monthly ranges export every clinical measure and both print pages", async ({ page }, testInfo) => {
+test("report views export and print separately for the selected period", async ({ page }, testInfo) => {
   const day1 = Array.from({ length: 24 }, () => Array(24).fill(null));
   const day2 = Array.from({ length: 24 }, () => Array(24).fill(null));
   day1[0][0] = 3; day1[0][23] = 1;
@@ -145,9 +145,9 @@ test("daily, weekly and monthly ranges export every clinical measure and both pr
   const fixture = await openAnalytics(page, new Map([["2026-10-06", day1], ["2026-10-05", day2]]));
   const dailyDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download Excel" }).click();
-  expect((await dailyDownload).suggestedFilename()).toBe("dental-report-today-2026-10-06.xlsx");
+  expect((await dailyDownload).suggestedFilename()).toBe("completed-visits-daily-2026-10-06.xlsx");
   await openClinical(page);
-  await page.getByRole("button", { name: "This week", exact: true }).click();
+  await page.getByRole("button", { name: "Week", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Weekly dental service report", exact: true })).toBeVisible();
   await expect(clinicalRow(page, "Abuanan").locator("td").first()).toHaveText("5");
   await expect(page.getByRole("main").getByText("2026-10-05 – 2026-10-11 · Dr. Test", { exact: true })).toBeVisible();
@@ -156,7 +156,7 @@ test("daily, weekly and monthly ranges export every clinical measure and both pr
   await selectMeasure(page, 9);
   await expect(clinicalRow(page, "Abuanan").locator("td").nth(1)).toHaveText("5");
   await expect(page.getByRole("table", { name: "Clinical counts by barangay", exact: true })).toHaveCount(1);
-  await page.getByRole("button", { name: "This month", exact: true }).click();
+  await page.getByRole("button", { name: "Month", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Monthly dental service report", exact: true })).toBeVisible();
   await selectMeasure(page, 0);
   await expect(clinicalRow(page, "Abuanan").locator("td").first()).toHaveText("5");
@@ -175,25 +175,34 @@ test("daily, weekly and monthly ranges export every clinical measure and both pr
   }
   const monthlyDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download Excel" }).click();
-  expect((await monthlyDownload).suggestedFilename()).toBe("dental-report-monthly-2026-10-01.xlsx");
+  expect((await monthlyDownload).suggestedFilename()).toBe("clinical-counts-monthly-2026-10-01.xlsx");
   await page.screenshot({ path: testInfo.outputPath("doctor-analytics.png"), fullPage: true });
+  await page.evaluate(() => { window.print = () => {}; });
+  await page.getByRole("button", { name: "Print report" }).click();
   await page.emulateMedia({ media: "print" });
   const printable = page.locator("#doctor-report-print");
   await expect(printable).toBeVisible();
   await expect(printable.locator(".da-month-table:not(.da-completed-table)")).toHaveCount(2);
+  await expect(printable.locator(".da-completed-table")).toHaveCount(0);
+  const pdf = await page.pdf({ path: testInfo.outputPath("doctor-report.pdf"), format: "A3", landscape: true, printBackground: true });
+  expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) || []).length).toBe(2);
+  await page.emulateMedia({ media: "screen" });
+  await page.getByRole("button", { name: "Completed visits", exact: true }).click();
+  await page.getByRole("button", { name: "Print report" }).click();
+  await page.emulateMedia({ media: "print" });
+  await expect(printable.locator(".da-month-table:not(.da-completed-table)")).toHaveCount(0);
   await expect(printable.locator(".da-completed-table")).toHaveCount(1);
   await expect(printable.locator(".da-completed-table").getByRole("columnheader", { name: /^(Other|Unknown age|Unknown sex)$/ })).toHaveCount(0);
   await expect(printable.getByRole("heading", { name: "Automatic completed visits · 11 visits", exact: true })).toBeVisible();
-  const pdf = await page.pdf({ path: testInfo.outputPath("doctor-report.pdf"), format: "A3", landscape: true, printBackground: true });
-  expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) || []).length).toBe(2);
 });
 
 test("report and analytics failures block stale exports until retry succeeds", async ({ page }) => {
   const fixture = await openAnalytics(page);
   fixture.failReport = "weekly";
-  await page.getByRole("button", { name: "This week", exact: true }).click();
+  await page.getByRole("button", { name: "Week", exact: true }).click();
   const reportError = page.getByRole("alert").filter({ hasText: "Report unavailable" });
   await expect(reportError).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download Excel" })).toBeEnabled();
   await openClinical(page);
   await expect(page.getByLabel("Clinical measure")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Download Excel" })).toBeDisabled();
@@ -204,9 +213,10 @@ test("report and analytics failures block stale exports until retry succeeds", a
   await expect(page.getByLabel("Clinical measure")).toBeEnabled();
   await expect(page.getByRole("button", { name: "Download Excel" })).toBeEnabled();
   fixture.failAnalytics = "monthly";
-  await page.getByRole("button", { name: "This month", exact: true }).click();
+  await page.getByRole("button", { name: "Month", exact: true }).click();
   const analyticsError = page.getByRole("alert").filter({ hasText: "Analytics unavailable" });
   await expect(analyticsError).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download Excel" })).toBeEnabled();
   await page.getByRole("button", { name: "Completed visits", exact: true }).click();
   await expect(page.getByRole("region", { name: "Completed visit breakdown" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Download Excel" })).toBeDisabled();

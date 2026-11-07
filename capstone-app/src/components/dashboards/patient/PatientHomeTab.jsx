@@ -113,7 +113,9 @@ export default function PatientHomeTab({
           </p>
           <h1 className="mt-5 text-3xl leading-tight font-extrabold tracking-tight text-white sm:text-5xl">
             Your Health, Schedule.
-            <span className="mt-1 block text-orange-300">No More Long Waits.</span>
+            <span className="mt-1 block text-orange-300">
+              No More Long Waits.
+            </span>
           </h1>
         </div>
       </section>
@@ -133,7 +135,9 @@ export default function PatientHomeTab({
             value={
               !queueStatusLoaded
                 ? "Checking…"
-                : queueStatusError ? "Unavailable" : queueStatus.now_serving || "—"
+                : queueStatusError
+                  ? "Unavailable"
+                  : queueStatus.now_serving || "—"
             }
             color="bg-orange-500 text-slate-950"
           />
@@ -142,7 +146,9 @@ export default function PatientHomeTab({
             value={
               !queueStatusLoaded
                 ? "Checking…"
-                : queueStatusError ? "Unavailable" : queueStatus.next_queuing || "—"
+                : queueStatusError
+                  ? "Unavailable"
+                  : queueStatus.next_queuing || "—"
             }
             color="bg-[#2d3a8c] text-white"
           />
@@ -153,10 +159,7 @@ export default function PatientHomeTab({
           </p>
         )}
 
-        <section
-          aria-label="Quick actions"
-          className="grid grid-cols-2 gap-3"
-        >
+        <section aria-label="Quick actions" className="grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={onGetQueue}
@@ -171,7 +174,9 @@ export default function PatientHomeTab({
                 ? "You already have an active queue"
                 : registrationMessage
                   ? "Registration closed"
-                  : canRequestQueue ? "Join the dental queue" : "Queue registration pending"}
+                  : canRequestQueue
+                    ? "Join the dental queue"
+                    : "Queue registration pending"}
             </span>
           </button>
           <button
@@ -213,8 +218,16 @@ export default function PatientHomeTab({
             title="My queue number"
             value={
               ticketLoading ? (
-                <span role="status" aria-label="Loading your queue ticket"><Skeleton className="mt-2 h-5 w-24" /></span>
-              ) : hasActiveQueue ? queue.queue_number : queueError ? "Unavailable" : "No active queue number"
+                <span role="status" aria-label="Loading your queue ticket">
+                  <Skeleton className="mt-2 h-5 w-24" />
+                </span>
+              ) : hasActiveQueue ? (
+                queue.queue_number
+              ) : queueError ? (
+                "Unavailable"
+              ) : (
+                "No active queue number"
+              )
             }
             color="border-l-orange-500"
           >
@@ -228,15 +241,26 @@ export default function PatientHomeTab({
               </button>
             )}
           </InfoCard>
-          <InfoCard title="Estimated wait" value={ticketLoading ? "Checking…" : estimatedWait.value}>
-            <p>{ticketLoading ? "Loading your queue ticket." : estimatedWait.detail}</p>
+          <InfoCard
+            title="Estimated wait"
+            value={ticketLoading ? "Checking…" : estimatedWait.value}
+          >
+            <p>
+              {ticketLoading
+                ? "Loading your queue ticket."
+                : estimatedWait.detail}
+            </p>
           </InfoCard>
           <InfoCard
             title="Doctor availability"
             value={doctorLoaded ? availability.value : "Checking…"}
             color={doctorLoaded ? availability.color : undefined}
           >
-            <p>{doctorLoaded ? availability.detail : "Checking dentist availability."}</p>
+            <p>
+              {doctorLoaded
+                ? availability.detail
+                : "Checking dentist availability."}
+            </p>
             {doctorError && (
               <p role="alert" className="text-red-800">
                 {doctorError}
@@ -262,7 +286,9 @@ export default function PatientHomeTab({
       </div>
 
       {showMap && <LocationMapModal onClose={() => setShowMap(false)} />}
-      {showQueueGuide && <DentalQueueGuide onClose={() => setShowQueueGuide(false)} />}
+      {showQueueGuide && (
+        <DentalQueueGuide onClose={() => setShowQueueGuide(false)} />
+      )}
     </>
   );
 }

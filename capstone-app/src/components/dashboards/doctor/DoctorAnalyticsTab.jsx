@@ -41,21 +41,21 @@ import "./DoctorAnalyticsTab.css";
 const PERIODS = [
   {
     value: "today",
-    label: "Today",
+    label: "Day",
     icon: CalendarDays,
-    description: "Today's dental service",
+    description: "One calendar day",
   },
   {
     value: "weekly",
-    label: "This week",
+    label: "Week",
     icon: CalendarRange,
     description: "Monday–Sunday",
   },
   {
     value: "monthly",
-    label: "This month",
+    label: "Month",
     icon: CalendarDays,
-    description: "This calendar month",
+    description: "One calendar month",
   },
 ];
 const METRICS = [
@@ -832,10 +832,11 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
     if (!exportReady) return;
     const blob = new Blob(
       [
-        createDoctorReport(report.from, doctorName, report.data, {
+        createDoctorReport(exportRange.from, doctorName, report?.data, {
           period,
-          from: report.from,
-          until: report.until,
+          reportType: reportTab,
+          from: exportRange.from,
+          until: exportRange.until,
           completed_demographics: completedRows,
         }),
       ],
@@ -846,7 +847,7 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `dental-report-${period}-${report.from}.xlsx`;
+    link.download = `${isClinical ? "clinical-counts" : "completed-visits"}-${period === "today" ? "daily" : period}-${exportRange.from}.xlsx`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
@@ -854,23 +855,15 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
   const doctorName = user?.display_name || "Doctor";
   const reportReady =
     Boolean(selectedDate) && manualDate === selectedDate && !manualLoading;
-  const hasManualEntries = report?.data.some((row) =>
-    row.some((value) => value !== null),
-  );
   const completedRows = stats?.completed_demographics || [];
   const completed = summarizeCompletedVisits(completedRows);
+  const isClinical = reportTab === "clinical";
+  const exportRange = isClinical ? report : stats;
   const exportReady = Boolean(
     !manualOpen &&
-    stats &&
-    report &&
-    stats.from === report.from &&
-    stats.until === report.until &&
-    !loading &&
-    !reportLoading &&
-    !error &&
-    !reportError &&
-    !dirty &&
-    (completed.completed || hasManualEntries),
+    exportRange?.from &&
+    exportRange.until &&
+    (isClinical ? !reportLoading && !reportError : !loading && !error),
   );
   const entryFields = measureFields(entryMeasure);
   const entryValues = entryFields.map(
@@ -878,7 +871,7 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
   );
   const periodInfo = PERIODS.find((item) => item.value === period);
   const reportTitle = `${period === "today" ? "Daily" : period === "weekly" ? "Weekly" : "Monthly"} dental service report`;
-  const range = stats || report;
+  const range = exportRange || stats || report;
   const lastDate = range?.until
     ? new Date(Date.parse(`${range.until}T00:00:00Z`) - 86400000)
         .toISOString()
@@ -1153,8 +1146,9 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
               )}
               <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 lg:flex-row lg:items-center lg:justify-between">
                 <p className="text-xs leading-relaxed text-slate-500">
-                  Full report includes all barangays and measures, regardless of
-                  the current view.
+                  {isClinical
+                    ? "Print or download the two-page form from saved manual entries for all barangays and measures."
+                    : "Print or download the automatic completed visits report."}
                 </p>
                 <div className="grid grid-cols-2 gap-2 lg:flex">
                   <button
@@ -1515,22 +1509,24 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
           <p>
             {rangeLabel} · {doctorName} · Philippine time
           </p>
-          <h2>Automatic completed visits · {completed.completed} visits</h2>
-          <CompletedTable rows={completedRows} />
-          <p>
-            {completed.missing} visits need demographic review. Automatic visit
-            totals are separate from manual clinical counts.
-          </p>
-          <h2>Manual clinical counts · page 1</h2>
-          <ReportTable data={report.data} page={1} />
-          <div className="da-print-page">
-            <h1>{reportTitle} · page 2</h1>
-            <p>
-              {rangeLabel} · {doctorName}
-            </p>
-            <h2>Manual clinical counts</h2>
-            <ReportTable data={report.data} page={2} />
-          </div>
+          {isClinical ? (
+            <>
+              <h2>Manual clinical counts · page 1</h2>
+              <ReportTable data={report.data} page={1} />
+              <div className="da-print-page">
+                <h1>{reportTitle} · page 2</h1>
+                <p>{rangeLabel} · {doctorName} · Philippine time</p>
+                <h2>Manual clinical counts</h2>
+                <ReportTable data={report.data} page={2} />
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>Automatic completed visits · {completed.completed} visits</h2>
+              <CompletedTable rows={completedRows} />
+              <p>{completed.missing} visits need demographic review.</p>
+            </>
+          )}
         </section>
       )}
     </>

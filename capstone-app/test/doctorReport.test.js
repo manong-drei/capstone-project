@@ -44,7 +44,11 @@ test("monthly Excel uses all 24 barangays and adds daily counts without filling 
   assert.match(sheet, /<c r="B2"[^>]*>.*?2026-10/);
   assert.match(entries.get("xl/workbook.xml"), /\$A\$1:\$R\$29/);
   assert.match(entries.get("xl/workbook.xml"), /\$A\$1:\$S\$29/);
-  assert.match(sheet, /fitToWidth="1" fitToHeight="1"/);
+  for (const clinicalPage of [sheet, sheet2]) {
+    assert.match(clinicalPage, /<pageSetUpPr fitToPage="1"\/>/);
+    assert.match(clinicalPage, /<pageMargins left="0\.25" right="0\.25" top="0\.25" bottom="0\.25"/);
+    assert.match(clinicalPage, /<pageSetup orientation="landscape" paperSize="1" fitToWidth="1" fitToHeight="1"\/>/);
+  }
   assert.match(sheet, /<c r="A5"[^>]*>.*?Abuanan/);
   assert.match(sheet, /<c r="A28"[^>]*>.*?Taloc/);
   assert.match(sheet, /<c r="B5" s="3"><v>5<\/v><\/c>/);
@@ -81,7 +85,7 @@ test("period exports include both clinical pages with the selected period and in
     ["weekly", "2026-12-28", "2027-01-04", "2026-12-28 – 2027-01-03"],
     ["monthly", "2028-02-01", "2028-03-01", "2028-02-01 – 2028-02-29"],
   ]) {
-    const entries = readWorkbook(createDoctorReport("unused", "Dr. Test", emptyReport(), { period, from, until }));
+    const entries = readWorkbook(createDoctorReport("unused", "Dr. Test", emptyReport(), { reportType: "clinical", period, from, until }));
     const title = { today: "DAILY", weekly: "WEEKLY", monthly: "MONTHLY" }[period];
     for (const sheet of ["xl/worksheets/sheet1.xml", "xl/worksheets/sheet2.xml"]) {
       assert.ok(entries.get(sheet).includes(`${title} DENTAL SERVICE REPORT`));
@@ -90,30 +94,37 @@ test("period exports include both clinical pages with the selected period and in
     }
     assert.match(entries.get("xl/workbook.xml"), /\$A\$1:\$R\$29/);
     assert.match(entries.get("xl/workbook.xml"), /\$A\$1:\$S\$29/);
+    assert.equal(entries.has("xl/worksheets/sheet3.xml"), false);
+    assert.doesNotMatch(entries.get("xl/workbook.xml"), /Completed visits/);
   }
 });
 
-test("automatic export retains all demographic rows separately without filling clinical outcomes", () => {
+test("automatic export uses the same two sheets and fills only matching visit groups", () => {
   const demographics = [
-    { barangay: "Barangay Abuanan, Bago City", age_group: AGE_GROUPS[5], sex: "Male", count: 2 },
-    { barangay: "Unknown", age_group: "Unknown", sex: "Unknown", count: 3 },
-    { barangay: "Elsewhere", age_group: AGE_GROUPS[6], sex: "Other", count: 1 },
+    ...AGE_GROUPS.map((age_group, index) => ({
+      barangay: "Barangay Abuanan, Bago City", age_group, sex: "Male", count: index + 1,
+    })),
+    { barangay: "Taloc", age_group: AGE_GROUPS[2], sex: "Female", count: 2 },
+    { barangay: "Taloc", age_group: AGE_GROUPS[2], sex: " female ", count: "3" },
+    { barangay: "Taloc", age_group: AGE_GROUPS[2], sex: "Other", count: 8 },
+    { barangay: "Taloc", age_group: "Unknown", sex: "Female", count: 8 },
+    { barangay: "Elsewhere", age_group: AGE_GROUPS[2], sex: "Female", count: 8 },
   ];
-  const entries = readWorkbook(createDoctorReport("2026-10", "Dr. Test & Co", emptyReport(), { period: "monthly", from: "2026-10-01", until: "2026-11-01", completed_demographics: demographics }));
-  const completed = entries.get("xl/worksheets/sheet3.xml");
-  assert.match(entries.get("xl/workbook.xml"), /sheet name="Completed visits" sheetId="3" r:id="rId4"/);
-  assert.match(entries.get("xl/_rels/workbook.xml.rels"), /Id="rId4"[^>]*Target="worksheets\/sheet3.xml"/);
-  assert.match(entries.get("[Content_Types].xml"), /PartName="\/xl\/worksheets\/sheet3.xml"/);
-  assert.match(entries.get("xl/worksheets/sheet1.xml"), /<c r="B5" s="3"\/>/);
-  assert.match(completed, /Automatic counts; clinical outcomes are entered separately/);
-  assert.match(completed, /Dr. Test &amp; Co/);
-  assert.match(completed, /<c r="B6" s="2"><v>6<\/v>/);
-  assert.match(completed, /<c r="B11" s="2"><v>4<\/v>/);
-  assert.match(completed, /<c r="A15"[^>]*>.*?Abuanan/);
-  assert.match(completed, /<c r="D15" s="2"><v>2<\/v>/);
-  assert.match(completed, /<c r="A16"[^>]*>.*?Unknown/);
-  assert.match(completed, /<c r="D16" s="2"><v>3<\/v>/);
-  assert.match(completed, /<c r="A17"[^>]*>.*?Elsewhere/);
-  assert.match(completed, /<c r="C17"[^>]*>.*?Other/);
-  assert.match(completed, /<c r="D17" s="2"><v>1<\/v>/);
+  const options = { period: "monthly", from: "2026-10-01", until: "2026-11-01" };
+  const manual = emptyReport();
+  manual[0][0] = 99;
+  manual[0][8] = 99;
+  const expected = emptyReport();
+  [6, 12, 14, 16, 18, 20, 22].forEach((column, index) => {
+    expected[0][column] = index + 1;
+  });
+  expected[23][15] = 5;
+
+  const completed = createDoctorReport("2026-10", "Dr. Test", manual, {
+    ...options, reportType: "completed", completed_demographics: demographics,
+  });
+  assert.deepEqual(
+    readWorkbook(completed),
+    readWorkbook(createDoctorReport("2026-10", "Dr. Test", expected, options)),
+  );
 });
