@@ -3,10 +3,10 @@
   --clinic-navy: #112b4c;
   --clinic-blue: #1e4db7;
   --clinic-orange: #fdba74;
-  --clinic-serif: "Poppins", "Segoe UI", sans-serif;
+  --clinic-font: system-ui, sans-serif;
   background: #fff;
   color: #172554;
-  font-family: "Poppins", "Segoe UI", sans-serif;
+  font-family: var(--clinic-font);
   overflow-x: clip;
 }
 .cinematic-page * {
@@ -81,7 +81,7 @@
 }
 .cinematic-brand strong {
   display: block;
-  font-family: var(--clinic-serif);
+  font-family: var(--clinic-font);
   font-size: clamp(1rem, 1.6vw, 1.3rem);
   line-height: 1.3;
   letter-spacing: -0.035em;
@@ -180,7 +180,7 @@
 }
 .cinematic-intro h1 {
   margin: 16px 0 19px;
-  font-family: var(--clinic-serif);
+  font-family: var(--clinic-font);
   font-size: clamp(2.75rem, 4.8vw, 4.4rem);
   font-weight: 700;
   line-height: 1.1;
@@ -250,7 +250,7 @@
 }
 .cinematic-clinic-dialog h2 {
   margin-bottom: 12px;
-  font: 1.8rem/1.15 var(--clinic-serif);
+  font: 1.8rem/1.15 var(--clinic-font);
 }
 .cinematic-clinic-dialog a {
   text-decoration: underline;

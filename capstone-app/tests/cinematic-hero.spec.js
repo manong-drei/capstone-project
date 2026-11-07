@@ -4,6 +4,28 @@ test.beforeEach(async ({ page }) => {
   await page.route("https://fonts.googleapis.com/**", route => route.fulfill({ body: "", contentType: "text/css" }));
 });
 
+test("the homepage serves crawl metadata and prioritizes its hero without Google Fonts", async ({ page, request }) => {
+  const robots = await request.get("/robots.txt");
+  expect(robots.ok()).toBe(true);
+  expect(robots.headers()["content-type"]).toContain("text/plain");
+  expect(await robots.text()).toMatch(/^User-agent: \*\r?\nAllow: \//);
+
+  const fontStylesheet = page.locator('link[href^="https://fonts.googleapis.com/"]');
+  const homepage = await page.goto("/");
+  expect(await homepage.text()).toContain('<meta name="description"');
+  await expect(page.locator('head link[rel="preload"][as="image"][href="/assets/BGHero.webp"]'))
+    .toHaveAttribute("fetchpriority", "high");
+  const portal = page.getByRole("link", { name: "Patient Portal", exact: true });
+  await expect(portal).toBeVisible();
+  await expect(fontStylesheet).toHaveCount(0);
+
+  await portal.click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(fontStylesheet).toHaveCount(1);
+  await page.goto("/login");
+  await expect(page.locator('link[rel="preload"][as="image"]')).toHaveCount(0);
+});
+
 test("the landing heading and portal link render before the animation module", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "no-preference" });

@@ -487,7 +487,7 @@ export default function DoctorHomeTab({
                     }
                     className="min-h-8 w-full cursor-pointer accent-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600"
                   />
-                  <div className="flex justify-between text-xs text-slate-400">
+                  <div className="flex justify-between text-xs text-slate-600">
                     <span>0</span>
                     <span>10 (max)</span>
                   </div>
@@ -519,7 +519,7 @@ export default function DoctorHomeTab({
                       Walk-In Capacity
                     </label>
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${walkInLimit > 0 ? "bg-orange-50 text-orange-700" : "bg-slate-100 text-slate-500"}`}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${walkInLimit > 0 ? "bg-orange-50 text-orange-700" : "bg-slate-100 text-slate-600"}`}
                     >
                       {walkInLimit > 0 ? `${walkInLimit} slots` : "Not set"}
                     </span>
@@ -669,7 +669,7 @@ export default function DoctorHomeTab({
           </section>
         </div>
       </div>
-      <p className="flex items-center justify-center gap-2 pb-2 text-xs text-slate-500">
+      <p className="flex items-center justify-center gap-2 pb-2 text-xs text-slate-600">
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${error ? "bg-amber-500" : "bg-emerald-500"}`}
           aria-hidden="true"

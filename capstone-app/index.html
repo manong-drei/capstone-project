@@ -4,9 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>E-KALUSUGAN | Bago City Health Center</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&amp;display=swap" />
+    <meta name="description" content="Get a dental queue ticket, check dentist availability, and follow your turn at Bago City Health Center with E-Kalusugan." />
+    <script>
+      if (location.pathname === "/" || /^\/(admin|doctor)\/?$/i.test(location.pathname)) {
+        const heroPreload = document.createElement("link");
+        heroPreload.rel = "preload";
+        heroPreload.as = "image";
+        heroPreload.href = "/assets/BGHero.webp";
+        heroPreload.fetchPriority = "high";
+        document.head.append(heroPreload);
+      }
+    </script>
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
     <link href="/src/index.css" rel="stylesheet" />
   </head>

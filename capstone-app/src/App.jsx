@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, RouterProvider, Routes, Route, Navigate } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Routes, Route, Navigate, matchPath, useLocation } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { ACCOUNT_ROUTES, ROUTES } from "./constants/routes";
 import { ROLES } from "./constants/roles";
@@ -57,8 +57,20 @@ function RoleRedirect() {
 }
 
 function AppRoutes() {
+  const { pathname } = useLocation();
+  const usesPoppins = pathname !== ROUTES.HOME &&
+    pathname !== ROUTES.EXPERIMENTAL &&
+    !matchPath(`${ROUTES.ADMIN_DASHBOARD}/*`, pathname);
+
   return (
       <Suspense fallback={<PageLoading />}>
+        {usesPoppins && (
+          <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
+            media={matchPath(ROUTES.DOCTOR_DASHBOARD, pathname) ? "(min-width: 64rem)" : undefined}
+          />
+        )}
         <Routes>
           {/* Public routes */}
           <Route path={ROUTES.HOME} element={<CinematicLandingPage />} />

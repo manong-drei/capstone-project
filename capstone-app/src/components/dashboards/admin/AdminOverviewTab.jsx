@@ -205,12 +205,12 @@ export default function AdminOverviewTab({
           className="pointer-events-none absolute -right-10 -top-24 h-72 w-72 rounded-full border-[40px] border-white/5"
           aria-hidden="true"
         />
-        <div className="relative flex flex-wrap items-center justify-between gap-6">
-          <div>
+        <div className="relative grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0">
             <p className="mb-2 text-xs font-semibold tracking-widest text-blue-200">
               ADMIN DASHBOARD · E-KALUSUGAN
             </p>
-            <h1 className="break-words text-2xl font-bold tracking-tight sm:text-3xl">
+            <h1 className="min-h-[2lh] break-words text-2xl font-bold tracking-tight sm:text-3xl">
               Welcome, {identity.displayName}.
             </h1>
           </div>
@@ -241,7 +241,7 @@ export default function AdminOverviewTab({
 
       <div>
         <h2 className="text-lg font-bold text-[#1a3a8f]">Dashboard overview</h2>
-        <p className="mt-1 text-xs text-slate-500">Health center totals</p>
+        <p className="mt-1 text-xs text-slate-600">Health center totals</p>
       </div>
       {overviewError && (
         <div
@@ -293,16 +293,16 @@ export default function AdminOverviewTab({
         ].map((item) => (
           <div
             key={item.label}
-            className="flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+            className="flex min-w-0 flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:p-5"
           >
-            <span className={`rounded-xl p-2.5 ${item.color}`}>
+            <span className={`shrink-0 rounded-xl p-2.5 ${item.color}`}>
               <item.icon size={21} aria-hidden="true" />
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 sm:flex-1">
               <p className="text-xs font-medium text-slate-500">{item.label}</p>
-              <div className="mt-1 text-2xl font-bold text-slate-900">
+              <div className="mt-1 break-words text-2xl font-bold text-slate-900">
                 {initialLoading ? (
-                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-[1lh] w-16 max-w-full" />
                 ) : (
                   value(item.count)
                 )}
@@ -513,7 +513,7 @@ export default function AdminOverviewTab({
                 type="button"
                 aria-pressed={volumeTab === period}
                 onClick={() => setVolumeTab(period)}
-                className={`min-h-9 cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-blue-600 ${volumeTab === period ? "bg-[#1a3a8f] text-white" : "text-slate-500 hover:bg-blue-50"}`}
+                className={`min-h-9 cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-blue-600 ${volumeTab === period ? "bg-[#1a3a8f] text-white" : "text-slate-600 hover:bg-blue-50"}`}
               >
                 {period}
               </button>

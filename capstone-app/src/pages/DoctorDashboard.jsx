@@ -261,8 +261,12 @@ export default function DoctorDashboard() {
 
   if (!activeTab) return <Navigate to={ROUTES.DOCTOR_DASHBOARD} replace />;
 
+  const dashboardFont = pathname === ROUTES.DOCTOR_DASHBOARD
+    ? "font-sans lg:font-[Poppins,sans-serif]"
+    : "font-[Poppins,sans-serif]";
+
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
+    <div className={`flex min-h-screen flex-col bg-slate-100 text-slate-800 ${dashboardFont}`}>
       <UserManual
         role="doctor"
         isOpen={showManual}

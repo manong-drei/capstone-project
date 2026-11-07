@@ -9,11 +9,11 @@ import { DASHBOARD_NAVIGATION } from "@/constants/dashboardNavigation";
 import api from "@/services/api";
 import * as appointmentService from "@/services/appointmentService";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
+import AdminOverviewTab from "@/components/dashboards/admin/AdminOverviewTab";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
 import UserManual from "@/components/common/LazyUserManual";
 import "./AdminDashboard.css";
 
-const AdminOverviewTab = lazy(() => import("@/components/dashboards/admin/AdminOverviewTab"));
 const AdminReportsTab = lazy(() => import("@/components/dashboards/admin/AdminReportsTab"));
 const AdminDoctorsTab = lazy(() => import("@/components/dashboards/admin/AdminDoctorsTab"));
 const AdminPatientsHistoryTab = lazy(() => import("@/components/dashboards/admin/AdminPatientsHistoryTab"));
@@ -90,7 +90,7 @@ export default function AdminDashboard() {
   if (!activePage) return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
 
   return (
-    <div className="ad-root min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
+    <div className="ad-root min-h-screen bg-slate-100 font-sans text-slate-800">
       <UserManual role="admin" isOpen={showManual} onClose={() => setShowManual(false)} />
       <StaffNavbar
         identity={identity}

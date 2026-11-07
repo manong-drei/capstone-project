@@ -52,25 +52,40 @@ function loadedContent(page, role) {
   return page.getByText("Total Patient Visits", { exact: true });
 }
 
+function initialSkeleton(page, role) {
+  if (role === "admin") {
+    return page.getByRole("region", { name: "Health center totals" })
+      .and(page.locator('[aria-busy="true"]'));
+  }
+  return page.getByRole("status", {
+    name: role === "patient" ? "Loading your queue ticket" : "Loading dashboard",
+    exact: true,
+  });
+}
+
 for (const dashboard of dashboards) {
-  for (const width of [1280, 375]) {
+  for (const width of dashboard.role === "admin" ? [412, 740, 1440] : [1280, 375]) {
     test(`${dashboard.role} skeleton is only shown on first load at ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: "reduce" });
       const state = await mockDashboard(page, dashboard);
       await page.goto(`/${dashboard.role}`);
-      const skeleton = page.getByRole("status", {
-        name: dashboard.role === "patient" ? "Loading your queue ticket" : "Loading dashboard",
-        exact: true,
-      });
+      const skeleton = initialSkeleton(page, dashboard.role);
       await expect(skeleton).toBeVisible();
       await expect(page.locator("nav")).toBeVisible();
       expect(await skeleton.locator(".bg-slate-200").first().evaluate(element => getComputedStyle(element).animationName)).toBe("none");
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       await page.screenshot({ path: testInfo.outputPath(`initial-${dashboard.role}-${width}.png`), animations: "disabled" });
+      const totals = page.getByRole("region", { name: "Health center totals" });
+      const totalsBefore = dashboard.role === "admin" ? await totals.boundingBox() : null;
       state.release();
       await expect(skeleton).toHaveCount(0);
       await expect(loadedContent(page, dashboard.role)).toBeVisible();
+      if (totalsBefore) {
+        const totalsAfter = await totals.boundingBox();
+        expect(totalsAfter.y).toBeCloseTo(totalsBefore.y);
+        expect(totalsAfter.height).toBeCloseTo(totalsBefore.height);
+      }
 
       state.path = dashboard.role === "admin" ? "/api/queue" : state.path;
       state.hold();
@@ -87,10 +102,7 @@ for (const dashboard of dashboards) {
     const state = await mockDashboard(page, dashboard);
     state.fail = true;
     await page.goto(`/${dashboard.role}`);
-    const skeleton = page.getByRole("status", {
-      name: dashboard.role === "patient" ? "Loading your queue ticket" : "Loading dashboard",
-      exact: true,
-    });
+    const skeleton = initialSkeleton(page, dashboard.role);
     await expect(skeleton).toBeVisible();
     state.release();
     await expect(skeleton).toHaveCount(0);

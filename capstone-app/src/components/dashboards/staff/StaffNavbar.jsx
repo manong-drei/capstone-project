@@ -93,8 +93,10 @@ export default function StaffNavbar({ identity, onLogout, onHelp, sections = [] 
           className="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-white"
         >
           <img
-            src="/assets/Logo.jpg"
+            src="/assets/ekalusugan-logo-small.webp"
             alt=""
+            width={36}
+            height={36}
             className="h-9 w-9 rounded-full border-2 border-white/40 object-cover"
           />
           <span className="text-sm font-bold tracking-wide">

@@ -55,6 +55,11 @@ for (const width of [320, 375, 641, 768, 1024, 1440]) {
     });
     await page.goto("/doctor");
     await expect(page.getByRole("heading", { name: "Welcome, Dr. Maria Santos." })).toBeVisible();
+    const fontStylesheet = page.locator('link[rel="stylesheet"][href^="https://fonts.googleapis.com/"]');
+    await expect(fontStylesheet).toHaveAttribute("media", "(min-width: 64rem)");
+    expect(await fontStylesheet.evaluate(link => matchMedia(link.media).matches)).toBe(width >= 1024);
+    await expect(page.locator('head link[rel="preload"][as="image"][href="/assets/BGHero.webp"]'))
+      .toHaveAttribute("fetchpriority", "high");
     const queue = page.getByRole("region", { name: "Dental queue", exact: true });
     const upcoming = page.getByRole("region", { name: "Up next", exact: true });
     await expect(queue).toContainText("AP02");
