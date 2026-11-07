@@ -59,6 +59,7 @@ for (const width of [320, 390, 768, 1440]) {
     page.on("pageerror", error => errors.push(error.message));
     await page.goto("/");
     const ticketLink = page.locator(".cinematic-intro").getByRole("link", { name: "Get a queue ticket" });
+    await expect(page.locator('a[href="/login"]')).toHaveCount(2);
     await expect(ticketLink).toBeInViewport();
     expect((await ticketLink.boundingBox()).height).toBeGreaterThanOrEqual(44);
     await page.getByRole("link", { name: "How it works", exact: true }).first().click();
@@ -83,7 +84,7 @@ for (const width of [320, 390, 768, 1440]) {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`landing-${width}.png`), fullPage: true });
     expect(errors).toEqual([]);
-    await page.locator("#get-started").getByRole("link", { name: "Get a queue ticket" }).click();
+    await ticketLink.click();
     await expect(page).toHaveURL(/\/login$/);
   });
 }

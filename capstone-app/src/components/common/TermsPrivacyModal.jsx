@@ -12,7 +12,10 @@ export default function TermsPrivacyModal({ open, onClose, onAccept }) {
     const timer = setTimeout(() => {
       setScrolledToBottom(false);
       setChecked(false);
-      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = 0;
+        scrollRef.current.focus();
+      }
     }, 0);
 
     return () => clearTimeout(timer);
@@ -42,6 +45,9 @@ export default function TermsPrivacyModal({ open, onClose, onAccept }) {
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Terms, Privacy & Consent"
         style={{
           background: "#ffffff",
           borderRadius: "20px",
@@ -66,45 +72,11 @@ export default function TermsPrivacyModal({ open, onClose, onAccept }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                background: "rgba(255,255,255,0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <svg viewBox="0 0 32 32" fill="none" width="22" height="22">
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="13"
-                  stroke="white"
-                  strokeWidth="1.5"
-                  fill="none"
-                />
-                <rect
-                  x="13"
-                  y="8"
-                  width="6"
-                  height="16"
-                  rx="1.5"
-                  fill="white"
-                />
-                <rect
-                  x="8"
-                  y="13"
-                  width="16"
-                  height="6"
-                  rx="1.5"
-                  fill="white"
-                />
-              </svg>
-            </div>
+            <img
+              src="/assets/bago-city-pcf-small.webp"
+              alt="Bago City Primary Care Facility"
+              className="size-9 shrink-0 rounded-full object-contain sm:size-11"
+            />
             <div>
               <p
                 style={{
@@ -131,31 +103,39 @@ export default function TermsPrivacyModal({ open, onClose, onAccept }) {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.12)",
-              border: "none",
-              borderRadius: "8px",
-              width: "32px",
-              height: "32px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              color: "#ffffff",
-              fontSize: "16px",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "rgba(255,255,255,0.22)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "rgba(255,255,255,0.12)")
-            }
-          >
-            &#x2715;
-          </button>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <img
+              src="/assets/ekalusugan-logo-small.webp"
+              alt="E-Kalusugan"
+              className="size-9 rounded-full object-contain sm:size-11"
+            />
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              style={{
+                background: "rgba(255,255,255,0.12)",
+                border: "none",
+                borderRadius: "8px",
+                width: "32px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "#ffffff",
+                fontSize: "16px",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(255,255,255,0.22)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "rgba(255,255,255,0.12)")
+              }
+            >
+              &#x2715;
+            </button>
+          </div>
         </div>
 
         {/* ── Notice ── */}
@@ -177,6 +157,7 @@ export default function TermsPrivacyModal({ open, onClose, onAccept }) {
         {/* ── Scrollable Content ── */}
         <div
           ref={scrollRef}
+          tabIndex={0}
           onScroll={handleScroll}
           style={{
             flex: 1,

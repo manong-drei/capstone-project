@@ -240,14 +240,6 @@ export default function CinematicLandingPage() {
                   Your patient dashboard shows your queue number, status,
                   selected services, and whether to expect an SMS reminder.
                 </p>
-                <a
-                  href="/assets/manual/patient-ticket.png"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View sample ticket <ArrowRight size={16} aria-hidden="true" />
-                  <span className="sr-only"> (opens in a new tab)</span>
-                </a>
               </figcaption>
             </figure>
           </div>
@@ -264,10 +256,6 @@ export default function CinematicLandingPage() {
                 <p className="cinematic-kicker">THREE SIMPLE STEPS</p>
                 <h2 id="steps-title">Your dental visit starts here.</h2>
               </div>
-              <Link to={ROUTES.LOGIN} className="cinematic-text-link">
-                Get started in the patient portal{" "}
-                <ArrowRight size={18} aria-hidden="true" />
-              </Link>
             </div>
             <ol className="cinematic-steps">
               {steps.map(([icon, title, description], index) => (
@@ -345,9 +333,6 @@ export default function CinematicLandingPage() {
             </p>
           </div>
           <div className="cinematic-cta-action text-amber-300">
-            <Link to={ROUTES.LOGIN} className="cinematic-primary">
-              Get a queue ticket <ArrowRight size={19} aria-hidden="true" />
-            </Link>
             <span>First visit? Reception can help you register.</span>
           </div>
         </section>
@@ -398,11 +383,10 @@ export default function CinematicLandingPage() {
             <nav aria-label="Footer navigation">
               <a href="#how-it-works">How it works</a>
               <a href="#features">Features</a>
-              <Link to={ROUTES.LOGIN}>Patient login</Link>
             </nav>
           </div>
           <div className="cinematic-footer-bottom">
-            <p>Bago City Primary Care Facility · Brgy. Poblacion, Bago City</p>
+            <p>Bago City Primary Care Facility · Bago City</p>
             <p>© {new Date().getFullYear()} E-Kalusugan</p>
           </div>
         </div>

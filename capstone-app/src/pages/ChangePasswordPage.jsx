@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
+import AuthPageLayout from "@/components/common/AuthPageLayout";
+import TermsPrivacyModal from "@/components/common/TermsPrivacyModal";
+import { ROLES } from "@/constants/roles";
 import { useAuth } from "@/hooks/useAuth";
 import * as authService from "@/services/authService";
 import { ACCOUNT_ROUTES, ROUTES } from "@/constants/routes";
@@ -18,6 +21,7 @@ const ChangePasswordPage = () => {
     confirmPassword: "",
   });
 
+  const [showTerms, setShowTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -31,9 +35,9 @@ const ChangePasswordPage = () => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || showTerms) return;
 
     if ((!setup && !form.oldPassword.trim()) || !form.newPassword.trim()) {
       setError("Please fill in all fields.");
@@ -50,6 +54,16 @@ const ChangePasswordPage = () => {
       return;
     }
 
+    if (setup && user.role === ROLES.PATIENT) {
+      setShowTerms(true);
+      return;
+    }
+
+    savePassword();
+  };
+
+  const savePassword = async () => {
+    setShowTerms(false);
     setLoading(true);
     setError("");
 
@@ -70,172 +84,163 @@ const ChangePasswordPage = () => {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4 py-8"
-      style={{
-        background:
-          "linear-gradient(160deg, #dbeafe 0%, #bfdbfe 60%, #dbeafe 100%)",
-      }}
-    >
-      <div
-        className="w-full max-w-sm bg-white rounded-2xl shadow-2xl px-8 py-9"
-        style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.13)" }}
-      >
-        <div className="text-center mb-6">
-          <h2
-            className="font-bold mb-1"
-            style={{ fontSize: "1.25rem", color: "#111827" }}
-          >
-            Change Your Password
-          </h2>
+    <AuthPageLayout>
+      <div className="text-center mb-6 sm:mb-7">
+        <h2 className="font-bold mb-1 text-xl sm:text-2xl tracking-[-0.01em] text-gray-900">
+          Change Your Password
+        </h2>
 
-          <p className="text-xs leading-snug px-2" style={{ color: "#6b7280" }}>
-            {setup ? "You must set a new password before continuing." : "Enter your current password and choose a new one."}
-          </p>
+        <p className="text-xs sm:text-sm leading-snug px-2 text-gray-500">
+          {setup ? "You must set a new password before continuing." : "Enter your current password and choose a new one."}
+        </p>
+      </div>
+
+      {error && (
+        <div role="alert" className="mb-4 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs text-center">
+          {error}
+        </div>
+      )}
+
+      <form inert={showTerms} onSubmit={handleSubmit} className="space-y-4">
+        {/* Current Password */}
+        {!setup && <div>
+          <label
+            htmlFor="oldPassword"
+            className="block text-xs font-semibold mb-1"
+            style={{ color: "#374151" }}
+          >
+            Current Password
+          </label>
+
+          <div className="relative">
+            <input
+              id="oldPassword"
+              type={showOldPassword ? "text" : "password"}
+              name="oldPassword"
+              autoComplete="current-password"
+              value={form.oldPassword}
+              onChange={handleChange}
+              className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
+              style={{ border: "1px solid #d1d5db" }}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowOldPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label={
+                showOldPassword
+                  ? "Hide current password"
+                  : "Show current password"
+              }
+            >
+              {showOldPassword ? (
+                <EyeOff size={18} strokeWidth={2} />
+              ) : (
+                <Eye size={18} strokeWidth={2} />
+              )}
+            </button>
+          </div>
+        </div>}
+
+        {/* New Password */}
+        <div>
+          <label
+            htmlFor="newPassword"
+            className="block text-xs font-semibold mb-1"
+            style={{ color: "#374151" }}
+          >
+            New Password
+          </label>
+
+          <div className="relative">
+            <input
+              id="newPassword"
+              type={showNewPassword ? "text" : "password"}
+              name="newPassword"
+              autoComplete="new-password"
+              value={form.newPassword}
+              onChange={handleChange}
+              className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
+              style={{ border: "1px solid #d1d5db" }}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowNewPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label={
+                showNewPassword ? "Hide new password" : "Show new password"
+              }
+            >
+              {showNewPassword ? (
+                <EyeOff size={18} strokeWidth={2} />
+              ) : (
+                <Eye size={18} strokeWidth={2} />
+              )}
+            </button>
+          </div>
         </div>
 
-        {error && (
-          <div role="alert" className="mb-4 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs text-center">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Current Password */}
-          {!setup && <div>
-            <label
-              htmlFor="oldPassword"
-              className="block text-xs font-semibold mb-1"
-              style={{ color: "#374151" }}
-            >
-              Current Password
-            </label>
-
-            <div className="relative">
-              <input
-                id="oldPassword"
-                type={showOldPassword ? "text" : "password"}
-                name="oldPassword"
-                autoComplete="current-password"
-                value={form.oldPassword}
-                onChange={handleChange}
-                className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-                style={{ border: "1px solid #d1d5db" }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowOldPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label={
-                  showOldPassword
-                    ? "Hide current password"
-                    : "Show current password"
-                }
-              >
-                {showOldPassword ? (
-                  <EyeOff size={18} strokeWidth={2} />
-                ) : (
-                  <Eye size={18} strokeWidth={2} />
-                )}
-              </button>
-            </div>
-          </div>}
-
-          {/* New Password */}
-          <div>
-            <label
-              htmlFor="newPassword"
-              className="block text-xs font-semibold mb-1"
-              style={{ color: "#374151" }}
-            >
-              New Password
-            </label>
-
-            <div className="relative">
-              <input
-                id="newPassword"
-                type={showNewPassword ? "text" : "password"}
-                name="newPassword"
-                autoComplete="new-password"
-                value={form.newPassword}
-                onChange={handleChange}
-                className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-                style={{ border: "1px solid #d1d5db" }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowNewPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label={
-                  showNewPassword ? "Hide new password" : "Show new password"
-                }
-              >
-                {showNewPassword ? (
-                  <EyeOff size={18} strokeWidth={2} />
-                ) : (
-                  <Eye size={18} strokeWidth={2} />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-xs font-semibold mb-1"
-              style={{ color: "#374151" }}
-            >
-              Confirm New Password
-            </label>
-
-            <div className="relative">
-              <input
-                id="confirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                name="confirmPassword"
-                autoComplete="new-password"
-                value={form.confirmPassword}
-                onChange={handleChange}
-                className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-                style={{ border: "1px solid #d1d5db" }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label={
-                  showConfirmPassword
-                    ? "Hide confirm password"
-                    : "Show confirm password"
-                }
-              >
-                {showConfirmPassword ? (
-                  <EyeOff size={18} strokeWidth={2} />
-                ) : (
-                  <Eye size={18} strokeWidth={2} />
-                )}
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 rounded-full text-white font-semibold text-sm disabled:opacity-70 disabled:cursor-not-allowed"
-            style={{
-              background: "linear-gradient(90deg, #1e4db7 0%, #2563eb 100%)",
-            }}
+        {/* Confirm Password */}
+        <div>
+          <label
+            htmlFor="confirmPassword"
+            className="block text-xs font-semibold mb-1"
+            style={{ color: "#374151" }}
           >
-            {loading ? "Updating..." : "Update Password"}
-          </button>
-        </form>
-        {!setup && <Link to={profilePath} className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-blue-700 hover:underline">Back to My Profile</Link>}
-      </div>
-    </div>
+            Confirm New Password
+          </label>
+
+          <div className="relative">
+            <input
+              id="confirmPassword"
+              type={showConfirmPassword ? "text" : "password"}
+              name="confirmPassword"
+              autoComplete="new-password"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
+              style={{ border: "1px solid #d1d5db" }}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label={
+                showConfirmPassword
+                  ? "Hide confirm password"
+                  : "Show confirm password"
+              }
+            >
+              {showConfirmPassword ? (
+                <EyeOff size={18} strokeWidth={2} />
+              ) : (
+                <Eye size={18} strokeWidth={2} />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2.5 rounded-full text-white font-semibold text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+          style={{
+            background: "linear-gradient(90deg, #1e4db7 0%, #2563eb 100%)",
+          }}
+        >
+          {loading ? "Updating..." : "Update Password"}
+        </button>
+      </form>
+      {!setup && <Link to={profilePath} className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-blue-700 hover:underline">Back to My Profile</Link>}
+      <TermsPrivacyModal
+        open={showTerms}
+        onClose={() => setShowTerms(false)}
+        onAccept={savePassword}
+      />
+    </AuthPageLayout>
   );
 };
 

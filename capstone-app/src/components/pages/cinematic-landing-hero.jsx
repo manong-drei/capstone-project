@@ -18,9 +18,14 @@ export function CinematicHero({ onClinicInfo }) {
     async function enableMotion() {
       if (!motion.matches || cleanup) return;
       try {
-        const { animateCinematicHero } = await import("./cinematic-hero-motion");
+        const { animateCinematicHero } =
+          await import("./cinematic-hero-motion");
         if (!disposed && motion.matches && !cleanup) {
-          cleanup = animateCinematicHero(containerRef.current, cardRef.current, phoneRef.current);
+          cleanup = animateCinematicHero(
+            containerRef.current,
+            cardRef.current,
+            phoneRef.current,
+          );
         }
       } catch (error) {
         console.warn("Could not load landing page animations.", error);
@@ -46,31 +51,59 @@ export function CinematicHero({ onClinicInfo }) {
         <div className="cinematic-shell cinematic-intro-layout">
           <div className="cinematic-intro-copy">
             <p className="cinematic-intro-label">Public dental services</p>
-            <h1>Dental care for <span>the people of Bago.</span></h1>
+            <h1>
+              Dental care for <span>the people of Bago.</span>
+            </h1>
             <p className="cinematic-intro-description">
               Get your dental queue ticket, check dentist availability, and
-              follow your turn with E-Kalusugan. A simpler clinic visit starts here.
+              follow your turn with E-Kalusugan. A simpler clinic visit starts
+              here.
             </p>
             <div className="cinematic-intro-actions">
-              <Link to={ROUTES.LOGIN} className="cinematic-clinic-button cinematic-dental-button">
+              <Link
+                to={ROUTES.LOGIN}
+                className="cinematic-clinic-button cinematic-dental-button"
+              >
                 Get a queue ticket <ArrowRight size={17} aria-hidden="true" />
               </Link>
-              <a href="#how-it-works" className="cinematic-clinic-button cinematic-visit-button">How it works</a>
+              <a
+                href="#how-it-works"
+                className="cinematic-clinic-button cinematic-visit-button"
+              >
+                How it works
+              </a>
             </div>
             <div className="cinematic-clinic-links">
-              <button type="button" className="cinematic-clinic-button cinematic-dental-button" aria-haspopup="dialog" onClick={() => onClinicInfo("dental")}>
-                Explore dental services <ArrowRight size={17} aria-hidden="true" />
+              <button
+                type="button"
+                className="cinematic-clinic-button cinematic-dental-button"
+                aria-haspopup="dialog"
+                onClick={() => onClinicInfo("dental")}
+              >
+                Explore dental services{" "}
+                <ArrowRight size={17} aria-hidden="true" />
               </button>
-              <button type="button" className="cinematic-clinic-button cinematic-visit-button" aria-haspopup="dialog" onClick={() => onClinicInfo("visit")}>
+              <button
+                type="button"
+                className="cinematic-clinic-button cinematic-visit-button"
+                aria-haspopup="dialog"
+                onClick={() => onClinicInfo("visit")}
+              >
                 <MapPin size={16} aria-hidden="true" /> Plan your visit
               </button>
-              <button type="button" className="cinematic-clinic-button cinematic-visit-button" aria-haspopup="dialog" onClick={() => onClinicInfo("oral")}>
+              <button
+                type="button"
+                className="cinematic-clinic-button cinematic-visit-button"
+                aria-haspopup="dialog"
+                onClick={() => onClinicInfo("oral")}
+              >
                 Oral Health
               </button>
             </div>
           </div>
           <p className="cinematic-photo-caption">
-            <MapPin size={14} aria-hidden="true" /> Bago City Health Center · Brgy. Poblacion
+            <MapPin size={14} aria-hidden="true" /> Bago City Health Center ·
+            Brgy. Poblacion
           </p>
         </div>
       </div>
@@ -121,7 +154,7 @@ export function CinematicHero({ onClinicInfo }) {
                       alt="logo"
                       className="size-7 rounded-full"
                     />
-                    <span className="text-xs font-bold tracking-widest">
+                    <span className="text-xs font-bold tracking-widest whitespace-nowrap">
                       E-KALUSUGAN
                     </span>
                   </div>
@@ -169,9 +202,6 @@ export function CinematicHero({ onClinicInfo }) {
               Healthcare that
               <br />
               moves with you.
-            </span>
-            <span className="mt-8 inline-block rounded-full border border-white/15 px-3 py-1.5 text-[9px] uppercase tracking-[0.18em] text-blue-100/80">
-              Patient home · Sample data
             </span>
           </div>
         </div>

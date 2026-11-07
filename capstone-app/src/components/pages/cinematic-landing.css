@@ -562,23 +562,6 @@
   color: var(--clinic-navy);
   background: #fff7ed;
 }
-.cinematic-primary {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  padding: 15px 22px;
-  border-radius: 14px;
-  color: #fff;
-  background: var(--clinic-blue);
-  font-size: 15px;
-  font-weight: 600;
-  transition: background-color 180ms;
-}
-.cinematic-primary:hover {
-  background: var(--clinic-navy);
-}
 @media (min-width: 768px) and (max-width: 1023px) {
   .cinematic-card-grid {
     grid-template-columns: 1fr 1fr;

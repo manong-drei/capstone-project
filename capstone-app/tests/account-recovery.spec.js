@@ -339,6 +339,17 @@ test("patient temporary login requires password setup and saves the replacement 
   await page.locator('input[name="newPassword"]').fill("PatientPassword2");
   await page.locator('input[name="confirmPassword"]').fill("PatientPassword2");
   await page.locator('button[type="submit"]').click();
+  const terms = page.getByRole("dialog", { name: "Terms, Privacy & Consent" });
+  await expect(terms).toBeVisible();
+  expect(state.passwordChanges).toEqual([]);
+  await terms.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/change-password$/);
+  await page.getByRole("button", { name: "Update Password" }).click();
+  const policy = terms.locator('[tabindex="0"]');
+  await expect(policy).toBeFocused();
+  await policy.press("End");
+  await terms.getByRole("checkbox").check();
+  await terms.getByRole("button", { name: "Accept & Continue" }).click();
   await expect(page).toHaveURL(/\/patient$/);
   expect(state.logins).toEqual([{ phone: "09123456789", password: "012345" }]);
   expect(state.passwordChanges).toEqual([{ newPassword: "PatientPassword2" }]);
