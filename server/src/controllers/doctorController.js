@@ -11,20 +11,35 @@ const Queue = require("../models/Queue");
 const Appointment = require("../models/Appointment");
 const pool = require("../config/db");
 
-const validReportDate = (date) => typeof date === "string" && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date) &&
-  !Number.isNaN(Date.parse(`${date}T00:00:00Z`)) && new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date;
+const validReportDate = (date) =>
+  typeof date === "string" &&
+  /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date) &&
+  !Number.isNaN(Date.parse(`${date}T00:00:00Z`)) &&
+  new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date;
 const reportWindow = (query) => {
   const period = query.period ?? "today";
-  const report_date = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const report_date = new Date(Date.now() + 8 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
   const date = query.date ?? report_date;
-  if (!["today", "weekly", "monthly"].includes(period) || !validReportDate(date)) return null;
+  if (
+    !["today", "weekly", "monthly"].includes(period) ||
+    !validReportDate(date)
+  )
+    return null;
   const from = new Date(`${date}T00:00:00Z`);
-  if (period === "weekly") from.setUTCDate(from.getUTCDate() - (from.getUTCDay() + 6) % 7);
+  if (period === "weekly")
+    from.setUTCDate(from.getUTCDate() - ((from.getUTCDay() + 6) % 7));
   if (period === "monthly") from.setUTCDate(1);
   const until = new Date(from);
   if (period === "monthly") until.setUTCMonth(until.getUTCMonth() + 1);
   else until.setUTCDate(until.getUTCDate() + (period === "weekly" ? 7 : 1));
-  return { period, report_date, from: from.toISOString().slice(0, 10), until: until.toISOString().slice(0, 10) };
+  return {
+    period,
+    report_date,
+    from: from.toISOString().slice(0, 10),
+    until: until.toISOString().slice(0, 10),
+  };
 };
 
 // Scalar lookups keep each queue visit counted once, even with duplicate legacy records.
@@ -42,12 +57,22 @@ const queueDoctor = `COALESCE(
 /** GET /api/doctor/analytics?period=today|weekly|monthly&date=YYYY-MM-DD */
 const getAnalytics = async (req, res) => {
   const window = reportWindow(req.query);
-  if (!window) return res.status(400).json({ success: false, message: "A valid analytics period and date are required." });
+  if (!window)
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "A valid analytics period and date are required.",
+      });
   const { from, until } = window;
   try {
     const doctor = await Doctor.findByUserId(req.user.user_id);
-    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
-    const [[queue]] = await pool.query(`
+    if (!doctor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Dentist profile not found." });
+    const [[queue]] = await pool.query(
+      `
       SELECT COUNT(DISTINCT q.patient_id) AS patients,
              COALESCE(SUM(status = 'waiting'), 0) AS waiting,
              COALESCE(SUM(status = 'serving'), 0) AS serving,
@@ -55,12 +80,18 @@ const getAnalytics = async (req, res) => {
              COALESCE(SUM(type = 'priority'), 0) AS priority,
              COALESCE(SUM(is_walk_in = 1), 0) AS walk_ins
       FROM queues q WHERE q.category = 'dental' AND q.created_at >= ? AND q.created_at < ? AND ${queueDoctor} = ?
-    `, [from, until, doctor.doctor_id]);
-    const [[{ appointments }]] = await pool.query(`
+    `,
+      [from, until, doctor.doctor_id],
+    );
+    const [[{ appointments }]] = await pool.query(
+      `
       SELECT COUNT(*) AS appointments FROM appointments
       WHERE appointment_date >= ? AND appointment_date < ? AND status != 'cancelled' AND doctor_id = ?
-    `, [from, until, doctor.doctor_id]);
-    const [completed_demographics] = await pool.query(`
+    `,
+      [from, until, doctor.doctor_id],
+    );
+    const [completed_demographics] = await pool.query(
+      `
       SELECT COALESCE(NULLIF(TRIM(p.barangay), ''), 'Unknown') AS barangay,
       CASE LOWER(TRIM(COALESCE(NULLIF(TRIM(p.gender), ''), q.walk_in_gender, '')))
         WHEN 'male' THEN 'Male' WHEN 'female' THEN 'Female' WHEN 'other' THEN 'Other' ELSE 'Unknown'
@@ -78,15 +109,29 @@ const getAnalytics = async (req, res) => {
       FROM queues q LEFT JOIN patients p ON p.patient_id = q.patient_id
       WHERE q.category = 'dental' AND q.status = 'done' AND q.created_at >= ? AND q.created_at < ? AND ${queueDoctor} = ?
       GROUP BY barangay, sex, age_group ORDER BY barangay, age_group, sex
-    `, [from, until, doctor.doctor_id]);
+    `,
+      [from, until, doctor.doctor_id],
+    );
     const ages = new Map();
-    for (const row of completed_demographics) ages.set(row.age_group, (ages.get(row.age_group) || 0) + Number(row.count));
+    for (const row of completed_demographics)
+      ages.set(
+        row.age_group,
+        (ages.get(row.age_group) || 0) + Number(row.count),
+      );
     res.json({
       ...window,
-      ...Object.fromEntries(Object.entries(queue).map(([key, value]) => [key, Number(value)])),
+      ...Object.fromEntries(
+        Object.entries(queue).map(([key, value]) => [key, Number(value)]),
+      ),
       appointments: Number(appointments),
-      age_groups: Array.from(ages, ([age_group, count]) => ({ age_group, count })),
-      completed_demographics: completed_demographics.map((row) => ({ ...row, count: Number(row.count) })),
+      age_groups: Array.from(ages, ([age_group, count]) => ({
+        age_group,
+        count,
+      })),
+      completed_demographics: completed_demographics.map((row) => ({
+        ...row,
+        count: Number(row.count),
+      })),
     });
   } catch (err) {
     console.error("getAnalytics error:", err);
@@ -94,31 +139,53 @@ const getAnalytics = async (req, res) => {
   }
 };
 
-const reportValue = (data) => typeof data === "string" ? JSON.parse(data) : data;
+const reportValue = (data) =>
+  typeof data === "string" ? JSON.parse(data) : data;
 const validReportData = (data, length = 24) => {
-  const validCount = (value) => value === null ||
+  const validCount = (value) =>
+    value === null ||
     (Number.isSafeInteger(value) && value >= 0 && value <= 999999999);
-  return Array.isArray(data) && data.length === 24 &&
-    data.every((values) => Array.isArray(values) && values.length === length && values.every(validCount));
+  return (
+    Array.isArray(data) &&
+    data.length === 24 &&
+    data.every(
+      (values) =>
+        Array.isArray(values) &&
+        values.length === length &&
+        values.every(validCount),
+    )
+  );
 };
 const reportRows = (stored) => {
   const rows = stored?.barangays;
   if (validReportData(rows)) return rows;
-  if (validReportData(rows, 12)) return rows.map((row) => [...row, ...Array(12).fill(null)]);
+  if (validReportData(rows, 12))
+    return rows.map((row) => [...row, ...Array(12).fill(null)]);
   return null;
 };
 
 const getDailyReport = async (req, res) => {
-  if (!validReportDate(req.query.date)) return res.status(400).json({ success: false, message: "A valid report date is required." });
+  if (!validReportDate(req.query.date))
+    return res
+      .status(400)
+      .json({ success: false, message: "A valid report date is required." });
   try {
     const doctor = await Doctor.findByUserId(req.user.user_id);
-    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    if (!doctor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Dentist profile not found." });
     const [[report]] = await pool.query(
       "SELECT data FROM doctor_daily_reports WHERE doctor_id = ? AND report_date = ?",
       [doctor.doctor_id, req.query.date],
     );
     const stored = report ? reportValue(report.data) : null;
-    res.json({ data: reportRows(stored), legacy: stored?.categories ? { categories: stored.categories, pregnant: stored.pregnant } : null });
+    res.json({
+      data: reportRows(stored),
+      legacy: stored?.categories
+        ? { categories: stored.categories, pregnant: stored.pregnant }
+        : null,
+    });
   } catch (err) {
     console.error("getDailyReport error:", err);
     res.status(500).json({ success: false, message: "Server error." });
@@ -127,16 +194,28 @@ const getDailyReport = async (req, res) => {
 
 const saveDailyReport = async (req, res) => {
   if (!validReportDate(req.body?.date) || !validReportData(req.body?.data)) {
-    return res.status(400).json({ success: false, message: "A valid date and 24 barangay rows of blank or whole-number counts are required." });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message:
+          "A valid date and 24 barangay rows of blank or whole-number counts are required.",
+      });
   }
   try {
     const doctor = await Doctor.findByUserId(req.user.user_id);
-    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    if (!doctor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Dentist profile not found." });
     const [[previous]] = await pool.query(
       "SELECT data FROM doctor_daily_reports WHERE doctor_id = ? AND report_date = ?",
       [doctor.doctor_id, req.body.date],
     );
-    const data = { ...(previous ? reportValue(previous.data) : {}), barangays: req.body.data };
+    const data = {
+      ...(previous ? reportValue(previous.data) : {}),
+      barangays: req.body.data,
+    };
     await pool.query(
       `INSERT INTO doctor_daily_reports (doctor_id, report_date, data)
        VALUES (?, ?, ?)
@@ -153,15 +232,24 @@ const saveDailyReport = async (req, res) => {
 const getMonthlyReport = async (req, res) => {
   const month = req.query.month;
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || ""))
-    return res.status(400).json({ success: false, message: "A valid report month is required." });
+    return res
+      .status(400)
+      .json({ success: false, message: "A valid report month is required." });
   try {
     const doctor = await Doctor.findByUserId(req.user.user_id);
-    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    if (!doctor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Dentist profile not found." });
     const [rows] = await pool.query(
       "SELECT data FROM doctor_daily_reports WHERE doctor_id = ? AND report_date >= ? AND report_date < DATE_ADD(?, INTERVAL 1 MONTH) ORDER BY report_date",
       [doctor.doctor_id, `${month}-01`, `${month}-01`],
     );
-    res.json({ reports: rows.map((row) => reportRows(reportValue(row.data))).filter(Boolean) });
+    res.json({
+      reports: rows
+        .map((row) => reportRows(reportValue(row.data)))
+        .filter(Boolean),
+    });
   } catch (err) {
     console.error("getMonthlyReport error:", err);
     res.status(500).json({ success: false, message: "Server error." });
@@ -171,16 +259,32 @@ const getMonthlyReport = async (req, res) => {
 /** GET /api/doctor/report?period=today|weekly|monthly&date=YYYY-MM-DD */
 const getReport = async (req, res) => {
   const window = reportWindow(req.query);
-  if (!window) return res.status(400).json({ success: false, message: "A valid report period and date are required." });
+  if (!window)
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "A valid report period and date are required.",
+      });
   try {
     const doctor = await Doctor.findByUserId(req.user.user_id);
-    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    if (!doctor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Dentist profile not found." });
     const [rows] = await pool.query(
       "SELECT data FROM doctor_daily_reports WHERE doctor_id = ? AND report_date >= ? AND report_date < ? ORDER BY report_date",
       [doctor.doctor_id, window.from, window.until],
     );
     const { period, from, until } = window;
-    res.json({ period, from, until, reports: rows.map((row) => reportRows(reportValue(row.data))).filter(Boolean) });
+    res.json({
+      period,
+      from,
+      until,
+      reports: rows
+        .map((row) => reportRows(reportValue(row.data)))
+        .filter(Boolean),
+    });
   } catch (err) {
     console.error("getReport error:", err);
     res.status(500).json({ success: false, message: "Server error." });
@@ -191,7 +295,10 @@ const getReport = async (req, res) => {
 const getDailySettings = async (req, res) => {
   try {
     const date = req.query.date || clinicToday();
-    if (!validDate(date)) return res.status(400).json({ success: false, message: "A valid date is required." });
+    if (!validDate(date))
+      return res
+        .status(400)
+        .json({ success: false, message: "A valid date is required." });
     const doctor = await Doctor.findByUserId(req.user.user_id);
     if (!doctor)
       return res
@@ -215,7 +322,10 @@ const getDailySettings = async (req, res) => {
       [date],
     );
 
-    const approvedLeave = await DoctorLeave.findApproved(doctor.doctor_id, date);
+    const approvedLeave = await DoctorLeave.findApproved(
+      doctor.doctor_id,
+      date,
+    );
     res.status(200).json({
       appointment_limit: settings?.appointment_limit ?? 10,
       walk_in_limit: settings?.walk_in_limit ?? 0,
@@ -235,10 +345,24 @@ const getDailySettings = async (req, res) => {
 const upsertDailySettings = async (req, res) => {
   try {
     const { date, appointment_limit, walk_in_limit, is_available } = req.body;
-    if (!validDate(date) || !Number.isInteger(appointment_limit) || appointment_limit < 0 || appointment_limit > 10 ||
-      !Number.isInteger(walk_in_limit) || walk_in_limit < 0 || walk_in_limit > 999 ||
-      (is_available !== undefined && ![0, 1, true, false].includes(is_available))) {
-      return res.status(400).json({ success: false, message: "Provide a valid date, appointment limit from 0 to 10, walk-in limit from 0 to 999, and valid availability." });
+    if (
+      !validDate(date) ||
+      !Number.isInteger(appointment_limit) ||
+      appointment_limit < 0 ||
+      appointment_limit > 10 ||
+      !Number.isInteger(walk_in_limit) ||
+      walk_in_limit < 0 ||
+      walk_in_limit > 999 ||
+      (is_available !== undefined &&
+        ![0, 1, true, false].includes(is_available))
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message:
+            "Provide a valid date, appointment limit from 0 to 10, walk-in limit from 0 to 999, and valid availability.",
+        });
     }
 
     const doctor = await Doctor.findByUserId(req.user.user_id);
@@ -247,23 +371,40 @@ const upsertDailySettings = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Dentist profile not found." });
 
-    await audit.transaction(async connection => {
-      await connection.query('SELECT doctor_id FROM doctors WHERE doctor_id = ? FOR UPDATE', [doctor.doctor_id]);
-      if (is_available === 1 || is_available === true) await DoctorLeave.assertAvailable(doctor.doctor_id, date, connection);
-      const availability = is_available === undefined ? null : Number(is_available);
+    await audit.transaction(async (connection) => {
+      await connection.query(
+        "SELECT doctor_id FROM doctors WHERE doctor_id = ? FOR UPDATE",
+        [doctor.doctor_id],
+      );
+      if (is_available === 1 || is_available === true)
+        await DoctorLeave.assertAvailable(doctor.doctor_id, date, connection);
+      const availability =
+        is_available === undefined ? null : Number(is_available);
       await connection.query(
         `INSERT INTO daily_doctor_settings (doctor_id, date, appointment_limit, walk_in_limit, is_available)
          VALUES (?, ?, ?, ?, COALESCE(?, 1))
          ON DUPLICATE KEY UPDATE appointment_limit = VALUES(appointment_limit),
            walk_in_limit = VALUES(walk_in_limit), is_available = COALESCE(?, is_available)`,
-        [doctor.doctor_id, date, appointment_limit, walk_in_limit, availability, availability],
+        [
+          doctor.doctor_id,
+          date,
+          appointment_limit,
+          walk_in_limit,
+          availability,
+          availability,
+        ],
       );
     });
 
     res.status(200).json({ success: true, message: "Daily settings saved." });
   } catch (err) {
     console.error("upsertDailySettings error:", err);
-    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+    res
+      .status(err.status || 500)
+      .json({
+        success: false,
+        message: err.status ? err.message : "Server error.",
+      });
   }
 };
 /** GET /api/doctors */
@@ -299,16 +440,23 @@ const getDoctorById = async (req, res) => {
 const getDoctorRecords = async (req, res) => {
   const id = Number(req.params.id);
   if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id <= 0) {
-    return res.status(400).json({ success: false, message: "A valid doctor ID is required." });
+    return res
+      .status(400)
+      .json({ success: false, message: "A valid doctor ID is required." });
   }
   try {
     const doctor = await Doctor.findAdminProfile(id);
-    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found." });
+    if (!doctor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Doctor not found." });
     const availability = await Doctor.findAvailabilityRecords(id);
     res.status(200).json({ success: true, data: { doctor, availability } });
   } catch (err) {
     console.error("getDoctorRecords error:", err);
-    res.status(500).json({ success: false, message: "Unable to load doctor records." });
+    res
+      .status(500)
+      .json({ success: false, message: "Unable to load doctor records." });
   }
 };
 
@@ -317,12 +465,17 @@ const getPatientHistory = async (req, res) => {
   res.set("Cache-Control", "no-store");
   try {
     const doctor = await Doctor.findByUserId(req.user.user_id);
-    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    if (!doctor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Dentist profile not found." });
     const visits = await DoctorHistory.findVisits(doctor.doctor_id);
     res.json({ success: true, visits });
   } catch (err) {
     console.error("getPatientHistory error:", err);
-    res.status(500).json({ success: false, message: "Unable to load patient history." });
+    res
+      .status(500)
+      .json({ success: false, message: "Unable to load patient history." });
   }
 };
 
@@ -331,87 +484,178 @@ const getConsultation = async (req, res) => {
   res.set("Cache-Control", "no-store");
   const id = Number(req.params.id);
   if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id <= 0) {
-    return res.status(400).json({ success: false, message: "A valid consultation ID is required." });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "A valid consultation ID is required.",
+      });
   }
   try {
     const doctor = await Doctor.findByUserId(req.user.user_id);
-    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
-    const consultation = await DoctorHistory.findConsultation(doctor.doctor_id, id);
-    if (!consultation) return res.status(404).json({ success: false, message: "Consultation not found." });
+    if (!doctor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Dentist profile not found." });
+    const consultation = await DoctorHistory.findConsultation(
+      doctor.doctor_id,
+      id,
+    );
+    if (!consultation)
+      return res
+        .status(404)
+        .json({ success: false, message: "Consultation not found." });
     res.json({ success: true, data: consultation });
   } catch (err) {
     console.error("getConsultation error:", err);
-    res.status(500).json({ success: false, message: "Unable to load consultation notes." });
+    res
+      .status(500)
+      .json({ success: false, message: "Unable to load consultation notes." });
   }
 };
 
-/** POST /api/doctor/consultations */
+/** POST /api/doctor/consultations **/
 const createConsultation = async (req, res) => {
   try {
     const { queue_id, notes, diagnosis, prescription } = req.body;
     const id = Number(queue_id);
 
-    if (!Number.isSafeInteger(id) || id <= 0 || typeof notes !== 'string' || !notes.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "queue_id and notes are required." });
+    if (
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      typeof notes !== "string" ||
+      !notes.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "queue_id and notes are required.",
+      });
     }
-    if ([diagnosis, prescription].some(value => value != null && typeof value !== 'string')) {
-      return res.status(400).json({ success: false, message: 'Diagnosis and prescription must be text.' });
+
+    if (
+      [diagnosis, prescription].some(
+        (value) => value != null && typeof value !== "string",
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Diagnosis and prescription must be text.",
+      });
     }
+
     const directions = prescription?.trim();
 
-    // Get the doctor profile from the logged-in user
     const doctor = await Doctor.findByUserId(req.user.user_id);
+
     if (!doctor) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Dentist profile not found." });
+      return res.status(404).json({
+        success: false,
+        message: "Dentist profile not found.",
+      });
     }
 
     const result = await Queue._withTicket(id, async (queueRow, connection) => {
-      // Staff may finish the queue before the dentist saves notes.
-      if (!['serving', 'done'].includes(queueRow.status)) {
-        throw Object.assign(new Error('The patient must be serving or finished before saving a consultation.'), { status: 400 });
+      if (!["serving", "done"].includes(queueRow.status)) {
+        throw Object.assign(
+          new Error(
+            "The patient must be serving or finished before saving a consultation.",
+          ),
+          { status: 400 },
+        );
       }
-      if (queueRow.completed_by_doctor_id && queueRow.completed_by_doctor_id !== doctor.doctor_id) {
-        throw Object.assign(new Error('This walk-in is recorded under a different treating dentist.'), { status: 403 });
+
+      if (
+        queueRow.completed_by_doctor_id &&
+        queueRow.completed_by_doctor_id !== doctor.doctor_id
+      ) {
+        throw Object.assign(
+          new Error(
+            "This walk-in is recorded under a different treating dentist.",
+          ),
+          { status: 403 },
+        );
       }
-      const [[existing]] = await connection.query('SELECT consultation_id FROM consultations WHERE queue_id = ? LIMIT 1', [id]);
-      if (existing) throw Object.assign(new Error('A consultation has already been saved for this patient visit.'), { status: 409 });
+
+      const [[existing]] = await connection.query(
+        "SELECT consultation_id FROM consultations WHERE queue_id = ? LIMIT 1",
+        [id],
+      );
+
+      if (existing) {
+        throw Object.assign(
+          new Error(
+            "A consultation has already been saved for this patient visit.",
+          ),
+          { status: 409 },
+        );
+      }
 
       const [consultResult] = await connection.query(
-        `INSERT INTO consultations (queue_id, doctor_id, patient_id, chief_complaint, diagnosis, notes)
+        `INSERT INTO consultations
+          (queue_id, doctor_id, patient_id, chief_complaint, diagnosis, notes)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [id, doctor.doctor_id, queueRow.patient_id, notes, diagnosis || null, null],
+        [
+          id,
+          doctor.doctor_id,
+          queueRow.patient_id,
+          notes.trim(),
+          diagnosis?.trim() || null,
+          null,
+        ],
       );
+
       const consultation_id = consultResult.insertId;
+
       if (directions) {
         const [saved] = await connection.query(
-          `INSERT INTO prescriptions (consultation_id, medication_name) VALUES (?, ?)`,
+          `INSERT INTO prescriptions
+            (consultation_id, medication_name)
+           VALUES (?, ?)`,
           [consultation_id, directions],
         );
+
         if (saved.warningStatus) {
-          const [[stored]] = await connection.query('SELECT medication_name FROM prescriptions WHERE prescription_id = ?', [saved.insertId]);
-          if (stored?.medication_name !== directions) throw new Error('Prescription text changed during the write.');
+          const [[stored]] = await connection.query(
+            "SELECT medication_name FROM prescriptions WHERE prescription_id = ?",
+            [saved.insertId],
+          );
+
+          if (stored?.medication_name !== directions) {
+            throw new Error("Prescription text changed during the write.");
+          }
         }
       }
-      if (queueRow.status === 'serving') {
-        await connection.query(`UPDATE queues SET status = ?, status_reason = ?, updated_at = NOW() WHERE id = ?`, ['done', null, id]);
-      }
-      await Appointment.updateFromTicket(queueRow, 'done', connection);
+
+      // Do not change queue or appointment status here.
       return { consultation_id };
     });
-    if (!result) return res.status(404).json({ success: false, message: 'Queue entry not found.' });
-    if (result.expired) return res.status(409).json({ success: false, message: 'This ticket has expired and cannot receive a consultation.' });
-    require('../services/smsNotifications').wakeWorker();
 
-    res
-      .status(201)
-      .json({ success: true, message: "Consultation saved.", consultation_id: result.consultation_id });
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue entry not found.",
+      });
+    }
+
+    if (result.expired) {
+      return res.status(409).json({
+        success: false,
+        message: "This ticket has expired and cannot receive a consultation.",
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Consultation saved.",
+      consultation_id: result.consultation_id,
+    });
   } catch (err) {
-    if (!err.status) console.error("Consultation could not be saved.");
-    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+    if (!err.status) console.error(err);
+
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.status ? err.message : "Server error.",
+    });
   }
 };
 

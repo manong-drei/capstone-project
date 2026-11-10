@@ -1,18 +1,31 @@
 import { createContext, useEffect, useState } from "react";
 import { ROLES } from "../constants/roles";
 import { ROUTES } from "../constants/routes";
+
 export const AuthContext = createContext(null);
 
 function createSession(token, cachedUser) {
   const parts = token.split(".");
-  if (parts.length !== 3) throw new Error("Invalid session. Please log in again.");
+  if (parts.length !== 3)
+    throw new Error("Invalid session. Please log in again.");
   // Decoding restores the UI; the backend still verifies signatures and account access.
-  const claims = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-  if (!claims.user_id || !Object.values(ROLES).includes(claims.role) ||
-      !Number.isFinite(claims.exp) || claims.exp * 1000 <= Date.now()) {
-    throw new Error("Your session has expired or is invalid. Please log in again.");
+  const claims = JSON.parse(
+    atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
+  );
+  if (
+    !claims.user_id ||
+    !Object.values(ROLES).includes(claims.role) ||
+    !Number.isFinite(claims.exp) ||
+    claims.exp * 1000 <= Date.now()
+  ) {
+    throw new Error(
+      "Your session has expired or is invalid. Please log in again.",
+    );
   }
-  const user = (cachedUser?.user_id ?? cachedUser?.id) === claims.user_id ? cachedUser : {};
+  const user =
+    (cachedUser?.user_id ?? cachedUser?.id) === claims.user_id
+      ? cachedUser
+      : {};
   return {
     token,
     user: {
@@ -20,7 +33,8 @@ function createSession(token, cachedUser) {
       user_id: claims.user_id,
       phone: claims.phone ?? user.phone,
       role: claims.role,
-      must_change_password: claims.purpose === "password_setup" ||
+      must_change_password:
+        claims.purpose === "password_setup" ||
         (!claims.purpose && !!user.must_change_password),
     },
   };
@@ -31,15 +45,23 @@ function restoreSession() {
     // Shared legacy credentials cannot identify which account belongs to this tab.
     localStorage.removeItem("ek_user");
     localStorage.removeItem("ek_token");
-  } catch { /* Unavailable legacy storage must not block this tab's session. */ }
+    localStorage.removeItem("ek_remarks_drafts");
+  } catch {
+    /* Unavailable legacy storage must not block this tab's session. */
+  }
   try {
     sessionStorage.removeItem("user");
     const token = sessionStorage.getItem("ek_token");
     let user;
-    try { user = JSON.parse(sessionStorage.getItem("ek_user")); }
-    catch { /* A damaged user cache must not discard a valid token. */ }
+    try {
+      user = JSON.parse(sessionStorage.getItem("ek_user"));
+    } catch {
+      /* A damaged user cache must not discard a valid token. */
+    }
     if (token) return createSession(token, user);
-  } catch { /* Invalid tokens or unavailable storage require a new login. */ }
+  } catch {
+    /* Invalid tokens or unavailable storage require a new login. */
+  }
   return { user: null, token: null };
 }
 
@@ -51,11 +73,15 @@ export function AuthProvider({ children }) {
     if (!token) return;
     const hadUserCache = !!sessionStorage.getItem("ek_user");
     const checkSession = () => {
-      if (sessionStorage.getItem("ek_token") === token &&
-          (!hadUserCache || sessionStorage.getItem("ek_user"))) return;
+      if (
+        sessionStorage.getItem("ek_token") === token &&
+        (!hadUserCache || sessionStorage.getItem("ek_user"))
+      )
+        return;
       sessionStorage.removeItem("user");
       sessionStorage.removeItem("ek_user");
       sessionStorage.removeItem("ek_token");
+      sessionStorage.removeItem("ek_remarks_drafts");
       setSession({ user: null, token: null });
       window.location.replace(ROUTES.HOME);
     };
@@ -88,6 +114,7 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem("user");
     sessionStorage.removeItem("ek_user");
     sessionStorage.removeItem("ek_token");
+    sessionStorage.removeItem("ek_remarks_drafts");
   };
 
   return (

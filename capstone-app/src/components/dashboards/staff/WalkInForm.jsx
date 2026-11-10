@@ -19,7 +19,9 @@ const inputClass =
   "w-full min-w-0 scroll-mt-24 rounded-xl border bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:ring-2";
 
 const clinicDay = (value) =>
-  value ? new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) : "";
+  value
+    ? new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })
+    : "";
 
 function RequiredMark() {
   return (
@@ -109,31 +111,50 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
     if (selectedPatient) return;
     const term = lookup.trim();
     const isPhoneLookup = /^\+?[\d\s-]+$/.test(term);
-    const digits = (term ? (isPhoneLookup ? term : '') : form.contact).replace(/\D/g, '');
-    const phone = digits.length === 10 && digits.startsWith('9') ? '0' + digits : digits;
+    const digits = (term ? (isPhoneLookup ? term : "") : form.contact).replace(
+      /\D/g,
+      "",
+    );
+    const phone =
+      digits.length === 10 && digits.startsWith("9") ? "0" + digits : digits;
     const params = new URLSearchParams();
     if (term) {
-      if (isPhoneLookup && phone.length >= 4) params.set('phone', phone);
-      else if (!isPhoneLookup && term.length >= 2) params.set('name', term);
+      if (isPhoneLookup && phone.length >= 4) params.set("phone", phone);
+      else if (!isPhoneLookup && term.length >= 2) params.set("name", term);
     } else {
-      if (fullName.length >= 2) params.set('name', fullName);
-      if (phone.length >= 4) params.set('phone', phone);
+      if (fullName.length >= 2) params.set("name", fullName);
+      if (phone.length >= 4) params.set("phone", phone);
     }
-    if (form.dateOfBirth) params.set('date_of_birth', form.dateOfBirth);
+    if (form.dateOfBirth) params.set("date_of_birth", form.dateOfBirth);
     const timer = setTimeout(() => {
       setSearchQuery(params.toString());
-      if (!params.size) { setMatches([]); setSearching(false); }
+      if (!params.size) {
+        setMatches([]);
+        setSearching(false);
+      }
     }, 300);
     return () => clearTimeout(timer);
   }, [lookup, fullName, form.contact, form.dateOfBirth, selectedPatient]);
-  useLiveData(useCallback(async (signal, background) => {
-    if (!background) setSearching(true);
-    try {
-      const res = await api.get('/patients/search?' + searchQuery, { signal });
-      if (!signal.aborted) setMatches(res.data || []);
-    } catch (err) { if (!signal.aborted) setError(err.message || 'Unable to search patient records.'); }
-    finally { if (!signal.aborted) setSearching(false); }
-  }, [searchQuery]), !selectedPatient && Boolean(searchQuery));
+  useLiveData(
+    useCallback(
+      async (signal, background) => {
+        if (!background) setSearching(true);
+        try {
+          const res = await api.get("/patients/search?" + searchQuery, {
+            signal,
+          });
+          if (!signal.aborted) setMatches(res.data || []);
+        } catch (err) {
+          if (!signal.aborted)
+            setError(err.message || "Unable to search patient records.");
+        } finally {
+          if (!signal.aborted) setSearching(false);
+        }
+      },
+      [searchQuery],
+    ),
+    !selectedPatient && Boolean(searchQuery),
+  );
 
   const selectPatient = async (id) => {
     setError("");

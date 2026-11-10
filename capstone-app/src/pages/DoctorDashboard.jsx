@@ -1,5 +1,12 @@
 import useLiveData from "@/hooks/useLiveData";
-import { lazy, Suspense, useState, useCallback, useRef } from "react";
+import {
+  lazy,
+  Suspense,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
 import {
   Navigate,
   matchPath,
@@ -21,37 +28,64 @@ import ConsultationModal from "@/components/dashboards/doctor/ConsultationModal"
 import LimitWarningModal from "@/components/dashboards/doctor/LimitWarningModal";
 import DoctorHomeTab from "@/components/dashboards/doctor/DoctorHomeTab";
 
-const DoctorAnalyticsTab = lazy(() => import("@/components/dashboards/doctor/DoctorAnalyticsTab"));
-const DoctorAppointmentsTab = lazy(() => import("@/components/dashboards/doctor/DoctorAppointmentsTab"));
-const DoctorLeaveModal = lazy(() => import("@/components/dashboards/doctor/DoctorLeaveModal"));
+const DoctorAnalyticsTab = lazy(
+  () => import("@/components/dashboards/doctor/DoctorAnalyticsTab"),
+);
+const DoctorAppointmentsTab = lazy(
+  () => import("@/components/dashboards/doctor/DoctorAppointmentsTab"),
+);
+const DoctorLeaveModal = lazy(
+  () => import("@/components/dashboards/doctor/DoctorLeaveModal"),
+);
 
 const clinicToday = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
 /** Shared desktop container — keep the header and every tab's content on the same axis. */
 const CONTENT_CONTAINER = "mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8";
+const REMARKS_DRAFTS_KEY = "ek_remarks_drafts";
 
+const loadRemarksDrafts = (userId) => {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(REMARKS_DRAFTS_KEY));
+    if (
+      userId != null &&
+      String(stored?.user_id) === String(userId) &&
+      stored.drafts &&
+      typeof stored.drafts === "object" &&
+      !Array.isArray(stored.drafts)
+    ) {
+      return stored.drafts;
+    }
+  } catch {
+    /* A damaged or unavailable draft cache starts empty. */
+  }
+  return {};
+};
 export default function DoctorDashboard() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { identity } = useDashboardIdentity();
-  const { queues, loading, error, fetchAllQueues, updateStatus } = useQueue();
+  const { queues, loading, error, fetchAllQueues } = useQueue();
 
   const leaveOpen = pathname === ROUTES.DOCTOR_LEAVE_REQUESTS;
-  const activeTab =
-    leaveOpen
-      ? "home"
-      : pathname === ROUTES.DOCTOR_DAILY_REPORT
-        ? "analytics"
-        : matchPath(ROUTES.DOCTOR_CONSULTATION, pathname)
-          ? "history"
-          : DASHBOARD_NAVIGATION.doctor.find((item) => item.path === pathname)?.key;
+  const activeTab = leaveOpen
+    ? "home"
+    : pathname === ROUTES.DOCTOR_DAILY_REPORT
+      ? "analytics"
+      : matchPath(ROUTES.DOCTOR_CONSULTATION, pathname)
+        ? "history"
+        : DASHBOARD_NAVIGATION.doctor.find((item) => item.path === pathname)
+            ?.key;
   const [initialLoading, setInitialLoading] = useState(true);
   const [showManual, setShowManual] = useState(false);
   const [showConsultModal, setShowConsultModal] = useState(false);
   const [servingPatient, setServingPatient] = useState(null);
   const [consultLoading, setConsultLoading] = useState(false);
+  const [remarksDrafts, setRemarksDrafts] = useState(() =>
+    loadRemarksDrafts(user?.user_id),
+  );
   const [queueActionLoading, setQueueActionLoading] = useState(false);
   const [capacityCollapsed, setCapacityCollapsed] = useState(false);
   const [showLimitWarning, setShowLimitWarning] = useState(false);
@@ -75,10 +109,27 @@ export default function DoctorDashboard() {
   const [historyError, setHistoryError] = useState("");
   const [historyRetry, setHistoryRetry] = useState(0);
 
+  useEffect(() => {
+    if (!user?.user_id) return;
+    try {
+      if (Object.keys(remarksDrafts).length) {
+        sessionStorage.setItem(
+          REMARKS_DRAFTS_KEY,
+          JSON.stringify({ user_id: user.user_id, drafts: remarksDrafts }),
+        );
+      } else {
+        sessionStorage.removeItem(REMARKS_DRAFTS_KEY);
+      }
+    } catch {
+      /* Drafts stay in memory when storage is unavailable. */
+    }
+  }, [remarksDrafts, user?.user_id]);
+
   const fetchDailySettings = useCallback(async (signal) => {
     try {
       const data = await api.get(
-        `/doctor/daily-settings?date=${clinicToday()}`, { signal },
+        `/doctor/daily-settings?date=${clinicToday()}`,
+        { signal },
       );
       if (signal?.aborted) return;
       if (!settingsDirty.current) {
@@ -157,19 +208,37 @@ export default function DoctorDashboard() {
     }
   };
 
-  useLiveData(useCallback(async (signal, background) => {
-    await Promise.all([fetchAllQueues(signal, background), fetchDailySettings(signal)]);
-    if (!signal.aborted) setInitialLoading(false);
-  }, [fetchAllQueues, fetchDailySettings]));
+  useLiveData(
+    useCallback(
+      async (signal, background) => {
+        await Promise.all([
+          fetchAllQueues(signal, background),
+          fetchDailySettings(signal),
+        ]);
+        if (!signal.aborted) setInitialLoading(false);
+      },
+      [fetchAllQueues, fetchDailySettings],
+    ),
+  );
 
-  useLiveData(useCallback(async (signal, background) => {
-    if (!background) setHistoryLoading(true);
-    try {
-      const data = await api.get('/doctor/patient-history', { signal });
-      if (!signal.aborted) { setHistoryVisits(data.visits ?? []); setHistoryError(''); }
-    } catch (err) { if (!signal.aborted) setHistoryError(err.message); }
-    finally { if (!signal.aborted) setHistoryLoading(false); }
-  }, []), activeTab === "history", historyRetry);
+  useLiveData(
+    useCallback(async (signal, background) => {
+      if (!background) setHistoryLoading(true);
+      try {
+        const data = await api.get("/doctor/patient-history", { signal });
+        if (!signal.aborted) {
+          setHistoryVisits(data.visits ?? []);
+          setHistoryError("");
+        }
+      } catch (err) {
+        if (!signal.aborted) setHistoryError(err.message);
+      } finally {
+        if (!signal.aborted) setHistoryLoading(false);
+      }
+    }, []),
+    activeTab === "history",
+    historyRetry,
+  );
 
   const handleCallNext = async () => {
     if (servingQueue) {
@@ -189,8 +258,33 @@ export default function DoctorDashboard() {
   };
 
   const handleMarkDone = async (id) => {
-    await updateStatus(id, QUEUE_STATUS.DONE);
-    fetchAllQueues();
+    setQueueActionLoading(true);
+    try {
+      if (id) {
+        await api.patch(`/queue/${id}/status`, { status: QUEUE_STATUS.DONE });
+        const remarks = remarksDrafts[id];
+        if (remarks) {
+          await api.post("/doctor/consultations", {
+            queue_id: id,
+            ...remarks,
+          });
+          setRemarksDrafts((previous) => {
+            const next = { ...previous };
+            delete next[id];
+            return next;
+          });
+        }
+      }
+      if (waiting.length) {
+        await api.post("/queue/call-next", { category: "dental" });
+      }
+      await fetchAllQueues();
+    } catch (err) {
+      await fetchAllQueues();
+      alert(err.message);
+    } finally {
+      setQueueActionLoading(false);
+    }
   };
 
   const handleQueueAction = async (id, action) => {
@@ -212,12 +306,23 @@ export default function DoctorDashboard() {
     }
   };
 
-  const handleSaveConsultation = async (notes) => {
+  const handleSaveConsultation = async (remarks) => {
+    const ticketId = servingPatient?.id;
+    if (servingQueue && ticketId === servingQueue.id) {
+      setRemarksDrafts((previous) => ({ ...previous, [ticketId]: remarks }));
+      setShowConsultModal(false);
+      return;
+    }
     setConsultLoading(true);
     try {
       await api.post("/doctor/consultations", {
-        queue_id: servingPatient?.id,
-        ...notes,
+        queue_id: ticketId,
+        ...remarks,
+      });
+      setRemarksDrafts((previous) => {
+        const next = { ...previous };
+        delete next[ticketId];
+        return next;
       });
       setShowConsultModal(false);
       setServingPatient(null);
@@ -261,12 +366,15 @@ export default function DoctorDashboard() {
 
   if (!activeTab) return <Navigate to={ROUTES.DOCTOR_DASHBOARD} replace />;
 
-  const dashboardFont = pathname === ROUTES.DOCTOR_DASHBOARD
-    ? "font-sans lg:font-[Poppins,sans-serif]"
-    : "font-[Poppins,sans-serif]";
+  const dashboardFont =
+    pathname === ROUTES.DOCTOR_DASHBOARD
+      ? "font-sans lg:font-[Poppins,sans-serif]"
+      : "font-[Poppins,sans-serif]";
 
   return (
-    <div className={`flex min-h-screen flex-col bg-slate-100 text-slate-800 ${dashboardFont}`}>
+    <div
+      className={`flex min-h-screen flex-col bg-slate-100 text-slate-800 ${dashboardFont}`}
+    >
       <UserManual
         role="doctor"
         isOpen={showManual}
@@ -297,9 +405,15 @@ export default function DoctorDashboard() {
           capacityCollapsed={capacityCollapsed}
           setCapacityCollapsed={setCapacityCollapsed}
           appointmentLimit={appointmentLimit}
-          setAppointmentLimit={(value) => { settingsDirty.current = true; setAppointmentLimit(value); }}
+          setAppointmentLimit={(value) => {
+            settingsDirty.current = true;
+            setAppointmentLimit(value);
+          }}
           walkInLimit={walkInLimit}
-          setWalkInLimit={(value) => { settingsDirty.current = true; setWalkInLimit(value); }}
+          setWalkInLimit={(value) => {
+            settingsDirty.current = true;
+            setWalkInLimit(value);
+          }}
           bookedCount={bookedCount}
           walkInCount={walkInCount}
           walkInPercent={walkInPercent}
@@ -329,7 +443,13 @@ export default function DoctorDashboard() {
         />
       )}
       {activeTab === "analytics" && (
-        <Suspense fallback={<div className={`${CONTENT_CONTAINER} py-6`}><DashboardSkeleton /></div>}>
+        <Suspense
+          fallback={
+            <div className={`${CONTENT_CONTAINER} py-6`}>
+              <DashboardSkeleton />
+            </div>
+          }
+        >
           <DoctorAnalyticsTab
             dailyEntry={pathname === ROUTES.DOCTOR_DAILY_REPORT}
             onBack={() => navigate(ROUTES.DOCTOR_DASHBOARD)}
@@ -337,7 +457,13 @@ export default function DoctorDashboard() {
         </Suspense>
       )}
       {activeTab === "history" && (
-        <Suspense fallback={<div className={`${CONTENT_CONTAINER} py-6`}><DashboardSkeleton /></div>}>
+        <Suspense
+          fallback={
+            <div className={`${CONTENT_CONTAINER} py-6`}>
+              <DashboardSkeleton />
+            </div>
+          }
+        >
           <DoctorAppointmentsTab
             visits={historyVisits}
             loading={historyLoading}
@@ -348,7 +474,16 @@ export default function DoctorDashboard() {
         </Suspense>
       )}
       {leaveOpen && (
-        <Suspense fallback={<p role="status" className="fixed right-4 bottom-4 z-50 rounded-lg bg-white px-4 py-2 text-sm">Loading leave requests…</p>}>
+        <Suspense
+          fallback={
+            <p
+              role="status"
+              className="fixed right-4 bottom-4 z-50 rounded-lg bg-white px-4 py-2 text-sm"
+            >
+              Loading leave requests…
+            </p>
+          }
+        >
           <DoctorLeaveModal
             onClose={() => {
               navigate(ROUTES.DOCTOR_DASHBOARD);
@@ -364,6 +499,7 @@ export default function DoctorDashboard() {
         onClose={() => setShowConsultModal(false)}
         onSubmit={handleSaveConsultation}
         patient={servingPatient}
+        draft={remarksDrafts[servingPatient?.id]}
         loading={consultLoading}
       />
       {showLimitWarning && (

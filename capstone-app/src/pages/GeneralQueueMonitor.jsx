@@ -72,9 +72,12 @@ export default function GeneralQueueMonitor() {
     let updates;
     let clockOffset;
 
-    const currentTime = () => new Date(
-      clockOffset === undefined ? Date.now() : performance.now() + clockOffset,
-    );
+    const currentTime = () =>
+      new Date(
+        clockOffset === undefined
+          ? Date.now()
+          : performance.now() + clockOffset,
+      );
     const updateClock = () => setNow(currentTime());
 
     const fetchQueue = async () => {
@@ -225,7 +228,11 @@ export default function GeneralQueueMonitor() {
       >
         {/* Left column — queue info (70%) */}
         <div className="basis-[70%] shrink-0 grow-0 min-w-0 h-screen grid grid-rows-[auto_minmax(0,1.3fr)_minmax(0,1fr)] gap-4 p-6 xl:gap-5 xl:p-8 bg-[#1e2d6b]">
-          <Header now={now} lastRefresh={lastRefresh} refreshFailed={refreshFailed} />
+          <Header
+            now={now}
+            lastRefresh={lastRefresh}
+            refreshFailed={refreshFailed}
+          />
 
           <PanelPair current={currentServing} next={nextServing} />
 
@@ -306,9 +313,6 @@ function SkippedTickets({ tickets }) {
         >
           Skipped tickets
         </h2>
-        <span className="text-[clamp(10px,0.9vw,16px)] text-amber-200/70">
-          Grace period
-        </span>
       </div>
       {tickets.length ? (
         <ul className="grid grid-cols-2 gap-2.5 min-h-0 overflow-y-auto">
@@ -347,8 +351,12 @@ function SkippedTickets({ tickets }) {
 function Header({ now, lastRefresh, refreshFailed }) {
   const live = lastRefresh && !refreshFailed;
   const connectionStatus = refreshFailed
-    ? (lastRefresh ? "Queue display is stale" : "Queue unavailable")
-    : (live ? "Live queue" : "Connecting to queue");
+    ? lastRefresh
+      ? "Queue display is stale"
+      : "Queue unavailable"
+    : live
+      ? "Live queue"
+      : "Connecting to queue";
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <div className="flex min-w-0 items-center gap-3">
@@ -362,9 +370,12 @@ function Header({ now, lastRefresh, refreshFailed }) {
             Dental Check-up Queue
           </h1>
           <p className="mt-1 text-[clamp(10px,1vw,18px)] text-white/60">
-            E-KALUSUGAN · Bago City Health Center
+            E-KALUSUGAN · Bago City Primary Care Facility
           </p>
-          <p aria-live="polite" className={`mt-1 flex items-baseline gap-2 text-[clamp(11px,1.05vw,18px)] ${refreshFailed ? "font-semibold text-amber-200" : "text-white/75"}`}>
+          <p
+            aria-live="polite"
+            className={`mt-1 flex items-baseline gap-2 text-[clamp(11px,1.05vw,18px)] ${refreshFailed ? "font-semibold text-amber-200" : "text-white/75"}`}
+          >
             <span
               aria-hidden="true"
               className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${live ? `bg-green-400 ${PULSE}` : "bg-amber-300"}`}
@@ -372,7 +383,13 @@ function Header({ now, lastRefresh, refreshFailed }) {
             <span>
               {connectionStatus}
               {refreshFailed && lastRefresh && (
-                <> · Last updated <time dateTime={lastRefresh.toISOString()}>{formatDate(lastRefresh)} {formatTime(lastRefresh)}</time></>
+                <>
+                  {" "}
+                  · Last updated{" "}
+                  <time dateTime={lastRefresh.toISOString()}>
+                    {formatDate(lastRefresh)} {formatTime(lastRefresh)}
+                  </time>
+                </>
               )}
               {refreshFailed && " · Check with staff"}
             </span>
