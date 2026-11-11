@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
 import Icon from "@/components/common/AppIcons";
 
-const MAX_SELECTED_SERVICES = 2;
-
 export default function GetQueueModal({
   isOpen,
   onClose,
@@ -30,26 +28,19 @@ export default function GetQueueModal({
   }, [isOpen]);
 
   const toggleService = (id) => {
-    const alreadySelected = selected.includes(id);
-    if (alreadySelected) {
-      setSelected((prev) => prev.filter((s) => s !== id));
-      return;
-    }
-
-    if (selected.length >= MAX_SELECTED_SERVICES) return;
-    setSelected((prev) => [...prev, id]);
+    setSelected((prev) => (prev.includes(id) ? [] : [id]));
   };
 
-  const isDisabled = selected.length === 0 || !canRequestQueue;
+  const isDisabled = selected.length !== 1 || !canRequestQueue;
+
   const handleSubmit = () => {
     if (isDisabled) return;
+
     onSubmit({
       services: selected,
       type: priorityEligible ? "priority" : "regular",
     });
   };
-
-  const limitReached = selected.length >= MAX_SELECTED_SERVICES;
 
   return (
     <dialog
@@ -68,6 +59,7 @@ export default function GetQueueModal({
           >
             <Icon name="queue" size={22} />
           </span>
+
           <div className="min-w-0 flex-1">
             <h2
               id="get-queue-title"
@@ -75,6 +67,7 @@ export default function GetQueueModal({
             >
               Get Queue Ticket
             </h2>
+
             <p
               id="get-queue-description"
               className="mt-1 text-sm leading-5 text-[#6b7280]"
@@ -82,13 +75,16 @@ export default function GetQueueModal({
               Choose dental services for today's visit.
             </p>
           </div>
+
           <button
             type="button"
             onClick={onClose}
             aria-label="Close queue ticket"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#111827] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
           >
-            <span aria-hidden="true"><Icon name="close" size={20} /></span>
+            <span aria-hidden="true">
+              <Icon name="close" size={20} />
+            </span>
           </button>
         </header>
 
@@ -104,45 +100,44 @@ export default function GetQueueModal({
 
           <fieldset aria-describedby="queue-services-hint" className="min-w-0">
             <legend className="sr-only">Dental services</legend>
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <p aria-hidden="true" className="text-sm font-semibold text-[#374151]">
-                  Dental services
-                </p>
-                <p id="queue-services-hint" className="mt-1 text-xs text-[#6b7280]">
-                  Select up to {MAX_SELECTED_SERVICES} services.
-                </p>
-              </div>
-              <span
-                role="status"
-                className="shrink-0 rounded-full bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold tabular-nums text-[#2d3a8c]"
+
+            <div className="mb-4">
+              <p
+                aria-hidden="true"
+                className="text-sm font-semibold text-[#374151]"
               >
-                {selected.length} / {MAX_SELECTED_SERVICES} selected
-              </span>
+                Dental services
+              </p>
+
+              <p
+                id="queue-services-hint"
+                className="mt-1 text-xs text-[#6b7280]"
+              >
+                Select one dental service. You can switch your selection
+                anytime.
+              </p>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
               {SERVICES.map(({ id, label }) => {
                 const active = selected.includes(id);
-                const blocked = limitReached && !active;
+
                 return (
                   <label
                     key={id}
-                    className={`flex min-h-14 items-center gap-3 rounded-xl border p-3 text-sm leading-5 transition-colors focus-within:ring-4 focus-within:ring-blue-100 ${
+                    className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm leading-5 transition-colors focus-within:ring-4 focus-within:ring-blue-100 ${
                       active
-                        ? "cursor-pointer border-[#2d3a8c] bg-[#eff6ff] font-semibold text-[#2d3a8c]"
-                        : blocked
-                          ? "cursor-not-allowed border-[#e5e7eb] bg-[#f9fafb] text-[#6b7280]"
-                          : "cursor-pointer border-[#e5e7eb] bg-white text-[#374151] hover:border-[#2d3a8c] hover:bg-[#f9fafb]"
+                        ? "border-[#2d3a8c] bg-[#eff6ff] font-semibold text-[#2d3a8c]"
+                        : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#2d3a8c] hover:bg-[#f9fafb]"
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={active}
-                      disabled={blocked}
                       onChange={() => toggleService(id)}
-                      className="h-5 w-5 shrink-0 cursor-[inherit] accent-[#2d3a8c]"
+                      className="h-5 w-5 shrink-0 accent-[#2d3a8c]"
                     />
+
                     <span>{label}</span>
                   </label>
                 );
@@ -165,6 +160,7 @@ export default function GetQueueModal({
                 className="h-4 w-4 rounded-full border-2 border-current border-r-transparent motion-safe:animate-spin"
               />
             )}
+
             {loading ? "Getting your ticket..." : "Get Queue Ticket"}
           </button>
         </footer>

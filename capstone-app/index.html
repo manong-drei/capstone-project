@@ -3,10 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>E-KALUSUGAN | Bago City Health Center</title>
-    <meta name="description" content="Get a dental queue ticket, check dentist availability, and follow your turn at Bago City Health Center with E-Kalusugan." />
+    <title>E-KALUSUGAN | Bago City Primary Care Facility</title>
+    <meta
+      name="description"
+      content="Get a dental queue ticket, check dentist availability, and follow your turn at Bago City Health Center with E-Kalusugan."
+    />
     <script>
-      if (location.pathname === "/" || /^\/(admin|doctor|patient|staff)\/?$/i.test(location.pathname)) {
+      if (
+        location.pathname === "/" ||
+        /^\/(admin|doctor|patient|staff)\/?$/i.test(location.pathname)
+      ) {
         const heroPreload = document.createElement("link");
         heroPreload.rel = "preload";
         heroPreload.as = "image";
@@ -15,7 +21,12 @@
         document.head.append(heroPreload);
       }
     </script>
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/assets/favicon.png"
+    />
     <link href="/src/index.css" rel="stylesheet" />
   </head>
   <body>

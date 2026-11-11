@@ -191,17 +191,13 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
   const toggleService = (id) => {
     setError("");
     setSuccess("");
-    setSelectedServices((previous) =>
-      previous.includes(id)
-        ? previous.filter((service) => service !== id)
-        : [...previous, id],
-    );
+    setSelectedServices([id]);
   };
 
   const validate = () => {
     const errors = {};
-    if (!selectedServices.length || selectedServices.length > 2)
-      errors.services = "Choose 1 or 2 dental services.";
+    if (!selectedServices.length || selectedServices.length > 1)
+      errors.services = "Choose a dental service.";
     if (!selectedPatient && matches.length && !confirmNew)
       errors.confirmNew =
         "Select an existing patient above or confirm that this is a new patient.";
@@ -708,10 +704,7 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
               id="walkin-services-help"
               className="mb-2 text-sm font-medium text-slate-700"
             >
-              Choose 1 or 2 services before issuing a ticket.{" "}
-              <span className="font-bold">
-                {selectedServices.length}/2 selected
-              </span>
+              Choose a services before issuing a ticket.{" "}
             </p>
             <div className="grid max-h-40 gap-1 overflow-y-auto pr-1 sm:grid-cols-2">
               {SERVICES.map(({ id, label, group }) => (
@@ -724,10 +717,6 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
                     {...fieldAttributes("services", "walkin-services-help")}
                     checked={selectedServices.includes(id)}
                     onChange={() => toggleService(id)}
-                    disabled={
-                      !selectedServices.includes(id) &&
-                      selectedServices.length >= 2
-                    }
                     className="mt-0.5 shrink-0 accent-blue-700"
                   />
                   <span>
