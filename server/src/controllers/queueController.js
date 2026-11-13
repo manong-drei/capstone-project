@@ -8,26 +8,13 @@ const { clinicDay, clinicToday } = require("../utils/clinicDate");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
-const { wakeWorker } = require('../services/smsNotifications');
+const { wakeWorker } = require("../services/smsNotifications");
 
-const ALLOWED_SERVICE_IDS = new Set([
-  "CONSULTATION",
-  "ORAL_PROPHYLAXIS",
-  "PERMANENT_FILLING",
-  "TEMPORARY_FILLING",
-  "FLUORIDE",
-  "SILVER_DIAMINE",
-  "RPD_UPPER",
-  "RPD_LOWER",
-  "CLOSED_EXTRACTION",
-  "OPEN_EXTRACTION",
-  "ODONTECTOMY",
-  "SPECIAL_SURGERY",
-  "OTHERS",
-]);
+const ALLOWED_SERVICE_IDS = new Set(["CONSULTATION", "TOOTH_EXTRACTION"]);
 
 const GENERAL_SERVICE_ID = "GENERAL_CONSULTATION";
-const httpError = (status, message) => Object.assign(new Error(message), { status });
+const httpError = (status, message) =>
+  Object.assign(new Error(message), { status });
 const splitName = (name) => {
   const [first_name, ...rest] = name.trim().replace(/\s+/g, " ").split(" ");
   return { first_name, last_name: rest.join(" ") };
@@ -38,7 +25,7 @@ const getQueueStatus = async (req, res) => {
   try {
     const { category } = req.query;
     const status = await Queue.getPublicStatus({ category });
-    if (req.user.role === 'patient') {
+    if (req.user.role === "patient") {
       status.registration_message = null;
     }
     res.json(status);
@@ -53,8 +40,8 @@ const getAllQueues = async (req, res) => {
   try {
     const { category, include_clock } = req.query;
     const queues = await Queue.findTodayActive({ category });
-    if (include_clock === '1') {
-      res.set('Cache-Control', 'no-store');
+    if (include_clock === "1") {
+      res.set("Cache-Control", "no-store");
       return res.json({ data: queues, server_time: Date.now() });
     }
     res.json(queues);
@@ -73,7 +60,9 @@ const getMyQueue = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Patient profile not found." });
     }
-    const queue = await Queue.findByPatientId(patient.patient_id) || await Queue.findLatestNoShow(patient.patient_id);
+    const queue =
+      (await Queue.findByPatientId(patient.patient_id)) ||
+      (await Queue.findLatestNoShow(patient.patient_id));
     if (queue) {
       queue.wait_estimate = null;
       try {
@@ -93,24 +82,36 @@ const getMyQueue = async (req, res) => {
 const createQueue = async (req, res) => {
   const { services, type } = req.body;
   if (!Array.isArray(services) || services.length === 0) {
-    return res.status(400).json({ success: false, message: "Please select at least one service." });
+    return res
+      .status(400)
+      .json({ success: false, message: "Please select at least one service." });
   }
 
   const selectedServices = [...new Set(services)];
-  if (selectedServices.length > 2 || selectedServices.some((id) => !ALLOWED_SERVICE_IDS.has(id))) {
-    return res.status(400).json({ success: false, message: "Select up to two valid services." });
+  if (
+    selectedServices.length > 2 ||
+    selectedServices.some((id) => !ALLOWED_SERVICE_IDS.has(id))
+  ) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Select up to two valid services." });
   }
 
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await Queue.lockCategory('dental', connection);
+    await Queue.lockCategory("dental", connection);
     const [[patient]] = await connection.query(
       "SELECT * FROM patients WHERE user_id = ? FOR UPDATE",
       [req.user.user_id],
     );
     if (!patient) throw httpError(404, "Patient profile not found.");
-    if (type === "priority" && (!patient.priority_category || (patient.priority_expires_at && new Date(patient.priority_expires_at) <= new Date()))) {
+    if (
+      type === "priority" &&
+      (!patient.priority_category ||
+        (patient.priority_expires_at &&
+          new Date(patient.priority_expires_at) <= new Date()))
+    ) {
       throw httpError(403, "You are not eligible for priority queuing.");
     }
     if (await Queue.findByPatientId(patient.patient_id, connection)) {
@@ -121,19 +122,34 @@ const createQueue = async (req, res) => {
       "SELECT COUNT(*) AS todayQueueCount FROM queues WHERE patient_id = ? AND DATE(created_at) = CURDATE()",
       [patient.patient_id],
     );
-    if (todayQueueCount >= 2) throw httpError(409, "You have reached your daily queue limit (2). Please try again tomorrow.");
+    if (todayQueueCount >= 2)
+      throw httpError(
+        409,
+        "You have reached your daily queue limit (2). Please try again tomorrow.",
+      );
 
-    const existingAppointment = await Appointment.findActiveToday(patient.patient_id, connection);
-    const doctor = await Doctor.findActiveForUpdate(connection, existingAppointment?.doctor_id);
+    const existingAppointment = await Appointment.findActiveToday(
+      patient.patient_id,
+      connection,
+    );
+    const doctor = await Doctor.findActiveForUpdate(
+      connection,
+      existingAppointment?.doctor_id,
+    );
     if (!doctor) throw httpError(409, "No dentist is available today.");
-    await DoctorLeave.assertAvailable(doctor.doctor_id, clinicToday(), connection);
+    await DoctorLeave.assertAvailable(
+      doctor.doctor_id,
+      clinicToday(),
+      connection,
+    );
 
     const [[settings]] = await connection.query(
       `SELECT appointment_limit, is_available FROM daily_doctor_settings
        WHERE doctor_id = ? AND date = CURDATE()`,
       [doctor.doctor_id],
     );
-    if (settings?.is_available === 0) throw httpError(409, "The dentist is unavailable today.");
+    if (settings?.is_available === 0)
+      throw httpError(409, "The dentist is unavailable today.");
 
     let appointmentId = existingAppointment?.appointment_id;
     if (!existingAppointment) {
@@ -142,7 +158,8 @@ const createQueue = async (req, res) => {
          WHERE doctor_id = ? AND appointment_date = CURDATE() AND status != 'cancelled'`,
         [doctor.doctor_id],
       );
-      if (booked >= (settings?.appointment_limit ?? 10)) throw httpError(409, "No appointment slots available for today.");
+      if (booked >= (settings?.appointment_limit ?? 10))
+        throw httpError(409, "No appointment slots available for today.");
       const [result] = await connection.query(
         `INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, reason, status)
          VALUES (?, ?, CURDATE(), CURTIME(), ?, 'confirmed')`,
@@ -152,33 +169,72 @@ const createQueue = async (req, res) => {
     }
 
     const queueType = type === "priority" ? "priority" : "regular";
-    const queue = await Queue.create({
-      patient_id: patient.patient_id,
-      appointment_id: appointmentId,
-      queue_number: await Queue.nextQueueNumber({ category: "dental", type: queueType, is_walk_in: false }, connection),
-      type: queueType,
-      category: "dental",
-      services: selectedServices,
-    }, connection);
+    const queue = await Queue.create(
+      {
+        patient_id: patient.patient_id,
+        appointment_id: appointmentId,
+        queue_number: await Queue.nextQueueNumber(
+          { category: "dental", type: queueType, is_walk_in: false },
+          connection,
+        ),
+        type: queueType,
+        category: "dental",
+        services: selectedServices,
+      },
+      connection,
+    );
     await connection.commit();
     wakeWorker();
     res.status(201).json(queue);
   } catch (err) {
     await connection.rollback();
-    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.status ? err.message : "Server error.",
+    });
   } finally {
     connection.release();
   }
 };
 
 const createWalkIn = async (req, res) => {
-  const { first_name, last_name, full_name, middle_name, suffix, date_of_birth, gender, contact, address, type, services, category, patient_id, create_new_confirmed, priority_category } = req.body;
+  const {
+    first_name,
+    last_name,
+    full_name,
+    middle_name,
+    suffix,
+    date_of_birth,
+    gender,
+    contact,
+    address,
+    type,
+    services,
+    category,
+    patient_id,
+    create_new_confirmed,
+    priority_category,
+    no_mobile,
+    alternate_contact,
+  } = req.body;
+
   const queueCategory = category === "general" ? "general" : "dental";
-  const name = typeof full_name === "string" ? full_name.trim().replace(/\s+/g, " ") : "";
-  const normalizeName = (part) => typeof part === "string" ? part.trim().replace(/\s+/g, " ") : "";
-  const names = first_name !== undefined || last_name !== undefined
-    ? { first_name: normalizeName(first_name), last_name: normalizeName(last_name) }
-    : name ? splitName(name) : { first_name: "", last_name: "" };
+
+  const name =
+    typeof full_name === "string" ? full_name.trim().replace(/\s+/g, " ") : "";
+
+  const normalizeName = (part) =>
+    typeof part === "string" ? part.trim().replace(/\s+/g, " ") : "";
+
+  const names =
+    first_name !== undefined || last_name !== undefined
+      ? {
+          first_name: normalizeName(first_name),
+          last_name: normalizeName(last_name),
+        }
+      : name
+        ? splitName(name)
+        : { first_name: "", last_name: "" };
   const today = clinicToday();
   let normalizedSuffix;
   let normalizedMiddleName;
@@ -190,25 +246,101 @@ const createWalkIn = async (req, res) => {
   }
   let effectiveSuffix = normalizedSuffix;
   let effectiveMiddleName = normalizedMiddleName;
-  const phone = normalizePhilippineMobilePhone(contact);
-  if (!names.first_name || !names.last_name || names.first_name.length > 100 || names.last_name.length > 100) return res.status(400).json({ success: false, message: "A first and last name of up to 100 characters each are required." });
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth || "") || !isValid(parseISO(date_of_birth)) || date_of_birth > today) {
-    return res.status(400).json({ success: false, message: "A valid date of birth is required." });
-  }
-  if (!["male", "female", "other"].includes(gender)) return res.status(400).json({ success: false, message: "Select a valid gender." });
-  if (!phone) return res.status(400).json({ success: false, message: "A valid Philippine mobile number is required." });
-  if (typeof address !== "string" || !address.trim() || address.length > 80) return res.status(400).json({ success: false, message: "A valid address is required." });
-  const barangay = address.trim().replace(/^Barangay\s+/i, "").replace(/,\s*Bago City$/i, "");
-  if (!barangay) return res.status(400).json({ success: false, message: "A valid address is required." });
-  if (priority_category && !["senior", "pwd", "pregnant"].includes(priority_category)) return res.status(400).json({ success: false, message: "Invalid priority category." });
-  const isSenior = differenceInYears(parseISO(today), parseISO(date_of_birth)) >= 60;
-  const priorityCategory = isSenior ? "senior" : priority_category;
-  if (type === "priority" && !priorityCategory) return res.status(400).json({ success: false, message: "A priority category is required." });
-  if (patient_id != null && (!Number.isSafeInteger(Number(patient_id)) || Number(patient_id) <= 0)) return res.status(400).json({ success: false, message: "Invalid patient." });
 
-  const selectedServices = queueCategory === "general" ? [GENERAL_SERVICE_ID] : Array.isArray(services) ? [...new Set(services)] : [];
-  if (!selectedServices.length || selectedServices.length > 2 || (queueCategory === "dental" && selectedServices.some((service) => !ALLOWED_SERVICE_IDS.has(service)))) {
-    return res.status(400).json({ success: false, message: "Please select valid services." });
+  const noMobile = no_mobile === true;
+  const phone = noMobile ? null : normalizePhilippineMobilePhone(contact);
+  const alternateInput =
+    noMobile && typeof alternate_contact === "string"
+      ? alternate_contact.trim()
+      : "";
+  const alternate = alternateInput
+    ? normalizePhilippineMobilePhone(alternateInput)
+    : null;
+  const queueContact = phone ?? alternate;
+  if (
+    !names.first_name ||
+    !names.last_name ||
+    names.first_name.length > 100 ||
+    names.last_name.length > 100
+  )
+    return res.status(400).json({
+      success: false,
+      message:
+        "A first and last name of up to 100 characters each are required.",
+    });
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth || "") ||
+    !isValid(parseISO(date_of_birth)) ||
+    date_of_birth > today
+  ) {
+    return res
+      .status(400)
+      .json({ success: false, message: "A valid date of birth is required." });
+  }
+  if (!["male", "female", "other"].includes(gender))
+    return res
+      .status(400)
+      .json({ success: false, message: "Select a valid gender." });
+  if (!noMobile && !phone)
+    return res.status(400).json({
+      success: false,
+      message: "A valid Philippine mobile number is required.",
+    });
+  if (alternateInput && !alternate)
+    return res.status(400).json({
+      success: false,
+      message:
+        "The alternate contact must be a valid Philippine mobile number.",
+    });
+  if (typeof address !== "string" || !address.trim() || address.length > 80)
+    return res
+      .status(400)
+      .json({ success: false, message: "A valid address is required." });
+  const barangay = address
+    .trim()
+    .replace(/^Barangay\s+/i, "")
+    .replace(/,\s*Bago City$/i, "");
+  if (!barangay)
+    return res
+      .status(400)
+      .json({ success: false, message: "A valid address is required." });
+  if (
+    priority_category &&
+    !["senior", "pwd", "pregnant"].includes(priority_category)
+  )
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid priority category." });
+  const isSenior =
+    differenceInYears(parseISO(today), parseISO(date_of_birth)) >= 60;
+  const priorityCategory = isSenior ? "senior" : priority_category;
+  if (type === "priority" && !priorityCategory)
+    return res
+      .status(400)
+      .json({ success: false, message: "A priority category is required." });
+  if (
+    patient_id != null &&
+    (!Number.isSafeInteger(Number(patient_id)) || Number(patient_id) <= 0)
+  )
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid patient." });
+
+  const selectedServices =
+    queueCategory === "general"
+      ? [GENERAL_SERVICE_ID]
+      : Array.isArray(services)
+        ? [...new Set(services)]
+        : [];
+  if (
+    !selectedServices.length ||
+    selectedServices.length > 2 ||
+    (queueCategory === "dental" &&
+      selectedServices.some((service) => !ALLOWED_SERVICE_IDS.has(service)))
+  ) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Please select valid services." });
   }
 
   let connection;
@@ -216,50 +348,99 @@ const createWalkIn = async (req, res) => {
   try {
     connection = await pool.getConnection();
     // ponytail: one registration lock keeps duplicate checks atomic; use keyed locks if staff throughput grows.
-    const [[{ acquired }]] = await connection.query("SELECT GET_LOCK('walkin_patient_registration', 10) AS acquired");
+    const [[{ acquired }]] = await connection.query(
+      "SELECT GET_LOCK('walkin_patient_registration', 10) AS acquired",
+    );
     lockAcquired = acquired === 1;
-    if (!lockAcquired) throw httpError(503, "Registration is busy. Please try again.");
+    if (!lockAcquired)
+      throw httpError(503, "Registration is busy. Please try again.");
     await connection.beginTransaction();
     await Queue.lockCategory(queueCategory, connection);
     if (queueCategory === "dental") {
       const doctor = await Doctor.findActiveForUpdate(connection);
       if (!doctor) throw httpError(409, "No dentist is available today.");
-      await DoctorLeave.assertAvailable(doctor.doctor_id, clinicToday(), connection);
+      await DoctorLeave.assertAvailable(
+        doctor.doctor_id,
+        clinicToday(),
+        connection,
+      );
 
       const [[settings]] = await connection.query(
         `SELECT walk_in_limit, is_available FROM daily_doctor_settings
          WHERE doctor_id = ? AND date = CURDATE()`,
         [doctor.doctor_id],
       );
-      if (settings?.is_available === 0) throw httpError(409, "The dentist is unavailable today.");
+      if (settings?.is_available === 0)
+        throw httpError(409, "The dentist is unavailable today.");
 
       const [[{ walkinToday }]] = await connection.query(
         `SELECT COUNT(*) AS walkinToday FROM queues
          WHERE is_walk_in = 1 AND category = 'dental' AND DATE(created_at) = CURDATE()`,
       );
-      if ((settings?.walk_in_limit ?? 0) > 0 && walkinToday >= settings.walk_in_limit) {
+      if (walkinToday >= (settings?.walk_in_limit ?? 0)) {
         throw httpError(409, "Walk-in slots are full for today.");
       }
     }
 
     let patientId = patient_id ? Number(patient_id) : null;
     if (patientId) {
-      const [[existing]] = await connection.query("SELECT * FROM patients WHERE patient_id = ? FOR UPDATE", [patientId]);
-      if (!existing || existing.archived_into_patient_id) throw httpError(404, "Patient record not found or archived.");
-      effectiveSuffix = suffix === undefined ? existing.suffix : normalizedSuffix;
-      effectiveMiddleName = middle_name === undefined ? existing.middle_name : normalizedMiddleName;
+      const [[existing]] = await connection.query(
+        "SELECT * FROM patients WHERE patient_id = ? FOR UPDATE",
+        [patientId],
+      );
+      if (!existing || existing.archived_into_patient_id)
+        throw httpError(404, "Patient record not found or archived.");
+      effectiveSuffix =
+        suffix === undefined ? existing.suffix : normalizedSuffix;
+      effectiveMiddleName =
+        middle_name === undefined ? existing.middle_name : normalizedMiddleName;
       const { first_name, last_name } = names;
+      const contactNumber = phone ?? existing.contact_number;
       const changes = {};
-      for (const [key, value] of Object.entries({ first_name, middle_name: effectiveMiddleName, last_name, suffix: effectiveSuffix, date_of_birth, gender: gender[0].toUpperCase() + gender.slice(1), contact_number: phone, barangay, priority_category: priorityCategory || existing.priority_category })) {
-        const old = existing[key] instanceof Date ? clinicDay(existing[key]) : existing[key];
-        if (String(old ?? "") !== String(value ?? "")) changes[key] = { from: old, to: value };
+      for (const [key, value] of Object.entries({
+        first_name,
+        middle_name: effectiveMiddleName,
+        last_name,
+        suffix: effectiveSuffix,
+        date_of_birth,
+        gender: gender[0].toUpperCase() + gender.slice(1),
+        contact_number: contactNumber,
+        barangay,
+        priority_category: priorityCategory || existing.priority_category,
+        ...(alternate ? { emg_contact_no: alternate } : {}),
+      })) {
+        const old =
+          existing[key] instanceof Date
+            ? clinicDay(existing[key])
+            : existing[key];
+        if (String(old ?? "") !== String(value ?? ""))
+          changes[key] = { from: old, to: value };
       }
       if (Object.keys(changes).length) {
         await connection.query(
-          "UPDATE patients SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?, date_of_birth = ?, gender = ?, contact_number = ?, barangay = ?, priority_category = ? WHERE patient_id = ?",
-          [first_name, effectiveMiddleName ?? null, last_name, effectiveSuffix ?? null, date_of_birth, gender, phone, barangay, priorityCategory || existing.priority_category, patientId],
+          "UPDATE patients SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?, date_of_birth = ?, gender = ?, contact_number = ?, barangay = ?, priority_category = ?, emg_contact_no = ? WHERE patient_id = ?",
+          [
+            first_name,
+            effectiveMiddleName ?? null,
+            last_name,
+            effectiveSuffix ?? null,
+            date_of_birth,
+            gender,
+            contactNumber,
+            barangay,
+            priorityCategory || existing.priority_category,
+            alternate ?? existing.emg_contact_no ?? null,
+            patientId,
+          ],
         );
-        await Patient.audit(patientId, req.user.user_id, "update", changes, connection, req);
+        await Patient.audit(
+          patientId,
+          req.user.user_id,
+          "update",
+          changes,
+          connection,
+          req,
+        );
       }
     } else {
       const [likely] = await connection.query(
@@ -267,42 +448,112 @@ const createWalkIn = async (req, res) => {
          WHERE p.archived_into_patient_id IS NULL
          AND (COALESCE(p.contact_number, u.phone) = ? OR (LOWER(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), ''))) = LOWER(?) AND p.date_of_birth = ?))
          LIMIT 1 FOR UPDATE`,
-        [phone, [names.first_name, normalizedMiddleName, names.last_name, normalizedSuffix].filter(Boolean).join(" "), date_of_birth],
+        [
+          phone,
+          [
+            names.first_name,
+            normalizedMiddleName,
+            names.last_name,
+            normalizedSuffix,
+          ]
+            .filter(Boolean)
+            .join(" "),
+          date_of_birth,
+        ],
       );
-      if (likely.length && create_new_confirmed !== true) throw httpError(409, "Possible existing patient found. Select their record or explicitly confirm a new record.");
-      patientId = await Patient.createWalkIn({ ...names, middle_name: normalizedMiddleName, suffix: normalizedSuffix, date_of_birth, gender, contact_number: phone, barangay }, connection);
-      if (priorityCategory) await connection.query("UPDATE patients SET priority_category = ? WHERE patient_id = ?", [priorityCategory, patientId]);
-      await Patient.audit(patientId, req.user.user_id, "create", likely.length ? { duplicate_override: true, possible_patient_ids: likely.map((p) => p.patient_id) } : null, connection, req);
+      if (likely.length && create_new_confirmed !== true)
+        throw httpError(
+          409,
+          "Possible existing patient found. Select their record or explicitly confirm a new record.",
+        );
+      patientId = await Patient.createWalkIn(
+        {
+          ...names,
+          middle_name: normalizedMiddleName,
+          suffix: normalizedSuffix,
+          date_of_birth,
+          gender,
+          contact_number: phone,
+          emg_contact_no: alternate,
+          barangay,
+        },
+        connection,
+      );
+      if (priorityCategory)
+        await connection.query(
+          "UPDATE patients SET priority_category = ? WHERE patient_id = ?",
+          [priorityCategory, patientId],
+        );
+      await Patient.audit(
+        patientId,
+        req.user.user_id,
+        "create",
+        likely.length
+          ? {
+              duplicate_override: true,
+              possible_patient_ids: likely.map((p) => p.patient_id),
+            }
+          : null,
+        connection,
+        req,
+      );
     }
     const [[active]] = await connection.query(
       "SELECT id FROM queues WHERE patient_id = ? AND DATE(created_at) = CURDATE() AND status IN ('waiting', 'called', 'serving', 'missed') LIMIT 1",
       [patientId],
     );
-    if (active) throw httpError(409, "This patient already has an active queue today.");
+    if (active)
+      throw httpError(409, "This patient already has an active queue today.");
 
     const queueType = isSenior || type === "priority" ? "priority" : "regular";
-    const queue = await Queue.create({
-      patient_id: patientId,
-      is_walk_in: true,
-      queue_number: await Queue.nextQueueNumber({ category: queueCategory, type: queueType, is_walk_in: true }, connection),
-      type: queueType,
-      category: queueCategory,
-      services: selectedServices,
-      walk_in_name: [names.first_name, effectiveMiddleName, names.last_name, effectiveSuffix].filter(Boolean).join(" "),
-      walk_in_dob: date_of_birth,
-      walk_in_gender: gender === "other" ? null : gender,
-      walk_in_contact: phone,
-    }, connection);
-    await Patient.audit(patientId, req.user.user_id, "queue", { queue_id: queue.id, category: queueCategory }, connection, req);
+    const queue = await Queue.create(
+      {
+        patient_id: patientId,
+        is_walk_in: true,
+        queue_number: await Queue.nextQueueNumber(
+          { category: queueCategory, type: queueType, is_walk_in: true },
+          connection,
+        ),
+        type: queueType,
+        category: queueCategory,
+        services: selectedServices,
+        walk_in_name: [
+          names.first_name,
+          effectiveMiddleName,
+          names.last_name,
+          effectiveSuffix,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        walk_in_dob: date_of_birth,
+        walk_in_gender: gender === "other" ? null : gender,
+        walk_in_contact: queueContact,
+      },
+      connection,
+    );
+    await Patient.audit(
+      patientId,
+      req.user.user_id,
+      "queue",
+      { queue_id: queue.id, category: queueCategory },
+      connection,
+      req,
+    );
     await connection.commit();
     wakeWorker();
     res.status(201).json({ success: true, queue });
   } catch (err) {
     if (connection) await connection.rollback();
-    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.status ? err.message : "Server error.",
+    });
   } finally {
     if (connection) {
-      if (lockAcquired) await connection.query("SELECT RELEASE_LOCK('walkin_patient_registration')");
+      if (lockAcquired)
+        await connection.query(
+          "SELECT RELEASE_LOCK('walkin_patient_registration')",
+        );
       connection.release();
     }
   }
@@ -311,8 +562,10 @@ const createWalkIn = async (req, res) => {
 const callNext = async (req, res) => {
   try {
     const { category } = req.body || {};
-    if (category !== undefined && !['dental', 'general'].includes(category)) {
-      return res.status(400).json({ success: false, message: 'Invalid queue category.' });
+    if (category !== undefined && !["dental", "general"].includes(category)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid queue category." });
     }
     const next = await Queue.callNext({ category });
     if (next?.conflict) {
@@ -346,18 +599,33 @@ const updateStatus = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid status value." });
     }
-    if (status === 'serving' && req.user.role === 'admin') {
-      return res.status(403).json({ success: false, message: 'Only staff or doctors can confirm patient presence.' });
+    if (status === "serving" && req.user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only staff or doctors can confirm patient presence.",
+      });
     }
 
-    if (status === 'cancelled' && !String(reason ?? "").trim()) {
-      return res.status(400).json({ success: false, message: "A reason is required for cancellation." });
+    if (status === "cancelled" && !String(reason ?? "").trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "A reason is required for cancellation.",
+      });
     }
 
-    const updated = await Queue.updateStatus(id, status, status === 'cancelled' ? String(reason).trim() : null, {
-      doctorUserId: req.user.role === 'doctor' ? req.user.user_id : undefined,
-    });
-    if (updated?.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
+    const updated = await Queue.updateStatus(
+      id,
+      status,
+      status === "cancelled" ? String(reason).trim() : null,
+      {
+        doctorUserId: req.user.role === "doctor" ? req.user.user_id : undefined,
+      },
+    );
+    if (updated?.expired)
+      return res.status(409).json({
+        success: false,
+        message: "The return window has expired. This ticket is now a no-show.",
+      });
     if (!updated) {
       return res
         .status(404)
@@ -368,7 +636,10 @@ const updateStatus = async (req, res) => {
     wakeWorker();
   } catch (err) {
     console.error("updateStatus error:", err);
-    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.status ? err.message : "Server error.",
+    });
   }
 };
 
@@ -384,9 +655,10 @@ const cancelQueue = async (req, res) => {
         .json({ success: false, message: "Patient profile not found." });
     }
 
-    const [[queueRow]] = await pool.query("SELECT patient_id FROM queues WHERE id = ?", [
-      id,
-    ]);
+    const [[queueRow]] = await pool.query(
+      "SELECT patient_id FROM queues WHERE id = ?",
+      [id],
+    );
     if (!queueRow) {
       return res
         .status(404)
@@ -401,32 +673,63 @@ const cancelQueue = async (req, res) => {
 
     const { reason } = req.body;
     if (!String(reason ?? "").trim()) {
-      return res.status(400).json({ success: false, message: "Please select a cancellation reason." });
+      return res.status(400).json({
+        success: false,
+        message: "Please select a cancellation reason.",
+      });
     }
 
-    const updated = await Queue.updateStatus(id, "cancelled", String(reason).trim(), { patientOnly: true });
-    if (updated?.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
-    if (!updated) return res.status(404).json({ success: false, message: "Queue entry not found." });
+    const updated = await Queue.updateStatus(
+      id,
+      "cancelled",
+      String(reason).trim(),
+      { patientOnly: true },
+    );
+    if (updated?.expired)
+      return res.status(409).json({
+        success: false,
+        message: "The return window has expired. This ticket is now a no-show.",
+      });
+    if (!updated)
+      return res
+        .status(404)
+        .json({ success: false, message: "Queue entry not found." });
     res.json(updated);
     wakeWorker();
   } catch (err) {
     console.error("cancelQueue error:", err);
-    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Server error." });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.status ? err.message : "Server error.",
+    });
   }
 };
 
-const ticketAction = action => async (req, res) => {
+const ticketAction = (action) => async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ success: false, message: 'Invalid ticket ID.' });
+  if (!Number.isSafeInteger(id) || id <= 0)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid ticket ID." });
   try {
     const result = await Queue[action](id);
-    if (!result) return res.status(404).json({ success: false, message: 'Queue entry not found.' });
-    if (result.expired) return res.status(409).json({ success: false, message: 'The return window has expired. This ticket is now a no-show.' });
+    if (!result)
+      return res
+        .status(404)
+        .json({ success: false, message: "Queue entry not found." });
+    if (result.expired)
+      return res.status(409).json({
+        success: false,
+        message: "The return window has expired. This ticket is now a no-show.",
+      });
     wakeWorker();
     res.json(result);
   } catch (err) {
-    if (!err.status) console.error('Queue action failed:', err);
-    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : 'Server error.' });
+    if (!err.status) console.error("Queue action failed:", err);
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.status ? err.message : "Server error.",
+    });
   }
 };
 
@@ -439,7 +742,7 @@ module.exports = {
   callNext,
   updateStatus,
   cancelQueue,
-  recallQueue: ticketAction('recall'),
-  skipQueue: ticketAction('skip'),
-  returnQueue: ticketAction('returnPatient'),
+  recallQueue: ticketAction("recall"),
+  skipQueue: ticketAction("skip"),
+  returnQueue: ticketAction("returnPatient"),
 };

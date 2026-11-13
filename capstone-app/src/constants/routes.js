@@ -19,6 +19,7 @@ export const ROUTES = {
   STAFF_DASHBOARD: "/staff",
   STAFF_PROFILE: "/staff/profile",
   STAFF_ACCOUNT_RECOVERY: "/staff/account-recovery",
+  STAFF_PATIENT_ACCOUNTS: "/staff/accounts/patients",
   STAFF_WALK_IN: "/staff/walk-ins/new",
   STAFF_PATIENT_PROFILE: "/staff/patients/:id",
   ADMIN_DASHBOARD: "/admin",

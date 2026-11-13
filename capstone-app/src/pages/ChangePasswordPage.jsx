@@ -85,12 +85,12 @@ const ChangePasswordPage = () => {
 
   return (
     <AuthPageLayout logoTo={!setup && user.role === ROLES.PATIENT ? profilePath : ROUTES.HOME}>
-      <div className="text-center mb-6 sm:mb-7">
-        <h2 className="font-bold mb-1 text-xl sm:text-2xl tracking-[-0.01em] text-gray-900">
+      <div className="auth-heading">
+        <h1>
           Change Your Password
-        </h2>
+        </h1>
 
-        <p className="text-xs sm:text-sm leading-snug px-2 text-gray-500">
+        <p>
           {setup ? "You must set a new password before continuing." : "Enter your current password and choose a new one."}
         </p>
       </div>
@@ -107,7 +107,6 @@ const ChangePasswordPage = () => {
           <label
             htmlFor="oldPassword"
             className="block text-xs font-semibold mb-1"
-            style={{ color: "#374151" }}
           >
             Current Password
           </label>
@@ -120,8 +119,6 @@ const ChangePasswordPage = () => {
               autoComplete="current-password"
               value={form.oldPassword}
               onChange={handleChange}
-              className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-              style={{ border: "1px solid #d1d5db" }}
             />
 
             <button
@@ -148,7 +145,6 @@ const ChangePasswordPage = () => {
           <label
             htmlFor="newPassword"
             className="block text-xs font-semibold mb-1"
-            style={{ color: "#374151" }}
           >
             New Password
           </label>
@@ -156,13 +152,12 @@ const ChangePasswordPage = () => {
           <div className="relative">
             <input
               id="newPassword"
+              aria-describedby="password-guidance"
               type={showNewPassword ? "text" : "password"}
               name="newPassword"
               autoComplete="new-password"
               value={form.newPassword}
               onChange={handleChange}
-              className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-              style={{ border: "1px solid #d1d5db" }}
             />
 
             <button
@@ -183,11 +178,11 @@ const ChangePasswordPage = () => {
         </div>
 
         {/* Confirm Password */}
+        <p id="password-guidance" className="text-xs leading-relaxed text-slate-500">Use at least 8 characters and a number. Maximum 72 bytes; accented letters and emoji use more than one byte.</p>
         <div>
           <label
             htmlFor="confirmPassword"
             className="block text-xs font-semibold mb-1"
-            style={{ color: "#374151" }}
           >
             Confirm New Password
           </label>
@@ -200,8 +195,6 @@ const ChangePasswordPage = () => {
               autoComplete="new-password"
               value={form.confirmPassword}
               onChange={handleChange}
-              className="w-full px-3 pr-10 py-2 rounded-lg border text-sm text-gray-700 outline-none"
-              style={{ border: "1px solid #d1d5db" }}
             />
 
             <button
@@ -226,10 +219,7 @@ const ChangePasswordPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 rounded-full text-white font-semibold text-sm disabled:opacity-70 disabled:cursor-not-allowed"
-          style={{
-            background: "linear-gradient(90deg, #1e4db7 0%, #2563eb 100%)",
-          }}
+          className="transition-colors disabled:opacity-70"
         >
           {loading ? "Updating..." : "Update Password"}
         </button>

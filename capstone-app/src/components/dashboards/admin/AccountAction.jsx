@@ -17,18 +17,18 @@ const actions = {
   recovery: { label: "Account recovery", Icon: UserKey, color: blue },
 };
 
-export default function AccountAction({ action, onClick, to, ariaLabel }) {
+export default function AccountAction({ action, onClick, to, ariaLabel, disabled = false, title }) {
   const { label, Icon, color } = actions[action];
   const props = {
-    title: label,
+    title: title || label,
     "aria-label": ariaLabel || label,
-    className: `inline-grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${color}`,
+    className: `inline-grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${color}`,
     children: <Icon size={18} aria-hidden="true" />,
   };
 
   return to ? (
     <Link to={to} {...props} />
   ) : (
-    <button type="button" onClick={onClick} {...props} />
+    <button type="button" onClick={onClick} disabled={disabled} {...props} />
   );
 }

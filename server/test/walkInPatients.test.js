@@ -25,15 +25,18 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
   let patientInput;
   const patientUpdates = [];
   let committed = false;
+  let rolledBack = false;
+  let settings = { walk_in_limit: 5, is_available: 1 };
+  let walkinToday = 0;
   const connection = {
     async query(sql, values) {
       if (sql.startsWith("UPDATE patients SET")) patientUpdates.push({ sql, values });
       if (sql.includes("GET_LOCK")) return [[{ acquired: 1 }]];
       if (sql.includes("RELEASE_LOCK")) return [[{ released: 1 }]];
       if (sql.includes("FROM doctors")) return [[{ doctor_id: 1 }]];
-      if (sql.includes("FROM daily_doctor_settings")) return [[{ walk_in_limit: 5, is_available: 1 }]];
+      if (sql.includes("FROM daily_doctor_settings")) return [settings ? [settings] : []];
       if (sql.includes("FROM doctor_leaves")) return [[]];
-      if (sql.includes("walkinToday")) return [[{ walkinToday: 0 }]];
+      if (sql.includes("walkinToday")) return [[{ walkinToday }]];
       if (sql.includes("FROM patients WHERE patient_id")) return [[{
         patient_id: 12, first_name: "Ana", last_name: "Santos", date_of_birth: new Date("1990-01-01T00:00:00+08:00"),
         gender: "Female", contact_number: "09123456789", barangay: "Poblacion", priority_category: null,
@@ -42,7 +45,7 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
       if (sql.includes("FROM queues WHERE patient_id")) return [[]];
       return [{}];
     },
-    async beginTransaction() {}, async commit() { committed = true; }, async rollback() {}, release() {},
+    async beginTransaction() {}, async commit() { committed = true; }, async rollback() { rolledBack = true; }, release() {},
   };
   pool.getConnection = async () => connection;
   Patient.createWalkIn = async (input) => { patientInput = input; created++; return 42; };
@@ -108,6 +111,32 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
       res = response();
       await createWalkIn({ body: { ...body, ...invalid }, user: { user_id: 3 } }, res);
       assert.equal(res.statusCode, 400);
+    }
+
+    for (const [name, limit, count, expectedStatus] of [
+      ["zero walk-in capacity blocks registration", 0, 0, 409],
+      ["missing daily settings blocks registration", null, 0, 409],
+      ["the last available walk-in slot can be used", 5, 4, 201],
+      ["full walk-in capacity blocks registration", 5, 5, 409],
+    ]) {
+      await t.test(name, async () => {
+        settings = limit === null ? null : { walk_in_limit: limit, is_available: 1 };
+        walkinToday = count;
+        committed = false;
+        rolledBack = false;
+        queueInput = undefined;
+        const createdBefore = created;
+        const res = response();
+        await createWalkIn({ body, user: { user_id: 3 } }, res);
+        assert.equal(res.statusCode, expectedStatus);
+        assert.equal(committed, expectedStatus === 201);
+        assert.equal(rolledBack, expectedStatus === 409);
+        assert.equal(created, createdBefore + (expectedStatus === 201 ? 1 : 0));
+        if (expectedStatus === 409) {
+          assert.equal(queueInput, undefined);
+          assert.equal(res.body.message, "Walk-in slots are full for today.");
+        }
+      });
     }
   } finally {
     Object.assign(pool, { getConnection: originals.getConnection });

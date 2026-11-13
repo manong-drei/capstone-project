@@ -2,6 +2,7 @@ import useLiveData from "@/hooks/useLiveData";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/common/AppIcons";
 import AccountAction from "./AccountAction";
+import AccountRecovery from "@/components/dashboards/staff/AccountRecovery";
 import AccountStatusDialog from "./AccountStatusDialog";
 import api from "@/services/api";
 import ToastNotifications from "@/components/common/ToastNotifications";
@@ -64,7 +65,7 @@ const labelStyle = {
 
 const PATIENTS_PER_PAGE = 10;
 
-function ActivationSMS({ patient, onReplace, busy }) {
+function ActivationSMS({ patient, onReplace, busy, canManage }) {
   if (!patient.must_change_password) return null;
   return (
     <span
@@ -79,7 +80,7 @@ function ActivationSMS({ patient, onReplace, busy }) {
       {patient.sms_provider_status ||
         patient.sms_state ||
         "Replacement required"}
-      {patient.is_active ? (
+      {canManage && patient.is_active ? (
         <button
           type="button"
           disabled={busy}
@@ -99,7 +100,10 @@ function statusBadge(isActive) {
     : { bg: "#fee2e2", color: "#dc2626", label: "Inactive" };
 }
 
-export default function PatientManager() {
+export default function PatientManager({ canManage = true, canRecover = false }) {
+  const recoveryTrigger = useRef(null);
+  const [recoveryPatient, setRecoveryPatient] = useState(null);
+  const [openingRecovery, setOpeningRecovery] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -111,6 +115,32 @@ export default function PatientManager() {
   const [refresh, setRefresh] = useState(0);
   const { toasts, dismissToast, showToast, showSmsToast, trackSmsStatuses } =
     useSmsToasts();
+
+  const openRecovery = async (patientId, trigger) => {
+    if (openingRecovery) return;
+    recoveryTrigger.current = trigger;
+    setOpeningRecovery(true);
+    try {
+      const { data } = await api.get(`/patients/${patientId}`);
+      setRecoveryPatient(data);
+    } catch (err) {
+      showToast(err.message || "Unable to open account recovery.", "error");
+    } finally {
+      setOpeningRecovery(false);
+    }
+  };
+  const recoveryAction = (patient) => canRecover && (
+    <div>
+      <AccountAction
+        action="recovery"
+        ariaLabel={`Recover account for ${patient.full_name}`}
+        disabled={!patient.is_active || !patient.patient_id || openingRecovery}
+        title={!patient.is_active ? "Inactive accounts cannot be recovered. Contact an admin." : "Account recovery"}
+        onClick={(event) => openRecovery(patient.patient_id, event.currentTarget)}
+      />
+      {!patient.is_active && <p className="mt-1 text-xs text-slate-600">Inactive accounts cannot be recovered. Contact an admin.</p>}
+    </div>
+  );
 
   const replacePassword = async (patient) => {
     if (
@@ -293,7 +323,20 @@ export default function PatientManager() {
       <style>{PM_RESPONSIVE_CSS}</style>
       <ToastNotifications toasts={toasts} onDismiss={dismissToast} />
 
-      {confirm.open && (
+      {canRecover && recoveryPatient && (
+        <AccountRecovery
+          returnFocusRef={recoveryTrigger}
+          patient={recoveryPatient}
+          eligible={!!recoveryPatient.account?.is_active && !recoveryPatient.archived_into_patient_id &&
+            !!recoveryPatient.account.phone && !!recoveryPatient.date_of_birth &&
+            ["first_name", "last_name", "barangay", "city"].every((key) => recoveryPatient[key]?.trim())}
+          onClose={() => setRecoveryPatient(null)}
+          onRecovered={(version) => setRecoveryPatient((patient) => ({
+            ...patient, account: { ...patient.account, credential_version: version },
+          }))}
+        />
+      )}
+      {canManage && confirm.open && (
         <AccountStatusDialog
           name={confirm.patientName}
           action={confirm.action}
@@ -324,7 +367,7 @@ export default function PatientManager() {
             Patient Accounts
           </h2>
           <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#6b7280" }}>
-            View and manage patient account status
+            {canManage ? "View and manage patient account status" : "Create and view patient accounts for appointment booking"}
           </p>
         </div>
         <div
@@ -744,19 +787,21 @@ export default function PatientManager() {
                   </span>
                   <div>
                     <div className="flex flex-wrap gap-1.5">
-                      {!!patient.patient_id && (
+                      {recoveryAction(patient)}
+                      {canManage && !!patient.patient_id && (
                         <AccountAction
                           action="recovery"
                           to={`/admin/patients/${patient.patient_id}`}
                           ariaLabel={`Recover account for ${patient.full_name}`}
                         />
                       )}
-                      <AccountAction
+                      {canManage && <AccountAction
                         action={isInactive ? "reactivate" : "deactivate"}
                         onClick={() => openConfirm(patient, isInactive ? "reactivate" : "deactivate")}
-                      />
+                      />}
                     </div>
                     <ActivationSMS
+                      canManage={canManage}
                       patient={patient}
                       onReplace={replacePassword}
                       busy={smsBusy}
@@ -820,6 +865,7 @@ export default function PatientManager() {
                       {patient.contact_number || patient.phone || "—"}
                     </span>
                     <ActivationSMS
+                      canManage={canManage}
                       patient={patient}
                       onReplace={replacePassword}
                       busy={smsBusy}
@@ -830,17 +876,18 @@ export default function PatientManager() {
                       </span>
                     )}
                     <div className="mt-1 flex flex-wrap gap-1.5">
-                      {!!patient.patient_id && (
+                      {recoveryAction(patient)}
+                      {canManage && !!patient.patient_id && (
                         <AccountAction
                           action="recovery"
                           to={`/admin/patients/${patient.patient_id}`}
                           ariaLabel={`Recover account for ${patient.full_name}`}
                         />
                       )}
-                      <AccountAction
+                      {canManage && <AccountAction
                         action={isInactive ? "reactivate" : "deactivate"}
                         onClick={() => openConfirm(patient, isInactive ? "reactivate" : "deactivate")}
-                      />
+                      />}
                     </div>
                   </div>
                 );

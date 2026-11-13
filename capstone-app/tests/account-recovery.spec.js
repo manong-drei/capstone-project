@@ -80,13 +80,7 @@ test("login offers SMS recovery and explains the in-person fallback", async ({ p
 
 test("staff submits their password in the recovery modal, denies a wrong password, and clears secrets on close and navigation", async ({ page }) => {
   const state = await mockApp(page);
-  await page.goto("/staff");
-  await page.getByRole("button", { name: "Account recovery", exact: true }).click();
-  await page.getByLabel("Patient name or mobile number").fill("6789");
-  await page.getByRole("button", { name: "Search patients" }).click();
-  await page.getByRole("link", { name: /Ana Test/ }).click();
-  expect(state.searches).toEqual([{ phone: "6789" }]);
-  await expect(page.getByRole("region", { name: "Ana Test" })).toContainText("Jan 1, 1990");
+  await page.goto("/staff/patients/42");
   await page.getByRole("button", { name: "Start account recovery" }).click();
   const modal = page.getByRole("dialog", { name: "Account recovery", exact: true });
   await expect(modal).toBeVisible();
@@ -301,20 +295,12 @@ for (const [name, patientPatch] of [
   });
 }
 
-test("search handles invalid inputs, empty results, and server errors", async ({ page }) => {
-  const state = await mockApp(page);
-  await page.goto("/staff");
-  await page.getByRole("button", { name: "Account recovery", exact: true }).click();
-  const input = page.getByLabel("Patient name or mobile number");
-  const search = page.getByRole("button", { name: "Search patients" });
-  await input.fill("12"); await search.click();
-  await expect(page.getByRole("alert")).toContainText("four mobile number digits");
-  expect(state.searches).toHaveLength(0);
-  await input.fill("Nobody"); await search.click();
-  await expect(page.getByText("No matching patient records.")).toBeVisible();
-  state.searchError = true;
-  await input.fill("Ana"); await search.click();
-  await expect(page.getByRole("alert")).toContainText("Unable to search");
+test("old staff recovery page redirects to Patient Accounts", async ({ page }) => {
+  await mockApp(page);
+  await page.goto('/staff/account-recovery');
+  await expect(page).toHaveURL(/\/staff\/accounts\/patients$/);
+  await expect(page.getByRole('heading', { name: 'Patient Accounts', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Recover account for Ana Test' }).filter({ visible: true })).toBeEnabled();
 });
 
 test("admins can open recovery from patient management and return to their dashboard", async ({ page }) => {

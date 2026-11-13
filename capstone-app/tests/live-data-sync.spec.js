@@ -74,6 +74,7 @@ const views = [
   ['patient', '/patient/appointment-history', ['/appointments/me']],
   ['patient', '/patient/my-queue', ['/queue/me', '/queue/status']],
   ['staff', '/staff', ['/queue', '/doctor']],
+  ['staff', '/staff/accounts/patients', ['/admin/patients']],
   ['staff', '/staff/patients/42', ['/patients/42']],
   ...['admin', 'doctor', 'staff', 'patient'].map(role => [role, '/' + role + '/profile', [role === 'patient' ? '/patients/me' : '/auth/profile']]),
 ];
@@ -232,7 +233,6 @@ test('same-page updates work when BroadcastChannel is unavailable', async ({ pag
 });
 
 for (const [path, label, submit] of [
-  ['/staff/account-recovery', 'Patient name or mobile number', true],
   ['/staff/walk-ins/new', 'Find an existing patient', false],
 ]) {
   test(path + ' refreshes search results without changing the search input', async ({ page }) => {

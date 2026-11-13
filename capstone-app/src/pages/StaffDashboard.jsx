@@ -23,7 +23,7 @@ import QueueReasonModal from "@/components/common/QueueReasonModal";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
 import UserManual from "@/components/common/LazyUserManual";
 import WalkInForm from "@/components/dashboards/staff/WalkInForm";
-import AccountRecoverySearch from "@/components/dashboards/staff/AccountRecoverySearch";
+import PatientManager from "@/components/dashboards/admin/PatientManager";
 import ToastNotifications from "@/components/common/ToastNotifications";
 import useSmsToasts from "@/hooks/useSmsToasts";
 
@@ -32,10 +32,11 @@ const ALLOWED_ROUTES = [
   ROUTES.STAFF_DASHBOARD,
   ROUTES.STAFF_ACCOUNT_RECOVERY,
   ROUTES.STAFF_WALK_IN,
+  ROUTES.STAFF_PATIENT_ACCOUNTS,
 ];
 
 const PAGE_HEADINGS = {
-  [ROUTES.STAFF_ACCOUNT_RECOVERY]: "Account recovery",
+  [ROUTES.STAFF_PATIENT_ACCOUNTS]: "Appointment account registration",
   [ROUTES.STAFF_WALK_IN]: "Walk-in registration",
   [ROUTES.STAFF_DASHBOARD]: "Dental queue management",
 };
@@ -56,7 +57,7 @@ export default function StaffDashboard() {
   const [showManual, setShowManual] = useState(false);
   const { toasts, dismissToast, trackSmsStatuses } = useSmsToasts();
 
-  const recoveryPage = pathname === ROUTES.STAFF_ACCOUNT_RECOVERY;
+  const accountsPage = pathname === ROUTES.STAFF_PATIENT_ACCOUNTS;
   const walkInPage = pathname === ROUTES.STAFF_WALK_IN;
 
   const fetchQueue = useCallback(async (signal) => {
@@ -212,6 +213,10 @@ export default function StaffDashboard() {
     },
   ];
 
+  if (pathname === ROUTES.STAFF_ACCOUNT_RECOVERY) {
+    return <Navigate to={ROUTES.STAFF_PATIENT_ACCOUNTS} replace />;
+  }
+
   if (!ALLOWED_ROUTES.includes(pathname)) {
     return <Navigate to={ROUTES.STAFF_DASHBOARD} replace />;
   }
@@ -245,37 +250,25 @@ export default function StaffDashboard() {
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            {walkInPage && (
-              <Link
-                to={ROUTES.STAFF_DASHBOARD}
-                className="mb-1 block text-sm text-blue-700"
-              >
-                ← Back to queue management
-              </Link>
-            )}
             <h2 className="text-base font-bold text-[#1a3a8f] sm:text-lg">
               {PAGE_HEADINGS[pathname] ?? "Dental queue management"}
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            {!recoveryPage && (
-              <button
-                type="button"
-                onClick={() => navigate(ROUTES.STAFF_ACCOUNT_RECOVERY)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:gap-2 sm:px-4"
-              >
-                <ShieldCheck size={16} aria-hidden="true" />
-                Account recovery
-              </button>
+            {!accountsPage && (
+              <Link to={ROUTES.STAFF_PATIENT_ACCOUNTS} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-slate-50">
+                <Users size={16} aria-hidden="true" />
+                Patient accounts
+              </Link>
             )}
-            {recoveryPage ? (
+            {(walkInPage || accountsPage) ? (
               <button
                 type="button"
                 onClick={() => navigate(ROUTES.STAFF_DASHBOARD)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600 sm:gap-2 sm:px-4"
+                className="inline-flex min-h-11 shrink-0 self-start items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
                 <ArrowLeft size={17} aria-hidden="true" />
-                Back to queue management
+                Back to staff dashboard
               </button>
             ) : (
               <a
@@ -291,8 +284,8 @@ export default function StaffDashboard() {
             )}
           </div>
         </div>
-        {recoveryPage ? (
-          <AccountRecoverySearch />
+        {accountsPage ? (
+          <PatientManager canManage={false} canRecover />
         ) : walkInPage ? (
           <WalkInForm onSuccess={fetchQueue} doctorLeaveEnd={doctorLeaveEnd} />
         ) : loading ? (

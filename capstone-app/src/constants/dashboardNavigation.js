@@ -6,7 +6,6 @@ import {
   History,
   LayoutDashboard,
   List,
-  ShieldCheck,
   UserPlus,
   UsersRound,
 } from "lucide-react";
@@ -26,7 +25,7 @@ export const DASHBOARD_NAVIGATION = {
   staff: [
     { label: "Dashboard", icon: LayoutDashboard, path: ROUTES.STAFF_DASHBOARD },
     { label: "Walk-in registration", icon: UserPlus, path: ROUTES.STAFF_WALK_IN },
-    { label: "Account recovery", icon: ShieldCheck, path: ROUTES.STAFF_ACCOUNT_RECOVERY },
+    { label: "Patient accounts", icon: UsersRound, path: ROUTES.STAFF_PATIENT_ACCOUNTS },
   ],
   admin: [
     { key: "overview", label: "Dashboard", icon: LayoutDashboard, path: ROUTES.ADMIN_DASHBOARD },

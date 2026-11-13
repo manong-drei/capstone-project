@@ -211,8 +211,8 @@ export const USER_MANUALS = {
       {
         id: "staff-recovery", title: "Help a patient recover their account", summary: "Patients can first use “Forgot password?” for SMS recovery. Use this fallback only after verifying the patient in person.",
         steps: [
-          "Select “Account recovery”, confirm the patient's registered phone number, and open the matching profile. Select the orange recovery icon beside the patient's name.",
-          "Enter your own sign-in password in the recovery window. “Issue temporary password” becomes available after your password is confirmed.",
+          "Open “Patient accounts”, find the patient, and select “Account recovery” in the Actions column. Verify the patient details in the popup before proceeding.",
+          "Enter your own sign-in password in the recovery window. It is verified when you select “Issue temporary password”.",
           "Select “Issue temporary password”. Issuing it invalidates the old password and existing sessions.",
           "Hand the displayed password directly to the verified patient. It lasts 30 minutes and permits one login. After login, the patient has 15 minutes to set a new password.",
           "Select the × in the top-right corner when finished. The temporary password cannot be shown again from this display.",

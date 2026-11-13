@@ -23,20 +23,30 @@ const Patient = {
   search: async ({ name, date_of_birth, phone }, connection = pool) => {
     const filters = [];
     const values = [];
-    const fullNameSql = "CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), ''))";
-    const noMiddleNameSql = "CONCAT_WS(' ', p.first_name, p.last_name, NULLIF(TRIM(p.suffix), ''))";
+    const fullNameSql =
+      "CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), ''))";
+    const noMiddleNameSql =
+      "CONCAT_WS(' ', p.first_name, p.last_name, NULLIF(TRIM(p.suffix), ''))";
     const legacyNameSql = "CONCAT(p.first_name, ' ', p.last_name)";
     const exactNameSql = `(LOWER(${fullNameSql}) = LOWER(?) OR LOWER(${noMiddleNameSql}) = LOWER(?) OR LOWER(${legacyNameSql}) = LOWER(?))`;
-    if (phone) { filters.push("COALESCE(p.contact_number, u.phone) LIKE ?"); values.push(`%${phone}%`); }
+    if (phone) {
+      filters.push("COALESCE(p.contact_number, u.phone) LIKE ?");
+      values.push(`%${phone}%`);
+    }
     if (name) {
-      filters.push(`(${fullNameSql} LIKE ? OR ${noMiddleNameSql} LIKE ? OR ${legacyNameSql} LIKE ?)`);
+      filters.push(
+        `(${fullNameSql} LIKE ? OR ${noMiddleNameSql} LIKE ? OR ${legacyNameSql} LIKE ?)`,
+      );
       values.push(`%${name}%`, `%${name}%`, `%${name}%`);
     }
     if (name && date_of_birth) {
       filters.push(`${exactNameSql} AND p.date_of_birth = ?`);
       values.push(name, name, name, date_of_birth);
     }
-    if (date_of_birth) { filters.push("p.date_of_birth = ?"); values.push(date_of_birth); }
+    if (date_of_birth) {
+      filters.push("p.date_of_birth = ?");
+      values.push(date_of_birth);
+    }
     if (!filters.length) return [];
     const [rows] = await connection.query(
       `SELECT p.patient_id, p.first_name, p.middle_name, p.last_name, p.suffix, p.date_of_birth, p.gender,
@@ -46,38 +56,101 @@ const Patient = {
        ORDER BY (COALESCE(p.contact_number, u.phone) = ?) DESC,
                 (${exactNameSql} AND p.date_of_birth = ?) DESC,
                 p.last_name, p.first_name LIMIT 20`,
-      [...values, phone || "", name || "", name || "", name || "", date_of_birth || "1000-01-01"],
+      [
+        ...values,
+        phone || "",
+        name || "",
+        name || "",
+        name || "",
+        date_of_birth || "1000-01-01",
+      ],
     );
     return rows;
   },
 
-  createWalkIn: async ({ first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number, barangay }, connection) => {
+  createWalkIn: async (
+    {
+      first_name,
+      middle_name,
+      last_name,
+      suffix,
+      date_of_birth,
+      gender,
+      contact_number,
+      emg_contact_no,
+      barangay,
+    },
+    connection,
+  ) => {
     const [result] = await connection.query(
-      `INSERT INTO patients (user_id, first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number, barangay, city)
-       VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'Bago City')`,
-      [first_name, normalizeMiddleName(middle_name), last_name, normalizeSuffix(suffix), date_of_birth, gender, contact_number, barangay],
+      `INSERT INTO patients (user_id, first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number, emg_contact_no, barangay, city)
+       VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Bago City')`,
+      [
+        first_name,
+        normalizeMiddleName(middle_name),
+        last_name,
+        normalizeSuffix(suffix),
+        date_of_birth,
+        gender,
+        contact_number ?? null,
+        emg_contact_no ?? null,
+        barangay,
+      ],
     );
     return result.insertId;
   },
 
-  audit: async (patient_id, actor_user_id, action, details = null, connection = pool, req) => {
-    const readOnly = ['view', 'search'].includes(action);
+  audit: async (
+    patient_id,
+    actor_user_id,
+    action,
+    details = null,
+    connection = pool,
+    req,
+  ) => {
+    const readOnly = ["view", "search"].includes(action);
     try {
       await connection.query(
         "INSERT INTO patient_audit (patient_id, actor_user_id, action, details) VALUES (?, ?, ?, ?)",
-        [patient_id, actor_user_id || null, action, details && JSON.stringify(details)]);
+        [
+          patient_id,
+          actor_user_id || null,
+          action,
+          details && JSON.stringify(details),
+        ],
+      );
     } catch (error) {
       if (!readOnly) throw error;
-      console.error('Patient access audit recording failed.');
+      console.error("Patient access audit recording failed.");
     }
-    if (action === 'account_recovery') {
-      await auditLog.write(req, { action: 'password.issued', target_type: 'user', target_id: details?.user_id,
-        details: { method: 'in_person', patient_id } }, connection);
-    } else if (action === 'merged_into' || (action === 'create' && details?.duplicate_override)) {
-      await auditLog.write(req, {
-        action: action === 'merged_into' ? 'patient.merged' : 'patient.duplicate_override',
-        target_type: 'patient', target_id: patient_id, details: { ...details, patient_id },
-      }, connection);
+    if (action === "account_recovery") {
+      await auditLog.write(
+        req,
+        {
+          action: "password.issued",
+          target_type: "user",
+          target_id: details?.user_id,
+          details: { method: "in_person", patient_id },
+        },
+        connection,
+      );
+    } else if (
+      action === "merged_into" ||
+      (action === "create" && details?.duplicate_override)
+    ) {
+      await auditLog.write(
+        req,
+        {
+          action:
+            action === "merged_into"
+              ? "patient.merged"
+              : "patient.duplicate_override",
+          target_type: "patient",
+          target_id: patient_id,
+          details: { ...details, patient_id },
+        },
+        connection,
+      );
     }
   },
 
@@ -141,10 +214,18 @@ const Patient = {
       "emergency_contact",
       "emg_contact_no",
     ];
-    const fields = Object.keys(data).filter((k) => allowed.includes(k) && data[k] !== undefined);
+    const fields = Object.keys(data).filter(
+      (k) => allowed.includes(k) && data[k] !== undefined,
+    );
     if (!fields.length) return null;
 
-    const values = fields.map((f) => f === "suffix" ? normalizeSuffix(data[f]) : f === "middle_name" ? normalizeMiddleName(data[f]) : data[f]);
+    const values = fields.map((f) =>
+      f === "suffix"
+        ? normalizeSuffix(data[f])
+        : f === "middle_name"
+          ? normalizeMiddleName(data[f])
+          : data[f],
+    );
     values.push(user_id);
 
     await pool.query(

@@ -16,6 +16,7 @@ import {
 import api from "@/services/api";
 
 export default function AccountRecovery({
+  returnFocusRef,
   patient,
   eligible,
   onRecovered,
@@ -81,7 +82,7 @@ export default function AccountRecovery({
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    const trigger = document.activeElement;
+    const trigger = returnFocusRef?.current || document.activeElement;
     const previousOverflow = document.body.style.overflow;
     dialog.showModal();
     passwordRef.current?.focus();
@@ -91,7 +92,7 @@ export default function AccountRecovery({
       document.body.style.overflow = previousOverflow;
       if (trigger?.isConnected) trigger.focus();
     };
-  }, []);
+  }, [returnFocusRef]);
 
   useEffect(() => {
     if (!result) return;

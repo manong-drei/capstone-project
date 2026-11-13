@@ -91,6 +91,8 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [confirmNew, setConfirmNew] = useState(false);
+  const [noMobile, setNoMobile] = useState(false);
+  const [alternateContact, setAlternateContact] = useState("");
   const [searching, setSearching] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const today = clinicDay(new Date());
@@ -211,8 +213,10 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
       errors.dateOfBirth = "Date of birth cannot be in the future.";
     if (!form.gender) errors.gender = "Select a gender.";
     if (!form.address.trim()) errors.address = "Select a barangay.";
-    if (!/^9\d{9}$/.test(form.contact))
+    if (!noMobile && !/^9\d{9}$/.test(form.contact))
       errors.contact = "Enter 10 digits starting with 9, after +63.";
+    if (noMobile && alternateContact && !/^9\d{9}$/.test(alternateContact))
+      errors.alternateContact = "Enter 10 digits starting with 9, after +63.";
     if (isPriority && !assignedPriorityCategory)
       errors.priority = "Select a priority category.";
     return errors;
@@ -255,7 +259,10 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
         date_of_birth: form.dateOfBirth,
         gender: form.gender,
         address: form.address,
-        contact: "+63" + form.contact,
+        contact: noMobile ? undefined : "+63" + form.contact,
+        no_mobile: noMobile,
+        alternate_contact:
+          noMobile && alternateContact ? "+63" + alternateContact : undefined,
         patient_id: selectedPatient?.patient_id,
         create_new_confirmed: confirmNew,
         priority_category: isPriority ? assignedPriorityCategory : null,
@@ -289,6 +296,8 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
       setLookup("");
       setConfirmNew(false);
       setSubmitted(false);
+      setNoMobile(false);
+      setAlternateContact("");
       onSuccess?.();
     } catch (err) {
       setError(err.message || "Failed to register patient.");
@@ -454,6 +463,8 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
                     onClick={() => {
                       setSelectedPatient(null);
                       setSubmitted(false);
+                      setNoMobile(false);
+                      setAlternateContact("");
                       setForm({
                         firstName: "",
                         lastName: "",
@@ -653,15 +664,29 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
                 <FieldError field="address" message={fieldErrors.address} />
               </div>
               <div className="sm:col-span-2">
+                <label className="mb-2 flex items-start gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={noMobile}
+                    onChange={(event) => {
+                      setNoMobile(event.target.checked);
+                      setAlternateContact("");
+                      setError("");
+                      setSuccess("");
+                    }}
+                    className="mt-0.5 accent-blue-700"
+                  />
+                  <span>Patient has no mobile number</span>
+                </label>
                 <label
                   htmlFor="walkin-contact"
                   className="mb-1.5 block text-sm font-medium text-slate-600"
                 >
                   Confirmed mobile number
-                  <RequiredMark />
+                  {!noMobile && <RequiredMark />}
                 </label>
                 <div
-                  className={`flex overflow-hidden rounded-xl border focus-within:ring-2 ${fieldErrors.contact ? "border-red-500 focus-within:border-red-500 focus-within:ring-red-100" : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"}`}
+                  className={`flex overflow-hidden rounded-xl border focus-within:ring-2 ${fieldErrors.contact ? "border-red-500 focus-within:border-red-500 focus-within:ring-red-100" : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"} ${noMobile ? "bg-slate-50 opacity-60" : ""}`}
                 >
                   <span className="flex items-center gap-2 border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
                     <Phone size={14} aria-hidden="true" />
@@ -670,7 +695,8 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
                   <input
                     id="walkin-contact"
                     type="tel"
-                    required
+                    required={!noMobile}
+                    disabled={noMobile}
                     {...fieldAttributes("contact", "walkin-contact-help")}
                     inputMode="numeric"
                     pattern="9[0-9]{9}"
@@ -689,6 +715,54 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
                   patient.
                 </p>
                 <FieldError field="contact" message={fieldErrors.contact} />
+                {noMobile && (
+                  <div className="mt-3">
+                    <label
+                      htmlFor="walkin-alternate-contact"
+                      className="mb-1.5 block text-sm font-medium text-slate-600"
+                    >
+                      Guardian or companion mobile number (optional)
+                    </label>
+                    <div
+                      className={`flex overflow-hidden rounded-xl border focus-within:ring-2 ${fieldErrors.alternateContact ? "border-red-500 focus-within:border-red-500 focus-within:ring-red-100" : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"}`}
+                    >
+                      <span className="flex items-center gap-2 border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
+                        <Phone size={14} aria-hidden="true" />
+                        +63
+                      </span>
+                      <input
+                        id="walkin-alternate-contact"
+                        type="tel"
+                        {...fieldAttributes(
+                          "alternateContact",
+                          "walkin-alternate-help",
+                        )}
+                        inputMode="numeric"
+                        pattern="9[0-9]{9}"
+                        maxLength={10}
+                        value={alternateContact}
+                        onChange={(event) => {
+                          setError("");
+                          setSuccess("");
+                          setAlternateContact(event.target.value);
+                        }}
+                        placeholder="9XXXXXXXXX"
+                        className="min-w-0 flex-1 px-3 py-2.5 text-sm outline-none"
+                      />
+                    </div>
+                    <p
+                      id="walkin-alternate-help"
+                      className="mt-1.5 text-sm text-slate-500"
+                    >
+                      Queue SMS will go to this number. If left empty, no SMS is
+                      sent; tell the patient to stay nearby.
+                    </p>
+                    <FieldError
+                      field="alternateContact"
+                      message={fieldErrors.alternateContact}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

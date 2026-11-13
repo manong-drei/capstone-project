@@ -93,7 +93,7 @@ const destinations = {
     ["/admin/queue", "Live queue monitor"],
   ],
   staff: [
-    ["/staff/account-recovery", "Find a patient for account recovery"],
+    ["/staff/account-recovery", "Patient Accounts"],
     ["/staff/walk-ins/new", "Walk-in registration"],
   ],
 };
@@ -101,7 +101,7 @@ const destinations = {
 const menuSections = {
   patient: ["Dashboard", "My queue", "Appointment history"],
   doctor: ["Dashboard", "Analytics", "Patient History"],
-  staff: ["Dashboard", "Walk-in registration", "Account recovery"],
+  staff: ["Dashboard", "Walk-in registration", "Patient accounts"],
   admin: ["Dashboard", "Management", "Analytics", "Activity"],
 };
 
