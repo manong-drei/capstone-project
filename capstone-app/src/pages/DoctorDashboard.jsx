@@ -100,6 +100,7 @@ export default function DoctorDashboard() {
   const [walkInCount, setWalkInCount] = useState(0);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [unavailableReason, setUnavailableReason] = useState("");
   const [isAvailable, setIsAvailable] = useState(true);
   const [availLoading, setAvailLoading] = useState(false);
   const [approvedLeave, setApprovedLeave] = useState(null);
@@ -139,6 +140,7 @@ export default function DoctorDashboard() {
       setBookedCount(data.booked_count ?? 0);
       setWalkInCount(data.walkin_count ?? 0);
       setIsAvailable(data.is_available !== 0);
+      setUnavailableReason(data.unavailable_reason || "");
       setApprovedLeave(data.approved_leave ?? null);
     } catch (err) {
       if (!signal?.aborted && import.meta.env.DEV) {
@@ -190,7 +192,7 @@ export default function DoctorDashboard() {
     setPendingSettings(null);
   };
 
-  const handleToggleAvailability = async (val) => {
+  const handleToggleAvailability = async (val, reason = "") => {
     setAvailLoading(true);
     try {
       await api.put("/doctor/daily-settings", {
@@ -198,9 +200,12 @@ export default function DoctorDashboard() {
         appointment_limit: appointmentLimit,
         walk_in_limit: walkInLimit,
         is_available: val ? 1 : 0,
+        unavailable_reason: val ? null : reason,
       });
       settingsDirty.current = false;
       setIsAvailable(val);
+      setUnavailableReason(val ? "" : reason);
+      return true;
     } catch (err) {
       alert(err.message || "Failed to update availability.");
     } finally {
@@ -398,6 +403,7 @@ export default function DoctorDashboard() {
           identity={identity}
           initialLoading={initialLoading}
           isAvailable={isAvailable}
+          unavailableReason={unavailableReason}
           approvedLeave={approvedLeave}
           availLoading={availLoading}
           onToggleAvailability={handleToggleAvailability}

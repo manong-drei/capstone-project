@@ -332,6 +332,7 @@ const getDailySettings = async (req, res) => {
       booked_count: booked_count ?? 0,
       walkin_count: walkin_count ?? 0,
       is_available: approvedLeave ? 0 : (settings?.is_available ?? 1),
+      unavailable_reason: settings?.unavailable_reason ?? null,
       daily_is_available: settings?.is_available ?? 1,
       approved_leave: approvedLeave,
     });
@@ -344,8 +345,10 @@ const getDailySettings = async (req, res) => {
 /** PUT /api/doctor/daily-settings */
 const upsertDailySettings = async (req, res) => {
   try {
-    const { date, appointment_limit, walk_in_limit, is_available } = req.body;
+    const { date, appointment_limit, walk_in_limit, is_available, unavailable_reason } = req.body;
     if (
+      ((is_available === 0 || is_available === false) && (typeof unavailable_reason !== "string" || !unavailable_reason.trim() || unavailable_reason.trim().length > 500)) ||
+      (unavailable_reason != null && (typeof unavailable_reason !== "string" || unavailable_reason.trim().length > 500)) ||
       !validDate(date) ||
       !Number.isInteger(appointment_limit) ||
       appointment_limit < 0 ||
@@ -381,15 +384,18 @@ const upsertDailySettings = async (req, res) => {
       const availability =
         is_available === undefined ? null : Number(is_available);
       await connection.query(
-        `INSERT INTO daily_doctor_settings (doctor_id, date, appointment_limit, walk_in_limit, is_available)
-         VALUES (?, ?, ?, ?, COALESCE(?, 1))
+        `INSERT INTO daily_doctor_settings (doctor_id, date, appointment_limit, walk_in_limit, is_available, unavailable_reason)
+         VALUES (?, ?, ?, ?, COALESCE(?, 1), ?)
          ON DUPLICATE KEY UPDATE appointment_limit = VALUES(appointment_limit),
-           walk_in_limit = VALUES(walk_in_limit), is_available = COALESCE(?, is_available)`,
+           walk_in_limit = VALUES(walk_in_limit), is_available = COALESCE(?, is_available),
+           unavailable_reason = IF(? IS NULL, unavailable_reason, VALUES(unavailable_reason))`,
         [
           doctor.doctor_id,
           date,
           appointment_limit,
           walk_in_limit,
+          availability,
+          availability === 0 ? unavailable_reason.trim() : null,
           availability,
           availability,
         ],

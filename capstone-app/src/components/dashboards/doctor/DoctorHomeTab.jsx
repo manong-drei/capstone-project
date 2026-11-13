@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { DOCTOR_ABSENCE_REASONS } from "@/constants/doctorAbsenceReasons";
 import {
   AlertCircle,
   CalendarDays,
@@ -24,6 +26,7 @@ export default function DoctorHomeTab({
   identity,
   initialLoading,
   isAvailable,
+  unavailableReason,
   approvedLeave,
   availLoading,
   onToggleAvailability,
@@ -57,6 +60,9 @@ export default function DoctorHomeTab({
   onQueueAction,
   error,
 }) {
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [reasonCategory, setReasonCategory] = useState("");
+  const [otherReason, setOtherReason] = useState("");
   const currentQueue = servingQueue || calledQueue;
   const leaveEnd =
     approvedLeave &&
@@ -418,7 +424,7 @@ export default function DoctorHomeTab({
                 <button
                   type="button"
                   onClick={() =>
-                    !availLoading && onToggleAvailability(!isAvailable)
+                    !availLoading && (isAvailable ? setShowUnavailable(true) : onToggleAvailability(true))
                   }
                   disabled={availLoading || !!approvedLeave}
                   className={`min-h-11 shrink-0 rounded-xl border-2 px-4 py-2 text-xs font-bold shadow-md transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-70 ${
@@ -435,6 +441,24 @@ export default function DoctorHomeTab({
                         ? "Available"
                         : "Unavailable"}
                 </button>
+                {!isAvailable && unavailableReason && <p className="w-full text-sm text-slate-600">Reason: {unavailableReason}</p>}
+                {showUnavailable && isAvailable && !approvedLeave && <form className="w-full space-y-3" onSubmit={async event => {
+                  event.preventDefault();
+                  const reason = reasonCategory === "Others" ? otherReason.trim() : reasonCategory;
+                  if (!reason) return;
+                  if (await onToggleAvailability(false, reason)) { setShowUnavailable(false); setReasonCategory(""); setOtherReason(""); }
+                }}>
+                  <label className="block text-sm font-semibold">Reason
+<select aria-label="Reason" required value={reasonCategory} onChange={event => setReasonCategory(event.target.value)} className="mt-2 block min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 text-slate-800">
+<option value="">Select a reason</option>
+{DOCTOR_ABSENCE_REASONS.map(reason => <option key={reason}>{reason}</option>)}
+</select></label>
+{reasonCategory === "Others" && <label className="block text-sm font-semibold">Please specify
+<textarea required maxLength={500} value={otherReason} onChange={event => setOtherReason(event.target.value)} className="mt-2 block w-full rounded-xl border border-slate-300 bg-white p-2 text-slate-800" />
+</label>}
+                  <button type="submit" disabled={availLoading || (reasonCategory === "Others" && !otherReason.trim())} className="min-h-11 rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Confirm unavailable</button>
+                  <button type="button" disabled={availLoading} onClick={() => setShowUnavailable(false)} className="ml-2 min-h-11 px-4 py-2 text-sm">Cancel</button>
+                </form>}
                 <div className="w-full border-t border-slate-100 pt-4">
                   <button
                     type="button"

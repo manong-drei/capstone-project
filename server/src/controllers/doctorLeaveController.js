@@ -24,7 +24,7 @@ exports.listOwn = async (req, res) => {
 
 exports.requestLeave = async (req, res) => {
   const { start_date: start, end_date: end, reason } = req.body ?? {};
-  if (!validDate(start) || !validDate(end) || start < clinicToday() || end < start || !validNote(reason)) {
+  if (!validDate(start) || !validDate(end) || start < clinicToday() || end < start || !validNote(reason) || typeof reason !== "string" || !reason.trim()) {
     return res.status(400).json({ success: false, message: 'Choose a valid start date of today or later, an end date on or after it, and a reason of at most 500 characters.' });
   }
   try {

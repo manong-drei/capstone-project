@@ -92,7 +92,8 @@ for (const width of [1440, 375]) {
     const form = doctor.getByRole('form', { name: 'Request doctor leave' });
     await form.getByLabel('Start date', { exact: true }).fill('2026-10-29');
     await form.getByLabel('End date', { exact: true }).fill('2026-11-04');
-    await form.getByLabel('Reason (optional)', { exact: true }).fill('Private leave reason');
+    await form.getByLabel('Reason', { exact: true }).selectOption('Others');
+    await form.getByLabel('Please specify', { exact: true }).fill('Private leave reason');
     await form.getByRole('button', { name: 'Submit leave request' }).click();
     await expect(doctor.getByText('Pending approval', { exact: true })).toBeVisible();
     await expect(doctor.getByRole('button', { name: 'Withdraw request' })).toBeVisible();
@@ -272,7 +273,8 @@ test('leave modal stays open during submission and preserves the form after a fa
   const dialog = page.getByRole('dialog', { name: 'Leave Requests', exact: true });
   await dialog.getByLabel('Start date', { exact: true }).fill('2026-10-29');
   await dialog.getByLabel('End date', { exact: true }).fill('2026-11-04');
-  await dialog.getByLabel('Reason (optional)', { exact: true }).fill('Family event');
+  await dialog.getByLabel('Reason', { exact: true }).selectOption('Others');
+    await dialog.getByLabel('Please specify', { exact: true }).fill('Family event');
   await dialog.getByRole('button', { name: 'Submit leave request' }).click();
   const close = dialog.getByRole('button', { name: 'Close leave requests' });
   await expect(close).toBeDisabled();
@@ -283,7 +285,7 @@ test('leave modal stays open during submission and preserves the form after a fa
   finish();
   await expect(dialog.getByRole('alert')).toHaveText('Please try submitting again.');
   await expect(dialog.getByLabel('Start date', { exact: true })).toHaveValue('2026-10-29');
-  await expect(dialog.getByLabel('Reason (optional)', { exact: true })).toHaveValue('Family event');
+  await expect(dialog.getByLabel('Please specify', { exact: true })).toHaveValue('Family event');
   await expect(close).toBeEnabled();
   await close.click();
   await expect(dialog).toHaveCount(0);
@@ -311,7 +313,8 @@ test('leave modal keeps date validation and submits a same-day request without c
   expect(await end.evaluate(element => element.validity.rangeUnderflow)).toBe(true);
   expect(state.requests).toHaveLength(0);
   await start.fill('2026-10-29');
-  await form.getByLabel('Reason (optional)', { exact: true }).fill('  Family event  ');
+  await form.getByLabel('Reason', { exact: true }).selectOption('Others');
+    await form.getByLabel('Please specify', { exact: true }).fill('  Family event  ');
   await submit.click();
   await expect(page.getByText('Pending approval', { exact: true })).toBeVisible();
   expect(state.requests[0]).toMatchObject({ start_date: '2026-10-29', end_date: '2026-10-29', reason: 'Family event', status: 'pending' });

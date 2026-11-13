@@ -22,6 +22,7 @@
     "migrate:audit": "node src/config/migrateAuditLogs.js",
     "migrate:doctor-leaves": "node src/config/migrateDoctorLeaves.js",
     "migrate:password-recovery": "node src/config/migratePasswordRecovery.js",
+    "migrate:doctor-unavailable-reason": "node src/config/migrateDoctorUnavailableReason.js",
     "migrate:prescription-text": "node src/config/migratePrescriptionText.js"
   },
   "dependencies": {

@@ -135,6 +135,11 @@ test("mobile menu, availability, capacity warning, and completion actions still 
   await leave.getByRole("button", { name: "Close leave requests", exact: true }).click();
   await expect(requestLeave).toBeFocused();
   await page.getByRole("button", { name: "Available", exact: true }).click();
+  await page.getByLabel("Reason", { exact: true }).selectOption("Others");
+  await expect(page.getByRole("button", { name: "Confirm unavailable" })).toBeDisabled();
+  await page.getByLabel("Please specify", { exact: true }).fill("Emergency duty");
+  await page.getByRole("button", { name: "Confirm unavailable" }).click();
+  await expect(page.getByText("Reason: Emergency duty", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Unavailable", exact: true })).toBeEnabled();
   expect(state.settings.is_available).toBe(0);
 
@@ -165,4 +170,29 @@ test("mobile menu, availability, capacity warning, and completion actions still 
   await page.keyboard.press("Escape");
   await expect(notes).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add notes for AQ01", exact: true })).toBeFocused();
+});
+
+test("absence reasons require details for Others and save preset reasons", async ({ page }) => {
+  const state = await mockDoctor(page);
+  await page.goto('/doctor');
+  const region = page.getByRole('region', { name: "Today's availability", exact: true });
+  await region.getByRole('button', { name: 'Available', exact: true }).click();
+  const confirm = region.getByRole('button', { name: 'Confirm unavailable' });
+  await confirm.click();
+  expect(state.settings.is_available).toBe(1);
+  await region.getByLabel('Reason', { exact: true }).selectOption('Others');
+  await expect(confirm).toBeDisabled();
+  await region.getByLabel('Please specify', { exact: true }).fill('  Emergency duty  ');
+  await confirm.click();
+  await expect(region.getByText('Reason: Emergency duty', { exact: true })).toBeVisible();
+  expect(state.settings.unavailable_reason).toBe('Emergency duty');
+  await region.getByRole('button', { name: 'Unavailable', exact: true }).click();
+  await expect(region.getByRole('button', { name: 'Available', exact: true })).toBeVisible();
+  expect(state.settings.unavailable_reason).toBeNull();
+  await region.getByRole('button', { name: 'Available', exact: true }).click();
+  await region.getByLabel('Reason', { exact: true }).selectOption('Medical reasons');
+  await expect(region.getByLabel('Please specify', { exact: true })).toHaveCount(0);
+  await confirm.click();
+  await expect(region.getByText('Reason: Medical reasons', { exact: true })).toBeVisible();
+  expect(state.settings.unavailable_reason).toBe('Medical reasons');
 });

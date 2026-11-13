@@ -1,3 +1,4 @@
+import { DOCTOR_ABSENCE_REASONS } from "@/constants/doctorAbsenceReasons";
 import useLiveData from "@/hooks/useLiveData";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, Info, LoaderCircle, RefreshCw, Send, X } from 'lucide-react';
@@ -18,6 +19,7 @@ export default function DoctorLeaveModal({ onClose }) {
   const [busy, setBusy] = useState(false);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [reasonCategory, setReasonCategory] = useState('');
   const [reason, setReason] = useState('');
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const reload = () => { setLoading(true); setLoadError(''); setRefresh(value => value + 1); };
@@ -48,10 +50,11 @@ export default function DoctorLeaveModal({ onClose }) {
     if (busy) return;
     setError(''); setMessage('');
     if (start < today || end < start) { setError('Choose a start date of today or later and an end date on or after it.'); return; }
+    if (!reasonCategory || (reasonCategory === "Others" && !reason.trim())) { setError("Choose a reason and specify details for Others."); return; }
     setBusy(true);
     try {
-      const data = await api.post('/doctor/leave-requests', { start_date: start, end_date: end, reason: reason.trim() });
-      setStart(''); setEnd(''); setReason(''); setMessage(data.message); reload();
+      const data = await api.post('/doctor/leave-requests', { start_date: start, end_date: end, reason: reasonCategory === "Others" ? reason.trim() : reasonCategory });
+      setStart(''); setEnd(''); setReason(''); setReasonCategory(''); setMessage(data.message); reload();
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   };
@@ -117,8 +120,14 @@ export default function DoctorLeaveModal({ onClose }) {
                 <input type="date" required min={start || today} value={end} onChange={event => { setEnd(event.target.value); setError(''); }} className={inputClass} />
               </label>
               <div className="min-w-0 sm:col-span-2">
-                <label htmlFor="leave-reason" className="text-sm font-semibold text-slate-700">Reason (optional)</label>
-                <textarea id="leave-reason" aria-describedby="leave-reason-help" rows={3} maxLength={500} value={reason} onChange={event => setReason(event.target.value)} className={inputClass} />
+                <label className="block text-sm font-semibold">Reason
+<select aria-label="Reason" required value={reasonCategory} onChange={event => setReasonCategory(event.target.value)} className="mt-2 block min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 text-slate-800">
+<option value="">Select a reason</option>
+{DOCTOR_ABSENCE_REASONS.map(reason => <option key={reason}>{reason}</option>)}
+</select></label>
+{reasonCategory === "Others" && <label className="block text-sm font-semibold">Please specify
+<textarea required maxLength={500} value={reason} onChange={event => setReason(event.target.value)} className="mt-2 block w-full rounded-xl border border-slate-300 bg-white p-2 text-slate-800" />
+</label>}
                 <p id="leave-reason-help" className="mt-1.5 text-xs leading-relaxed text-slate-500">Visible only to you and admins. Up to 500 characters.</p>
               </div>
             </fieldset>
