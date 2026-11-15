@@ -25,9 +25,10 @@ export const USER_MANUALS = {
         steps: [
           "On Home, compare your ticket with “Now serving” and “Next in queue”. The display updates about every 5 seconds while the page is open.",
           "Select “View queue line” in the “My queue number” card to open My Queue. It shows the current order alongside your ticket when you have one. Check “Estimated wait” on Home for an estimate when available.",
-          "While your ticket is “Waiting”, stay nearby and keep checking. Verified priority patients go first in entry order. Confirmed returns rejoin behind patients already waiting in the same priority group.",
+          "While your ticket is “Waiting”, stay nearby and keep checking. Priority and regular patients take alternating turns, starting with priority. If one group is empty, the available group continues. Within each group, online and walk-in patients follow ticket-issued time. Confirmed returns use their return time.",
           "When “It’s your turn!” or “Called — report to staff” appears, report to staff immediately. Staff must confirm that you are present before care begins.",
           "If you see “Missed call”, report to staff before the displayed deadline. Staff must record your return; reopening the page does not confirm your arrival.",
+          "If the dentist becomes unavailable, staff can hold your ticket for 24 hours. Report before its expiry to have staff confirm your presence. Held returns go ahead of ordinary waiting patients; next-day returns receive an H number while keeping their record.",
         ],
         note: "Use the current ticket status and staff instructions to judge your turn. The displayed estimated wait is a guide, not a guaranteed appointment time. Do not wait for an SMS before reporting when called.",
       },
@@ -72,7 +73,7 @@ export const USER_MANUALS = {
     faqs: [
       ["Can I choose more than two services?", "Choose one or two services per ticket. Tell clinic staff or the dentist if your needs change."],
       ["How do I get priority status?", "Priority is applied automatically when your profile has a valid approved category. Ask clinic staff to review your eligibility; there is no patient priority selector."],
-      ["Why did a higher ticket number go first?", "Appointment and walk-in tickets use separate counters. Verified priority patients go first in entry order. Regular tickets use protected source alternation; a new online ticket cannot pass earlier regular walk-ins waiting for their first turn. Follow the displayed queue rather than comparing ticket numbers."],
+      ["Why did a higher ticket number go first?", "Appointment and walk-in tickets use separate counters. Priority and regular patients take alternating turns, starting with priority and continuing with the available group if the other is empty. Within each group, tickets follow ticket-issued time across both registration sources; confirmed returns use return time. Follow the displayed queue rather than comparing ticket numbers."],
       ["Does this ticket reserve a future date?", "The ticket request is for today's dental visit. It is not a future-date booking form."],
       ["Can I recover my account by text?", "Yes. Select “Forgot password?” and enter the mobile number registered to your patient account. Use the SMS code to verify your number, then set a new password. You can request at most three codes per number in 15 minutes. Never share your code. Clinic reception remains available if SMS recovery is unavailable."],
     ],
@@ -196,6 +197,7 @@ export const USER_MANUALS = {
           "Select “Patient present” only after the patient is physically there. The ticket becomes Now serving.",
           "When the check-up is finished, select “Call next patient” to complete the current visit and call the next one. If nobody else is waiting, select “Finish check-up”.",
           "To cancel an eligible waiting ticket, select “Cancel” beside it. Choose a reason in “Reason for cancellation”, then select “Continue”.",
+          "Held tickets and the bulk cancellation action start hidden. Select “Show held tickets” or “Show cancel remaining” to open them, and the matching “Hide” button to close them.",
         ],
         note: "Finishing the check-up changes the queue status. The doctor saves consultation notes separately. Use “Refresh” to confirm the latest state if another staff member is working on the queue.",
       },
@@ -334,7 +336,7 @@ export const USER_MANUALS = {
         id: "admin-statistics", title: "Understand statistics and predictions", summary: "Read recorded service data separately from the demonstration forecast.",
         steps: [
           "Open “Analytics”. Review “Three-year demand forecast” for total annual patient volume from 2014–2025 and predictions for 2026–2028.",
-          "Use “Age group” to select the patients shown in the BOHC recipients chart. Both charts use a solid green line for 2014–2025 history and a dashed blue line for 2026–2028 predictions, with colored legends below.",
+          "Use “Age group” to select the patients shown in the BOHC recipients chart. Both charts use a solid green line for history and the connection from 2025 to the 2026 prediction. Dashed blue segments connect the 2026–2028 predictions, with colored legends below.",
           "Use “Forecast year” under “Forecast details” to update the summary, “forecast breakdown”, and “Model performance by age group”. The breakdown includes 95% prediction intervals. Scores are evaluated separately for one-, two-, and three-year predictions, with four, three, and two validation forecasts per age group respectively.",
         ],
         note: "BOHC means Basic Oral Health Care. The “Demonstration forecast” uses synthetic 2012–2019 history and recorded 2020–2025 totals. All three prediction years use the same historical baseline; later predictions are not actual records. Validation samples are small and do not guarantee future accuracy or demand.",

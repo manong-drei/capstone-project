@@ -14,6 +14,7 @@
     "migrate:queue-status-reason": "node src/config/migrateQueueStatusReason.js",
     "migrate:queue-no-show": "node src/config/migrateQueueNoShow.js",
     "migrate:queue-grace": "node src/config/migrateQueueGracePeriod.js",
+    "migrate:queue-holds": "node src/config/migrateQueueHolds.js",
     "migrate:queue-appointments": "node src/config/migrateQueueAppointments.js",
     "migrate:walkin-patients": "node src/config/migrateWalkInPatients.js",
     "migrate:walkin-doctor": "node src/config/migrateWalkInDoctor.js",

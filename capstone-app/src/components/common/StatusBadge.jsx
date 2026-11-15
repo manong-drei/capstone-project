@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 
 const STATUS_VARIANTS = {
+  held: { label: "Held", icon: Hourglass, classes: "border-amber-300 bg-amber-50 text-amber-800" },
+  expired: { label: "Hold expired", icon: CalendarOff, classes: "border-slate-300 bg-slate-100 text-slate-700" },
   available: {
     label: "Available",
     icon: CircleCheck,

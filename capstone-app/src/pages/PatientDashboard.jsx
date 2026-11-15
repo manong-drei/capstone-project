@@ -130,7 +130,7 @@ export default function PatientDashboard() {
   }, [pathname]);
 
   const hasActiveQueue =
-    queue && ["waiting", "called", "serving", "missed"].includes(queue.status);
+    queue && ["waiting", "called", "serving", "missed", "held"].includes(queue.status);
   const registrationMessage =
     queueStatus.registration_message ||
     (doctorLeaveEnd
@@ -141,7 +141,7 @@ export default function PatientDashboard() {
   const canRequestQueue = !ticketLoading && !loading && !error &&
     queueStatusLoaded && doctorLoaded && !!profile && !hasActiveQueue && !registrationMessage;
   const showTicket = activeTab !== "appointments" &&
-    (hasActiveQueue || queue?.status === QUEUE_STATUS.NO_SHOW);
+    (hasActiveQueue || [QUEUE_STATUS.NO_SHOW, QUEUE_STATUS.EXPIRED].includes(queue?.status));
   const go = (tab) => {
     navigate(pages[tab]);
   };
@@ -172,7 +172,7 @@ export default function PatientDashboard() {
   };
   if (!activeTab) return <Navigate to={ROUTES.PATIENT_DASHBOARD} replace />;
   return (
-    <div className="min-h-dvh bg-gray-100 font-[Poppins,sans-serif] text-slate-800 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_:is(button,a,input,summary):focus-visible]:outline-2 [&_:is(button,a,input,summary):focus-visible]:outline-offset-4 [&_:is(button,a,input,summary):focus-visible]:outline-blue-600">
+    <div className="dashboard-text text-base min-h-dvh bg-gray-100 font-[Poppins,sans-serif] text-slate-800 [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_:is(button,a,input,summary):focus-visible]:outline-2 [&_:is(button,a,input,summary):focus-visible]:outline-offset-4 [&_:is(button,a,input,summary):focus-visible]:outline-blue-600">
       <UserManual
         role="patient"
         isOpen={showManual}

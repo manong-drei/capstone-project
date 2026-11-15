@@ -6,7 +6,7 @@
  * Refreshes on queue changes in this browser and polls every second across devices.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Stethoscope, Volume2, VolumeX } from "lucide-react";
 import { getAllQueues } from "@/services/queueService";
 import { QUEUE_UPDATES_CHANNEL } from "@/constants/queue";
@@ -59,6 +59,9 @@ export default function GeneralQueueMonitor() {
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [announcementsEnabled, setAnnouncementsEnabled] = useState(false);
   const [announcementError, setAnnouncementError] = useState("");
+  const observedSpeech = useRef({ baseline: false, returns: new Map(), call: null });
+  const pendingSpeech = useRef([]);
+  const speakPending = useRef(null);
   const speechSupported =
     typeof window.speechSynthesis !== "undefined" &&
     typeof window.SpeechSynthesisUtterance === "function";
@@ -147,20 +150,8 @@ export default function GeneralQueueMonitor() {
       (a, b) => new Date(a.grace_expires_at) - new Date(b.grace_expires_at),
     );
 
-  const servingId = currentServing?.id;
-  const servingNumber = currentServing?.queue_number;
-  const lastCalledAt = currentServing?.last_called_at;
-
   useEffect(() => {
-    if (
-      !announcementsEnabled ||
-      !speechSupported ||
-      !servingId ||
-      !servingNumber
-    )
-      return;
-
-    const spokenNumber = servingNumber.replace(/-/g, "").split("").join(" ");
+    if (!announcementsEnabled || !speechSupported) return;
     const synth = window.speechSynthesis;
     const utterances = [];
     const onError = (event) => {
@@ -173,7 +164,6 @@ export default function GeneralQueueMonitor() {
     const announce = () => {
       const voices = synth.getVoices();
       if (!voices.length) return;
-      synth.removeEventListener("voiceschanged", announce);
       // shortcut: Web Speech has no gender field; expand known female names when supporting other device voices.
       const femaleVoices = voices.filter(
         (voice) =>
@@ -192,33 +182,59 @@ export default function GeneralQueueMonitor() {
         );
         return;
       }
-      for (let repeat = 0; repeat < 2; repeat++) {
-        const utterance = new window.SpeechSynthesisUtterance(
-          `Now serving. Queue number ${spokenNumber}. Please proceed to the dentist.`,
-        );
-        utterance.voice = voice;
-        utterance.lang = voice.lang;
-        utterance.onerror = onError;
-        utterances.push(utterance);
-        synth.speak(utterance);
+      for (const message of pendingSpeech.current.splice(0)) {
+        for (let repeat = 0; repeat < 2; repeat++) {
+          const utterance = new window.SpeechSynthesisUtterance(message);
+          utterance.voice = voice;
+          utterance.lang = voice.lang;
+          utterance.onerror = onError;
+          utterances.push(utterance);
+          synth.speak(utterance);
+        }
       }
     };
     synth.cancel();
+    speakPending.current = announce;
     synth.addEventListener("voiceschanged", announce);
-    announce();
 
     return () => {
+      speakPending.current = null;
+      pendingSpeech.current = [];
       synth.removeEventListener("voiceschanged", announce);
       for (const utterance of utterances) utterance.onerror = null;
       synth.cancel();
     };
-  }, [
-    announcementsEnabled,
-    speechSupported,
-    servingId,
-    servingNumber,
-    lastCalledAt,
-  ]);
+  }, [announcementsEnabled, speechSupported]);
+
+  useEffect(() => {
+    if (!lastRefresh) return;
+    const observed = observedSpeech.current;
+    const messages = [];
+    const spokenNumber = number => number.replace(/-/g, "").split("").join(" ");
+    const restored = queues.filter(queue => queue.held_reactivated_at)
+      .sort((a, b) => new Date(a.held_reactivated_at) - new Date(b.held_reactivated_at)
+        || (a.held_insert_order ?? Infinity) - (b.held_insert_order ?? Infinity) || a.id - b.id);
+    for (const queue of restored) {
+      const previous = observed.returns.get(queue.id);
+      if (observed.baseline && previous !== queue.held_reactivated_at && announcementsEnabled)
+        messages.push(`Inserting held ticket. Queue number ${spokenNumber(queue.queue_number)}.`);
+      observed.returns.set(queue.id, queue.held_reactivated_at);
+    }
+    observed.baseline = true;
+    const current = queues.find(queue => ["called", "serving"].includes(queue.status));
+    const call = current ? `${current.id}:${current.last_called_at}` : null;
+    if (!current && observed.call && announcementsEnabled && speechSupported) {
+      pendingSpeech.current = [];
+      window.speechSynthesis.cancel();
+    }
+    if (announcementsEnabled && current?.queue_number && call !== observed.call)
+      messages.push(`Now serving. Queue number ${spokenNumber(current.queue_number)}. Please proceed to the dentist.`);
+    observed.call = announcementsEnabled ? call : null;
+    if (messages.length && speechSupported) {
+      pendingSpeech.current.push(...messages);
+      speakPending.current?.();
+    }
+  }, [queues, lastRefresh, announcementsEnabled, speechSupported]);
 
   return (
     <>
@@ -252,6 +268,7 @@ export default function GeneralQueueMonitor() {
         </div>
 
         {/* Floating announcement toggle — bottom-right of the monitor */}
+        {!speechSupported && <p className="fixed bottom-4 right-4 rounded-lg bg-slate-950/80 px-3 py-2 text-xs">Voice announcements are unavailable in this browser.</p>}
         {speechSupported && (
           <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
             {announcementError && (

@@ -499,7 +499,7 @@ const createWalkIn = async (req, res) => {
       );
     }
     const [[active]] = await connection.query(
-      "SELECT id FROM queues WHERE patient_id = ? AND DATE(created_at) = CURDATE() AND status IN ('waiting', 'called', 'serving', 'missed') LIMIT 1",
+      `SELECT id FROM queues WHERE patient_id = ? AND ${Queue.activeSql()} LIMIT 1`,
       [patientId],
     );
     if (active)
@@ -624,7 +624,7 @@ const updateStatus = async (req, res) => {
     if (updated?.expired)
       return res.status(409).json({
         success: false,
-        message: "The return window has expired. This ticket is now a no-show.",
+        message: updated.held ? "The 24-hour hold has expired. This ticket cannot be restored." : "The return window has expired. This ticket is now a no-show.",
       });
     if (!updated) {
       return res
@@ -688,7 +688,7 @@ const cancelQueue = async (req, res) => {
     if (updated?.expired)
       return res.status(409).json({
         success: false,
-        message: "The return window has expired. This ticket is now a no-show.",
+        message: updated.held ? "The 24-hour hold has expired. This ticket cannot be restored." : "The return window has expired. This ticket is now a no-show.",
       });
     if (!updated)
       return res
@@ -720,7 +720,7 @@ const ticketAction = (action) => async (req, res) => {
     if (result.expired)
       return res.status(409).json({
         success: false,
-        message: "The return window has expired. This ticket is now a no-show.",
+        message: result.held ? "The 24-hour hold has expired. This ticket cannot be restored." : "The return window has expired. This ticket is now a no-show.",
       });
     wakeWorker();
     res.json(result);
@@ -734,6 +734,18 @@ const ticketAction = (action) => async (req, res) => {
 };
 
 module.exports = {
+  holdRemaining: async (req, res) => {
+    try {
+      const result = await Queue.holdRemaining();
+      wakeWorker();
+      res.json(result);
+    } catch (err) {
+      console.error("Hold remaining failed:", err);
+      res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Unable to hold the remaining tickets." });
+    }
+  },
+  holdQueue: ticketAction("hold"),
+  reactivateQueue: ticketAction("reactivate"),
   getQueueStatus,
   getAllQueues,
   getMyQueue,

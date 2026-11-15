@@ -169,7 +169,7 @@ export default function MyProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
+    <div className="dashboard-text text-base min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
       <StaffNavbar
         identity={identity}
         onHelp={() => setShowManual(true)}

@@ -24,12 +24,12 @@ const historyYears = Array.from({ length: 12 }, (_, index) => 2014 + index);
 const formatChartTooltip = (value, name, item) =>
   item.dataKey === "forecast" && item.payload.recipients != null
     ? null
-    : [formatNumber(value), name];
+    : [formatNumber(value), item.payload.forecast != null ? "Prediction (2026–2028)" : name];
 
 function ChartLegend() {
   return (
     <ul className="ar-chart-legend" aria-label="Chart legend">
-      <li><span className="ar-legend-history" aria-hidden="true" />Historical (2014–2025)</li>
+      <li><span className="ar-legend-history" aria-hidden="true" />History (2014–2025) + 2026 prediction</li>
       <li><span className="ar-legend-prediction" aria-hidden="true" />Prediction (2026–2028)</li>
     </ul>
   );
@@ -89,25 +89,22 @@ export default function AdminReportsTab() {
       const recipients = rows.length
         ? rows.reduce((sum, row) => sum + Number(row.recipients), 0)
         : null;
-      return { year, recipients, forecast: year === baselineYear ? recipients : null };
+      return { year, recipients, forecast: null };
     }),
-    ...forecastTotals.map((row) => ({ year: row.year, recipients: null, forecast: row.recipients })),
+    ...forecastTotals.map((row) => ({
+      year: row.year, recipients: row.horizon === 1 ? row.recipients : null, forecast: row.recipients,
+    })),
   ];
   const ageGroups = baselineForecast.map((row) => row.age_group);
   const ageGroup = selectedAgeGroup || ageGroups[0];
   const chartData = trendData.map(({ year }) => {
+    const forecast = bohcForecast.find(
+      (row) => row.forecast_year === year && row.age_group === ageGroup,
+    )?.forecast_recipients ?? null;
     const recipients = bohcHistory.find(
       (row) => row.year === year && row.age_group === ageGroup,
-    )?.recipients ?? null;
-    return {
-      year,
-      recipients,
-      forecast: year === baselineYear
-        ? recipients
-        : bohcForecast.find(
-            (row) => row.forecast_year === year && row.age_group === ageGroup,
-          )?.forecast_recipients ?? null,
-    };
+    )?.recipients ?? (year === baselineYear + 1 ? forecast : null);
+    return { year, recipients, forecast };
   });
 
   return (
@@ -147,8 +144,8 @@ export default function AdminReportsTab() {
           <section className="ar-card" aria-labelledby="forecast-trend-heading">
             <h3 id="forecast-trend-heading">Three-year demand forecast</h3>
             <p className="ar-muted">
-              Total annual patient volume across all age groups. The solid line
-              shows 2014–2025 history; the dashed line shows 2026–2028 predictions.
+              Total annual patient volume across all age groups. Solid green shows history
+              and the connection to the 2026 prediction. Dashed blue connects the 2026–2028 predictions.
             </p>
             <div className="ar-scroll" role="region" aria-label="Annual patient volume chart" tabIndex={0}>
               <div className="ar-chart ar-trend-chart" role="img" aria-label="Three-year BOHC demand forecast">
@@ -193,8 +190,8 @@ export default function AdminReportsTab() {
               <div>
                 <h3 id="bohc-chart-heading">BOHC recipients by age group</h3>
                 <p className="ar-muted">
-                  Annual patient volume for {ageGroup}. Solid: 2014–2025 history;
-                  dashed: 2026–2028 predictions.
+                  Annual patient volume for {ageGroup}. Solid green shows history and the
+                  connection to the 2026 prediction; dashed blue connects the 2026–2028 predictions.
                 </p>
               </div>
               <label className="ar-year">
@@ -385,8 +382,8 @@ export default function AdminReportsTab() {
               using only data available at each training cutoff. Lower errors are better.
               There are {selectedForecast[0].backtest_count} validation forecasts per age group;
               the small sample limits confidence in these scores.
-              Small ARIMA models are compared with and without drift using AICc.
-              Drift allows an average annual increase or decrease; it does not force growth.
+              Small ARIMA models with drift are compared using AICc.
+              Planning projections assume the fitted annual increase or decrease continues.
             </p>
             <div
               className="ar-scroll"

@@ -172,15 +172,10 @@ const login = async (req, res) => {
       if (session?.locked) {
         return res.status(429).json({
           success: false,
-          message: "Too many login attempts. Please try again in 15 minutes.",
+          message: "Too many login attempts.",
         });
       }
-      let message = "Invalid phone or password.";
-      const remaining = session?.attemptsRemaining;
-      if (remaining !== undefined) {
-        message += ` ${remaining} ${remaining === 1 ? "attempt" : "attempts"} remaining.`;
-      }
-      return res.status(401).json({ success: false, message });
+      return res.status(401).json({ success: false, message: "Invalid phone or password." });
     }
 
     if (session.user.role === "admin") {

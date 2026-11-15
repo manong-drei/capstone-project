@@ -9,3 +9,4 @@ export const CANCELLATION_REASONS = [
 ];
 
 export const NO_SHOW_REASON = "No-show — patient not present when called";
+export const DOCTOR_UNAVAILABLE_REASON = "Doctor unavailable — emergency or meeting";

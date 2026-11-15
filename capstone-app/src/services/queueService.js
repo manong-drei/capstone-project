@@ -12,3 +12,6 @@ export const updateQueueStatus = (id, status, reason) =>
   api.patch(`/queue/${id}/status`, { status, reason });
 export const cancelQueue = (id, reason) => api.patch(`/queue/${id}/cancel`, { reason });
 export const deleteQueue = (id) => api.delete(`/queue/${id}`);
+export const holdRemainingQueues = () => api.post('/queue/hold-remaining');
+export const holdQueue = (id) => api.post(`/queue/${id}/hold`);
+export const reactivateQueue = (id) => api.post(`/queue/${id}/reactivate`);

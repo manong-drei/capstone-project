@@ -14,6 +14,9 @@ const {
   recallQueue,
   skipQueue,
   returnQueue,
+  holdRemaining,
+  holdQueue,
+  reactivateQueue,
 } = require('../controllers/queueController');
 
 // Public status (all authenticated roles)
@@ -28,6 +31,9 @@ router.patch('/:id/cancel',  authenticate, authorize('patient'),                
 router.get('/',              authenticate, authorize('doctor', 'staff', 'admin'),   getAllQueues);
 router.post('/walkin',       authenticate, authorize('staff', 'admin'),             createWalkIn);
 router.post('/call-next',    authenticate, authorize('doctor', 'staff'),            callNext);
+router.post('/hold-remaining', authenticate, authorize('staff'),                    holdRemaining);
+router.post('/:id/hold',     authenticate, authorize('staff'),                      holdQueue);
+router.post('/:id/reactivate', authenticate, authorize('staff'),                    reactivateQueue);
 router.post('/:id/recall',   authenticate, authorize('doctor', 'staff'),            recallQueue);
 router.post('/:id/skip',     authenticate, authorize('doctor', 'staff'),            skipQueue);
 router.post('/:id/return',   authenticate, authorize('doctor', 'staff'),            returnQueue);

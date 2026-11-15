@@ -9,7 +9,7 @@ import {
   LockKeyhole,
   MapPin,
   Phone,
-  ShieldCheck,
+  UserKey,
   UserRound,
   X,
 } from "lucide-react";
@@ -147,7 +147,7 @@ export default function AccountRecovery({
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1a3a8f]">
-            <ShieldCheck size={20} aria-hidden="true" />
+            <UserKey size={20} aria-hidden="true" />
           </span>
           <div className="min-w-0">
             <h2

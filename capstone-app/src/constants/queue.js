@@ -13,4 +13,6 @@ export const QUEUE_STATUS = {
   DONE: "done",
   CANCELLED: "cancelled",
   NO_SHOW: "no_show",
+  HELD: "held",
+  EXPIRED: "expired",
 };

@@ -21,6 +21,10 @@ export const formatQueueTime = value => new Date(value).toLocaleTimeString('en-P
   timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true,
 });
 
+export const formatQueueDeadline = value => new Date(value).toLocaleString('en-PH', {
+  timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+}) + ' PHT';
+
 export function hasActivePatientPriority(profile) {
   return Boolean(profile?.priority_category) &&
     (!profile.priority_expires_at || new Date(profile.priority_expires_at) > new Date());
@@ -46,6 +50,9 @@ export function getServiceLabels(services) {
 }
 
 export function getTicketNotice(queue) {
+  if (queue.status === "held") return `The dentist is unavailable. Your ticket is held until ${formatQueueDeadline(queue.held_expires_at)}. Report to staff before this deadline to confirm you are present and restore your ticket.`;
+  if (queue.status === "expired") return "Your 24-hour doctor-unavailable hold has expired. Please approach staff or request a new ticket subject to availability.";
+  if (queue.status === "waiting" && queue.held_insert_order != null) return "Your presence is confirmed. Your held ticket is ahead of ordinary waiting patients; please stay nearby.";
   if (queue.status === "missed") return `You missed your call. Report to staff before ${queue.grace_expires_at ? formatQueueTime(queue.grace_expires_at) : "the return deadline"} to keep this ticket. The queue is continuing while you return.`;
   if (queue.status === "called") return "Please report to staff now so they can confirm you are here.";
   if (queue.status === "serving") return "You are receiving care. Staff will update your ticket when your visit is complete.";

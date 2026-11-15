@@ -1,4 +1,5 @@
 const Patient = require("../models/Patient");
+const Queue = require("../models/Queue");
 const User = require("../models/User");
 const Doctor = require("../models/Doctor");
 const DoctorHistory = require("../models/DoctorHistory");
@@ -70,7 +71,7 @@ const getPatientById = async (req, res) => {
         .json({ success: false, message: "Patient not found." });
     }
     if (!visits) [visits] = await pool.query(
-      `SELECT id, queue_number, category, type, status, status_reason, services, is_walk_in, created_at
+      `SELECT id, queue_number, original_queue_number, category, type, status, status_reason, services, is_walk_in, created_at
        FROM queues WHERE patient_id = ? ORDER BY created_at DESC, id DESC`,
       [patient.patient_id],
     );
@@ -131,7 +132,7 @@ const mergePatient = async (req, res) => {
     }
     const [[{ active_count }]] = await connection.query(
       `SELECT COUNT(*) AS active_count FROM queues WHERE patient_id IN (?, ?)
-       AND DATE(created_at) = CURDATE() AND status IN ('waiting', 'called', 'serving', 'missed')`,
+       AND ${Queue.activeSql()}`,
       [sourceId, targetId],
     );
     if (active_count > 1) throw Object.assign(new Error("Resolve the patients' active queues before merging."), { status: 409 });

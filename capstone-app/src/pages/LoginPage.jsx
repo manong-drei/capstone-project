@@ -15,17 +15,13 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  // Form values
   const [form, setForm] = useState({ phone: "", password: "" });
-
-  // UI state
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTerms, setShowTerms] = useState(false);
   const [showRecoveryHelp, setShowRecoveryHelp] = useState(false);
 
-  // Updates the field that changed (phone or password) and clears any old error
   const handleChange = (e) => {
     setError("");
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -43,9 +39,9 @@ const LoginPage = () => {
     setError("");
 
     try {
+      // goes to authController.js login function
       const response = await authService.login({
-        //go to authcontroller.js login function
-        phone: form.phone,
+        phone: form.phone.trim(),
         password: form.password,
       });
 
@@ -60,29 +56,35 @@ const LoginPage = () => {
 
   return (
     <>
-      <AuthPageLayout>
+      <AuthPageLayout className="auth-page-login">
         {/* Heading */}
-        <div className="auth-heading">
+        <div className="auth-heading !mb-3 [@media(max-height:700px)]:!mb-2">
           <h1>Welcome!</h1>
         </div>
 
-        {/* Error message */}
-        {error && (
-          <div
-            role="alert"
-            className="mb-4 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs text-center"
-          >
-            {error}
-          </div>
-        )}
+        {/* Error slot: fixed height so showing/hiding never shifts the layout */}
+        <div className="min-h-9 mb-2" aria-live="polite">
+          {error && (
+            <div
+              role="alert"
+              className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs text-center"
+            >
+              {error}
+            </div>
+          )}
+        </div>
 
-        <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
+        <form
+          onSubmit={handleLogin}
+          className="space-y-3 [@media(max-height:700px)]:space-y-2"
+        >
           {/* Phone field */}
           <div>
             <label htmlFor="login-phone">Phone Number</label>
             <input
               id="login-phone"
               type="tel"
+              inputMode="numeric"
               autoComplete="username"
               name="phone"
               value={form.phone}
@@ -124,9 +126,7 @@ const LoginPage = () => {
           <div className="text-right text-xs">
             <button
               type="button"
-              onClick={() => setShowRecoveryHelp((visible) => !visible)}
-              aria-expanded={showRecoveryHelp}
-              aria-controls="recovery-help"
+              onClick={() => setShowRecoveryHelp(true)}
               aria-haspopup="dialog"
               className="font-semibold text-blue-700 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600"
             >
@@ -134,7 +134,7 @@ const LoginPage = () => {
             </button>
           </div>
 
-          {/* Submit button (shows a spinner while logging in) */}
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
@@ -152,7 +152,8 @@ const LoginPage = () => {
             )}
           </button>
         </form>
-        <p className="auth-terms">
+
+        <p className="auth-terms !mt-3 [@media(max-height:700px)]:!mt-2">
           By logging in, you agree to our{" "}
           <button
             type="button"
@@ -174,7 +175,8 @@ const LoginPage = () => {
 
         {import.meta.env.VITE_DEV_BYPASS === "true" && <DevLoginPanel />}
       </AuthPageLayout>
-      {/* ── Terms & Privacy Modal ── */}
+
+      {/* ── Modals ── */}
       {showRecoveryHelp && (
         <PasswordRecoveryDialog onClose={() => setShowRecoveryHelp(false)} />
       )}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Ticket, X } from "lucide-react";
 import { formatPatientDate, getQueueDisplayName, getServiceLabels, getTicketNotice } from "@/utils/queueDisplay";
 
-const statuses = { waiting: "Waiting", called: "It's your turn!", serving: "Receiving care", missed: "Missed call", no_show: "No-show", done: "Completed", cancelled: "Cancelled" };
+const statuses = { waiting: "Waiting", called: "It's your turn!", serving: "Receiving care", missed: "Missed call", no_show: "No-show", done: "Completed", cancelled: "Cancelled", held: "Held — doctor unavailable", expired: "Hold expired" };
 
 export default function QueueStatus({ queue, onCancel }) {
   const [open, setOpen] = useState(null);
@@ -23,6 +23,7 @@ export default function QueueStatus({ queue, onCancel }) {
   const notice = getTicketNotice(queue);
   const canCancel = onCancel && ["waiting", "missed"].includes(queue.status);
   const fields = [["Patient name", patientName], ["Date issued", issuedDate], ["Time issued", issuedTime]];
+  if (queue.original_queue_number && queue.original_queue_number !== queue.queue_number) fields.push(["Original ticket", queue.original_queue_number]);
   if (open === false) {
     return (
       <div className="fixed right-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 sm:right-6 sm:bottom-6">

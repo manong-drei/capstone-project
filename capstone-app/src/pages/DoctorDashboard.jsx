@@ -378,7 +378,7 @@ export default function DoctorDashboard() {
 
   return (
     <div
-      className={`flex min-h-screen flex-col bg-slate-100 text-slate-800 ${dashboardFont}`}
+      className={`dashboard-text text-base flex min-h-screen flex-col bg-slate-100 text-slate-800 ${dashboardFont}`}
     >
       <UserManual
         role="doctor"

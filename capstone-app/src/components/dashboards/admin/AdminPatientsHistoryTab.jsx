@@ -54,6 +54,7 @@ function TicketType({ visit }) {
   return (
     <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${walkIn ? "bg-orange-50 text-orange-800" : "bg-blue-50 text-blue-800"}`}>
       {walkIn ? "Walk-in" : "Appointment"}{visit.queue_number ? ` · ${visit.queue_number}` : ""}
+      {visit.original_queue_number && visit.original_queue_number !== visit.queue_number && ` · Originally ${visit.original_queue_number}`}
     </span>
   );
 }
@@ -291,7 +292,7 @@ export default function AdminPatientsHistoryTab() {
                         {formatServices(appt)}
                       </td>
                       <td style={{ padding: "12px" }}>
-                        <StatusBadge status={appt.status} />
+                        <StatusBadge status={['held', 'expired'].includes(appt.queue_status) ? appt.queue_status : appt.status} />
                       </td>
                     </tr>
                   ))}
@@ -342,7 +343,7 @@ export default function AdminPatientsHistoryTab() {
                   <span style={{ fontSize: "12px", color: "#475569" }}>
                     {formatServices(appt)}
                   </span>
-                  <StatusBadge status={appt.status} />
+                  <StatusBadge status={['held', 'expired'].includes(appt.queue_status) ? appt.queue_status : appt.status} />
                 </div>
               ))}
             </div>

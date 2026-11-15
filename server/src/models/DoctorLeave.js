@@ -45,7 +45,7 @@ const DoctorLeave = {
       COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, p.last_name), ''), q.walk_in_name, 'Unknown patient') AS patient_name
       FROM queues q LEFT JOIN patients p ON p.patient_id = q.patient_id
       LEFT JOIN appointments a ON a.appointment_id = q.appointment_id
-      WHERE q.category = 'dental' AND DATE(q.created_at) = CURDATE()
+      WHERE q.category = 'dental' AND ${Queue.daySql('q.')} = CURDATE()
         AND q.status IN ('waiting', 'called', 'serving', 'missed')
         AND CURDATE() BETWEEN ? AND ?
         AND ? = COALESCE(a.doctor_id, (${Doctor.defaultActiveDoctorQuery}))

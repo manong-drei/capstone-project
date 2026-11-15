@@ -138,7 +138,7 @@ export default function PatientAppointmentsTab({
                         "Services not recorded"}
                     </p>
                   </div>
-                  <StatusBadge status={appt.status} />
+                  <StatusBadge status={['held', 'expired'].includes(appt.queue_status) ? appt.queue_status : appt.status} />
                   <span className="flex items-center gap-2 text-xs font-medium text-blue-800">
                     View details
                     <ChevronDown
@@ -152,6 +152,7 @@ export default function PatientAppointmentsTab({
                   <div>
                     <dt>Visit reference</dt>
                     <dd>#{appt.appointment_id}</dd>
+                    {appt.queue_number && <dd>Ticket {appt.queue_number}{appt.original_queue_number && appt.original_queue_number !== appt.queue_number && ` · Originally ${appt.original_queue_number}`}</dd>}
                   </div>
                   <div>
                     <dt>Services</dt>

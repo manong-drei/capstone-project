@@ -108,7 +108,7 @@ test('queue routes allow staff/doctor calling, deny patient/admin recovery actio
       for (const action of ['recall', 'skip', 'return']) assert.equal((await dispatch(`/:id/${action}`, 'POST')).statusCode, 403);
     }
     role = 'staff';
-    for (const status of ['waiting', 'called', 'missed', 'no_show']) assert.equal((await dispatch('/:id/status', 'PATCH', { status })).statusCode, 400);
+    for (const status of ['waiting', 'called', 'missed', 'no_show', 'held', 'expired']) assert.equal((await dispatch('/:id/status', 'PATCH', { status })).statusCode, 400);
     assert.equal(writes, 0);
     assert.equal((await dispatch('/:id/recall', 'POST', {}, 'bad')).statusCode, 400);
     assert.equal((await dispatch('/:id/recall', 'POST')).statusCode, 200);

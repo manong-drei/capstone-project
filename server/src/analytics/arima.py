@@ -1,10 +1,11 @@
-"""Train one small annual ARIMA model per BOHC age group.
+"""Train one small annual ARIMA model with drift per BOHC age group.
 
 Install once with: python -m pip install pandas statsmodels
 Put bohc_modeling_dataset.csv beside this script, then run: python arima.py
 
 The synthetic 2012-2019 rows are teaching placeholders, not facility records.
 Forecasts and scores are demonstrations because synthetic history is included.
+Planning projections assume the fitted annual drift continues into future years.
 """
 
 from math import sqrt
@@ -65,19 +66,19 @@ def load_data(path):
 
 def select_arima(values):
     candidates = []
+    # Planning projections require drift; its size and direction are fitted.
     for order in ORDERS:
-        for trend in ("n", "t"):
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    fitted = ARIMA(values, order=order, trend=trend).fit()
-                converged = getattr(fitted, "mle_retvals", {}).get("converged", True)
-                if converged and np.isfinite(fitted.aicc):
-                    candidates.append((float(fitted.aicc), order, trend, fitted))
-            except (ValueError, ArithmeticError, np.linalg.LinAlgError):
-                continue
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                fitted = ARIMA(values, order=order, trend="t").fit()
+            converged = getattr(fitted, "mle_retvals", {}).get("converged", True)
+            if converged and np.isfinite(fitted.aicc):
+                candidates.append((float(fitted.aicc), order, "t", fitted))
+        except (ValueError, ArithmeticError, np.linalg.LinAlgError):
+            continue
     if not candidates:
-        raise RuntimeError("No small ARIMA candidate fitted successfully for this series.")
+        raise RuntimeError("No small ARIMA candidate with drift fitted successfully for this series.")
     return min(candidates, key=lambda item: item[:3])[1:]
 
 
@@ -160,7 +161,7 @@ def main():
                 "selected_arima_trend": trend,
                 **validation_scores([row for row in group_backtests if row["horizon"] == prediction["horizon"]]),
                 "synthetic_years_in_training": int(group_data["is_synthetic"].sum()),
-                "interpretation": "Demonstration only: training includes synthetic historical values",
+                "interpretation": "Demonstration only: assumes continuing fitted annual drift; training includes synthetic historical values",
             })
 
     pd.DataFrame(summaries).to_csv(FORECAST_FILE, index=False)
@@ -171,7 +172,8 @@ def main():
     print(f"Saved forecasts: {FORECAST_FILE.name}")
     print(f"Saved actual-year backtests: {BACKTEST_FILE.name}")
     print(f"Saved fixed 2024-2025 holdout: {HOLDOUT_FILE.name}")
-    print("Three small ARIMA orders, with/without drift, are selected by AICc using training data only.")
+    print("Three small ARIMA orders with required drift are compared by AICc using training data only.")
+    print("Planning projections assume the fitted annual increase or decrease continues; growth is not guaranteed.")
     print("Each model uses 2012-2025, including eight synthetic rows; accuracy scores are demonstrations.")
     print("Forecasts cover 2026-2028; validation has four 1-year, three 2-year, and two 3-year tests per age group.")
 

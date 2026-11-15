@@ -447,6 +447,7 @@ export default function DoctorAppointmentsTab({
                           {appt.queue_number && (
                             <span className="mt-1.5 inline-block rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
                               {appt.queue_number}
+                              {appt.original_queue_number && appt.original_queue_number !== appt.queue_number && ` · Originally ${appt.original_queue_number}`}
                             </span>
                           )}
                         </td>
@@ -506,6 +507,7 @@ export default function DoctorAppointmentsTab({
                         {appt.queue_number && (
                           <span className="mt-1.5 inline-block rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 [overflow-wrap:anywhere]">
                             {appt.queue_number}
+                            {appt.original_queue_number && appt.original_queue_number !== appt.queue_number && ` · Originally ${appt.original_queue_number}`}
                           </span>
                         )}
                       </div>

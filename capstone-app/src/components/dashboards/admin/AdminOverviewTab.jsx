@@ -1,5 +1,12 @@
 import useLiveData from "@/hooks/useLiveData";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart3,
@@ -20,14 +27,18 @@ import { ROUTES } from "@/constants/routes";
 import api from "@/services/api";
 import AdminLiveQueueMonitor from "./AdminLiveQueueMonitor";
 
-const AgeDistributionChart = lazy(() => import("./AdminOverviewCharts").then(
-  ({ AgeDistributionChart }) => ({ default: AgeDistributionChart }),
-  () => ({ default: ChartUnavailable }),
-));
-const PatientVolumeChart = lazy(() => import("./AdminOverviewCharts").then(
-  ({ PatientVolumeChart }) => ({ default: PatientVolumeChart }),
-  () => ({ default: ChartUnavailable }),
-));
+const AgeDistributionChart = lazy(() =>
+  import("./AdminOverviewCharts").then(
+    ({ AgeDistributionChart }) => ({ default: AgeDistributionChart }),
+    () => ({ default: ChartUnavailable }),
+  ),
+);
+const PatientVolumeChart = lazy(() =>
+  import("./AdminOverviewCharts").then(
+    ({ PatientVolumeChart }) => ({ default: PatientVolumeChart }),
+    () => ({ default: ChartUnavailable }),
+  ),
+);
 
 const AGE_COLORS = [
   "#1e4db7",
@@ -60,9 +71,7 @@ function buildVolumeData(rows, period) {
     return rows.reduce(
       (total, row) =>
         total +
-        (row.day >= startDay && row.day < endDay
-          ? Number(row.count)
-          : 0),
+        (row.day >= startDay && row.day < endDay ? Number(row.count) : 0),
       0,
     );
   };
@@ -169,15 +178,29 @@ export default function AdminOverviewTab({
 }) {
   const [volumeTab, setVolumeTab] = useState("Monthly");
   const [attention, setAttention] = useState({ pending: null, failed: null });
-  useLiveData(useCallback(async (signal) => {
-    const [leaves, sms] = await Promise.allSettled([
-      api.get('/admin/doctor-leaves', { signal }), api.get('/admin/sms-jobs', { signal }),
-    ]);
-    if (!signal.aborted) setAttention({
-      pending: leaves.status === 'fulfilled' ? (leaves.value.requests ?? []).filter(row => row.status === 'pending').length : null,
-      failed: sms.status === 'fulfilled' ? (sms.value.jobs ?? []).filter(row => row.is_failed && !row.reviewed_at).length : null,
-    });
-  }, []));
+  useLiveData(
+    useCallback(async (signal) => {
+      const [leaves, sms] = await Promise.allSettled([
+        api.get("/admin/doctor-leaves", { signal }),
+        api.get("/admin/sms-jobs", { signal }),
+      ]);
+      if (!signal.aborted)
+        setAttention({
+          pending:
+            leaves.status === "fulfilled"
+              ? (leaves.value.requests ?? []).filter(
+                  (row) => row.status === "pending",
+                ).length
+              : null,
+          failed:
+            sms.status === "fulfilled"
+              ? (sms.value.jobs ?? []).filter(
+                  (row) => row.is_failed && !row.reviewed_at,
+                ).length
+              : null,
+        });
+    }, []),
+  );
 
   const dentalAges = (overview?.dentalAgeGroups ?? [])
     .filter((row) => AGE_GROUPS.includes(row.age_group))
@@ -211,7 +234,7 @@ export default function AdminOverviewTab({
         <div className="relative grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
             <p className="mb-2 text-xs font-semibold tracking-widest text-blue-200">
-              ADMIN DASHBOARD · E-KALUSUGAN
+              ADMIN DASHBOARD
             </p>
             <h1 className="min-h-[2lh] break-words text-2xl font-bold tracking-tight sm:text-3xl">
               Welcome, {identity.displayName}.
@@ -440,7 +463,11 @@ export default function AdminOverviewTab({
               id="age-distribution-heading"
               className="flex items-center gap-2 text-sm font-semibold text-slate-900"
             >
-              <ChartPie size={18} className="text-blue-700" aria-hidden="true" />
+              <ChartPie
+                size={18}
+                className="text-blue-700"
+                aria-hidden="true"
+              />
               Dental Queues by Age Group
             </h3>
             <p className="mb-4 mt-1 text-xs text-slate-500">
@@ -461,7 +488,10 @@ export default function AdminOverviewTab({
               ) : (
                 <div className="grid items-center gap-4 min-[480px]:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
                   <DeferredChart fallback={<AgeChartSkeleton />}>
-                    <AgeDistributionChart dentalAges={dentalAges} dentalTotal={dentalTotal} />
+                    <AgeDistributionChart
+                      dentalAges={dentalAges}
+                      dentalTotal={dentalTotal}
+                    />
                   </DeferredChart>
                   <ul className="min-w-0 space-y-2 text-xs">
                     {dentalAges.map((row) => (
@@ -474,7 +504,9 @@ export default function AdminOverviewTab({
                           style={{ background: row.color }}
                           aria-hidden="true"
                         />
-                        <span className="flex-1 text-slate-600">{row.name}</span>
+                        <span className="flex-1 text-slate-600">
+                          {row.name}
+                        </span>
                         <span className="font-semibold tabular-nums text-slate-800">
                           {row.value.toLocaleString()} (
                           {((row.value / dentalTotal) * 100).toFixed(1)}%)
@@ -489,20 +521,13 @@ export default function AdminOverviewTab({
         </div>
       </div>
 
-      <section
-        className={panelClass}
-        aria-labelledby="patient-volume-heading"
-      >
+      <section className={panelClass} aria-labelledby="patient-volume-heading">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3
             id="patient-volume-heading"
             className="flex items-center gap-2 text-sm font-semibold text-slate-900"
           >
-            <BarChart3
-              size={18}
-              className="text-blue-700"
-              aria-hidden="true"
-            />
+            <BarChart3 size={18} className="text-blue-700" aria-hidden="true" />
             Patient Volume
           </h3>
           <div
@@ -531,7 +556,10 @@ export default function AdminOverviewTab({
               ? "8 weeks"
               : "7 days"}
         </p>
-        <div className="h-[250px] min-w-0 sm:h-[320px] xl:h-[360px]" aria-busy={ovLoading}>
+        <div
+          className="h-[250px] min-w-0 sm:h-[320px] xl:h-[360px]"
+          aria-busy={ovLoading}
+        >
           {initialLoading ? (
             <VolumeChartSkeleton />
           ) : !overview ? (
@@ -540,7 +568,10 @@ export default function AdminOverviewTab({
             </p>
           ) : (
             <DeferredChart fallback={<VolumeChartSkeleton />}>
-              <PatientVolumeChart volumeTab={volumeTab} volumeData={volumeData} />
+              <PatientVolumeChart
+                volumeTab={volumeTab}
+                volumeData={volumeData}
+              />
             </DeferredChart>
           )}
         </div>
@@ -680,7 +711,10 @@ export default function AdminOverviewTab({
 
 function ChartUnavailable() {
   return (
-    <p role="status" className="grid min-h-40 place-items-center text-sm text-slate-500">
+    <p
+      role="status"
+      className="grid min-h-40 place-items-center text-sm text-slate-500"
+    >
       Chart could not load. Reload the page to try again.
     </p>
   );
@@ -688,29 +722,41 @@ function ChartUnavailable() {
 
 function DeferredChart({ children, fallback }) {
   const chartRef = useRef(null);
-  const [nearViewport, setNearViewport] = useState(() => !("IntersectionObserver" in window));
+  const [nearViewport, setNearViewport] = useState(
+    () => !("IntersectionObserver" in window),
+  );
 
   useEffect(() => {
     if (!("IntersectionObserver" in window)) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      setNearViewport(true);
-      observer.disconnect();
-    }, { rootMargin: "200px" });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setNearViewport(true);
+        observer.disconnect();
+      },
+      { rootMargin: "200px" },
+    );
     observer.observe(chartRef.current);
     return () => observer.disconnect();
   }, []);
 
   return (
     <div ref={chartRef} className="grid h-full min-w-0">
-      {nearViewport ? <Suspense fallback={fallback}>{children}</Suspense> : fallback}
+      {nearViewport ? (
+        <Suspense fallback={fallback}>{children}</Suspense>
+      ) : (
+        fallback
+      )}
     </div>
   );
 }
 
 function AgeChartSkeleton() {
   return (
-    <div role="status" className="grid min-h-40 w-full max-w-40 place-items-center justify-self-center">
+    <div
+      role="status"
+      className="grid min-h-40 w-full max-w-40 place-items-center justify-self-center"
+    >
       <span className="sr-only">Loading age groups…</span>
       <Skeleton className="mx-auto h-32 w-32 rounded-full" />
     </div>
@@ -724,11 +770,9 @@ function VolumeChartSkeleton() {
       className="flex h-full items-end justify-around gap-3 border-b border-slate-200 px-4 pb-6"
     >
       <span className="sr-only">Loading patient volume…</span>
-      {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map(
-        (height) => (
-          <Skeleton key={height} className={`w-6 ${height}`} />
-        ),
-      )}
+      {["h-1/3", "h-2/3", "h-1/2", "h-4/5", "h-3/5", "h-2/5"].map((height) => (
+        <Skeleton key={height} className={`w-6 ${height}`} />
+      ))}
     </div>
   );
 }

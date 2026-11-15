@@ -39,6 +39,25 @@ async function mockPatient(page) {
 
 const estimatedWaitCard = page => page.getByText('Estimated wait', { exact: true }).locator('..');
 
+test('patients keep a held ticket, see the deadline and new H number, and are told when the hold expires', async ({ page }) => {
+  const state = await mockPatient(page);
+  Object.assign(state.queue, { status: 'held', held_expires_at: '2026-11-16T09:00:00+08:00' });
+  await page.goto('/patient');
+  const ticket = page.getByRole('article', { name: 'My queue ticket' });
+  await expect(ticket).toContainText('Held — doctor unavailable');
+  await expect(ticket).toContainText('Report to staff before this deadline');
+  await expect(ticket.getByRole('button', { name: 'Cancel Queue', exact: true })).toHaveCount(0);
+  Object.assign(state.queue, { status: 'waiting', queue_number: 'H01', original_queue_number: 'AQ11', held_insert_order: 1 });
+  await page.clock.fastForward(15000);
+  await expect(ticket).toContainText('H01');
+  await expect(ticket).toContainText('Original ticket');
+  await expect(ticket).toContainText('ahead of ordinary waiting patients');
+  state.queue.status = 'expired';
+  await page.clock.fastForward(15000);
+  await expect(ticket).toContainText('Hold expired');
+  await expect(ticket).toContainText('hold has expired');
+});
+
 test("the ticket and queue line load independently of eligibility", async ({ page }) => {
   const state = await mockPatient(page);
   state.started = true;

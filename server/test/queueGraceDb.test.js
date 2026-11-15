@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const Queue = require('../src/models/Queue');
 const Doctor = require('../src/models/Doctor');
 const pool = require('../src/config/db');
+const migrateHolds = require('../src/config/migrateQueueHolds');
 
 test.after(() => pool.end());
 
@@ -27,7 +28,7 @@ test('MySQL initializes every queue connection and uses the Manila date at midni
 
 test('MySQL grace lifecycle uses isolated temporary tables and preserves return order', { skip: process.env.QUEUE_DB_TESTS !== 'true' }, async () => {
   const connection = await pool.getConnection();
-  const saved = { getConnection: pool.getConnection, query: pool.query };
+  const saved = { getConnection: pool.getConnection, query: pool.query, end: pool.end };
   try {
     await connection.query('CREATE TEMPORARY TABLE queue_grace_fixture LIKE queues');
     await connection.query('CREATE TEMPORARY TABLE queues LIKE queue_grace_fixture');
@@ -48,16 +49,18 @@ test('MySQL grace lifecycle uses isolated temporary tables and preserves return 
     await connection.query('UPDATE daily_doctor_settings SET is_available = 1 WHERE doctor_id = 8');
     assert.equal(await Doctor.findSoleAvailable(connection), null);
     await connection.query('UPDATE daily_doctor_settings SET is_available = 0 WHERE doctor_id = 8');
-    await connection.query(`INSERT INTO queues (id, patient_id, is_walk_in, queue_number, type, category, services, walk_in_name)
-      VALUES (1, 4294967290, 0, 'TEST1', 'regular', 'dental', '[]', 'Grace Test'),
-             (2, 4294967291, 1, 'TEST2', 'regular', 'dental', '[]', 'Grace Test'),
-             (3, 4294967292, 0, 'TEST3', 'priority', 'dental', '[]', 'Grace Test')`);
+    await connection.query(`INSERT INTO queues (id, patient_id, is_walk_in, queue_number, type, category, services, walk_in_name, created_at)
+      VALUES (1, 4294967290, 0, 'TEST1', 'regular', 'dental', '[]', 'Grace Test', NOW(3)),
+             (2, 4294967291, 1, 'TEST2', 'regular', 'dental', '[]', 'Grace Test', DATE_SUB(NOW(3), INTERVAL 1 SECOND)),
+             (3, 4294967292, 0, 'TEST3', 'priority', 'dental', '[]', 'Grace Test', NOW(3))`);
     const transaction = {
       query: connection.query.bind(connection), beginTransaction: connection.beginTransaction.bind(connection),
       commit: connection.commit.bind(connection), rollback: connection.rollback.bind(connection), release() {},
     };
     pool.getConnection = async () => transaction;
     pool.query = connection.query.bind(connection);
+    pool.end = async () => {};
+    await migrateHolds();
     const wait = id => connection.query('UPDATE queues SET last_called_at = DATE_SUB(NOW(3), INTERVAL 31 SECOND) WHERE id = ?', [id]);
     const miss = async id => { await wait(id); await Queue.recall(id); await wait(id); return Queue.skip(id); };
 
@@ -85,7 +88,7 @@ test('MySQL grace lifecycle uses isolated temporary tables and preserves return 
     assert.equal((await Queue._fetchById(1)).status, 'no_show');
     await assert.rejects(Queue.updateStatus(1, 'serving'), { status: 409 });
   } finally {
-    pool.getConnection = saved.getConnection; pool.query = saved.query;
+    pool.getConnection = saved.getConnection; pool.query = saved.query; pool.end = saved.end;
     await connection.query('DROP TEMPORARY TABLE IF EXISTS queue_sequences');
     await connection.query('DROP TEMPORARY TABLE IF EXISTS queues');
     await connection.query('DROP TEMPORARY TABLE IF EXISTS consultations, doctors, users, daily_doctor_settings, doctor_leaves');

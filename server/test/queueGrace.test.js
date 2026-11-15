@@ -4,6 +4,7 @@ const Queue = require('../src/models/Queue');
 const pool = require('../src/config/db');
 const { projectQueue } = require('../src/utils/queueOrder');
 const Doctor = require('../src/models/Doctor');
+const { clinicDay } = require('../src/utils/clinicDate');
 const { createConsultation } = require('../src/controllers/doctorController');
 
 // A transactional fixture exercises the real model and serializes its category locks.
@@ -16,6 +17,9 @@ function fixture() {
     services: '[]', created_at: new Date(now - 1000), last_called_at: null, returned_at: null }));
   let tail = Promise.resolve();
   let failCall = false;
+  let failHold = false;
+  let failRestore = false;
+  let sequences = {};
   let failAppointment = false;
   let appointments = [
     { appointment_id: 11, patient_id: 1, status: 'confirmed' },
@@ -32,6 +36,7 @@ function fixture() {
     let workingConsultations;
     let workingPrescriptions;
     let workingAppointments;
+    let workingSequences;
     let unlock;
     return {
       async beginTransaction() {},
@@ -39,6 +44,7 @@ function fixture() {
         if (working) {
           rows = working; consultations = workingConsultations; prescriptions = workingPrescriptions;
           appointments = workingAppointments;
+          sequences = workingSequences;
         }
         unlock?.(); unlock = null;
       },
@@ -47,7 +53,13 @@ function fixture() {
       async query(raw, values = []) {
         const sql = raw.replace(/\s+/g, ' ').trim();
         statements.push(sql);
-        if (sql.startsWith('INSERT INTO queue_sequences')) return [{}];
+        if (sql.startsWith('INSERT INTO queue_sequences')) {
+          const key = sql.includes("'held_insert'") ? 'held_insert' : values[1] === 'held_return' ? 'held_return' : null;
+          if (key) workingSequences[key] = (workingSequences[key] || 0) + 1;
+          return [{}];
+        }
+        if (sql.startsWith('SELECT last_number') && !sql.includes("sequence_type = 'serving'"))
+          return [[{ last_number: workingSequences[sql.includes("'held_insert'") ? 'held_insert' : values[1]] }]];
         if (sql.startsWith('SELECT last_number')) {
           const previous = tail;
           tail = new Promise(resolve => { unlock = resolve; });
@@ -56,10 +68,16 @@ function fixture() {
           workingConsultations = structuredClone(consultations);
           workingPrescriptions = structuredClone(prescriptions);
           workingAppointments = structuredClone(appointments);
+          workingSequences = structuredClone(sequences);
           return [[{ last_number: 0 }]];
         }
         const data = working || rows;
         const row = data.find(q => q.id === Number(values[0]));
+        if (sql.startsWith('SELECT id, appointment_id, patient_id FROM queues')) return [data.filter(q => q.category === values[0] && q.status === 'held' && new Date(q.held_expires_at) <= now)];
+        if (sql.startsWith('SELECT DATE_ADD')) return [[{ deadline: new Date(now + 86_400_000) }]];
+        if (sql.startsWith('SELECT patient_id FROM patients')) return [[{ patient_id: values[0] }]];
+        if (sql.startsWith("SELECT id FROM queues WHERE category = 'dental'")) return [data.filter(q => q.category === 'dental' && clinicDay(new Date(q.held_reactivated_at || q.created_at)) === clinicDay(new Date(now)) && (['waiting', 'called'].includes(q.status) || (q.status === 'missed' && new Date(q.grace_expires_at) > now)))];
+        if (sql.startsWith('SELECT id FROM queues WHERE patient_id = ? AND id != ?')) return [data.filter(q => q.patient_id === values[0] && q.id !== values[1] && ((['waiting', 'called', 'serving', 'missed'].includes(q.status) && clinicDay(new Date(q.held_reactivated_at || q.created_at)) === clinicDay(new Date(now))) || (q.status === 'held' && new Date(q.held_expires_at) > now))).slice(0, 1)];
         if (sql.startsWith('SELECT d.doctor_id FROM doctors')) {
           if (sql.includes('LIMIT 2')) return [availableDentists];
           return [values[0] === 7 ? [{ doctor_id: 7 }] : []];
@@ -89,16 +107,26 @@ function fixture() {
         if (sql.startsWith('SELECT *, TIMESTAMPDIFF')) return [[{ ...row,
           call_ready: now - new Date(row.last_called_at) >= 15_000,
           expired: row.grace_expires_at && new Date(row.grace_expires_at).getTime() <= now,
-          is_today: row.created_at.toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10),
+          is_today: clinicDay(new Date(row.held_reactivated_at || row.created_at)) === clinicDay(new Date(now)),
+          hold_expired: row.held_expires_at && new Date(row.held_expires_at) <= now,
         }]];
         if (sql.startsWith('SELECT id FROM queues')) return [[...data.filter(q => q.category === values[0] && ['called', 'serving'].includes(q.status)).slice(0, 1)]];
-        if (sql.startsWith('SELECT is_walk_in')) return [[...data.filter(q => q.category === values[0] && q.last_called_at)
+        if (sql.startsWith('SELECT type FROM queues')) return [[...data.filter(q => q.category === values[0] && q.last_called_at)
           .sort((a, b) => new Date(b.last_called_at) - new Date(a.last_called_at) || b.id - a.id).slice(0, 1)]];
         if (sql.startsWith('SELECT * FROM queues')) return [structuredClone(data.filter(q => q.category === values[0] && q.status === 'waiting'))];
         if (sql.startsWith('SELECT q.*')) return [row ? [structuredClone(row)] : []];
         if (sql.startsWith("UPDATE queues SET status = 'called'")) {
           if (failCall) throw new Error('Simulated call failure');
-          Object.assign(row, { status: 'called', call_count: 1, last_called_at: new Date(now), status_reason: null });
+          Object.assign(row, { status: 'called', call_count: 1, held_insert_order: null, last_called_at: new Date(now), status_reason: null });
+        } else if (sql.startsWith("UPDATE queues SET status = 'held'")) {
+          for (const q of data.filter(q => values[2].includes(q.id))) Object.assign(q, { status: 'held', status_reason: values[0], held_expires_at: values[1], held_insert_order: null });
+          if (failHold) throw new Error('Simulated hold failure');
+        } else if (sql.startsWith("UPDATE queues SET status = 'expired'")) {
+          for (const q of data.filter(q => values[1].includes(q.id))) Object.assign(q, { status: 'expired', status_reason: values[0], held_insert_order: null });
+        } else if (sql.includes('original_queue_number = COALESCE')) {
+          Object.assign(data.find(q => q.id === values[2]), { status: 'waiting', original_queue_number: row?.original_queue_number || data.find(q => q.id === values[2]).queue_number,
+            queue_number: values[0], held_reactivated_at: new Date(now), held_insert_order: values[1], call_count: 0, missed_at: null, grace_expires_at: null, returned_at: null, status_reason: null });
+          if (failRestore) throw new Error('Simulated restore failure');
         } else if (sql.startsWith('UPDATE queues SET call_count = 2')) {
           Object.assign(row, { call_count: 2, last_called_at: new Date(now) });
         } else if (sql.startsWith("UPDATE queues SET status = 'missed'")) {
@@ -127,8 +155,111 @@ function fixture() {
     warnPrescription: kind => { prescriptionWarning = kind; },
     failAppointment: () => { failAppointment = true; },
     failCall: () => { failCall = true; }, close: () => { pool.getConnection = original; },
+    failHold: () => { failHold = true; }, failRestore: () => { failRestore = true; },
   };
 }
+
+test('doctor-unavailable bulk holds only remaining recoverable dental tickets and retries keep the deadline', async () => {
+  const f = fixture();
+  try {
+    f.rows()[0].status = 'serving';
+    f.rows()[2].status = 'missed';
+    f.rows()[2].grace_expires_at = new Date('2026-10-10T09:10:00+08:00');
+    for (const [id, status, category] of [[4, 'done', 'dental'], [5, 'cancelled', 'dental'], [6, 'no_show', 'dental'], [7, 'waiting', 'general'], [8, 'missed', 'dental']])
+      f.rows().push({ id, category, status, created_at: f.rows()[0].created_at, grace_expires_at: new Date(0) });
+    const result = await Queue.holdRemaining();
+    assert.equal(result.held_count, 2);
+    assert.equal(result.held_expires_at.toISOString(), '2026-10-11T01:00:00.000Z');
+    assert.deepEqual(f.rows().map(q => q.status), ['serving', 'held', 'held', 'done', 'cancelled', 'no_show', 'waiting', 'missed']);
+    f.advance(1000);
+    assert.equal((await Queue.hold(2)).held_expires_at.getTime(), result.held_expires_at.getTime());
+    assert.equal((await Queue.holdRemaining()).held_count, 0);
+    await assert.rejects(Queue.hold(1), { status: 409 });
+    await assert.rejects(Queue.hold(7), { status: 409 });
+    assert.deepEqual(f.appointments().map(a => a.status), ['confirmed', 'confirmed']);
+  } finally { f.close(); }
+});
+
+test('held restores serialize FIFO ahead of ordinary tickets, preserve records, and get H numbers only on a later day', async () => {
+  const f = fixture();
+  try {
+    await Queue.hold(1);
+    const sameDay = await Queue.reactivate(1);
+    assert.equal(sameDay.queue_number, 'Q1');
+    await Queue.hold(1);
+    await Queue.hold(3);
+    f.advance(15 * 3600_000);
+    const [first, second] = await Promise.all([Queue.reactivate(3), Queue.reactivate(1)]);
+    assert.deepEqual([first.queue_number, second.queue_number], ['H01', 'H02']);
+    assert.equal(second.original_queue_number, 'Q1');
+    assert.equal(second.appointment_id, 11);
+    assert.equal(second.patient_id, 1);
+    assert.equal(second.created_at.getTime(), sameDay.created_at.getTime());
+    assert.deepEqual(projectQueue(f.rows().filter(q => q.status === 'waiting'), null).map(q => q.id), [3, 1, 2]);
+    assert.equal((await Queue.callNext()).id, 3);
+    assert.equal(f.rows().find(q => q.id === 3).held_insert_order, null);
+    await Queue.updateStatus(3, 'serving');
+    await Queue.updateStatus(3, 'done');
+    await Queue.callNext();
+    await Queue.updateStatus(1, 'serving');
+    await Queue.updateStatus(1, 'done');
+    assert.deepEqual(f.appointments().map(a => a.status), ['completed', 'confirmed']);
+  } finally { f.close(); }
+});
+
+test('held expiry uses the exact 24-hour cutoff, preserves records, and cancels only the linked booking', async () => {
+  for (const delta of [-1, 0, 1]) {
+    const f = fixture();
+    try {
+      await Queue.hold(1);
+      f.advance(86_400_000 + delta);
+      const result = await Queue.reactivate(1);
+      assert.equal(Boolean(result.expired), delta >= 0);
+      assert.equal(f.rows()[0].status, delta < 0 ? 'waiting' : 'expired');
+      assert.equal(f.rows().length, 3);
+      assert.deepEqual(f.appointments().map(a => a.status), [delta < 0 ? 'confirmed' : 'cancelled', 'confirmed']);
+    } finally { f.close(); }
+  }
+  const f = fixture();
+  try {
+    await Queue.hold(1);
+    f.advance(86_400_001);
+    await Queue.expireMissed();
+    assert.equal(f.rows()[0].status, 'expired');
+    assert.equal(f.appointments()[0].status, 'cancelled');
+  } finally { f.close(); }
+});
+
+test('holds and restoration roll back atomically, and conflicting active tickets prevent restoration', async () => {
+  const failedHold = fixture();
+  try {
+    failedHold.failHold();
+    await assert.rejects(Queue.holdRemaining(), /hold failure/);
+    assert.ok(failedHold.rows().every(q => q.status === 'waiting'));
+  } finally { failedHold.close(); }
+  const f = fixture();
+  try {
+    await Queue.hold(1);
+    f.rows()[1].patient_id = 1;
+    await assert.rejects(Queue.reactivate(1), /another active ticket/);
+    f.rows()[1].patient_id = 2;
+    f.advance(15 * 3600_000);
+    f.failRestore();
+    await assert.rejects(Queue.reactivate(1), /restore failure/);
+    assert.equal(f.rows()[0].status, 'held');
+    assert.equal(f.rows()[0].queue_number, 'Q1');
+    assert.equal(f.rows()[0].original_queue_number, undefined);
+  } finally { f.close(); }
+  const failedExpiry = fixture();
+  try {
+    await Queue.hold(1);
+    failedExpiry.advance(86_400_000);
+    failedExpiry.failAppointment();
+    await assert.rejects(Queue.reactivate(1), /appointment update failure/);
+    assert.equal(failedExpiry.rows()[0].status, 'held');
+    assert.equal(failedExpiry.appointments()[0].status, 'confirmed');
+  } finally { failedExpiry.close(); }
+});
 
 test('ticket cancellation changes only the linked booking and rolls back if its update fails', async () => {
   const cancelled = fixture();
@@ -395,10 +526,10 @@ test('cancellation cannot bypass expiry while waiting for the worker', async () 
   } finally { f.close(); }
 });
 
-test('returns rejoin their group after existing entries without bypassing priority', () => {
+test('returns rejoin their group after existing entries while priority and regular turns alternate', () => {
   const row = (id, is_walk_in, returned_at, type = 'regular') => ({ id, is_walk_in, returned_at, type, created_at: new Date(0) });
   const waiting = [row(4, 0, new Date(2)), row(3, 1, new Date(1)), row(2, 1, null, 'priority'), row(1, 0, null, 'priority')];
-  assert.deepEqual(projectQueue(waiting, { is_walk_in: 1 }).map(q => q.id), [1, 2, 3, 4]);
+  assert.deepEqual(projectQueue(waiting, { type: 'regular' }).map(q => q.id), [1, 3, 2, 4]);
 });
 
 test('expiry startup sweep and five-second timer work with SMS disabled', async () => {

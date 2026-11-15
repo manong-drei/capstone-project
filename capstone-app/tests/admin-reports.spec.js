@@ -104,12 +104,12 @@ for (const width of [1440, 768, 375]) {
       const historicalDots = chart.locator('.recharts-line-dot[stroke="#059669"]');
       const predictionDots = chart.locator('.recharts-line-dot[stroke="#1e4db7"]');
       await expect(historical).not.toHaveAttribute("stroke-dasharray", /.+/);
-      await expect(historicalDots).toHaveCount(12);
+      await expect(historicalDots).toHaveCount(13);
       await expect(prediction).toHaveAttribute("stroke-dasharray", "6 4");
-      await expect(predictionDots).toHaveCount(4);
+      await expect(predictionDots).toHaveCount(3);
       await expect(predictionDots.first()).toHaveAttribute("cx", await historicalDots.last().getAttribute("cx"));
       await expect(predictionDots.first()).toHaveAttribute("cy", await historicalDots.last().getAttribute("cy"));
-      await expect(chart.getByRole("list", { name: "Chart legend", exact: true }).getByRole("listitem")).toHaveText(["Historical (2014–2025)", "Prediction (2026–2028)"]);
+      await expect(chart.getByRole("list", { name: "Chart legend", exact: true }).getByRole("listitem")).toHaveText(["History (2014–2025) + 2026 prediction", "Prediction (2026–2028)"]);
       await expect(chart.locator(".ar-legend-history")).toHaveCSS("border-top-color", "rgb(5, 150, 105)");
       await expect(chart.locator(".ar-legend-prediction")).toHaveCSS("border-top-color", "rgb(30, 77, 183)");
       await expect(chart.locator(".ar-legend-prediction")).toHaveCSS("border-top-style", "dashed");
@@ -168,7 +168,7 @@ test("generated forecasts render from the actual Reports controller for all thre
     const total = year <= 2025
       ? payload.history.filter(row => row.year === year).reduce((sum, row) => sum + row.recipients, 0)
       : payload.forecasts.filter(row => row.forecast_year === year).reduce((sum, row) => sum + row.forecast_recipients, 0);
-    await expectChartPoint(annualChart, year <= 2025 ? 0 : 1, year <= 2025 ? year - 2014 : year - 2025, year, total);
+    await expectChartPoint(annualChart, year <= 2026 ? 0 : 1, year <= 2026 ? year - 2014 : year - 2026, year, total);
   }
   const ageChart = page.getByRole("region", { name: "BOHC recipients by age group", exact: true });
   for (const group of ageGroups) {
@@ -177,7 +177,7 @@ test("generated forecasts render from the actual Reports controller for all thre
       const recipients = year <= 2025
         ? payload.history.find(row => row.year === year && row.age_group === group).recipients
         : payload.forecasts.find(row => row.forecast_year === year && row.age_group === group).forecast_recipients;
-      await expectChartPoint(ageChart, year <= 2025 ? 0 : 1, year <= 2025 ? year - 2014 : year - 2025, year, recipients);
+      await expectChartPoint(ageChart, year <= 2026 ? 0 : 1, year <= 2026 ? year - 2014 : year - 2026, year, recipients);
     }
   }
   for (const year of [2026, 2027, 2028]) {
@@ -196,7 +196,7 @@ test("missing historical years stay empty rather than showing zero patients", as
   await mockAdmin(page, { forecasts, history: history.filter(row => row.year !== 2020) });
   await openReports(page);
   for (const chart of [page.getByRole("region", { name: "Three-year demand forecast", exact: true }), page.getByRole("region", { name: "BOHC recipients by age group", exact: true })]) {
-    await expect(chart.locator('.recharts-line-dot[stroke="#059669"]')).toHaveCount(11);
+    await expect(chart.locator('.recharts-line-dot[stroke="#059669"]')).toHaveCount(12);
     expect((await chart.locator('.recharts-line-curve[stroke="#059669"]').getAttribute("d")).match(/M/g)).toHaveLength(2);
     await expect(chart.locator(".recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value")).toContainText(["2020"]);
   }

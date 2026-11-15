@@ -105,8 +105,9 @@ export default function PatientQueueLine({
               </p>
             )}
             <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-700">
-              Priority patients may be called first. Follow the displayed order
-              rather than comparing ticket numbers.
+              Priority and regular patients alternate. Within each group, app
+              and walk-in tickets follow ticket-issued time; confirmed returns
+              use return time. Follow the displayed order.
             </p>
           </>
         )}

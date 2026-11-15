@@ -3,7 +3,7 @@ const pool = require('./db');
 async function migrate() {
   try {
     await pool.query(`ALTER TABLE queues MODIFY COLUMN status
-      ENUM('waiting', 'called', 'serving', 'missed', 'done', 'cancelled', 'no_show') NULL DEFAULT 'waiting'`);
+      ENUM('waiting', 'called', 'serving', 'missed', 'done', 'cancelled', 'no_show', 'held', 'expired') NULL DEFAULT 'waiting'`);
     const [columns] = await pool.query('SHOW COLUMNS FROM queues');
     const definitions = {
       last_called_at: 'DATETIME(3) NULL', call_count: 'TINYINT UNSIGNED NOT NULL DEFAULT 0',

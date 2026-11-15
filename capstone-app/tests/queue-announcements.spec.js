@@ -47,6 +47,37 @@ async function mockMonitor(page, supported = true) {
 
 const spokenTickets = (page) => page.evaluate(() => window.announcements);
 
+test('held insertions are announced once each across polling and use the same speech queue as calls', async ({ page }) => {
+  const state = await mockMonitor(page);
+  await page.goto('/general-queue-monitor');
+  await expect(page.getByText('Q01', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Enable announcements' }).click();
+  Object.assign(state.queues[0], { held_reactivated_at: '2026-10-10T09:00:01+08:00', held_insert_order: 1 });
+  state.queues.push({ id: 2, queue_number: 'H01', status: 'waiting', held_reactivated_at: '2026-10-10T09:00:01+08:00', held_insert_order: 2 });
+  await page.clock.fastForward(1000);
+  await expect.poll(() => spokenTickets(page)).toHaveLength(4);
+  expect((await spokenTickets(page)).map(item => item.text)).toEqual([
+    'Inserting held ticket. Queue number Q 0 1.', 'Inserting held ticket. Queue number Q 0 1.',
+    'Inserting held ticket. Queue number H 0 1.', 'Inserting held ticket. Queue number H 0 1.',
+  ]);
+  await page.clock.fastForward(5000);
+  expect(await spokenTickets(page)).toHaveLength(4);
+  Object.assign(state.queues[0], { status: 'called', last_called_at: '2026-10-10T09:00:07+08:00', held_insert_order: null });
+  await page.clock.fastForward(1000);
+  await expect.poll(() => spokenTickets(page)).toHaveLength(6);
+});
+
+test('held insertions on initial load or while muted are not replayed on enable', async ({ page }) => {
+  const state = await mockMonitor(page);
+  state.queues[0].held_reactivated_at = '2026-10-10T08:59:00+08:00';
+  await page.goto('/general-queue-monitor');
+  await expect(page.getByText('Q01', { exact: true })).toBeVisible();
+  state.queues[0].held_reactivated_at = '2026-10-10T09:00:01+08:00';
+  await page.clock.fastForward(1000);
+  await page.getByRole('button', { name: 'Enable announcements' }).click();
+  expect(await spokenTickets(page)).toHaveLength(0);
+});
+
 test('monitor uses the server date and keeps return deadlines accurate when the display clock is wrong', async ({ page }) => {
   const state = await mockMonitor(page);
   state.serverTime = Date.parse('2026-10-09T00:30:00+08:00');

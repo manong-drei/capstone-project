@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+/* Keep dashboard text at text-base, including inline and responsive sizes. */
+.dashboard-text, .dashboard-text * {
+  font-size: var(--text-base, 1rem) !important;
+  line-height: var(--text-base--line-height, 1.5) !important;
+}

@@ -34,15 +34,15 @@ test('wait estimates use the real projected dental order, completed visits, and 
   ];
   t.mock.method(pool, 'query', async (sql, params) => {
     assert.deepEqual(params, ['dental']);
-    assert.match(sql, /DATE\(q\.created_at\) = CURDATE\(\)/);
+    assert.match(sql, /DATE\(COALESCE\(q\.held_reactivated_at, q\.created_at\)\) = CURDATE\(\)/);
     assert.match(sql, /AND q\.category = \?/);
     return [rows.map(value => ({ ...value }))];
   });
-  assert.deepEqual((await Queue.findTodayActive({ category: 'dental' })).map(value => value.id), [1, 3, 4, 5, 2, 6, 7, 8, 10, 11]);
+  assert.deepEqual((await Queue.findTodayActive({ category: 'dental' })).map(value => value.id), [1, 3, 2, 4, 5, 6, 7, 8, 10, 11]);
   assert.deepEqual(await Queue.getWaitEstimate(row(6)), { minutes: 95, patients_ahead: 5, sample_count: 2 });
   assert.deepEqual(await Queue.getWaitEstimate(row(3)), { minutes: 15, patients_ahead: 1, sample_count: 2 });
-  assert.deepEqual(await Queue.getWaitEstimate(row(4)), { minutes: 35, patients_ahead: 2, sample_count: 2 });
-  assert.deepEqual(await Queue.getWaitEstimate(row(2)), { minutes: 75, patients_ahead: 4, sample_count: 2 });
+  assert.deepEqual(await Queue.getWaitEstimate(row(4)), { minutes: 55, patients_ahead: 3, sample_count: 2 });
+  assert.deepEqual(await Queue.getWaitEstimate(row(2)), { minutes: 35, patients_ahead: 2, sample_count: 2 });
 });
 
 test('the initial estimate handles missing/bad timing data, empty queues, overdue service, and changed ticket states', async t => {

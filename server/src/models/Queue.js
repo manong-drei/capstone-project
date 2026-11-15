@@ -5,8 +5,15 @@ const { projectQueue, alertState } = require("../utils/queueOrder");
 const conflict = (message) =>
   Object.assign(new Error(message), { status: 409 });
 const NO_SHOW_EXPIRED = "No-show — did not return within 10 minutes";
+const HOLD_REASON = "Doctor unavailable — emergency or meeting";
+const HOLD_EXPIRED = "Doctor-unavailable hold expired after 24 hours";
 
 const Queue = {
+  daySql: (alias = "") => `DATE(COALESCE(${alias}held_reactivated_at, ${alias}created_at))`,
+  activeSql: (alias = "") => `(
+    (${alias}status IN ('waiting', 'called', 'serving', 'missed') AND ${Queue.daySql(alias)} = CURDATE())
+    OR (${alias}status = 'held' AND ${alias}held_expires_at > NOW(3)))`,
+
   lockCategory: async (category, connection) => {
     if (!["dental", "general"].includes(category))
       throw new Error("Invalid queue category.");
@@ -24,14 +31,14 @@ const Queue = {
 
   projectWaiting: async (category, connection = pool) => {
     const [[lastCalled]] = await connection.query(
-      `SELECT is_walk_in FROM queues
-      WHERE category = ? AND created_at >= CURDATE() AND created_at < CURDATE() + INTERVAL 1 DAY AND last_called_at IS NOT NULL
+      `SELECT type FROM queues
+      WHERE category = ? AND DATE(last_called_at) = CURDATE()
       ORDER BY last_called_at DESC, id DESC LIMIT 1 FOR UPDATE`,
       [category],
     );
     const [waiting] = await connection.query(
       `SELECT * FROM queues
-      WHERE category = ? AND created_at >= CURDATE() AND created_at < CURDATE() + INTERVAL 1 DAY AND status = 'waiting' FOR UPDATE`,
+      WHERE category = ? AND ${Queue.daySql()} = CURDATE() AND status = 'waiting' FOR UPDATE`,
       [category],
     );
     return projectQueue(waiting, lastCalled);
@@ -73,7 +80,7 @@ const Queue = {
     }
     const [rows] = await pool.query(
       `
-      SELECT q.*,
+      SELECT q.*, DATE(q.last_called_at) = CURDATE() AS called_today,
              p.middle_name, p.suffix,
              COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')), ''), q.walk_in_name) AS full_name,
              EXISTS(SELECT 1 FROM consultations c WHERE c.queue_id = q.id) AS has_consultation,
@@ -81,9 +88,10 @@ const Queue = {
       FROM   queues q
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       LEFT JOIN sms_jobs sms ON sms.deduplication_key = CONCAT('queue:', q.id) AND sms.purpose = 'queue_alert'
-      WHERE  DATE(q.created_at) = CURDATE()
-        AND (q.status IN ('waiting', 'called', 'serving', 'missed', 'done', 'no_show')
-             OR (q.status = 'cancelled' AND q.last_called_at IS NOT NULL))
+      WHERE ((q.status = 'held' AND q.held_expires_at > NOW(3))
+        OR (${Queue.daySql("q.")} = CURDATE()
+          AND (q.status IN ('waiting', 'called', 'serving', 'missed', 'done', 'no_show', 'expired')
+            OR (q.status = 'cancelled' AND (q.last_called_at IS NOT NULL OR q.held_reactivated_at IS NOT NULL)))))
         ${categoryClause}
       ORDER BY
         FIELD(q.status, 'serving', 'waiting', 'done'),
@@ -96,7 +104,7 @@ const Queue = {
     for (const service of ["dental", "general"]) {
       const group = rows.filter((row) => row.category === service);
       const called = group
-        .filter((row) => row.last_called_at)
+        .filter((row) => row.last_called_at && row.called_today !== 0)
         .sort(
           (a, b) =>
             new Date(b.last_called_at) - new Date(a.last_called_at) ||
@@ -108,9 +116,8 @@ const Queue = {
           group.filter((row) => row.status === "waiting"),
           called,
         ),
-        ...group.filter((row) =>
-          ["missed", "done", "no_show"].includes(row.status),
-        ),
+        ...group.filter((row) => ["missed", "held", "done", "no_show", "expired"].includes(row.status)
+          || (row.status === "cancelled" && row.held_reactivated_at)),
       );
     }
     return ordered.map(Queue._parse);
@@ -127,8 +134,7 @@ const Queue = {
       LEFT JOIN patients p ON q.patient_id = p.patient_id
       WHERE  q.patient_id = ?
         AND  q.category = 'dental'
-        AND  DATE(q.created_at) = CURDATE()
-        AND  q.status IN ('waiting', 'called', 'serving', 'missed')
+        AND ${Queue.activeSql("q.")}
       ORDER  BY q.created_at DESC
       LIMIT  1
     `,
@@ -140,11 +146,12 @@ const Queue = {
   findLatestNoShow: async (patient_id) => {
     const [[row]] = await pool.query(
       `SELECT id, status FROM queues
-      WHERE patient_id = ? AND category = 'dental' AND DATE(created_at) = CURDATE()
-      ORDER BY created_at DESC, id DESC LIMIT 1`,
+      WHERE patient_id = ? AND category = 'dental'
+        AND (${Queue.daySql()} = CURDATE() OR (status = 'expired' AND DATE(held_expires_at) = CURDATE()))
+      ORDER BY COALESCE(held_reactivated_at, created_at) DESC, id DESC LIMIT 1`,
       [patient_id],
     );
-    return row?.status === "no_show" ? Queue._fetchById(row.id) : null;
+    return ["no_show", "expired"].includes(row?.status) ? Queue._fetchById(row.id) : null;
   },
 
   getWaitEstimate: async (queue) => {
@@ -243,15 +250,15 @@ const Queue = {
   },
 
   nextQueueNumber: async (
-    { category, type, is_walk_in = false },
+    { category, type, is_walk_in = false, heldReturn = false },
     connection,
   ) => {
     const sequenceType =
-      category === "general"
+      heldReturn ? "held_return" : category === "general"
         ? "general"
         : `${is_walk_in ? "walk_in" : "appointment"}_${type}`;
     const prefix =
-      category === "general"
+      heldReturn ? "H" : category === "general"
         ? "G-"
         : `${is_walk_in ? "" : "A"}${type === "priority" ? "P" : "Q"}`;
 
@@ -260,7 +267,7 @@ const Queue = {
       `INSERT INTO queue_sequences (queue_date, category, sequence_type, last_number)
        SELECT CURDATE(), ?, ?, COALESCE(MAX(CAST(SUBSTRING(queue_number, ?) AS UNSIGNED)), 0) + 1
        FROM queues WHERE category = ? AND queue_number LIKE ?
-         AND created_at >= CURDATE() AND created_at < CURDATE() + INTERVAL 1 DAY
+         AND ${heldReturn ? "DATE(held_reactivated_at) = CURDATE()" : "created_at >= CURDATE() AND created_at < CURDATE() + INTERVAL 1 DAY"}
        ON DUPLICATE KEY UPDATE last_number = last_number + 1`,
       [category, sequenceType, prefix.length + 1, category, `${prefix}%`],
     );
@@ -276,7 +283,7 @@ const Queue = {
   _callNext: async (category, conn) => {
     const [[occupied]] = await conn.query(
       `SELECT id FROM queues
-      WHERE status IN ('called', 'serving') AND DATE(created_at) = CURDATE() AND category = ?
+      WHERE status IN ('called', 'serving') AND ${Queue.daySql()} = CURDATE() AND category = ?
       LIMIT 1 FOR UPDATE`,
       [category],
     );
@@ -285,7 +292,7 @@ const Queue = {
     if (!next) return null;
     await conn.query(
       `UPDATE queues SET status = 'called', call_count = 1,
-      last_called_at = NOW(3), status_reason = NULL, updated_at = NOW() WHERE id = ?`,
+      last_called_at = NOW(3), held_insert_order = NULL, status_reason = NULL, updated_at = NOW() WHERE id = ?`,
       [next.id],
     );
     return Queue._fetchById(next.id, conn);
@@ -324,7 +331,8 @@ const Queue = {
       const [[ticket]] = await conn.query(
         `SELECT *,
         TIMESTAMPDIFF(MICROSECOND, last_called_at, NOW(3)) >= 15000000 AS call_ready,
-        grace_expires_at <= NOW(3) AS expired, DATE(created_at) = CURDATE() AS is_today
+        grace_expires_at <= NOW(3) AS expired, ${Queue.daySql()} = CURDATE() AS is_today,
+        held_expires_at <= NOW(3) AS hold_expired
         FROM queues WHERE id = ? FOR UPDATE`,
         [id],
       );
@@ -336,7 +344,12 @@ const Queue = {
         await conn.commit();
         return { expired: true };
       }
-      if (!ticket.is_today) throw conflict("This ticket is not for today.");
+      if (ticket.status === "held" && ticket.hold_expired) {
+        await Queue._expireHeld(ticket.category, conn);
+        await conn.commit();
+        return { expired: true, held: true };
+      }
+      if (!ticket.is_today && ticket.status !== "held") throw conflict("This ticket is not for today.");
       const result = await change(ticket, conn);
       await conn.commit();
       return result;
@@ -468,12 +481,76 @@ const Queue = {
       return Queue._fetchById(id, conn);
     }),
 
+  _holdTickets: async (ids, conn) => {
+    if (!ids.length) return { held_count: 0, held_expires_at: null };
+    const [[{ deadline }]] = await conn.query("SELECT DATE_ADD(NOW(3), INTERVAL 24 HOUR) AS deadline");
+    await conn.query(`UPDATE queues SET status = 'held', status_reason = ?, held_expires_at = ?,
+      held_insert_order = NULL, updated_at = NOW() WHERE id IN (?)`, [HOLD_REASON, deadline, ids]);
+    return { held_count: ids.length, held_expires_at: deadline };
+  },
+
+  hold: (id) => Queue._withTicket(id, async (ticket, conn) => {
+    if (ticket.category !== "dental") throw conflict("Only dental tickets can be held.");
+    if (ticket.status === "held") return Queue._fetchById(id, conn);
+    if (!["waiting", "called", "missed"].includes(ticket.status))
+      throw conflict("Only waiting, called, or recoverable missed tickets can be held.");
+    await Queue._holdTickets([id], conn);
+    return Queue._fetchById(id, conn);
+  }),
+
+  holdRemaining: async () => {
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await Queue.lockCategory("dental", conn);
+      const [tickets] = await conn.query(`SELECT id FROM queues WHERE category = 'dental'
+        AND ${Queue.daySql()} = CURDATE()
+        AND (status IN ('waiting', 'called') OR (status = 'missed' AND grace_expires_at > NOW(3))) FOR UPDATE`);
+      const result = await Queue._holdTickets(tickets.map(ticket => ticket.id), conn);
+      await conn.commit();
+      return result;
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally { conn.release(); }
+  },
+
+  reactivate: (id) => Queue._withTicket(id, async (ticket, conn) => {
+    if (ticket.category !== "dental" || ticket.status !== "held")
+      throw conflict("Only an unexpired held dental ticket can be reactivated.");
+    await conn.query("SELECT patient_id FROM patients WHERE patient_id = ? FOR UPDATE", [ticket.patient_id]);
+    const [[other]] = await conn.query(`SELECT id FROM queues WHERE patient_id = ? AND id != ?
+      AND ${Queue.activeSql()} LIMIT 1 FOR UPDATE`, [ticket.patient_id, id]);
+    if (other) throw conflict("This patient already has another active ticket. Resolve it before restoring this ticket.");
+    const number = ticket.is_today ? ticket.queue_number
+      : await Queue.nextQueueNumber({ category: "dental", heldReturn: true }, conn);
+    await conn.query(`INSERT INTO queue_sequences (queue_date, category, sequence_type, last_number)
+      VALUES (CURDATE(), 'dental', 'held_insert', 1) ON DUPLICATE KEY UPDATE last_number = last_number + 1`);
+    const [[{ last_number }]] = await conn.query(`SELECT last_number FROM queue_sequences
+      WHERE queue_date = CURDATE() AND category = 'dental' AND sequence_type = 'held_insert' FOR UPDATE`);
+    await conn.query(`UPDATE queues SET status = 'waiting', original_queue_number = COALESCE(original_queue_number, queue_number),
+      queue_number = ?, held_reactivated_at = NOW(3), held_insert_order = ?, call_count = 0,
+      missed_at = NULL, grace_expires_at = NULL, returned_at = NULL, status_reason = NULL, updated_at = NOW() WHERE id = ?`,
+    [number, last_number, id]);
+    return Queue._fetchById(id, conn);
+  }),
+
+  _expireHeld: async (category, conn) => {
+    const [tickets] = await conn.query(`SELECT id, appointment_id, patient_id FROM queues
+      WHERE category = ? AND status = 'held' AND held_expires_at <= NOW(3) FOR UPDATE`, [category]);
+    if (!tickets.length) return;
+    for (const ticket of tickets) await Appointment.updateFromTicket(ticket, "cancelled", conn);
+    await conn.query(`UPDATE queues SET status = 'expired', status_reason = ?, held_insert_order = NULL, updated_at = NOW()
+      WHERE id IN (?)`, [HOLD_EXPIRED, tickets.map(ticket => ticket.id)]);
+  },
+
   expireMissed: async () => {
     for (const category of ["dental", "general"]) {
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
         await Queue.lockCategory(category, conn);
+        await Queue._expireHeld(category, conn);
         await conn.query(
           `UPDATE queues SET status = 'no_show', status_reason = ?, updated_at = NOW()
           WHERE category = ? AND status = 'missed' AND grace_expires_at <= NOW(3)`,
@@ -515,7 +592,7 @@ const Queue = {
         SUM(status = 'done')                        AS doneToday,
         SUM(type = 'priority' AND status = 'done')  AS priorityServed
       FROM queues
-      WHERE DATE(created_at) = CURDATE()
+      WHERE ${Queue.daySql()} = CURDATE()
     `);
     return rows[0];
   },

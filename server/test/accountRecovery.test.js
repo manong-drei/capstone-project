@@ -243,11 +243,11 @@ test("login distinguishes incorrect credentials from an account lockout", async 
   for (let remaining = 4; remaining > 0; remaining--) {
     const incorrect = await attempt("WrongPassword");
     assert.equal(incorrect.statusCode, 401);
-    assert.equal(incorrect.body.message, `Invalid phone or password. ${remaining} ${remaining === 1 ? "attempt" : "attempts"} remaining before a 15-minute lockout.`);
+    assert.equal(incorrect.body.message, "Invalid phone or password.");
   }
   const locked = await attempt("WrongPassword");
   assert.equal(locked.statusCode, 429);
-  assert.match(locked.body.message, /Too many login attempts/);
+  assert.equal(locked.body.message, "Too many login attempts.");
   assert.equal((await attempt("OldPassword1")).statusCode, 429);
 });
 

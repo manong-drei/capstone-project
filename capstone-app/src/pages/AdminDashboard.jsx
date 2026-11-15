@@ -90,7 +90,7 @@ export default function AdminDashboard() {
   if (!activePage) return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
 
   return (
-    <div className="ad-root min-h-screen bg-slate-100 font-sans text-slate-800">
+    <div className="ad-root dashboard-text min-h-screen bg-slate-100 font-sans text-base text-slate-800">
       <UserManual role="admin" isOpen={showManual} onClose={() => setShowManual(false)} />
       <StaffNavbar
         identity={identity}

@@ -13,9 +13,9 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
-import { CANCELLATION_REASONS } from "@/constants/queueReasons";
+import { CANCELLATION_REASONS, DOCTOR_UNAVAILABLE_REASON } from "@/constants/queueReasons";
 import api from "@/services/api";
-import { callNextQueue, updateQueueStatus } from "@/services/queueService";
+import { callNextQueue, updateQueueStatus, holdRemainingQueues, holdQueue, reactivateQueue } from "@/services/queueService";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
@@ -26,7 +26,6 @@ import WalkInForm from "@/components/dashboards/staff/WalkInForm";
 import PatientManager from "@/components/dashboards/admin/PatientManager";
 import ToastNotifications from "@/components/common/ToastNotifications";
 import useSmsToasts from "@/hooks/useSmsToasts";
-
 
 const ALLOWED_ROUTES = [
   ROUTES.STAFF_DASHBOARD,
@@ -54,39 +53,47 @@ export default function StaffDashboard() {
   const [doctorAvailable, setDoctorAvailable] = useState(null);
   const [doctorLeaveEnd, setDoctorLeaveEnd] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [clockOffset, setClockOffset] = useState(null);
   const [showManual, setShowManual] = useState(false);
   const { toasts, dismissToast, trackSmsStatuses } = useSmsToasts();
 
   const accountsPage = pathname === ROUTES.STAFF_PATIENT_ACCOUNTS;
   const walkInPage = pathname === ROUTES.STAFF_WALK_IN;
 
-  const fetchQueue = useCallback(async (signal) => {
-    try {
-      const data = await api.get("/queue?category=dental", { signal });
-      if (signal?.aborted) return;
-      const list = Array.isArray(data) ? data : (data?.data ?? []);
-      const dentalQueues = list.filter((queue) => queue.category === "dental");
-      setQueues(dentalQueues);
-      trackSmsStatuses(
-        dentalQueues.map((queue) => ({
-          // Track the ticket so replacing its SMS job still reports the new status.
-          id: queue.id,
-          state: queue.sms_state,
-          provider_status: queue.sms_provider_status,
-          label: `Queue alert SMS for ${queue.queue_number}`,
-        })),
-      );
-      setLastUpdated(new Date());
-      setError("");
-    } catch (err) {
-      if (signal?.aborted) return;
-      setError(
-        err.message || "Unable to refresh the dental queue. Please try again.",
-      );
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, [trackSmsStatuses]);
+  const fetchQueue = useCallback(
+    async (signal) => {
+      try {
+        const data = await api.get("/queue?category=dental&include_clock=1", { signal });
+        if (signal?.aborted) return;
+        const list = Array.isArray(data) ? data : (data?.data ?? []);
+        const dentalQueues = list.filter(
+          (queue) => queue.category === "dental",
+        );
+        setQueues(dentalQueues);
+        if (Number.isFinite(data?.server_time)) setClockOffset(data.server_time - performance.now());
+        trackSmsStatuses(
+          dentalQueues.map((queue) => ({
+            // Track the ticket so replacing its SMS job still reports the new status.
+            id: queue.id,
+            state: queue.sms_state,
+            provider_status: queue.sms_provider_status,
+            label: `Queue alert SMS for ${queue.queue_number}`,
+          })),
+        );
+        setLastUpdated(new Date());
+        setError("");
+      } catch (err) {
+        if (signal?.aborted) return;
+        setError(
+          err.message ||
+            "Unable to refresh the dental queue. Please try again.",
+        );
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [trackSmsStatuses],
+  );
 
   const fetchDoctorAvailability = useCallback(async (signal) => {
     try {
@@ -108,7 +115,8 @@ export default function StaffDashboard() {
   }, []);
 
   const refresh = useCallback(
-    (signal) => Promise.all([fetchQueue(signal), fetchDoctorAvailability(signal)]),
+    (signal) =>
+      Promise.all([fetchQueue(signal), fetchDoctorAvailability(signal)]),
     [fetchQueue, fetchDoctorAvailability],
   );
 
@@ -156,10 +164,13 @@ export default function StaffDashboard() {
   };
 
   const submitQueueReason = async (reason) => {
-    const { id, status } = queueReasonRequest;
+    const { id, status, bulk } = queueReasonRequest;
     setCalling(true);
+    setError("");
     try {
-      await api.patch(`/queue/${id}/status`, { status, reason });
+      if (bulk) await holdRemainingQueues();
+      else if (reason === DOCTOR_UNAVAILABLE_REASON) await holdQueue(id);
+      else await api.patch(`/queue/${id}/status`, { status, reason });
       await fetchQueue();
     } catch (err) {
       await fetchQueue();
@@ -172,7 +183,9 @@ export default function StaffDashboard() {
   const handleQueueAction = async (id, action) => {
     setCalling(true);
     try {
-      if (action === "present") {
+      if (action === "reactivate") {
+        await reactivateQueue(id);
+      } else if (action === "present") {
         await api.patch(`/queue/${id}/status`, { status: "serving" });
       } else {
         await api.post(`/queue/${id}/${action}`);
@@ -222,7 +235,7 @@ export default function StaffDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
+    <div className="dashboard-text text-base min-h-screen bg-slate-100 font-[Poppins,sans-serif] text-slate-800">
       <ToastNotifications toasts={toasts} onDismiss={dismissToast} />
       <UserManual
         role="staff"
@@ -256,12 +269,15 @@ export default function StaffDashboard() {
           </div>
           <div className="flex flex-wrap gap-2">
             {!accountsPage && (
-              <Link to={ROUTES.STAFF_PATIENT_ACCOUNTS} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-slate-50">
+              <Link
+                to={ROUTES.STAFF_PATIENT_ACCOUNTS}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-slate-50"
+              >
                 <Users size={16} aria-hidden="true" />
                 Patient accounts
               </Link>
             )}
-            {(walkInPage || accountsPage) ? (
+            {walkInPage || accountsPage ? (
               <button
                 type="button"
                 onClick={() => navigate(ROUTES.STAFF_DASHBOARD)}
@@ -337,10 +353,19 @@ export default function StaffDashboard() {
                   (queue) => queue.status === "missed",
                 )}
                 onQueueAction={handleQueueAction}
+                heldQueues={queues.filter((queue) => queue.status === "held")}
+                clockOffset={clockOffset}
+                onHoldRemaining={(count) => setQueueReasonRequest({
+                  bulk: true,
+                  title: `Hold ${count} remaining ticket${count === 1 ? "" : "s"}?`,
+                  description: "All waiting, called, and recoverable missed dental tickets when you confirm will be held for 24 hours. The patient receiving care will keep their turn. Doctor availability is managed separately.",
+                  reasons: [DOCTOR_UNAVAILABLE_REASON],
+                  submitLabel: "Confirm and hold remaining tickets",
+                })}
                 onCancelQueue={(id) =>
                   setQueueReasonRequest({
                     title: "Reason for cancellation",
-                    reasons: CANCELLATION_REASONS,
+                    reasons: [DOCTOR_UNAVAILABLE_REASON, ...CANCELLATION_REASONS],
                     id,
                     status: "cancelled",
                   })

@@ -98,7 +98,7 @@ test("admin visit history pages appointments and walk-ins together only when req
   assert.deepEqual(admin.body.summary, { total: 6, completed: 4, open: 1, cancelledOrNoShow: 1 });
   assert.deepEqual(admin.body.data, [walkIn]);
   assert.match(calls[0].sql, /FROM queues WHERE is_walk_in = 1/);
-  assert.match(calls[0].sql, /SUM\(status IN \('cancelled', 'no_show'\)\)/);
+  assert.match(calls[0].sql, /SUM\(status IN \('cancelled', 'no_show', 'expired'\)\)/);
   assert.match(calls[1].sql, /WHERE q.is_walk_in = 1\s+ORDER BY .* queue_id DESC\s+LIMIT \? OFFSET \?/);
   assert.deepEqual(calls[1].values, [5, 5]);
 

@@ -12,7 +12,7 @@ module.exports = {
              ${patientName} AS patient_full_name,
              IF(q.is_walk_in = 1, 'walk_in', 'appointment') AS visit_type,
              q.services AS queue_services, NULL AS reason, q.status,
-             q.status_reason, c.consultation_id
+             q.status_reason, c.consultation_id, q.original_queue_number
       FROM queues q
       LEFT JOIN patients p ON p.patient_id = q.patient_id
       LEFT JOIN consultations c ON c.consultation_id = (
@@ -32,7 +32,7 @@ module.exports = {
       SELECT CONCAT('appointment-', a.appointment_id), NULL, a.patient_id, NULL,
              DATE_FORMAT(a.appointment_date, '%Y-%m-%d'), a.appointment_time,
              CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')),
-             'appointment', NULL, a.reason, a.status, NULL, NULL
+             'appointment', NULL, a.reason, a.status, NULL, NULL, NULL
       FROM appointments a
       LEFT JOIN patients p ON p.patient_id = a.patient_id
       WHERE a.doctor_id = ? ${patientId === undefined ? "" : "AND a.patient_id = ?"} AND NOT EXISTS (

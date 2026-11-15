@@ -1,6 +1,10 @@
 const audit = require("../services/auditLog");
 const pool = require("../config/db");
 
+const ticketFields = ['queue_number', 'original_queue_number', 'status'].map(field => `
+  (SELECT history_ticket.${field} FROM queues history_ticket WHERE history_ticket.appointment_id = a.appointment_id
+   ORDER BY history_ticket.created_at DESC, history_ticket.id DESC LIMIT 1) AS ${field === 'status' ? 'queue_status' : field}`).join(',');
+
 const Appointment = {
   findActiveToday: async (patient_id, connection = pool) => {
     const [[appointment]] = await connection.query(`SELECT appointment_id, doctor_id FROM appointments
@@ -47,11 +51,11 @@ const Appointment = {
         , (
           SELECT q.status_reason FROM queues q
           WHERE q.appointment_id = a.appointment_id
-            AND q.status = 'cancelled'
+            AND q.status IN ('cancelled', 'expired')
           ORDER BY q.updated_at DESC, q.id DESC
           LIMIT 1
         ) AS cancellation_reason
-        , c.diagnosis, pr.medication_name AS recommendation,
+        , ${ticketFields}, c.diagnosis, pr.medication_name AS recommendation,
         pr.consultation_id AS prescription_consultation_id
       FROM   appointments a
       JOIN   doctors d ON a.doctor_id = d.doctor_id
@@ -114,10 +118,11 @@ const Appointment = {
         , (
           SELECT q.status_reason FROM queues q
           WHERE q.appointment_id = a.appointment_id
-            AND q.status = 'cancelled'
+            AND q.status IN ('cancelled', 'expired')
           ORDER BY q.updated_at DESC, q.id DESC
           LIMIT 1
         ) AS cancellation_reason
+        , ${ticketFields}
       FROM   appointments a
       JOIN   patients p ON a.patient_id = p.patient_id
       WHERE  a.doctor_id = ?
@@ -149,11 +154,12 @@ const Appointment = {
         , (
           SELECT q.status_reason FROM queues q
           WHERE q.appointment_id = a.appointment_id
-            AND q.status = 'cancelled'
+            AND q.status IN ('cancelled', 'expired')
           ORDER BY q.updated_at DESC, q.id DESC
           LIMIT 1
         ) AS cancellation_reason
-        ${includeWalkIns ? ", 'appointment' AS visit_type, NULL AS queue_id, NULL AS queue_number" : ""}
+        , ${ticketFields}
+        ${includeWalkIns ? ", 'appointment' AS visit_type, NULL AS queue_id" : ""}
       FROM   appointments a
       JOIN   patients p ON a.patient_id = p.patient_id
       JOIN   doctors  d ON a.doctor_id  = d.doctor_id
@@ -163,7 +169,7 @@ const Appointment = {
              p.middle_name, p.suffix,
              COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')), ''), q.walk_in_name, 'Unknown patient'),
              d.first_name, d.middle_name, d.last_name, d.suffix,
-             q.services, q.status_reason, 'walk_in', q.id, q.queue_number
+             q.services, q.status_reason, q.queue_number, q.original_queue_number, q.status, 'walk_in', q.id
       FROM queues q
       LEFT JOIN patients p ON p.patient_id = q.patient_id
       LEFT JOIN doctors d ON d.doctor_id = COALESCE((
@@ -182,8 +188,8 @@ const Appointment = {
     const [[row]] = await pool.query(`
       SELECT COUNT(*) AS total,
         COALESCE(SUM(status IN ('completed', 'done')), 0) AS completed,
-        COALESCE(SUM(status IN ('pending', 'confirmed', 'waiting', 'called', 'serving', 'missed')), 0) AS open
-        ${includeWalkIns ? ", COALESCE(SUM(status IN ('cancelled', 'no_show')), 0) AS cancelled_or_no_show" : ""}
+        COALESCE(SUM(status IN ('pending', 'confirmed', 'waiting', 'called', 'serving', 'missed', 'held')), 0) AS open
+        ${includeWalkIns ? ", COALESCE(SUM(status IN ('cancelled', 'no_show', 'expired')), 0) AS cancelled_or_no_show" : ""}
       FROM ${includeWalkIns ? `(
         SELECT status FROM appointments
         UNION ALL

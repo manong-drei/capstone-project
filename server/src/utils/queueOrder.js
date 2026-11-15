@@ -3,24 +3,20 @@ const entryOrder = (a, b) =>
   Number(Boolean(a.returned_at)) - Number(Boolean(b.returned_at)) || a.id - b.id;
 
 function projectQueue(waiting, lastCalled) {
-  const result = waiting.filter(q => q.type === 'priority').sort(entryOrder);
-  const regular = waiting.filter(q => q.type !== 'priority').sort(entryOrder);
-  const sources = [regular.filter(q => !q.is_walk_in), regular.filter(q => q.is_walk_in)];
-  const previous = result.at(-1) || lastCalled;
-  let source = previous ? Number(!previous.is_walk_in) : 0;
-  const eligible = ticket => {
-    if (!ticket) return false;
-    // A return rejoins behind everyone already waiting in its priority group.
-    if (ticket.returned_at) return !sources.flat().some(q => entryOrder(q, ticket) < 0);
-    if (!ticket.is_walk_in && !ticket.last_called_at) {
-      return !sources[1].some(q => !q.last_called_at && !q.returned_at && entryOrder(q, ticket) < 0);
-    }
-    return true;
-  };
-  while (sources[0].length || sources[1].length) {
-    if (!eligible(sources[source][0])) source = 1 - source;
-    result.push(sources[source].shift());
-    source = 1 - source;
+  const held = waiting.filter(q => q.held_insert_order != null)
+    .sort((a, b) => a.held_insert_order - b.held_insert_order || a.id - b.id);
+  waiting = waiting.filter(q => q.held_insert_order == null);
+  if (held.length) lastCalled = held[held.length - 1];
+  const groups = [
+    waiting.filter(q => q.type === 'priority').sort(entryOrder),
+    waiting.filter(q => q.type !== 'priority').sort(entryOrder),
+  ];
+  const result = [...held];
+  let group = lastCalled?.type === 'priority' ? 1 : 0;
+  while (groups[0].length || groups[1].length) {
+    if (!groups[group].length) group = 1 - group;
+    result.push(groups[group].shift());
+    group = 1 - group;
   }
   return result;
 }

@@ -22,7 +22,14 @@ async function mockStaff(page) {
     else if (url.pathname === "/api/doctor") body = { data: [{ doctor_id: 1, first_name: "Maria", last_name: "Santos", is_available: 1 }] };
     else if (url.pathname === "/api/queue") {
       expect(url.searchParams.get("category")).toBe("dental");
-      body = state.queues.filter((queue) => ["waiting", "called", "serving", "missed", "done", "no_show"].includes(queue.status));
+      body = state.queues.filter((queue) => ["waiting", "called", "serving", "missed", "done", "no_show", "held"].includes(queue.status));
+      if (state.serverTime !== undefined) body = { data: body, server_time: state.serverTime + await page.evaluate(() => performance.now()) };
+    } else if (url.pathname === '/api/queue/hold-remaining') {
+      state.actions.push('hold-remaining');
+      const now = await page.evaluate(() => Date.now());
+      const tickets = state.queues.filter(queue => queue.category === 'dental' && ['waiting', 'called', 'missed'].includes(queue.status));
+      for (const queue of tickets) Object.assign(queue, { status: 'held', held_expires_at: new Date(now + 86_400_000).toISOString(), status_reason: 'Doctor unavailable — emergency or meeting' });
+      body = { held_count: tickets.length };
     } else if (url.pathname === "/api/queue/call-next") {
       state.calls.push(request.postDataJSON());
       if (state.queues.some(queue => queue.category === 'dental' && ['called', 'serving'].includes(queue.status))) {
@@ -32,12 +39,18 @@ async function mockStaff(page) {
       const next = state.queues.find((queue) => queue.category === "dental" && queue.status === "waiting");
       if (next) Object.assign(next, { status: 'called', call_count: 1, last_called_at: await page.evaluate(() => new Date().toISOString()) });
       body = next;
-    } else if (/\/api\/queue\/\d+\/(recall|skip|return)$/.test(url.pathname)) {
+    } else if (/\/api\/queue\/\d+\/(recall|skip|return|hold|reactivate)$/.test(url.pathname)) {
       const id = Number(url.pathname.split('/')[3]);
       const action = url.pathname.split('/')[4];
       state.actions.push(action);
       const queue = state.queues.find(q => q.id === id);
       const now = await page.evaluate(() => Date.now());
+      if (action === 'hold') Object.assign(queue, { status: 'held', held_expires_at: new Date(now + 86_400_000).toISOString(), status_reason: 'Doctor unavailable — emergency or meeting' });
+      if (action === 'reactivate') {
+        if (state.failRestore) return route.fulfill({ status: 409, json: { message: 'The 24-hour hold has expired. This ticket cannot be restored.' } });
+        Object.assign(queue, { status: 'waiting', held_reactivated_at: new Date(now).toISOString(), held_insert_order: 1 });
+        state.queues = [queue, ...state.queues.filter(item => item.id !== id)];
+      }
       if (action === 'recall') Object.assign(queue, { call_count: 2, last_called_at: new Date(now).toISOString() });
       if (action === 'return') Object.assign(queue, { status: 'waiting', returned_at: new Date(now).toISOString() });
       if (action === 'skip') {
@@ -73,6 +86,28 @@ async function mockStaff(page) {
   });
   return state;
 }
+
+test('staff hides held tickets and bulk doctor-unavailable cancellation', async ({ page }) => {
+  const state = await mockStaff(page);
+  Object.assign(state.queues[0], { status: 'held', held_expires_at: new Date(Date.now() + 86_400_000).toISOString() });
+  await page.goto('/staff');
+  await expect(page.locator('#dental-queue')).toBeVisible();
+  await expect(page.getByText('Cancel remaining — doctor unavailable', { exact: true })).toBeHidden();
+  await page.getByRole('button', { name: 'Show cancel remaining', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Cancel remaining — doctor unavailable', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Hide cancel remaining', exact: true }).click();
+  await expect(page.getByText('Cancel remaining — doctor unavailable', { exact: true })).toBeHidden();
+  await expect(page.locator('#held-tickets-title')).toBeHidden();
+  const toggle = page.locator('button[aria-controls="staff-held-tickets"]');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(page.locator('#held-tickets-title')).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('button', { name: 'Hide held tickets' }).click();
+  await expect(page.locator('#held-tickets-title')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Call next patient' })).toBeVisible();
+  expect(state.actions).toEqual([]);
+});
 
 test('queue SMS toasts distinguish pending, sent, failed, and uncertain results and do not repeat on refresh', async ({ page }, testInfo) => {
   const state = await mockStaff(page);
@@ -578,7 +613,7 @@ test('staff retains the called patient when the subsequent queue refresh fails',
   await page.goto('/staff');
   const call = page.getByRole('button', { name: 'Call next patient', exact: true });
   await expect(call).toBeEnabled();
-  await page.route('**/api/queue?category=dental', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Queue refresh unavailable.' }) }));
+  await page.route('**/api/queue?category=dental&include_clock=1', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Queue refresh unavailable.' }) }));
   await call.click();
   await expect(page.getByRole('alert')).toContainText('Queue refresh unavailable.');
   await expect(call).toBeDisabled();

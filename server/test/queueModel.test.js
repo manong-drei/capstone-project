@@ -114,15 +114,16 @@ test("MySQL counters separate sources, preserve issued numbers, and ignore earli
   }
 });
 
-test("call-next selects priority before a regular walk-in regardless of source preference", async () => {
+test("call-next alternates priority and regular using the last called type from the database", async () => {
   const originalConnection = pool.getConnection;
   const originalFetch = Queue._fetchById;
   let calledId;
+  let lastCalled;
   const connection = {
     async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
     async query(sql) {
       if (sql.includes("SELECT id FROM queues") && sql.includes("status IN ('called', 'serving')")) return [[]];
-      if (sql.includes("SELECT is_walk_in FROM queues")) return [[{ is_walk_in: 0 }]];
+      if (sql.includes("SELECT type FROM queues")) return [lastCalled ? [lastCalled] : []];
       if (sql.includes("status = 'waiting'")) return [[
         { id: 8, patient_id: 41, is_walk_in: 0, type: 'priority', created_at: new Date(0) },
         { id: 9, patient_id: 42, is_walk_in: 1, type: 'regular', created_at: new Date(1) },
@@ -134,8 +135,11 @@ test("call-next selects priority before a regular walk-in regardless of source p
   pool.getConnection = async () => connection;
   Queue._fetchById = async id => ({ id });
   try {
-    assert.deepEqual(await Queue.callNext({ category: "dental" }), { id: 8 });
-    assert.equal(calledId, 8);
+    for (const [previous, expected] of [[null, 8], [{ type: 'regular' }, 8], [{ type: 'priority' }, 9]]) {
+      lastCalled = previous;
+      assert.deepEqual(await Queue.callNext({ category: "dental" }), { id: expected });
+      assert.equal(calledId, expected);
+    }
   } finally {
     pool.getConnection = originalConnection;
     Queue._fetchById = originalFetch;

@@ -26,20 +26,34 @@ def fake_fit(values):
 
 class ForecastTests(unittest.TestCase):
     def test_selection_uses_aicc_and_rejects_unconverged_or_nonfinite_candidates(self):
-        scores = iter([40, 30, 20, 10, 5, float("inf")])
+        for rejected in ("unconverged", "nonfinite"):
+            with self.subTest(rejected=rejected):
+                scores = iter([40, 10, 5 if rejected == "unconverged" else float("inf")])
 
-        def candidate(values, order, trend):
-            fitted = SimpleNamespace(
-                aicc=next(scores), aic=0 if trend == "n" else 100,
-                mle_retvals={"converged": (order, trend) != ((0, 1, 1), "n")},
-            )
-            return SimpleNamespace(fit=lambda: fitted)
+                def candidate(values, order, trend):
+                    fitted = SimpleNamespace(
+                        aicc=next(scores), aic=0 if order == (0, 1, 0) else 100,
+                        mle_retvals={"converged": not (order == (0, 1, 1) and rejected == "unconverged")},
+                    )
+                    return SimpleNamespace(fit=lambda: fitted)
 
-        with patch.object(arima, "ARIMA", side_effect=candidate) as fit:
-            order, trend, fitted = arima.select_arima(np.arange(14))
-        self.assertEqual((order, trend, fitted.aicc), ((1, 1, 0), "t", 10))
-        self.assertEqual(fit.call_count, 6)
-        self.assertTrue(all(call.kwargs["order"][1] == 1 for call in fit.call_args_list))
+                with patch.object(arima, "ARIMA", side_effect=candidate) as fit:
+                    order, trend, fitted = arima.select_arima(np.arange(14))
+                self.assertEqual((order, trend, fitted.aicc), ((1, 1, 0), "t", 10))
+                self.assertEqual(fit.call_count, 3)
+                self.assertTrue(all(call.kwargs["order"][1] == 1 for call in fit.call_args_list))
+                self.assertTrue(all(call.kwargs["trend"] == "t" for call in fit.call_args_list))
+
+    def test_real_drift_models_learn_increases_and_decreases(self):
+        noise = np.array([0, 1, -1, 2, 0, -2, 1, 0, 2, -1, 0, 1, -2, 0])
+        for annual_change in (20, -20):
+            with self.subTest(annual_change=annual_change):
+                values = 500 + annual_change * np.arange(14) + noise
+                _, trend, fitted = arima.select_arima(values)
+                forecasts = arima.forecast_steps(fitted, 3)
+                self.assertEqual(trend, "t")
+                changes = np.diff([values[-1], *[row["forecast_recipients"] for row in forecasts]])
+                np.testing.assert_allclose(changes, annual_change, atol=3)
 
     def test_three_steps_keep_their_own_intervals_and_clip_negative_counts(self):
         fitted = Mock()

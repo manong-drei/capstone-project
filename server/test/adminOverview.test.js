@@ -52,7 +52,7 @@ test("overview exposes distinct daily waiting, serving and cancelled counts", as
     assert.match(todayQuery, /SUM\(status = 'waiting'\)\s+AS waiting/);
     assert.match(todayQuery, /SUM\(status IN \('called', 'serving'\)\)\s+AS serving/);
     assert.match(todayQuery, /SUM\(status = 'cancelled'\)\s+AS cancelled/);
-    assert.match(todayQuery, /WHERE DATE\(created_at\) = CURDATE\(\)/);
+    assert.match(todayQuery, /WHERE DATE\(COALESCE\(held_reactivated_at, created_at\)\) = CURDATE\(\)/);
 
     stats = { activeQueues: null, waiting: null, serving: null, cancelled: null, doneToday: null, priorityServed: null };
     const empty = response();

@@ -2,8 +2,8 @@ import { Link } from "react-router-dom";
 import { Bell, Check, ShieldCheck, Ticket, ArrowUpRight } from "lucide-react";
 import "./auth-page.css";
 
-const AuthPageLayout = ({ children, logoTo = "/" }) => (
-  <main className="auth-page">
+const AuthPageLayout = ({ children, logoTo = "/", className = "" }) => (
+  <main className={`auth-page ${className}`}>
     <div className="auth-shell">
       <aside className="auth-story" aria-label="About E-Kalusugan">
         <Link to={logoTo} className="auth-brand">

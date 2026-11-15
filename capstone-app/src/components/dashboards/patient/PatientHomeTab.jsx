@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/common/LoadingState";
 import DentalQueueGuide from "./DentalQueueGuide";
 import { QUEUE_STATUS } from "@/constants/queue";
-import { formatPatientDate } from "@/utils/queueDisplay";
+import { formatPatientDate, formatQueueDeadline } from "@/utils/queueDisplay";
 
 const CHO_MAP_EMBED_SRC =
   "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2564.558871295493!2d122.83512719999999!3d10.538003599034457!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33aec71e206eb71d%3A0xfbcc4df1333ed49a!2sCity%20Health%20Office%20of%20Bago!5e0!3m2!1sen!2sph!4v1791246126385!5m2!1sen!2sph";
@@ -21,6 +21,8 @@ function getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError) {
     return { value: "In progress", detail: "You are receiving care" };
   if (queue.status === QUEUE_STATUS.MISSED)
     return { value: "On hold", detail: "Report to staff to rejoin the queue" };
+  if (queue.status === QUEUE_STATUS.HELD)
+    return { value: "Held", detail: `Report to staff before ${formatQueueDeadline(queue.held_expires_at)} to restore your ticket.` };
   if (doctorAvailability === 0)
     return {
       value: "Paused",
