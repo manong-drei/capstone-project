@@ -38,7 +38,9 @@ const User = {
 
   findByIdWithHash: async (user_id) => {
     const [rows] = await pool.query(
-      "SELECT * FROM users WHERE user_id = ?",
+      `SELECT *, GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(),
+         DATE_ADD(password_changed_at, INTERVAL 5 MINUTE))) AS password_retry_seconds
+       FROM users WHERE user_id = ?`,
       [user_id],
     );
     return rows[0] || null;
@@ -64,8 +66,11 @@ const User = {
     const [result] = await pool.query(
       `UPDATE users SET password_hash = ?, must_change_password = 0,
        temp_password_expires_at = NULL, temp_password_used_at = NULL,
-       credential_version = credential_version + 1, login_failures = 0, login_locked_until = NULL
-       WHERE user_id = ? AND credential_version = ? AND is_active = 1`,
+       credential_version = credential_version + 1, login_failures = 0, login_locked_until = NULL,
+       password_changed_at = NOW()
+       WHERE user_id = ? AND credential_version = ? AND is_active = 1
+       AND (must_change_password = 1 OR password_changed_at IS NULL
+         OR password_changed_at <= DATE_SUB(NOW(), INTERVAL 5 MINUTE))`,
       [password_hash, user_id, version]);
     return result.affectedRows === 1;
   },

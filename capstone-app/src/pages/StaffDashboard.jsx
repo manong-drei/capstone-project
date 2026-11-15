@@ -52,10 +52,11 @@ export default function StaffDashboard() {
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [doctorAvailable, setDoctorAvailable] = useState(null);
   const [doctorLeaveEnd, setDoctorLeaveEnd] = useState(null);
+  const [walkInCapacity, setWalkInCapacity] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [clockOffset, setClockOffset] = useState(null);
   const [showManual, setShowManual] = useState(false);
-  const { toasts, dismissToast, trackSmsStatuses } = useSmsToasts();
+  const { toasts, dismissToast, trackSmsStatuses, showToast } = useSmsToasts();
 
   const accountsPage = pathname === ROUTES.STAFF_PATIENT_ACCOUNTS;
   const walkInPage = pathname === ROUTES.STAFF_WALK_IN;
@@ -107,10 +108,12 @@ export default function StaffDashboard() {
         dentist ? Boolean(Number(dentist.is_available)) : null,
       );
       setDoctorLeaveEnd(dentist?.leave_end ?? null);
+      setWalkInCapacity(dentist ? { limit: Number(dentist.walk_in_limit), count: Number(dentist.walkin_count) } : null);
     } catch {
       if (signal?.aborted) return;
       setDoctorAvailable(null);
       setDoctorLeaveEnd(null);
+      setWalkInCapacity(null);
     }
   }, []);
 
@@ -171,7 +174,7 @@ export default function StaffDashboard() {
       if (bulk) await holdRemainingQueues();
       else if (reason === DOCTOR_UNAVAILABLE_REASON) await holdQueue(id);
       else await api.patch(`/queue/${id}/status`, { status, reason });
-      await fetchQueue();
+      await refresh();
     } catch (err) {
       await fetchQueue();
       setError(err.message || "Failed to update the queue.");
@@ -214,7 +217,7 @@ export default function StaffDashboard() {
     },
     {
       label: "Walk-ins today",
-      value: queues.filter((queue) => queue.is_walk_in).length,
+      value: Number.isFinite(walkInCapacity?.count) ? walkInCapacity.count : "—",
       icon: Clock3,
       color: "bg-violet-50 text-violet-700",
     },
@@ -303,7 +306,7 @@ export default function StaffDashboard() {
         {accountsPage ? (
           <PatientManager canManage={false} canRecover />
         ) : walkInPage ? (
-          <WalkInForm onSuccess={fetchQueue} doctorLeaveEnd={doctorLeaveEnd} />
+          <WalkInForm onSuccess={refresh} doctorLeaveEnd={doctorLeaveEnd} capacity={walkInCapacity} onWarning={showToast} />
         ) : loading ? (
           <DashboardSkeleton />
         ) : (
@@ -373,8 +376,10 @@ export default function StaffDashboard() {
                 loading={loading || calling}
               />
               <WalkInForm
-                onSuccess={fetchQueue}
+                onSuccess={refresh}
                 doctorLeaveEnd={doctorLeaveEnd}
+                capacity={walkInCapacity}
+                onWarning={showToast}
               />
             </div>
           </>

@@ -87,6 +87,29 @@ async function mockStaff(page) {
   return state;
 }
 
+test('staff walk-ins today uses the capacity count excluding cancelled tickets', async ({ page }) => {
+  const state = await mockStaff(page);
+  state.queues = Array.from({ length: 7 }, (_, index) => ({
+    id: index + 1, category: 'dental', queue_number: `WQ${index + 1}`,
+    is_walk_in: 1, type: 'regular', status: index < 4 ? 'waiting' : 'cancelled',
+  }));
+  const dentist = { doctor_id: 1, is_available: 1, walk_in_limit: 15, walkin_count: 4 };
+  let fail = false;
+  await page.route('**/api/doctor', route => route.fulfill(fail
+    ? { status: 503, json: { message: 'Unavailable' } }
+    : { json: { data: [dentist] } }));
+  await page.goto('/staff');
+  const count = page.getByRole('region', { name: "Today's dental queue summary" })
+    .getByText('Walk-ins today', { exact: true }).locator('..').locator('p').last();
+  await expect(count).toHaveText('4');
+  dentist.walkin_count = 3;
+  await page.clock.fastForward(5000);
+  await expect(count).toHaveText('3');
+  fail = true;
+  await page.clock.fastForward(5000);
+  await expect(count).toHaveText('—');
+});
+
 test('staff hides held tickets and bulk doctor-unavailable cancellation', async ({ page }) => {
   const state = await mockStaff(page);
   Object.assign(state.queues[0], { status: 'held', held_expires_at: new Date(Date.now() + 86_400_000).toISOString() });
@@ -107,6 +130,27 @@ test('staff hides held tickets and bulk doctor-unavailable cancellation', async 
   await expect(page.locator('#held-tickets-title')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Call next patient' })).toBeVisible();
   expect(state.actions).toEqual([]);
+});
+
+test('walk-in capacity warns at five remaining slots without repeating on refresh', async ({ page }) => {
+  await mockStaff(page);
+  const dentist = { doctor_id: 1, is_available: 1, walk_in_limit: 10, walkin_count: 4 };
+  await page.route('**/api/doctor', route => route.fulfill({ json: { data: [dentist] } }));
+  await page.goto('/staff/walk-ins/new');
+  await expect(page.getByText(/Walk-in slots almost full/)).toHaveCount(0);
+  dentist.walkin_count = 5;
+  await page.clock.fastForward(5000);
+  await expect(page.getByText(/5 slots remaining today/)).toHaveCount(2);
+  await page.getByRole('button', { name: 'Dismiss notification', exact: true }).click();
+  await page.clock.fastForward(5000);
+  await expect(page.getByText(/5 slots remaining today/)).toHaveCount(1);
+  dentist.walkin_count = 9;
+  await page.clock.fastForward(5000);
+  await expect(page.getByText(/1 slot remaining today/)).toHaveCount(1);
+  dentist.walkin_count = 10;
+  await page.clock.fastForward(5000);
+  await expect(page.getByText('SLOTS FULL — No more walk-ins can be accepted today')).toBeVisible();
+  await expect(page.getByText(/Walk-in slots almost full/)).toHaveCount(0);
 });
 
 test('queue SMS toasts distinguish pending, sent, failed, and uncertain results and do not repeat on refresh', async ({ page }, testInfo) => {
@@ -187,9 +231,12 @@ test("staff keeps serving order, handles reasons, and calls only the dental queu
   state.queues[0].status = "waiting";
   await page.clock.fastForward(5_000);
   await page.getByRole("button", { name: "Cancel queue AP02" }).click();
-  await page.getByRole("radio", { name: "Schedule conflict / no longer available" }).check();
+  await page.getByRole("radio", { name: "Other", exact: true }).check();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Other reason' }).fill('  Patient requested rescheduling  ');
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("button", { name: "Cancel queue AP02" })).toHaveCount(0);
+  expect(state.updates).toContainEqual({ id: 1, status: 'cancelled', reason: 'Patient requested rescheduling' });
 });
 
 test("mobile walk-in registration preserves patient lookup, priority, service limits, and SMS instructions", async ({ page }) => {

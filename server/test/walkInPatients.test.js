@@ -36,7 +36,10 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
       if (sql.includes("FROM doctors")) return [[{ doctor_id: 1 }]];
       if (sql.includes("FROM daily_doctor_settings")) return [settings ? [settings] : []];
       if (sql.includes("FROM doctor_leaves")) return [[]];
-      if (sql.includes("walkinToday")) return [[{ walkinToday }]];
+      if (sql.includes("walkinToday")) {
+        assert.match(sql, /status != 'cancelled'/);
+        return [[{ walkinToday }]];
+      }
       if (sql.includes("FROM patients WHERE patient_id")) return [[{
         patient_id: 12, first_name: "Ana", last_name: "Santos", date_of_birth: new Date("1990-01-01T00:00:00+08:00"),
         gender: "Female", contact_number: "09123456789", barangay: "Poblacion", priority_category: null,

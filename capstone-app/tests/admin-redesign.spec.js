@@ -33,6 +33,37 @@ async function setup(page) {
   return responses;
 }
 
+for (const [role, width] of [['staff', 375], ['doctor', 1440]]) {
+  test(`staff details support outside-city addresses for ${role} at ${width}px`, async ({ page }) => {
+    const responses = await setup(page);
+    await page.setViewportSize({ width, height: 900 });
+    const member = { user_id: 15, first_name: 'Ana', last_name: 'Santos', email: 'ana@example.test',
+      phone: '09123456789', role, position: 'Clerk', license_number: 'TEST-123', is_active: 1,
+      gender: 'Female', address: 'Bacolod City' };
+    responses['/api/admin/staff'].staff = [member];
+    let saved;
+    await page.route('**/api/admin/staff/15', async route => {
+      saved = route.request().postDataJSON();
+      Object.assign(member, saved);
+      await route.fulfill({ json: { success: true } });
+    });
+    await page.goto('/admin');
+    await selectAdminSection(page, 'Accounts');
+    await expect(page.getByText(/Bacolod City/).filter({ visible: true })).toHaveCount(1);
+    await page.getByRole('button', { name: 'Edit', exact: true }).filter({ visible: true }).click();
+    await expect(page.getByLabel('Gender (optional)', { exact: true })).toHaveValue('Female');
+    await expect(page.getByLabel('Address (optional)', { exact: true })).toHaveValue('Bacolod City');
+    await page.getByLabel('Gender (optional)', { exact: true }).selectOption('Other');
+    await page.getByLabel('Address (optional)', { exact: true }).fill('Iloilo City, Iloilo');
+    await page.getByRole('button', { name: 'Save Changes', exact: true }).click();
+    await expect.poll(() => saved?.address).toBe('Iloilo City, Iloilo');
+    expect(saved.gender).toBe('Other');
+    await page.getByRole('button', { name: 'Add Staff', exact: true }).click();
+    await expect(page.getByLabel('Gender (optional)', { exact: true })).toHaveValue('');
+    await expect(page.getByLabel('Address (optional)', { exact: true })).toHaveValue('');
+  });
+}
+
 test("View shows only failed SMS and reviewing each job clears its dashboard count", async ({ page }) => {
   const responses = await setup(page);
   const jobs = responses["/api/admin/sms-jobs"].jobs;

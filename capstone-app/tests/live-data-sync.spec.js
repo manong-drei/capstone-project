@@ -192,7 +192,7 @@ test('profile and notification drafts survive remote changes', async ({ page }) 
 test('doctor capacity and daily report drafts survive remote changes', async ({ page }) => {
   const state = await mockApp(page, 'doctor');
   await page.goto('/doctor');
-  const limit = page.getByLabel('Appointment Limit', { exact: true });
+  const limit = page.getByLabel('Appointments — daily total limit', { exact: true });
   await expect(limit).toHaveValue('10');
   await limit.fill('7');
   state.limit = 4;

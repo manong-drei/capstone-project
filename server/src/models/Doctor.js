@@ -40,6 +40,9 @@ const Doctor = {
   findAll: async () => {
     const [rows] = await pool.query(`
       SELECT d.*, s.specialization_name,
+        COALESCE(dds.walk_in_limit, 0) AS walk_in_limit,
+        (SELECT COUNT(*) FROM queues q WHERE q.category = 'dental' AND q.is_walk_in = 1
+          AND DATE(q.created_at) = CURDATE() AND q.status != 'cancelled') AS walkin_count,
         IF(EXISTS(${approvedLeaveToday}), 0, COALESCE(dds.is_available, 1)) AS is_available,
         (SELECT DATE_FORMAT(l.end_date, '%Y-%m-%d') FROM doctor_leaves l WHERE l.doctor_id = d.doctor_id
           AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date LIMIT 1) AS leave_end

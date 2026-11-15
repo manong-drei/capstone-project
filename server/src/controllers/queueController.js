@@ -375,7 +375,8 @@ const createWalkIn = async (req, res) => {
 
       const [[{ walkinToday }]] = await connection.query(
         `SELECT COUNT(*) AS walkinToday FROM queues
-         WHERE is_walk_in = 1 AND category = 'dental' AND DATE(created_at) = CURDATE()`,
+         WHERE is_walk_in = 1 AND category = 'dental' AND DATE(created_at) = CURDATE()
+           AND status != 'cancelled'`,
       );
       if (walkinToday >= (settings?.walk_in_limit ?? 0)) {
         throw httpError(409, "Walk-in slots are full for today.");

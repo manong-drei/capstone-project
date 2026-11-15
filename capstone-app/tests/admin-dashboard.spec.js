@@ -218,11 +218,16 @@ test('overview queue cancellation still requires a reason and reports rejected c
   await expect(cancel).toBeEnabled();
   fail = false;
   await cancel.click();
-  await dialog.getByRole('radio', { name: 'Wait time too long', exact: true }).check();
+  await dialog.getByRole('radio', { name: 'Other', exact: true }).check();
+  await expect(dialog.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
+  await dialog.getByRole('textbox', { name: 'Other reason' }).fill('  Patient requested rescheduling  ');
   await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(cancel).toHaveCount(0);
   await expect(monitor.getByRole('region', { name: 'Dental live queue', exact: true })).toContainText('AP07');
-  expect(writes).toEqual(Array(2).fill({ status: 'cancelled', reason: 'Wait time too long' }));
+  expect(writes).toEqual([
+    { status: 'cancelled', reason: 'Wait time too long' },
+    { status: 'cancelled', reason: 'Patient requested rescheduling' },
+  ]);
 });
 
 for (const width of [1440, 375]) {

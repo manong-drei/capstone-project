@@ -125,7 +125,7 @@ for (const width of [1440, 375]) {
     await doctor.getByRole('button', { name: 'Close leave requests', exact: true }).click();
     await expect(doctor.getByRole('button', { name: 'On leave', exact: true })).toBeDisabled();
     await expect(doctor.getByText(/On approved leave through/)).toBeVisible();
-    await doctor.getByRole('button', { name: 'Apply', exact: true }).click();
+    await doctor.getByRole('button', { name: 'Save daily limits', exact: true }).click();
     await expect(doctor.getByText('Saved ✓', { exact: true })).toBeVisible();
     expect(state.dailyWrites.at(-1).is_available).toBeUndefined();
 

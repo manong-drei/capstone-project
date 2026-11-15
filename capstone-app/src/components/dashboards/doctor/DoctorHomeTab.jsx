@@ -18,6 +18,9 @@ import {
 } from "lucide-react";
 import { getQueueDisplayName } from "@/utils/queueDisplay";
 import QueueRecovery from "@/components/common/QueueRecovery";
+import WalkInCapacityWarning from "@/components/common/WalkInCapacityWarning";
+import ToastNotifications from "@/components/common/ToastNotifications";
+import useSmsToasts from "@/hooks/useSmsToasts";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
 import { generatePath, Link } from "react-router-dom";
 import { ROUTES } from "@/constants/routes";
@@ -61,6 +64,7 @@ export default function DoctorHomeTab({
   error,
 }) {
   const [showUnavailable, setShowUnavailable] = useState(false);
+  const { toasts, dismissToast, showToast } = useSmsToasts();
   const [reasonCategory, setReasonCategory] = useState("");
   const [otherReason, setOtherReason] = useState("");
   const currentQueue = servingQueue || calledQueue;
@@ -99,6 +103,7 @@ export default function DoctorHomeTab({
 
   return (
     <main className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <ToastNotifications toasts={toasts} onDismiss={dismissToast} />
       <section
         className="relative overflow-hidden rounded-2xl bg-cover bg-center bg-no-repeat p-6 text-white shadow-sm sm:p-8"
         style={{ backgroundImage: "url('/assets/BGHero.webp')" }}
@@ -499,18 +504,24 @@ export default function DoctorHomeTab({
                     aria-hidden="true"
                   />
                 </button>
+                <div className="px-5 pb-3">
+                  <WalkInCapacityWarning limit={walkInLimit} count={walkInCount} onWarning={showToast} />
+                </div>
                 {!capacityCollapsed && (
                   <div
                     id="doctor-capacity-fields"
                     className="space-y-5 border-t border-slate-100 p-5"
                   >
+                    <p className="text-sm leading-relaxed text-slate-600">
+                      Saving replaces today's total limits. It does not add slots or reset slots already used.
+                    </p>
                     <div>
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <label
                           htmlFor="doctor-appointment-limit"
                           className="text-sm font-semibold text-slate-700"
                         >
-                          Appointment Limit
+                          Appointments — daily total limit
                         </label>
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${appointmentLimit === 10 ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}
@@ -535,13 +546,9 @@ export default function DoctorHomeTab({
                         <span>0</span>
                         <span>10 (max)</span>
                       </div>
-                      <div className="mt-3 flex justify-between gap-3 text-xs text-slate-500">
-                        <span>Appointments today</span>
-                        <span className="font-semibold text-slate-900">
-                          {bookedCount} /{" "}
-                          {appointmentLimit > 0 ? appointmentLimit : "—"}
-                        </span>
-                      </div>
+                      <p className="mt-3 text-sm font-semibold text-slate-900">
+                        {appointmentLimit} total · {bookedCount} used · {Math.max(0, appointmentLimit - bookedCount)} available
+                      </p>
                       <progress
                         aria-label="Appointment capacity used"
                         max={100}
@@ -560,12 +567,12 @@ export default function DoctorHomeTab({
                           htmlFor="doctor-walk-in-limit"
                           className="text-sm font-semibold text-slate-700"
                         >
-                          Walk-In Capacity
+                          Walk-ins — daily total limit
                         </label>
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${walkInLimit > 0 ? "bg-orange-50 text-orange-700" : "bg-slate-100 text-slate-600"}`}
                         >
-                          {walkInLimit > 0 ? `${walkInLimit} slots` : "Not set"}
+                          {walkInLimit} total slots
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -594,23 +601,15 @@ export default function DoctorHomeTab({
                           0–30 patients
                         </span>
                       </div>
-                      <div className="mt-3 flex justify-between gap-3 text-xs text-slate-500">
-                        <span>Walk-ins today</span>
-                        <span className="font-semibold text-slate-900">
-                          {walkInCount} / {walkInLimit > 0 ? walkInLimit : "—"}
-                        </span>
-                      </div>
+                      <p className="mt-3 text-sm font-semibold text-slate-900">
+                        {walkInLimit} total · {walkInCount} used · {Math.max(0, walkInLimit - walkInCount)} available
+                      </p>
                       <progress
                         aria-label="Walk-in capacity used"
                         max={100}
                         value={walkInPercent}
                         className={`mt-2 block h-2 w-full overflow-hidden rounded-full bg-slate-100 [&::-webkit-progress-bar]:bg-slate-100 [&::-webkit-progress-value]:rounded-full ${walkInPercent >= 100 ? "[&::-moz-progress-bar]:bg-red-500 [&::-webkit-progress-value]:bg-red-500" : walkInPercent >= 80 ? "[&::-moz-progress-bar]:bg-orange-500 [&::-webkit-progress-value]:bg-orange-500" : "[&::-moz-progress-bar]:bg-emerald-500 [&::-webkit-progress-value]:bg-emerald-500"}`}
                       />
-                      {walkInLimit > 0 && walkInCount >= walkInLimit && (
-                        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-xs font-semibold leading-relaxed text-red-700">
-                          SLOTS FULL — No more walk-ins can be accepted today
-                        </p>
-                      )}
                     </div>
                     <button
                       type="button"
@@ -629,7 +628,7 @@ export default function DoctorHomeTab({
                         ? "Saving..."
                         : settingsSaved
                           ? "Saved ✓"
-                          : "Apply"}
+                          : "Save daily limits"}
                     </button>
                   </div>
                 )}

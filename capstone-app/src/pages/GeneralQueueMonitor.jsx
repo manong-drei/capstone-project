@@ -2,7 +2,7 @@
  * GeneralQueueMonitor.jsx — Waiting-area TV/monitor display for the
  * Dental Check-up queue. Meant to be opened in kiosk/full-screen mode.
  *
- * Layout: left 70% queue info and skipped tickets, right 30% clinic image.
+ * Layout: left 70% queue info and skipped tickets, right 30% clinic video.
  * Refreshes on queue changes in this browser and polls every second across devices.
  */
 
@@ -258,12 +258,18 @@ export default function GeneralQueueMonitor() {
           </div>
         </div>
 
-        {/* Right column — clinic image (30%) */}
+        {/* Right column — clinic video (30%) */}
         <div className="basis-[30%] shrink-0 grow-0 min-w-0 min-h-screen overflow-hidden relative bg-[#0f1a4a]">
-          <img
-            src="/assets/BGHero.webp"
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover block"
+          <video
+            src="/assets/monitorvid.webm"
+            poster="/assets/BGHero.webp"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            aria-label="Clinic video"
+            className="absolute inset-0 w-full h-full object-contain block"
           />
         </div>
 

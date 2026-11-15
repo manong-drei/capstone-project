@@ -1,15 +1,6 @@
 import { useEffect, useRef } from "react";
 
-/**
- * LimitWarningModal
- * Shown when the doctor tries to lower the appointment limit below the current booked count.
- *
- * Props:
- *   bookedCount          — number of already-booked appointments today
- *   onConfirm            — called when user clicks "Continue"
- *   onCancel             — called when user clicks "Cancel"
- */
-export default function LimitWarningModal({ bookedCount, onConfirm, onCancel }) {
+export default function LimitWarningModal({ bookedCount, walkInCount, appointmentLimit, walkInLimit, onConfirm, onCancel }) {
   const dialogRef = useRef(null);
 
   useEffect(() => {
@@ -28,10 +19,18 @@ export default function LimitWarningModal({ bookedCount, onConfirm, onCancel }) 
   return (
     <dialog ref={dialogRef} aria-labelledby="capacity-warning-title" onCancel={onCancel} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 text-slate-800 shadow-2xl backdrop:bg-slate-900/55 sm:p-7">
         <h3 id="capacity-warning-title" className="mb-3 text-base font-bold text-slate-900">
-          Lower Appointment Limit?
+          Lower daily limits?
         </h3>
+        <div className="mb-4 space-y-2 text-sm leading-relaxed text-slate-700">
+          {appointmentLimit < bookedCount && (
+            <p>You have <strong>{bookedCount}</strong> appointment{bookedCount !== 1 ? "s" : ""} booked today. The new daily total limit is <strong>{appointmentLimit}</strong>.</p>
+          )}
+          {walkInLimit < walkInCount && (
+            <p>You have <strong>{walkInCount}</strong> walk-in slot{walkInCount !== 1 ? "s" : ""} used today. The new daily total limit is <strong>{walkInLimit}</strong>.</p>
+          )}
+        </div>
         <p className="mb-6 text-sm leading-relaxed text-slate-600">
-          You currently have <strong>{bookedCount}</strong> appointment{bookedCount !== 1 ? "s" : ""} booked today. Lowering the limit below this number will prevent new bookings but will <strong>not</strong> cancel existing appointments. Continue?
+          New registrations for each affected category will be blocked until capacity is available. Existing appointments and queue tickets will remain valid. Save these limits?
         </p>
         <div className="flex flex-wrap justify-end gap-3">
           <button

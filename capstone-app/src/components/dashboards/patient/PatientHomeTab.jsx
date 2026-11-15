@@ -303,7 +303,7 @@ function QueueBanner({ label, value, color }) {
       <p className="text-xs text-white font-bold tracking-wide uppercase sm:text-sm">
         {label}
       </p>
-      <strong className="mt-2 block text-2xl text-white leading-tight font-extrabold wrap-anywhere tabular-nums sm:text-4xl">
+      <strong className="queue-display-number mt-2 block text-4xl text-white leading-tight font-extrabold wrap-anywhere tabular-nums sm:text-5xl lg:text-6xl">
         {value}
       </strong>
     </div>

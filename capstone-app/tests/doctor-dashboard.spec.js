@@ -44,6 +44,49 @@ async function mockDoctor(page) {
   return state;
 }
 
+test('doctor uses the same low walk-in capacity flag and toast even when capacity is collapsed', async ({ page }) => {
+  const state = await mockDoctor(page);
+  await page.clock.install();
+  Object.assign(state.settings, { walk_in_limit: 10, walkin_count: 4 });
+  await page.goto('/doctor');
+  await expect(page.getByText(/Walk-in slots almost full/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Daily capacity', exact: true }).click();
+  state.settings.walkin_count = 5;
+  await page.clock.fastForward(5000);
+  await expect(page.getByText(/5 slots remaining today/)).toHaveCount(2);
+  await page.getByRole('button', { name: 'Dismiss notification', exact: true }).click();
+  await page.clock.fastForward(5000);
+  await expect(page.getByText(/5 slots remaining today/)).toHaveCount(1);
+});
+
+for (const [appointments, walkIns, expectedWarnings] of [[10, 2, ['3 walk-in slots used today']], [5, 2, ['8 appointments booked today', '3 walk-in slots used today']]]) {
+  test(`saving daily totals ${appointments}/${walkIns} confirms limits below usage before writing`, async ({ page }) => {
+    const state = await mockDoctor(page);
+    await page.goto('/doctor');
+    const appointmentInput = page.getByLabel('Appointments — daily total limit', { exact: true });
+    const walkInInput = page.getByLabel('Walk-ins — daily total limit', { exact: true });
+    await expect(page.getByText('10 total · 8 used · 2 available', { exact: true })).toBeVisible();
+    await appointmentInput.fill(String(appointments));
+    await walkInInput.fill(String(walkIns));
+    await expect(page.getByText('2 total · 3 used · 0 available', { exact: true })).toBeVisible();
+    const save = page.getByRole('button', { name: 'Save daily limits', exact: true });
+    await save.click();
+    const warning = page.getByRole('dialog', { name: 'Lower daily limits?' });
+    for (const text of expectedWarnings) await expect(warning).toContainText(text);
+    expect(state.writes.filter(write => write.path === '/api/doctor/daily-settings')).toHaveLength(0);
+    await warning.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(walkInInput).toHaveValue('5');
+    await appointmentInput.fill(String(appointments));
+    await walkInInput.fill(String(walkIns));
+    await save.click();
+    await warning.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Saved ✓', exact: true })).toBeVisible();
+    expect(state.settings.appointment_limit).toBe(appointments);
+    expect(state.settings.walk_in_limit).toBe(walkIns);
+    expect(state.settings.walkin_count).toBe(3);
+  });
+}
+
 test("the doctor banner renders while queue data is still loading", async ({ page }) => {
   await mockDoctor(page);
   const { promise, resolve } = Promise.withResolvers();
@@ -145,18 +188,18 @@ test("mobile menu, availability, capacity warning, and completion actions still 
 
   const capacity = page.getByRole("region", { name: "Daily capacity", exact: true });
   await capacity.getByRole("button", { name: /Daily capacity/ }).click();
-  await expect(page.getByLabel("Appointment Limit", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Appointments — daily total limit", { exact: true })).toHaveCount(0);
   await capacity.getByRole("button", { name: /Daily capacity/ }).click();
-  await page.getByLabel("Appointment Limit", { exact: true }).fill("5");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
-  const warning = page.getByRole("dialog", { name: "Lower Appointment Limit?" });
+  await page.getByLabel("Appointments — daily total limit", { exact: true }).fill("5");
+  await page.getByRole("button", { name: "Save daily limits", exact: true }).click();
+  const warning = page.getByRole("dialog", { name: "Lower daily limits?" });
   await expect(warning).toContainText("8 appointments booked today");
   await warning.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByLabel("Appointment Limit", { exact: true })).toHaveValue("10");
-  await page.getByLabel("Appointment Limit", { exact: true }).fill("5");
-  await page.getByLabel("Walk-In Capacity", { exact: true }).fill("40");
-  await expect(page.getByLabel("Walk-In Capacity", { exact: true })).toHaveValue("30");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.getByLabel("Appointments — daily total limit", { exact: true })).toHaveValue("10");
+  await page.getByLabel("Appointments — daily total limit", { exact: true }).fill("5");
+  await page.getByLabel("Walk-ins — daily total limit", { exact: true }).fill("40");
+  await expect(page.getByLabel("Walk-ins — daily total limit", { exact: true })).toHaveValue("30");
+  await page.getByRole("button", { name: "Save daily limits", exact: true }).click();
   await warning.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("button", { name: "Saved ✓", exact: true })).toBeVisible();
   expect(state.settings.appointment_limit).toBe(5);

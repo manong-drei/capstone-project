@@ -27,15 +27,17 @@ const PM_RESPONSIVE_CSS = `
   }
 
   .pm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .pm-table-row, .pm-table-head { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 48px 52px 110px minmax(100px, 1fr) 70px 150px; min-width: 950px; gap: 12px; }
+  .pm-table-row, .pm-table-head { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 96px 64px 128px minmax(130px, 1fr) 80px 150px; min-width: 1030px; column-gap: 16px; row-gap: 12px; }
+  .pm-table-head { align-items: center; }
+  .pm-table-head > span { min-width: 0; white-space: normal; overflow-wrap: normal; word-break: normal; }
   .pm-table-row > span { min-width: 0; overflow-wrap: anywhere; }
-  .pm-name-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; margin: 0; flex: 1; min-width: 0; }
+  .pm-name-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 16px; margin: 0; flex: 1; min-width: 0; }
   .pm-name-grid dt { font-size: 11px; color: #6b7280; }
-  .pm-name-grid dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #111827; overflow-wrap: anywhere; }
+  .pm-name-grid dd { margin: 4px 0 0; font-size: 14px; font-weight: 600; color: #111827; overflow-wrap: anywhere; }
   .pm-cards-mobile { display: none; }
   @media (max-width: 900px) {
     .pm-table-row, .pm-table-head { display: none !important; }
-    .pm-cards-mobile { display: flex !important; flex-direction: column; gap: 6px; padding: 10px; }
+    .pm-cards-mobile { display: flex !important; flex-direction: column; gap: 12px; padding: 12px; }
   }
   @media (max-width: 640px) {
     .pm-form-grid { grid-template-columns: 1fr !important; }
@@ -660,7 +662,7 @@ export default function PatientManager({ canManage = true, canRecover = false })
         <div
           className="pm-table-head"
           style={{
-            padding: "8px 14px",
+            padding: "12px 16px",
             background: "#f9fafb",
             borderBottom: "1px solid #f3f4f6",
           }}
@@ -747,7 +749,7 @@ export default function PatientManager({ canManage = true, canRecover = false })
                   key={patient.user_id}
                   className="pm-table-row"
                   style={{
-                    padding: "8px 14px",
+                    padding: "12px 16px",
                     borderBottom: "1px solid #f9fafb",
                     alignItems: "center",
                     opacity: isInactive ? 0.6 : 1,

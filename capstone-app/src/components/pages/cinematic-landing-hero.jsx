@@ -102,8 +102,8 @@ export function CinematicHero({ onClinicInfo }) {
             </div>
           </div>
           <p className="cinematic-photo-caption">
-            <MapPin size={14} aria-hidden="true" /> Bago City Health Center ·
-            Brgy. Poblacion
+            <MapPin size={14} aria-hidden="true" /> Bago City Primary Care
+            Facility · Brgy. Poblacion
           </p>
         </div>
       </div>

@@ -291,6 +291,7 @@ test('MySQL recovery flow uses isolated temporary tables for real SQL, expiry an
   try {
     Object.assign(process.env, { SMS_ENABLED: 'true', SMS_ENCRYPTION_KEY: 'ab'.repeat(32), SMS_API_KEY: 'test-key', SMS_SENDER_NAME: 'Clinic' });
     await connection.query('CREATE TEMPORARY TABLE users (user_id INT PRIMARY KEY, phone VARCHAR(11), role VARCHAR(20), is_active BOOLEAN, credential_version INT, password_hash VARCHAR(100), must_change_password BOOLEAN DEFAULT 0, temp_password_expires_at DATETIME NULL, temp_password_used_at DATETIME NULL, login_failures INT DEFAULT 0, login_locked_until DATETIME NULL) ENGINE=InnoDB');
+    await connection.query('ALTER TABLE users ADD COLUMN password_changed_at DATETIME NULL');
     await connection.query('CREATE TEMPORARY TABLE patients (patient_id INT PRIMARY KEY, user_id INT, first_name VARCHAR(100), middle_name VARCHAR(100), last_name VARCHAR(100), suffix VARCHAR(20), archived_into_patient_id INT NULL) ENGINE=InnoDB');
     await connection.query("CREATE TEMPORARY TABLE sms_jobs (id INT AUTO_INCREMENT PRIMARY KEY, purpose VARCHAR(40), user_id INT, patient_id INT, recovery_id CHAR(36), credential_version INT, recipient VARCHAR(11), deduplication_key VARCHAR(100), payload TEXT, state VARCHAR(20) DEFAULT 'queued', provider_status VARCHAR(20), last_error VARCHAR(80)) ENGINE=InnoDB");
     for (const [file, name] of [['008_password_recovery.sql', 'password_recoveries'], ['006_admin_audit_logs.sql', 'audit_logs']]) {

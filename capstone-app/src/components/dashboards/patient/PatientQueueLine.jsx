@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Info, ListOrdered } from "lucide-react";
 
 export default function PatientQueueLine({
   queueStatus = {},
@@ -21,21 +21,26 @@ export default function PatientQueueLine({
 
   return (
     <details
-      className="group min-w-0 rounded-2xl border border-slate-200 bg-white shadow-xs"
+      className="group min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm"
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 rounded-t-2xl px-5 py-4 group-open:border-b group-open:border-slate-100 [&::-webkit-details-marker]:hidden">
-        <h2 className="text-lg font-bold text-blue-950">
-          Current dental queue line
-        </h2>
+      <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-4 hover:bg-slate-50 group-open:rounded-b-none group-open:border-b group-open:border-slate-100 sm:px-5 [&::-webkit-details-marker]:hidden">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-900">
+            <ListOrdered size={20} aria-hidden="true" />
+          </span>
+          <h2 className="text-lg font-bold text-blue-950">
+            Current dental queue line
+          </h2>
+        </div>
         <ChevronDown
           size={18}
           className="shrink-0 text-slate-600 transition-transform group-open:rotate-180"
           aria-hidden="true"
         />
       </summary>
-      <div className="p-5 pt-3">
+      <div className="space-y-4 p-4 sm:p-5">
         {error ? (
           <p
             role="alert"
@@ -49,26 +54,28 @@ export default function PatientQueueLine({
           </p>
         ) : (
           <>
-            <div className="my-4 grid grid-cols-2 gap-3">
-              <div className="grid min-w-0 gap-1 rounded-xl bg-orange-50 p-3 text-orange-800">
-                <span className="text-sm font-medium">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid min-w-0 content-start gap-2 rounded-2xl bg-orange-500 px-3 py-4 text-white shadow-md sm:py-5">
+                <span className="text-sm font-bold tracking-wide uppercase">
                   {queueStatus.current_status === "called"
                     ? "Now calling"
                     : "Now serving"}
                 </span>
-                <strong className="text-xl font-bold wrap-anywhere tabular-nums">
+                <strong className="queue-display-number text-4xl leading-tight font-extrabold wrap-anywhere tabular-nums sm:text-5xl lg:text-6xl">
                   {queueStatus.now_serving || "—"}
                 </strong>
               </div>
-              <div className="grid min-w-0 gap-1 rounded-xl bg-orange-50 p-3 text-orange-800">
-                <span className="text-sm font-medium">Next in queue</span>
-                <strong className="text-xl font-bold wrap-anywhere tabular-nums">
+              <div className="grid min-w-0 content-start gap-2 rounded-2xl bg-[#2d3a8c] px-3 py-4 text-white shadow-md sm:py-5">
+                <span className="text-sm font-bold tracking-wide uppercase">
+                  Next in queue
+                </span>
+                <strong className="queue-display-number text-4xl leading-tight font-extrabold wrap-anywhere tabular-nums sm:text-5xl lg:text-6xl">
                   {queueStatus.next_queuing || "—"}
                 </strong>
               </div>
             </div>
             {queueStatus.line?.length ? (
-              <ol className="space-y-1" aria-label="Current queue line">
+              <ol className="space-y-2" aria-label="Current queue line">
                 {queueStatus.line.map((ticket, index) => {
                   const mine =
                     hasActiveQueue &&
@@ -76,19 +83,26 @@ export default function PatientQueueLine({
                   return (
                     <li
                       key={ticket.queue_number}
-                      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-3 text-sm ${mine ? "bg-blue-50 text-blue-900" : "border-b border-slate-100 text-slate-800"}`}
+                      className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm ${mine ? "border-blue-200 bg-blue-50 text-blue-900" : "border-slate-200 bg-white text-slate-800"}`}
                       aria-current={mine ? "true" : undefined}
                     >
                       <span className="flex min-w-0 flex-wrap items-center gap-2 wrap-anywhere">
-                        <small className="text-sm text-slate-600">
-                          {index + 1}.
+                        <small className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-600">
+                          {index + 1}
                         </small>
                         <strong className="font-semibold tabular-nums">
                           {ticket.queue_number}
                         </strong>
-                        {mine && <span>Your ticket</span>}
+                        {mine && (
+                          <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-900">
+                            Your ticket
+                          </span>
+                        )}
                       </span>
-                      <span className="text-slate-700">
+                      <span
+                        className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700 data-[status=called]:bg-emerald-100 data-[status=called]:text-emerald-900 data-[status=serving]:bg-emerald-100 data-[status=serving]:text-emerald-900"
+                        data-status={ticket.status}
+                      >
                         {ticket.status === "called"
                           ? "Now calling"
                           : ticket.status === "serving"
@@ -100,15 +114,10 @@ export default function PatientQueueLine({
                 })}
               </ol>
             ) : (
-              <p className="text-sm leading-6 text-slate-700">
+              <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm leading-6 text-slate-600">
                 No active tickets in the queue.
               </p>
             )}
-            <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-700">
-              Priority and regular patients alternate. Within each group, app
-              and walk-in tickets follow ticket-issued time; confirmed returns
-              use return time. Follow the displayed order.
-            </p>
           </>
         )}
       </div>

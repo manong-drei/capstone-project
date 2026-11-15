@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 export default function QueueReasonModal({ request, onClose, onSubmit }) {
   const [reason, setReason] = useState("");
+  const [otherReason, setOtherReason] = useState("");
   const dialog = useRef(null);
   useEffect(() => {
     if (!request) return;
@@ -10,9 +11,11 @@ export default function QueueReasonModal({ request, onClose, onSubmit }) {
     return () => previous?.focus();
   }, [request]);
   if (!request) return null;
+  const submittedReason = reason === "Other" ? otherReason.trim() : reason;
 
   const close = () => {
     setReason("");
+    setOtherReason("");
     onClose();
   };
 
@@ -75,6 +78,20 @@ export default function QueueReasonModal({ request, onClose, onSubmit }) {
             );
           })}
         </div>
+        {reason === "Other" && (
+          <label className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
+            Other reason
+            <input
+              type="text"
+              required
+              maxLength={255}
+              value={otherReason}
+              onChange={(event) => setOtherReason(event.target.value)}
+              placeholder="Enter your cancellation reason"
+              className="min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            />
+          </label>
+        )}
         <div className="mt-5 flex justify-end gap-2.5">
           <button
             onClick={close}
@@ -83,9 +100,10 @@ export default function QueueReasonModal({ request, onClose, onSubmit }) {
             Cancel
           </button>
           <button
-            disabled={!reason}
+            disabled={!submittedReason}
             onClick={() => {
-              const selected = reason;
+              if (!submittedReason) return;
+              const selected = submittedReason;
               close();
               onSubmit(selected);
             }}

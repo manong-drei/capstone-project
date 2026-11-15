@@ -39,6 +39,65 @@ async function mockPatient(page) {
 
 const estimatedWaitCard = page => page.getByText('Estimated wait', { exact: true }).locator('..');
 
+test('other cancellation reason requires text, resets on close, and submits the trimmed reason', async ({ page }) => {
+  await mockPatient(page);
+  let submitted;
+  await page.route('**/api/queue/1/cancel', async route => {
+    submitted = route.request().postDataJSON();
+    await route.fulfill({ json: { success: true } });
+  });
+  await page.goto('/patient');
+  const cancelQueue = page.getByRole('button', { name: 'Cancel Queue', exact: true });
+  await cancelQueue.click();
+  const dialog = page.getByRole('dialog');
+  const other = dialog.getByRole('radio', { name: 'Other', exact: true });
+  const input = dialog.getByRole('textbox', { name: 'Other reason' });
+  const submit = dialog.getByRole('button', { name: 'Continue', exact: true });
+  await expect(input).toHaveCount(0);
+  await other.check();
+  await expect(submit).toBeDisabled();
+  await input.fill('   ');
+  await expect(submit).toBeDisabled();
+  await input.fill('Need to leave town');
+  await dialog.getByRole('radio', { name: 'Wait time too long', exact: true }).check();
+  await expect(input).toHaveCount(0);
+  await expect(submit).toBeEnabled();
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await cancelQueue.click();
+  await other.check();
+  await expect(input).toHaveValue('');
+  await input.fill('  Need to leave town  ');
+  await expect(input).toHaveAttribute('maxlength', '255');
+  await submit.click();
+  await expect.poll(() => submitted).toEqual({ reason: 'Need to leave town' });
+});
+
+test('ticket number keeps its responsive size inside dashboard text styles', async ({ page }) => {
+  await mockPatient(page);
+  await page.goto('/patient');
+  const ticket = page.getByRole('article', { name: 'My queue ticket' });
+  const number = ticket.locator('strong');
+  for (const [width, height, size] of [[375, 667, 60], [768, 1024, 72], [1280, 900, 96]]) {
+    await page.setViewportSize({ width, height });
+    await expect(number).toHaveCSS('font-size', `${size}px`);
+    const otherSizes = await ticket.locator('h2, p, span, dt, dd, button').evaluateAll(
+      elements => elements.map(element => parseFloat(getComputedStyle(element).fontSize)),
+    );
+    expect(Math.max(...otherSizes)).toBeLessThan(size);
+  }
+  await page.getByRole('button', { name: 'Close ticket', exact: true }).click();
+  for (const [width, height, size] of [[375, 667, 36], [768, 1024, 48], [1280, 900, 60]]) {
+    await page.setViewportSize({ width, height });
+    const values = page.getByRole('region', { name: 'Live queue status' }).locator('strong');
+    await expect(values).toHaveCount(2);
+    for (const value of await values.all()) await expect(value).toHaveCSS('font-size', `${size}px`);
+  }
+  await page.goto('/patient/my-queue');
+  const queueValues = page.locator('.queue-display-number');
+  await expect(queueValues).toHaveCount(2);
+  for (const value of await queueValues.all()) await expect(value).toHaveCSS('font-size', '60px');
+});
+
 test('patients keep a held ticket, see the deadline and new H number, and are told when the hold expires', async ({ page }) => {
   const state = await mockPatient(page);
   Object.assign(state.queue, { status: 'held', held_expires_at: '2026-11-16T09:00:00+08:00' });

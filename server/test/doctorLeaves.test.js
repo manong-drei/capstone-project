@@ -149,8 +149,8 @@ test('MySQL leave approvals preserve daily settings, detect conflicts and expire
     await connection.query('CREATE TEMPORARY TABLE specializations (specialization_id INT PRIMARY KEY, specialization_name VARCHAR(50))');
     await connection.query('CREATE TEMPORARY TABLE patients (patient_id INT PRIMARY KEY, first_name VARCHAR(50), middle_name VARCHAR(50), last_name VARCHAR(50), suffix VARCHAR(20))');
     await connection.query('CREATE TEMPORARY TABLE appointments (appointment_id INT PRIMARY KEY, patient_id INT, doctor_id INT, appointment_date DATE, appointment_time TIME, status VARCHAR(20))');
-    await connection.query('CREATE TEMPORARY TABLE queues (id INT PRIMARY KEY, patient_id INT, queue_number VARCHAR(20), category VARCHAR(20), status VARCHAR(20), created_at DATETIME, is_walk_in TINYINT, walk_in_name VARCHAR(100))');
-    await connection.query('CREATE TEMPORARY TABLE daily_doctor_settings (doctor_id INT, date DATE, appointment_limit INT, walk_in_limit INT, is_available TINYINT, PRIMARY KEY(doctor_id, date))');
+    await connection.query('CREATE TEMPORARY TABLE queues (id INT PRIMARY KEY, patient_id INT, queue_number VARCHAR(20), category VARCHAR(20), status VARCHAR(20), created_at DATETIME, held_reactivated_at DATETIME, is_walk_in TINYINT, walk_in_name VARCHAR(100))');
+    await connection.query('CREATE TEMPORARY TABLE daily_doctor_settings (doctor_id INT, date DATE, appointment_limit INT, walk_in_limit INT, is_available TINYINT, unavailable_reason TEXT, PRIMARY KEY(doctor_id, date))');
     await connection.query('CREATE TEMPORARY TABLE queue_sequences (queue_date DATE, category VARCHAR(20), sequence_type VARCHAR(30), last_number INT, PRIMARY KEY(queue_date, category, sequence_type))');
     t.mock.method(pool, 'query', (sql, params) => connection.query(sql, params));
     t.mock.method(pool, 'getConnection', async () => connection);
@@ -159,9 +159,24 @@ test('MySQL leave approvals preserve daily settings, detect conflicts and expire
     await connection.query("INSERT INTO users (user_id, role, is_active) VALUES (4, 'doctor', 1), (5, 'doctor', 1)");
     await connection.query("INSERT INTO patients VALUES (11, 'Test', NULL, 'Patient', NULL)");
     await connection.query("INSERT INTO appointments VALUES (5, 11, 1, '2026-10-29', '09:00', 'confirmed')");
-    await connection.query("INSERT INTO queues VALUES (12, 11, 'WQ12', 'dental', 'waiting', '2026-10-29 00:15:00', 1, NULL)");
+    await connection.query("INSERT INTO queues VALUES (12, 11, 'WQ12', 'dental', 'waiting', '2026-10-29 00:15:00', NULL, 1, NULL)");
     await connection.query('ALTER TABLE queues ADD COLUMN appointment_id INT');
-    await connection.query("INSERT INTO daily_doctor_settings VALUES (1, '2026-10-29', 10, 5, 1), (1, '2026-11-05', 8, 4, 0)");
+    await connection.query("INSERT INTO daily_doctor_settings VALUES (1, '2026-10-29', 10, 5, 1, NULL), (1, '2026-11-05', 8, 4, 0, NULL)");
+    await t.test('cancelling a walk-in releases one capacity slot on both dashboards; completed visits still count', async () => {
+      const count = async () => {
+        const daily = response();
+        await getDailySettings({ user: { user_id: 4 }, query: { date: '2026-10-29' } }, daily);
+        const staff = (await Doctor.findAll()).find(row => row.doctor_id === 1);
+        assert.equal(daily.data.walkin_count, staff.walkin_count);
+        return daily.data.walkin_count;
+      };
+      assert.equal(await count(), 1);
+      await connection.query("UPDATE queues SET status = 'cancelled' WHERE id = 12");
+      assert.equal(await count(), 0);
+      await connection.query("UPDATE queues SET status = 'done' WHERE id = 12");
+      assert.equal(await count(), 1);
+      await connection.query("UPDATE queues SET status = 'waiting' WHERE id = 12");
+    });
     const id = await DoctorLeave.request(1, '2026-10-29', '2026-11-04', 'Private leave reason');
     assert.equal((await DoctorLeave.list(1))[0].status, 'pending');
     assert.equal(await DoctorLeave.findApproved(1, '2026-10-29'), null);

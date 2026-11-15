@@ -170,7 +170,7 @@ export default function DoctorDashboard() {
   };
 
   const handleApplySettings = () => {
-    if (appointmentLimit < bookedCount) {
+    if (appointmentLimit < bookedCount || walkInLimit < walkInCount) {
       setPendingSettings({ appt: appointmentLimit, wi: walkInLimit });
       setShowLimitWarning(true);
     } else {
@@ -511,6 +511,9 @@ export default function DoctorDashboard() {
       {showLimitWarning && (
         <LimitWarningModal
           bookedCount={bookedCount}
+          walkInCount={walkInCount}
+          appointmentLimit={pendingSettings.appt}
+          walkInLimit={pendingSettings.wi}
           onConfirm={handleConfirmWarning}
           onCancel={handleCancelWarning}
         />

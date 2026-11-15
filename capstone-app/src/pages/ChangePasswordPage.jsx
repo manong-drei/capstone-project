@@ -91,7 +91,7 @@ const ChangePasswordPage = () => {
         </h1>
 
         <p>
-          {setup ? "You must set a new password before continuing." : "Enter your current password and choose a new one."}
+          {setup ? "You must set a new password before continuing." : "Enter your current password and choose a new one. After changing it, wait 5 minutes before changing it again."}
         </p>
       </div>
 

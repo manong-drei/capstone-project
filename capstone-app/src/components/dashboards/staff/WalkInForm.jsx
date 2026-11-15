@@ -2,6 +2,7 @@ import useLiveData from "@/hooks/useLiveData";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import StatusBadge from "@/components/common/StatusBadge";
+import WalkInCapacityWarning from "@/components/common/WalkInCapacityWarning";
 import {
   AlertCircle,
   CheckCircle2,
@@ -69,7 +70,7 @@ const BAGO_BARANGAYS = [
   "Taloc",
 ];
 
-export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
+export default function WalkInForm({ onSuccess, doctorLeaveEnd, capacity, onWarning }) {
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -340,6 +341,7 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd }) {
         <p className="text-sm text-slate-500">
           Fields marked with an asterisk (*) are required.
         </p>
+        <WalkInCapacityWarning limit={capacity?.limit} count={capacity?.count} onWarning={onWarning} />
         {doctorLeaveEnd && (
           <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             The dentist is on approved leave through{" "}

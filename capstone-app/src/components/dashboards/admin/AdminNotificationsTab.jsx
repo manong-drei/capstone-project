@@ -33,8 +33,18 @@ function toneFor(status) {
   const s = String(status).toLowerCase();
   if (["sent", "delivered", "success", "accepted"].includes(s))
     return "emerald";
-  if (["failed", "refunded", "error", "undelivered", "rejected"].includes(s)) return "rose";
-  if (["unknown", "queued", "pending", "submitted", "submitting", "sending"].includes(s))
+  if (["failed", "refunded", "error", "undelivered", "rejected"].includes(s))
+    return "rose";
+  if (
+    [
+      "unknown",
+      "queued",
+      "pending",
+      "submitted",
+      "submitting",
+      "sending",
+    ].includes(s)
+  )
     return "amber";
   return "slate";
 }
@@ -42,7 +52,9 @@ function toneFor(status) {
 const purposeLabel = (job) =>
   job.purpose === "queue_alert"
     ? `Queue alert #${job.queue_id}`
-    : job.purpose === 'password_recovery' ? `Password recovery #${job.user_id}` : `Account activation #${job.user_id}`;
+    : job.purpose === "password_recovery"
+      ? `Password recovery #${job.user_id}`
+      : `Account activation #${job.user_id}`;
 
 const detailText = (job) =>
   job.state === "unknown"
@@ -53,7 +65,9 @@ const formatDate = (value) =>
   new Date(value).toLocaleString("en-PH", { timeZone: "Asia/Manila" });
 
 function StatusBadge({ job }) {
-  const label = ["cancelled", "failed"].includes(job.state) ? job.state : job.provider_status || job.state || "unknown";
+  const label = ["cancelled", "failed"].includes(job.state)
+    ? job.state
+    : job.provider_status || job.state || "unknown";
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${
@@ -68,14 +82,18 @@ function StatusBadge({ job }) {
 function JobDetails({ job, onReview, reviewing }) {
   return (
     <div className="space-y-1 text-xs leading-relaxed text-slate-500">
-      <p>Job #{job.id} · Attempts: {job.attempts}</p>
+      <p>
+        Job #{job.id} · Attempts: {job.attempts}
+      </p>
       {job.provider_message_id && (
         <p className="break-all">Provider ref: {job.provider_message_id}</p>
       )}
       {(job.state === "unknown" || job.last_error) && <p>{detailText(job)}</p>}
-      {!!job.is_failed && (job.reviewed_at
-        ? <p className="font-semibold text-emerald-700">Reviewed</p>
-        : <button
+      {!!job.is_failed &&
+        (job.reviewed_at ? (
+          <p className="font-semibold text-emerald-700">Reviewed</p>
+        ) : (
+          <button
             type="button"
             disabled={reviewing}
             onClick={() => onReview(job.id)}
@@ -83,7 +101,8 @@ function JobDetails({ job, onReview, reviewing }) {
             className="min-h-9 rounded-lg border border-slate-200 px-2 font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50"
           >
             Mark reviewed
-          </button>)}
+          </button>
+        ))}
     </div>
   );
 }
@@ -116,38 +135,60 @@ export default function AdminNotificationsTab() {
     };
   }, []);
 
-  const loadJobs = useCallback(async (showSpinner = false, signal) => {
-    if (showSpinner && mounted.current) setRefreshing(true);
-    try {
-      const result = await api.get("/admin/sms-jobs", { signal });
-      if (mounted.current && !signal?.aborted) {
-        const nextJobs = result.jobs ?? [];
-        setJobs(nextJobs);
-        const visibleCount = failuresOnly ? nextJobs.filter(job => job.is_failed).length : nextJobs.length;
-        setCurrentPage((page) => Math.min(page, Math.max(1, Math.ceil(visibleCount / JOBS_PER_PAGE))));
-        setJobsError(null);
-      }
-    } catch (err) {
-      if (mounted.current && !signal?.aborted) setJobsError(err.message);
-    } finally {
-      if (mounted.current && !signal?.aborted) {
-        setJobsLoaded(true);
-        if (showSpinner) setRefreshing(false);
-      }
-    }
-  }, [failuresOnly]);
-
-  useLiveData(useCallback(async (signal) => {
-    await Promise.all([
-      loadJobs(false, signal),
-      api.get('/admin/sms-settings', { signal }).then(result => {
-        if (!signal.aborted) {
-          if (!thresholdDirty.current) setThreshold(String(result.data.threshold));
-          setLoaded(true);
+  const loadJobs = useCallback(
+    async (showSpinner = false, signal) => {
+      if (showSpinner && mounted.current) setRefreshing(true);
+      try {
+        const result = await api.get("/admin/sms-jobs", { signal });
+        if (mounted.current && !signal?.aborted) {
+          const nextJobs = result.jobs ?? [];
+          setJobs(nextJobs);
+          const visibleCount = failuresOnly
+            ? nextJobs.filter((job) => job.is_failed).length
+            : nextJobs.length;
+          setCurrentPage((page) =>
+            Math.min(
+              page,
+              Math.max(1, Math.ceil(visibleCount / JOBS_PER_PAGE)),
+            ),
+          );
+          setJobsError(null);
         }
-      }).catch(err => { if (!signal.aborted) setMessage({ text: err.message, tone: 'error' }); }),
-    ]);
-  }, [loadJobs]));
+      } catch (err) {
+        if (mounted.current && !signal?.aborted) setJobsError(err.message);
+      } finally {
+        if (mounted.current && !signal?.aborted) {
+          setJobsLoaded(true);
+          if (showSpinner) setRefreshing(false);
+        }
+      }
+    },
+    [failuresOnly],
+  );
+
+  useLiveData(
+    useCallback(
+      async (signal) => {
+        await Promise.all([
+          loadJobs(false, signal),
+          api
+            .get("/admin/sms-settings", { signal })
+            .then((result) => {
+              if (!signal.aborted) {
+                if (!thresholdDirty.current)
+                  setThreshold(String(result.data.threshold));
+                setLoaded(true);
+              }
+            })
+            .catch((err) => {
+              if (!signal.aborted)
+                setMessage({ text: err.message, tone: "error" });
+            }),
+        ]);
+      },
+      [loadJobs],
+    ),
+  );
 
   const save = async (event) => {
     event.preventDefault();
@@ -175,10 +216,13 @@ export default function AdminNotificationsTab() {
   };
 
   const disabled = !loaded || busy;
-  const visibleJobs = failuresOnly ? jobs.filter(job => job.is_failed) : jobs;
+  const visibleJobs = failuresOnly ? jobs.filter((job) => job.is_failed) : jobs;
   const totalPages = Math.max(1, Math.ceil(visibleJobs.length / JOBS_PER_PAGE));
   const firstJobIndex = (currentPage - 1) * JOBS_PER_PAGE;
-  const pageJobs = visibleJobs.slice(firstJobIndex, firstJobIndex + JOBS_PER_PAGE);
+  const pageJobs = visibleJobs.slice(
+    firstJobIndex,
+    firstJobIndex + JOBS_PER_PAGE,
+  );
   const reviewJob = async (id) => {
     setReviewing(true);
     setReviewError("");
@@ -195,98 +239,101 @@ export default function AdminNotificationsTab() {
   return (
     <div className="w-full space-y-5">
       {/* ---------------- settings card ---------------- */}
-      {!failuresOnly && <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
-            <BellRing className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-base font-bold text-slate-800 sm:text-lg">
-              SMS notifications
-            </h3>
-            <p className="mt-0.5 text-[13px] text-slate-500">
-              Queue alerts and account activation messages.
-            </p>
-          </div>
-        </div>
-
-        <form
-          onSubmit={save}
-          className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
-        >
-          <div className="min-w-0 flex-1">
-            <label
-              htmlFor="sms-threshold"
-              className="block text-sm font-medium text-slate-700"
-            >
-              Notify within the next
-            </label>
-            <div className="mt-1.5 flex items-center gap-2">
-              <input
-                id="sms-threshold"
-                type="number"
-                min="1"
-                max="100"
-                step="1"
-                inputMode="numeric"
-                required
-                value={threshold}
-                onChange={(event) => { thresholdDirty.current = true; setThreshold(event.target.value); }}
-                disabled={disabled}
-                className="w-24 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-              />
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
-                <Users className="h-4 w-4 text-slate-400" />
-                patients
-              </span>
+      {!failuresOnly && (
+        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
+              <BellRing className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-slate-800 sm:text-lg">
+                SMS notifications
+              </h3>
+              <p className="mt-0.5 text-[13px] text-slate-500">
+                Queue alerts and account activation messages.
+              </p>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={disabled}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 sm:w-auto"
+          <form
+            onSubmit={save}
+            className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
           >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {busy ? "Saving…" : "Save"}
-          </button>
-        </form>
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor="sms-threshold"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Notify within the next
+              </label>
+              <div className="mt-1.5 flex items-center gap-2">
+                <input
+                  id="sms-threshold"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  inputMode="numeric"
+                  required
+                  value={threshold}
+                  onChange={(event) => {
+                    thresholdDirty.current = true;
+                    setThreshold(event.target.value);
+                  }}
+                  disabled={disabled}
+                  className="w-24 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                />
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
+                  <Users className="h-4 w-4 text-slate-400" />
+                  patients
+                </span>
+              </div>
+            </div>
 
-        {/* info note */}
-        <div className="mt-4 flex gap-2.5 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-          <p className="text-[13px] leading-relaxed text-slate-600">
-            One alert per eligible ticket. Patients joining within this range
-            receive no queue SMS. This setting applies to{" "}
-            <span className="font-medium">dental</span> and{" "}
-            <span className="font-medium">general</span> queues.
-          </p>
-        </div>
+            <button
+              type="submit"
+              disabled={disabled}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 sm:w-auto"
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {busy ? "Saving…" : "Save"}
+            </button>
+          </form>
 
-        {/* status message */}
-        {message && (
-          <div
-            role="status"
-            aria-live="polite"
-            className={`mt-3 flex items-start gap-2.5 rounded-xl p-3 text-[13px] ring-1 ring-inset ${
-              message.tone === "ok"
-                ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
-                : "bg-rose-50 text-rose-800 ring-rose-200"
-            }`}
-          >
-            {message.tone === "ok" ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            ) : (
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            )}
-            <span className="break-words">{message.text}</span>
+          {/* info note */}
+          <div className="mt-4 flex gap-2.5 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            <p className="text-[13px] leading-relaxed text-slate-600">
+              One alert per eligible ticket. Patients joining within this range
+              receive no queue SMS.
+            </p>
           </div>
-        )}
-      </section>}
+
+          {/* status message */}
+          {message && (
+            <div
+              role="status"
+              aria-live="polite"
+              className={`mt-3 flex items-start gap-2.5 rounded-xl p-3 text-[13px] ring-1 ring-inset ${
+                message.tone === "ok"
+                  ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
+                  : "bg-rose-50 text-rose-800 ring-rose-200"
+              }`}
+            >
+              {message.tone === "ok" ? (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              ) : (
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              )}
+              <span className="break-words">{message.text}</span>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ---------------- activity card ---------------- */}
       <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
@@ -300,7 +347,11 @@ export default function AdminNotificationsTab() {
 
           <div className="flex items-center gap-2">
             {failuresOnly && (
-              <Link to="?" onClick={() => setCurrentPage(1)} className="rounded-lg px-2 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50">
+              <Link
+                to="?"
+                onClick={() => setCurrentPage(1)}
+                className="rounded-lg px-2 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+              >
                 All SMS activity
               </Link>
             )}
@@ -323,31 +374,47 @@ export default function AdminNotificationsTab() {
         </div>
 
         <p className="mt-2 text-xs text-slate-500">
-          {failuresOnly ? "Failed deliveries from the latest 100 SMS jobs." : "Latest 100 queue alerts and account activation jobs. 10 per page."}
+          {failuresOnly
+            ? "Failed deliveries from the latest 100 SMS jobs."
+            : "Latest 100 queue alerts and account activation jobs. 10 per page."}
         </p>
 
         {jobsError && (
-          <p role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">
+          <p
+            role="alert"
+            className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800"
+          >
             {jobsError}
           </p>
         )}
 
-        {reviewError && <p role="alert" className="mt-3 text-sm text-rose-800">{reviewError}</p>}
+        {reviewError && (
+          <p role="alert" className="mt-3 text-sm text-rose-800">
+            {reviewError}
+          </p>
+        )}
         {!jobsLoaded ? (
-          <div role="status" className="mt-4 flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+          <div
+            role="status"
+            className="mt-4 flex items-center justify-center gap-2 py-10 text-sm text-slate-500"
+          >
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading SMS activity…
           </div>
         ) : !visibleJobs.length ? (
-          !jobsError && <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center">
-            <Inbox className="h-7 w-7 text-slate-300" />
-            <p className="mt-2 text-sm font-medium text-slate-600">
-              {failuresOnly ? "No recent SMS failures" : "No SMS jobs yet"}
-            </p>
-            <p className="mt-0.5 text-[12px] text-slate-400">
-              {failuresOnly ? "Failed deliveries will appear here." : "Queue alerts and account activation messages will appear here once they are triggered."}
-            </p>
-          </div>
+          !jobsError && (
+            <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center">
+              <Inbox className="h-7 w-7 text-slate-300" />
+              <p className="mt-2 text-sm font-medium text-slate-600">
+                {failuresOnly ? "No recent SMS failures" : "No SMS jobs yet"}
+              </p>
+              <p className="mt-0.5 text-[12px] text-slate-400">
+                {failuresOnly
+                  ? "Failed deliveries will appear here."
+                  : "Queue alerts and account activation messages will appear here once they are triggered."}
+              </p>
+            </div>
+          )
         ) : (
           <>
             {/* mobile: cards */}
@@ -367,7 +434,11 @@ export default function AdminNotificationsTab() {
                   </p>
 
                   <div className="mt-1.5">
-                    <JobDetails job={job} onReview={reviewJob} reviewing={reviewing} />
+                    <JobDetails
+                      job={job}
+                      onReview={reviewJob}
+                      reviewing={reviewing}
+                    />
                   </div>
 
                   <div className="mt-1.5 space-y-1 text-[11px] text-slate-400">
@@ -420,7 +491,11 @@ export default function AdminNotificationsTab() {
                           <StatusBadge job={job} />
                         </td>
                         <td className="max-w-[22rem] px-4 py-3 text-slate-600">
-                          <JobDetails job={job} onReview={reviewJob} reviewing={reviewing} />
+                          <JobDetails
+                            job={job}
+                            onReview={reviewJob}
+                            reviewing={reviewing}
+                          />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                           <p>{formatDate(job.created_at)}</p>
@@ -434,20 +509,37 @@ export default function AdminNotificationsTab() {
                 </table>
               </div>
             </div>
-            <nav aria-label="SMS activity pagination" className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
+            <nav
+              aria-label="SMS activity pagination"
+              className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs"
+            >
               <p aria-live="polite" className="text-slate-500">
-                Showing {firstJobIndex + 1}–{Math.min(firstJobIndex + JOBS_PER_PAGE, visibleJobs.length)} of {visibleJobs.length}
+                Showing {firstJobIndex + 1}–
+                {Math.min(firstJobIndex + JOBS_PER_PAGE, visibleJobs.length)} of{" "}
+                {visibleJobs.length}
               </p>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) => Math.max(1, page - 1))
+                  }
                   disabled={currentPage <= 1}
-                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                >
                   Previous
                 </button>
-                <span className="whitespace-nowrap text-slate-600">Page {currentPage} of {totalPages}</span>
-                <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                <span className="whitespace-nowrap text-slate-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) => Math.min(totalPages, page + 1))
+                  }
                   disabled={currentPage >= totalPages}
-                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                >
                   Next
                 </button>
               </div>

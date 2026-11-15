@@ -74,7 +74,8 @@ const AuthPageLayout = ({ children, logoTo = "/", className = "" }) => (
                   <Check size={17} />
                 </span>
                 <span>
-                  Dental consultation<small>Bago City Health Center</small>
+                  Dental consultation
+                  <small>Bago City Primary Care Facility</small>
                 </span>
                 <ArrowUpRight size={16} />
               </div>
@@ -131,7 +132,7 @@ const AuthPageLayout = ({ children, logoTo = "/", className = "" }) => (
           {children}
         </div>
         <p className="auth-form-footer">
-          E-Kalusugan <span>·</span> Bago City Health Center
+          E-Kalusugan <span>·</span> Bago City Primary Care Facility
         </p>
       </section>
     </div>

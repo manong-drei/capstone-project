@@ -142,7 +142,8 @@ async function reset(req) {
     if (await bcrypt.compare(newPassword, user.password_hash)) return error(400, 'Choose a different password.');
     await connection.query(`UPDATE users SET password_hash = ?, must_change_password = 0,
       temp_password_expires_at = NULL, temp_password_used_at = NULL, credential_version = credential_version + 1,
-      login_failures = 0, login_locked_until = NULL WHERE user_id = ?`, [await bcrypt.hash(newPassword, 10), user.user_id]);
+      login_failures = 0, login_locked_until = NULL, password_changed_at = NOW()
+      WHERE user_id = ?`, [await bcrypt.hash(newPassword, 10), user.user_id]);
     await connection.query(`UPDATE sms_jobs SET state = 'cancelled', payload = NULL, last_error = 'credential_replaced'
       WHERE user_id = ? AND purpose IN ('temporary_password','password_recovery') AND state IN ('queued','submitting')`, [user.user_id]);
     await finish(connection, req, recovery, 'completed');

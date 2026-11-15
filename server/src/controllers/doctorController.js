@@ -318,7 +318,7 @@ const getDailySettings = async (req, res) => {
 
     const [[{ walkin_count }]] = await pool.query(
       `SELECT COUNT(*) AS walkin_count FROM queues
-       WHERE category = 'dental' AND is_walk_in = 1 AND DATE(created_at) = ?`,
+       WHERE category = 'dental' AND is_walk_in = 1 AND DATE(created_at) = ? AND status != 'cancelled'`,
       [date],
     );
 

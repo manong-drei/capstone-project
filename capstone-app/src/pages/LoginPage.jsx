@@ -63,7 +63,7 @@ const LoginPage = () => {
         </div>
 
         {/* Error slot: fixed height so showing/hiding never shifts the layout */}
-        <div className="min-h-9 mb-2" aria-live="polite">
+        <div className="auth-error-slot min-h-9 mb-2" aria-live="polite">
           {error && (
             <div
               role="alert"

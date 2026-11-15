@@ -20,9 +20,11 @@
     "migrate:walkin-doctor": "node src/config/migrateWalkInDoctor.js",
     "migrate:doctor-daily-reports": "node src/config/migrateDoctorDailyReports.js",
     "migrate:user-names": "node src/config/migrateUserNames.js",
+    "migrate:staff-details": "node src/config/migrateStaffDetails.js",
     "migrate:audit": "node src/config/migrateAuditLogs.js",
     "migrate:doctor-leaves": "node src/config/migrateDoctorLeaves.js",
     "migrate:password-recovery": "node src/config/migratePasswordRecovery.js",
+    "migrate:password-cooldown": "node src/config/migratePasswordCooldown.js",
     "migrate:doctor-unavailable-reason": "node src/config/migrateDoctorUnavailableReason.js",
     "migrate:prescription-text": "node src/config/migratePrescriptionText.js"
   },

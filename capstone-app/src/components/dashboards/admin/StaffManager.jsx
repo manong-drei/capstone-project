@@ -10,11 +10,13 @@ const ROLES = ["doctor", "staff", "admin"];
 
 const STAFF_RESPONSIVE_CSS = `
   .sm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .sm-table-row, .sm-table-head { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 48px 52px 110px minmax(130px, 1.2fr) 66px 66px 148px; min-width: 980px; gap: 12px; }
+  .sm-table-row, .sm-table-head { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 96px 64px 128px minmax(160px, 1.2fr) 80px minmax(180px, 1.3fr) 80px 80px 148px; min-width: 1430px; column-gap: 16px; row-gap: 12px; }
+  .sm-table-head { align-items: center; }
+  .sm-table-head > span { min-width: 0; white-space: normal; overflow-wrap: normal; word-break: normal; }
   .sm-table-row > span { min-width: 0; overflow-wrap: anywhere; }
-  .sm-name-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; margin: 0; flex: 1; min-width: 0; }
+  .sm-name-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 16px; margin: 0; flex: 1; min-width: 0; }
   .sm-name-grid dt { font-size: 11px; color: #6b7280; }
-  .sm-name-grid dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #111827; overflow-wrap: anywhere; }
+  .sm-name-grid dd { margin: 4px 0 0; font-size: 14px; font-weight: 600; color: #111827; overflow-wrap: anywhere; }
   .sm-cards-mobile { display: none; }
 
   /* Focus highlight for all inputs inside StaffManager */
@@ -28,7 +30,7 @@ const STAFF_RESPONSIVE_CSS = `
 
   @media (max-width: 900px) {
     .sm-table-row, .sm-table-head { display: none !important; }
-    .sm-cards-mobile { display: flex !important; flex-direction: column; gap: 6px; padding: 10px; }
+    .sm-cards-mobile { display: flex !important; flex-direction: column; gap: 12px; padding: 12px; }
   }
   @media (max-width: 640px) {
     .sm-form-grid { grid-template-columns: 1fr !important; }
@@ -58,6 +60,27 @@ const labelStyle = {
   marginBottom: "5px",
 };
 
+function StaffDetailsFields({ form, onChange, id }) {
+  return (
+    <div className="sm-form-grid" style={{ marginBottom: 12 }}>
+      <div>
+        <label htmlFor={`${id}-gender`} style={labelStyle}>Gender (optional)</label>
+        <select id={`${id}-gender`} style={inputStyle} value={form.gender} onChange={event => onChange('gender', event.target.value)}>
+          <option value="">Not specified</option>
+          <option>Male</option>
+          <option>Female</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div>
+        <label htmlFor={`${id}-address`} style={labelStyle}>Address (optional)</label>
+        <input id={`${id}-address`} style={inputStyle} value={form.address} onChange={event => onChange('address', event.target.value)} maxLength={255} autoComplete="street-address" placeholder="Street, barangay, city/municipality, province" aria-describedby={`${id}-address-help`} />
+        <p id={`${id}-address-help`} style={{ margin: '5px 0 0', fontSize: 12, color: '#6b7280' }}>Addresses outside Bago City are accepted.</p>
+      </div>
+    </div>
+  );
+}
+
 function roleBadge(role) {
   const map = {
     admin: { bg: "#fef3c7", color: "#92400e" },
@@ -84,6 +107,8 @@ function EditStaffModal({ member, onSave, onClose }) {
     phone: member.phone || "",
     license_number: member.license_number || "",
     position: member.position || "",
+    gender: member.gender || "",
+    address: member.address || "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -229,6 +254,7 @@ function EditStaffModal({ member, onSave, onClose }) {
           </div>
         </div>
 
+        <StaffDetailsFields form={form} onChange={handleChange} id="staff-edit" />
         {member.role === "doctor" && (
           <div style={{ marginBottom: "12px" }}>
             <div>
@@ -324,6 +350,8 @@ export default function StaffManager() {
     phone: "",
     password: "",
     role: "doctor",
+    gender: "",
+    address: "",
     license_number: "",
     position: "",
   });
@@ -390,6 +418,8 @@ export default function StaffManager() {
         phone: "",
         password: "",
         role: "doctor",
+        gender: "",
+        address: "",
         license_number: "",
         position: "",
       });
@@ -649,6 +679,7 @@ export default function StaffManager() {
             </div>
           </div>
 
+          <StaffDetailsFields form={form} onChange={handleChange} id="staff-create" />
           {form.role === "doctor" && (
             <div style={{ marginBottom: "12px" }}>
               <div>
@@ -738,7 +769,7 @@ export default function StaffManager() {
         <div
           className="sm-table-head"
           style={{
-            padding: "8px 12px",
+            padding: "12px 16px",
             background: "#f9fafb",
             borderBottom: "1px solid #f3f4f6",
           }}
@@ -750,6 +781,8 @@ export default function StaffManager() {
             "Suffix",
             "Phone number",
             "Email",
+            "Gender",
+            "Address",
             "Role",
             "Status",
             "Actions",
@@ -825,7 +858,7 @@ export default function StaffManager() {
                   key={member.user_id}
                   className="sm-table-row"
                   style={{
-                    padding: "8px 12px",
+                    padding: "12px 16px",
                     borderBottom: "1px solid #f9fafb",
                     alignItems: "center",
                     opacity: isInactive ? 0.6 : 1,
@@ -849,6 +882,8 @@ export default function StaffManager() {
                   <span style={{ fontSize: "13px", color: "#6b7280" }}>
                     {member.email || "—"}
                   </span>
+                  <span style={{ fontSize: "13px", color: "#6b7280" }}>{member.gender || "—"}</span>
+                  <span style={{ fontSize: "13px", color: "#6b7280" }}>{member.address || "—"}</span>
                   <span
                     style={{
                       display: "inline-flex",
@@ -953,6 +988,8 @@ export default function StaffManager() {
                       Phone number:{" "}
                       {member.phone || member.contact_number || "—"}
                     </span>
+                    <span style={{ fontSize: "12px", color: "#6b7280" }}>Gender: {member.gender || "—"}</span>
+                    <span style={{ fontSize: "12px", color: "#6b7280", overflowWrap: "anywhere" }}>Address: {member.address || "—"}</span>
                     <span
                       style={{
                         fontSize: "12px",

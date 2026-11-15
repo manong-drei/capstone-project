@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Keep dashboard text at text-base, including inline and responsive sizes. */
-.dashboard-text, .dashboard-text * {
+/* Keep dashboard text at text-base except prominent queue numbers. */
+.dashboard-text, .dashboard-text *:not(.queue-ticket-number, .queue-display-number) {
   font-size: var(--text-base, 1rem) !important;
   line-height: var(--text-base--line-height, 1.5) !important;
 }

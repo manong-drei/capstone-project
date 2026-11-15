@@ -424,6 +424,14 @@ const changePassword = async (req, res) => {
       });
     }
 
+    // Staff-issued temporary passwords must still be replaceable during recovery.
+    if (!setup && user.password_retry_seconds > 0) {
+      return res.status(429).json({
+        success: false,
+        message: `Please wait ${user.password_retry_seconds} seconds before changing your password again. Password changes are allowed once every 5 minutes.`,
+      });
+    }
+
     if (await User.verifyPassword(newPassword, user.password_hash)) {
       return res
         .status(400)

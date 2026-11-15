@@ -6,7 +6,7 @@ const Doctor = require("../models/Doctor");
 const User = require("../models/User");
 const Staff = require("../models/Staff");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
-const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
+const { normalizeSuffix, normalizeMiddleName, normalizeNamePart } = require("../utils/name");
 const { enqueuePassword, wakeWorker } = require('../services/smsNotifications');
 const { parsePagination } = require("../utils/pagination");
 
@@ -70,7 +70,7 @@ const getStaff = async (req, res) => {
     const [rows] = await pool.query(`
       SELECT u.user_id, u.email, u.phone, u.role, u.is_active,
              d.first_name, d.middle_name, d.last_name, d.suffix,
-             d.license_number, d.specialization_id
+             d.license_number, d.specialization_id, NULL AS position, d.gender, d.address
       FROM   users u
       JOIN   doctors d ON u.user_id = d.user_id
       WHERE  u.role = 'doctor'
@@ -79,7 +79,7 @@ const getStaff = async (req, res) => {
 
       SELECT u.user_id, u.email, u.phone, u.role, u.is_active,
              s.first_name, s.middle_name, s.last_name, s.suffix,
-             NULL AS license_number, NULL AS specialization_id
+             NULL AS license_number, NULL AS specialization_id, s.position, s.gender, s.address
       FROM   users u
       LEFT JOIN staff s ON u.user_id = s.user_id
       WHERE  u.role IN ('staff', 'admin')
@@ -109,9 +109,15 @@ const createStaff = async (req, res) => {
       license_number,
       specialization_id,
       position,
+      gender,
+      address,
     } = req.body;
     const normalizedSuffix = normalizeSuffix(suffix);
     const normalizedMiddleName = normalizeMiddleName(middle_name);
+    const normalizedAddress = normalizeNamePart(address, 'Address', 255);
+    if (gender != null && gender !== '' && !['Male', 'Female', 'Other'].includes(gender)) {
+      return res.status(400).json({ success: false, message: 'Select a valid gender.' });
+    }
 
     if (!first_name || !last_name || !phone || !password || !role) {
       return res
@@ -187,14 +193,14 @@ const createStaff = async (req, res) => {
 
       if (role === "doctor") {
         await conn.query(
-          `INSERT INTO doctors (user_id, specialization_id, first_name, middle_name, last_name, suffix, license_number, contact_number)
-           VALUES (?, NULL, ?, ?, ?, ?, ?, ?)`,
-          [user_id, first_name, normalizedMiddleName, last_name, normalizedSuffix, license_number, normalizedPhone],
+          `INSERT INTO doctors (user_id, specialization_id, first_name, middle_name, last_name, suffix, license_number, contact_number, gender, address)
+           VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [user_id, first_name, normalizedMiddleName, last_name, normalizedSuffix, license_number, normalizedPhone, gender || null, normalizedAddress],
         );
       } else {
         await conn.query(
-          `INSERT INTO staff (user_id, first_name, middle_name, last_name, suffix, position, contact_number)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO staff (user_id, first_name, middle_name, last_name, suffix, position, contact_number, gender, address)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             user_id,
             first_name,
@@ -203,6 +209,8 @@ const createStaff = async (req, res) => {
             normalizedSuffix,
             role === "admin" ? "Administrator" : position,
             normalizedPhone,
+            gender || null,
+            normalizedAddress,
           ],
         );
       }
@@ -288,10 +296,14 @@ const reactivatePatient = changeAccountState(true, 1);
 const updateStaff = async (req, res) => {
   try {
     const { user_id } = req.params;
-    const { first_name, middle_name, last_name, suffix, email, phone, license_number, position } =
+    const { first_name, middle_name, last_name, suffix, email, phone, license_number, position, gender, address } =
       req.body;
     const normalizedSuffix = normalizeSuffix(suffix);
     const normalizedMiddleName = normalizeMiddleName(middle_name);
+    const normalizedAddress = normalizeNamePart(address, 'Address', 255);
+    if (gender != null && gender !== '' && !['Male', 'Female', 'Other'].includes(gender)) {
+      return res.status(400).json({ success: false, message: 'Select a valid gender.' });
+    }
     const normalizedPhone = phone ? normalizePhilippineMobilePhone(phone) : null;
     if (phone && !normalizedPhone) {
       return res.status(400).json({ success: false, message: "Invalid Philippine mobile phone number." });
@@ -339,6 +351,8 @@ const updateStaff = async (req, res) => {
       if (user.role === "doctor") {
         const docFields = [];
         const docVals = [];
+        if (gender !== undefined) { docFields.push('gender = ?'); docVals.push(gender || null); }
+        if (address !== undefined) { docFields.push('address = ?'); docVals.push(normalizedAddress); }
         if (first_name) {
           docFields.push("first_name = ?");
           docVals.push(first_name);
@@ -373,6 +387,8 @@ const updateStaff = async (req, res) => {
       } else {
         const staffFields = [];
         const staffVals = [];
+        if (gender !== undefined) { staffFields.push('gender = ?'); staffVals.push(gender || null); }
+        if (address !== undefined) { staffFields.push('address = ?'); staffVals.push(normalizedAddress); }
         if (first_name) {
           staffFields.push("first_name = ?");
           staffVals.push(first_name);
