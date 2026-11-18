@@ -30,26 +30,7 @@ async function enqueuePassword(
   return result.insertId;
 }
 
-async function queueRecipient(connection, queue) {
-  const [[patient]] = await connection.query(
-    `SELECT p.user_id, p.contact_number, p.emg_contact_no, p.archived_into_patient_id,
-    u.phone, u.is_active FROM patients p LEFT JOIN users u ON u.user_id = p.user_id WHERE p.patient_id = ? FOR UPDATE`,
-    [queue.patient_id],
-  );
-  if (
-    !patient ||
-    patient.archived_into_patient_id ||
-    (patient.user_id && !patient.is_active)
-  )
-    return null;
-  if (!queue.is_walk_in) return normalizePhilippineMobilePhone(patient.phone);
-  const contact = normalizePhilippineMobilePhone(queue.walk_in_contact);
-  return contact &&
-    (contact === normalizePhilippineMobilePhone(patient.contact_number) ||
-      contact === normalizePhilippineMobilePhone(patient.emg_contact_no))
-    ? contact
-    : null;
-}
+const queueRecipient = Queue.smsRecipient;
 
 async function reconcileCategory(category) {
   const conn = await pool.getConnection();
@@ -101,6 +82,19 @@ async function reconcileCategory(category) {
 
 function queueMessage(queue, position) {
   return `E-KALUSUGAN: ${queue.queue_number} is among the next ${position} patient${position === 1 ? "" : "s"} to be called. Please return to the waiting area. Order may change. Do not reply.`;
+}
+
+function cancellationMessage(queue) {
+  const prefix = `E-KALUSUGAN: Ticket ${queue.queue_number} was cancelled. Reason: `;
+  const suffix = " Full reason in app. Do not reply.";
+  const reason = String(queue.status_reason || "").normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/[\u2010-\u2015]/g, "-")
+    .replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"')
+    .replace(/[^\x20-\x7e]/g, " ").replace(/\s+/g, " ").trim() || "See app for details.";
+  const available = 160 - prefix.length - suffix.length;
+  // shortcut: SMS reasons are ASCII previews; the patient dialog preserves the complete reason.
+  const preview = reason.length > available ? `${reason.slice(0, available - 3).trimEnd()}...` : reason;
+  return `${prefix}${preview}${suffix}`;
 }
 
 function failureDisposition(error, attempts) {
@@ -211,31 +205,41 @@ async function submitOne(conn) {
         await conn.commit();
         return;
       }
-      const waiting = await Queue.projectWaiting(queue.category, conn);
-      const position = waiting.findIndex((q) => q.id === job.queue_id) + 1;
-      const [[settings]] = await conn.query(
-        "SELECT threshold FROM sms_settings WHERE id = 1 FOR UPDATE",
-      );
-      if (
-        !position ||
-        queue.sms_alert_state !== "enqueued" ||
-        (await queueRecipient(conn, queue)) !== job.recipient
-      ) {
-        await cancelJob(conn, job.id);
-        await conn.commit();
-        return;
-      }
-      if (position > settings.threshold) {
-        // The provider was never contacted, so defer this job without consuming an attempt.
-        await conn.query(
-          `UPDATE sms_jobs SET state = 'queued', attempts = attempts - 1,
-          next_attempt_at = DATE_ADD(NOW(), INTERVAL 15 SECOND) WHERE id = ? AND state = 'submitting'`,
-          [job.id],
+      if (job.purpose === "queue_cancellation") {
+        if (queue.status !== "cancelled" || !queue.cancelled_by_role
+          || (await queueRecipient(conn, queue)) !== job.recipient) {
+          await cancelJob(conn, job.id);
+          await conn.commit();
+          return;
+        }
+        message = cancellationMessage(queue);
+      } else {
+        const waiting = await Queue.projectWaiting(queue.category, conn);
+        const position = waiting.findIndex((q) => q.id === job.queue_id) + 1;
+        const [[settings]] = await conn.query(
+          "SELECT threshold FROM sms_settings WHERE id = 1 FOR UPDATE",
         );
-        await conn.commit();
-        return;
+        if (
+          !position ||
+          queue.sms_alert_state !== "enqueued" ||
+          (await queueRecipient(conn, queue)) !== job.recipient
+        ) {
+          await cancelJob(conn, job.id);
+          await conn.commit();
+          return;
+        }
+        if (position > settings.threshold) {
+          // The provider was never contacted, so defer this job without consuming an attempt.
+          await conn.query(
+            `UPDATE sms_jobs SET state = 'queued', attempts = attempts - 1,
+            next_attempt_at = DATE_ADD(NOW(), INTERVAL 15 SECOND) WHERE id = ? AND state = 'submitting'`,
+            [job.id],
+          );
+          await conn.commit();
+          return;
+        }
+        message = queueMessage(queue, position);
       }
-      message = queueMessage(queue, position);
     }
     // Release database locks before the network request; clinic actions must not wait for SMS delivery.
     await conn.commit();
@@ -391,6 +395,7 @@ module.exports = {
   reconcileCategory,
   queueRecipient,
   queueMessage,
+  cancellationMessage,
   failureDisposition,
   tick,
   submitOne,

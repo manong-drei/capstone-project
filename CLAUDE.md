@@ -208,6 +208,7 @@ All the following scripts are defined in `server/package.json`. SQL migrations `
 | --- | --- |
 | `npm run migrate:queue-sequences` | `001_queue_sequences.sql`: daily sequence/category lock table; creates it if absent |
 | `npm run migrate:queue-status-reason` | `002_queue_status_reason.sql`: adds cancellation/status reason; run once |
+| `npm run migrate:queue-cancellations` | Adds nullable clinic-cancellation source/acknowledgment columns and the `queue_cancellation` SMS purpose; rerunnable, preserves historical cancellations without sending retrospective notices |
 | `npm run migrate:walkin-patients` | `003_walkin_patients.sql`: persistent walk-in records, legacy backfill, queue foreign-key changes; run once after 001/002 |
 | `npm run migrate:doctor-daily-reports` | `004_doctor_daily_reports.sql`: creates the saved daily report table if absent |
 | `npm run migrate:sms` | Runs the present `migrations/005_sms_notifications.sql`; requires the earlier schema |
@@ -307,6 +308,8 @@ Dental tickets have four independent daily counters: `appointment_regular` (`AQ`
 Keep Manila deadline formatting in `utils/queueDisplay.js` and recovery instructions in the common queue components. See `server/QUEUE_GRACE_PERIOD.md` for detailed behavior.
 
 `GET /api/queue/me` includes `wait_estimate` for waiting tickets: minutes, patients ahead, and completed-visit sample count. It uses the shared projected queue order and today's mean call-to-completion time (15 minutes per patient until valid samples exist), subtracting elapsed time for the current patient with a one-minute minimum remaining. Patient Home uses the shared five-second refresh, labels the fallback, and replaces the number with instructions for called, serving, missed, unavailable-doctor, and failed-update states. These are rough estimates; no service-duration schema change is required.
+
+Clinic cancellations require `npm run migrate:queue-cancellations` before deploying. Staff/doctor/admin cancellation saves the authenticated role and a 1–255-character reason, plus an eligible deduplicated SMS job in the same transaction. Patient-only `GET /api/queue/cancellations` lists pending notices (including prior days); `PATCH /api/queue/:id/acknowledge-cancellation` persistently acknowledges only the patient's own notice. The patient dashboard shows the full reason until “I understand” succeeds; SMS uses a shortened 160-character ASCII reason with the ticket number. Existing recipient checks, worker retries and SMS failure review apply. Self-cancellations, holds and automatic expiry are excluded; no doctor UI control is added. See `server/SMS_SETUP.md`.
 
 **My Queue** shows the backend's ordered `line` even without a personal ticket and highlights the patient's ticket when present. `QueueStatus.jsx` displays a responsive floating ticket that can minimize to **My ticket** without cancelling it. Appointment history uses exact ticket/appointment links for services, cancellation reasons, and completed consultation recommendations; legacy unlinked clinical details appear only when the patient/dentist/day pairing is unambiguous.
 

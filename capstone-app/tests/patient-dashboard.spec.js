@@ -38,6 +38,20 @@ async function mockPatient(page) {
 }
 
 for (const width of [320, 390, 768, 1024, 1440, 1920]) {
+  test(`patient hero heading uses responsive sizes at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = await mockPatient(page);
+    state.queue = null;
+    await page.goto('/patient');
+    const heroHeading = page.getByRole('heading', { name: /Your Health, Schedule/ });
+    await expect(heroHeading).toBeVisible();
+    const heroFontSize = await heroHeading.evaluate(heading => getComputedStyle(heading).fontSize);
+    expect(parseFloat(heroFontSize)).toBeGreaterThan(16);
+    await expect(heroHeading.locator('span')).toHaveCSS('font-size', heroFontSize);
+    await expect(page.getByTestId('patient-hero').locator('p')).toHaveCSS('font-size', '16px');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
   test(`ticket fields, profile and visit details fit at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const state = await mockPatient(page);

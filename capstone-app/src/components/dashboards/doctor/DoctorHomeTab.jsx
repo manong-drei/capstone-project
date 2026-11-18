@@ -39,6 +39,7 @@ export default function DoctorHomeTab({
   appointmentLimit,
   setAppointmentLimit,
   walkInLimit,
+  appliedWalkInLimit,
   setWalkInLimit,
   bookedCount,
   walkInCount,
@@ -505,7 +506,7 @@ export default function DoctorHomeTab({
                   />
                 </button>
                 <div className="px-5 pb-3">
-                  <WalkInCapacityWarning limit={walkInLimit} count={walkInCount} onWarning={showToast} />
+                  <WalkInCapacityWarning limit={appliedWalkInLimit} count={walkInCount} onWarning={showToast} />
                 </div>
                 {!capacityCollapsed && (
                   <div

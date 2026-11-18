@@ -1,5 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { History, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +15,7 @@ import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import UserManual from "@/components/common/LazyUserManual";
 import GetQueueModal from "@/components/dashboards/patient/GetQueueModal";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
+import QueueCancellationDialog from "@/components/dashboards/patient/QueueCancellationDialog";
 import PatientHomeTab from "@/components/dashboards/patient/PatientHomeTab";
 import { DashboardSkeleton } from "@/components/common/LoadingState";
 import QueueStatus from "@/components/dashboards/patient/QueueStatus";
@@ -43,6 +44,9 @@ export default function PatientDashboard() {
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [queueReasonRequest, setQueueReasonRequest] = useState(null);
   const [showManual, setShowManual] = useState(false);
+  const [cancellations, setCancellations] = useState([]);
+  const [cancellationsError, setCancellationsError] = useState("");
+  const acknowledgedCancellations = useRef(new Set());
   const [queueStatus, setQueueStatus] = useState({});
   const [queueStatusError, setQueueStatusError] = useState("");
   const [queueStatusLoaded, setQueueStatusLoaded] = useState(false);
@@ -55,6 +59,21 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [apptLoading, setApptLoading] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState("");
+  const fetchCancellations = useCallback(async (signal) => {
+    try {
+      const response = await queueService.getCancellations({ signal });
+      if (signal?.aborted) return;
+      setCancellations((response.cancellations ?? []).filter((notice) => !acknowledgedCancellations.current.has(notice.id)));
+      setCancellationsError("");
+    } catch {
+      if (!signal?.aborted) setCancellationsError("Unable to refresh cancellation notices. Retrying automatically.");
+    }
+  }, []);
+  const acknowledgeCancellation = async (id) => {
+    await queueService.acknowledgeCancellation(id);
+    acknowledgedCancellations.current.add(id);
+    setCancellations((current) => current.filter((notice) => notice.id !== id));
+  };
   const fetchQueueStatus = useCallback(async (signal) => {
     try {
       const data = await queueService.getQueueStatus("dental", { signal });
@@ -121,6 +140,7 @@ export default function PatientDashboard() {
   }, []);
 
   useLiveData(fetchMyQueue);
+  useLiveData(fetchCancellations);
   useLiveData(fetchQueueStatus);
   useLiveData(fetchDoctorAvailability);
   useLiveData(fetchProfile);
@@ -197,6 +217,9 @@ export default function PatientDashboard() {
             : "mx-auto w-full max-w-360 scroll-mt-16 px-4 py-6 sm:px-6 md:py-8 lg:px-8"
         }
       >
+        {cancellationsError && (
+          <p role="alert" className="mx-auto max-w-6xl px-4 py-3 text-sm text-red-800">{cancellationsError}</p>
+        )}
         {activeTab === "home" && (
           <PatientHomeTab
             queueStatus={queueStatus}
@@ -278,6 +301,13 @@ export default function PatientDashboard() {
         onClose={() => setQueueReasonRequest(null)}
         onSubmit={cancelQueue}
       />
+      {cancellations.length > 0 && !showQueueModal && !queueReasonRequest && !showManual && (
+        <QueueCancellationDialog
+          key={cancellations[0].id}
+          notice={cancellations[0]}
+          onAcknowledge={acknowledgeCancellation}
+        />
+      )}
     </div>
   );
 }

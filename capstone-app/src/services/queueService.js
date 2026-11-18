@@ -1,6 +1,8 @@
 import api from "./api";
 
 export const getMyQueue = (config) => api.get("/queue/me", config);
+export const getCancellations = (config) => api.get("/queue/cancellations", config);
+export const acknowledgeCancellation = (id) => api.patch(`/queue/${id}/acknowledge-cancellation`);
 export const getQueueStatus = (category, config) =>
   api.get(`/queue/status${category ? `?category=${category}` : ""}`, config);
 export const getAllQueues = (category, config) =>

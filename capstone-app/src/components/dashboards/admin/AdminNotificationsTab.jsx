@@ -52,9 +52,11 @@ function toneFor(status) {
 const purposeLabel = (job) =>
   job.purpose === "queue_alert"
     ? `Queue alert #${job.queue_id}`
-    : job.purpose === "password_recovery"
-      ? `Password recovery #${job.user_id}`
-      : `Account activation #${job.user_id}`;
+    : job.purpose === "queue_cancellation"
+      ? `Queue cancellation #${job.queue_id}`
+      : job.purpose === "password_recovery"
+        ? `Password recovery #${job.user_id}`
+        : `Account activation #${job.user_id}`;
 
 const detailText = (job) =>
   job.state === "unknown"
@@ -355,9 +357,7 @@ export default function AdminNotificationsTab() {
                 All SMS activity
               </Link>
             )}
-            <span className="hidden text-[11px] text-slate-400 sm:inline">
-              Auto-refreshes every 5s
-            </span>
+
             <button
               type="button"
               onClick={() => loadJobs(true)}

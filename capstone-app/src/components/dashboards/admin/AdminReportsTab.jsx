@@ -24,13 +24,22 @@ const historyYears = Array.from({ length: 12 }, (_, index) => 2014 + index);
 const formatChartTooltip = (value, name, item) =>
   item.dataKey === "forecast" && item.payload.recipients != null
     ? null
-    : [formatNumber(value), item.payload.forecast != null ? "Prediction (2026–2028)" : name];
+    : [
+        formatNumber(value),
+        item.payload.forecast != null ? "Prediction (2026–2028)" : name,
+      ];
 
 function ChartLegend() {
   return (
     <ul className="ar-chart-legend" aria-label="Chart legend">
-      <li><span className="ar-legend-history" aria-hidden="true" />History (2014–2025) + 2026 prediction</li>
-      <li><span className="ar-legend-prediction" aria-hidden="true" />Prediction (2026–2028)</li>
+      <li>
+        <span className="ar-legend-history" aria-hidden="true" />
+        History (2014–2025) + 2026 prediction
+      </li>
+      <li>
+        <span className="ar-legend-prediction" aria-hidden="true" />
+        Prediction (2026–2028)
+      </li>
     </ul>
   );
 }
@@ -43,22 +52,33 @@ export default function AdminReportsTab() {
   const [forecastLoading, setForecastLoading] = useState(true);
   const [forecastError, setForecastError] = useState("");
 
-  useLiveData(useCallback(async (signal) => {
-    try {
-      const data = await api.get('/admin/bohc-forecast', { signal });
-      if (!signal.aborted) {
-        setBohcForecast(data.forecasts ?? []); setBohcHistory(data.history ?? []); setForecastError('');
+  useLiveData(
+    useCallback(async (signal) => {
+      try {
+        const data = await api.get("/admin/bohc-forecast", { signal });
+        if (!signal.aborted) {
+          setBohcForecast(data.forecasts ?? []);
+          setBohcHistory(data.history ?? []);
+          setForecastError("");
+        }
+      } catch (error) {
+        if (!signal.aborted) setForecastError(error.message);
+      } finally {
+        if (!signal.aborted) setForecastLoading(false);
       }
-    } catch (error) { if (!signal.aborted) setForecastError(error.message); }
-    finally { if (!signal.aborted) setForecastLoading(false); }
-  }, []));
-
-  const forecastYears = [...new Set(bohcForecast.map((row) => row.forecast_year))].sort(
-    (a, b) => a - b,
+    }, []),
   );
+
+  const forecastYears = [
+    ...new Set(bohcForecast.map((row) => row.forecast_year)),
+  ].sort((a, b) => a - b);
   const baselineYear = bohcForecast[0]?.baseline_year;
-  const baselineForecast = bohcForecast.filter((row) => row.forecast_year === forecastYears[0]);
-  const selectedForecast = bohcForecast.filter((row) => row.forecast_year === selectedYear);
+  const baselineForecast = bohcForecast.filter(
+    (row) => row.forecast_year === forecastYears[0],
+  );
+  const selectedForecast = bohcForecast.filter(
+    (row) => row.forecast_year === selectedYear,
+  );
   const horizon = selectedForecast[0]?.horizon;
   const actualTotal = baselineForecast.reduce(
     (sum, row) => sum + Number(row.baseline_recipients),
@@ -72,7 +92,8 @@ export default function AdminReportsTab() {
   const growth = actualTotal > 0 ? (totalChange / actualTotal) * 100 : null;
   const largestGroup = selectedForecast.reduce(
     (largest, row) =>
-      !largest || Number(row.forecast_recipients) > Number(largest.forecast_recipients)
+      !largest ||
+      Number(row.forecast_recipients) > Number(largest.forecast_recipients)
         ? row
         : largest,
     null,
@@ -80,7 +101,8 @@ export default function AdminReportsTab() {
   const forecastTotals = forecastYears.map((year) => ({
     year,
     horizon: year - baselineYear,
-    recipients: bohcForecast.filter((row) => row.forecast_year === year)
+    recipients: bohcForecast
+      .filter((row) => row.forecast_year === year)
       .reduce((sum, row) => sum + Number(row.forecast_recipients), 0),
   }));
   const trendData = [
@@ -92,18 +114,21 @@ export default function AdminReportsTab() {
       return { year, recipients, forecast: null };
     }),
     ...forecastTotals.map((row) => ({
-      year: row.year, recipients: row.horizon === 1 ? row.recipients : null, forecast: row.recipients,
+      year: row.year,
+      recipients: row.horizon === 1 ? row.recipients : null,
+      forecast: row.recipients,
     })),
   ];
   const ageGroups = baselineForecast.map((row) => row.age_group);
   const ageGroup = selectedAgeGroup || ageGroups[0];
   const chartData = trendData.map(({ year }) => {
-    const forecast = bohcForecast.find(
-      (row) => row.forecast_year === year && row.age_group === ageGroup,
-    )?.forecast_recipients ?? null;
-    const recipients = bohcHistory.find(
-      (row) => row.year === year && row.age_group === ageGroup,
-    )?.recipients ?? (year === baselineYear + 1 ? forecast : null);
+    const forecast =
+      bohcForecast.find(
+        (row) => row.forecast_year === year && row.age_group === ageGroup,
+      )?.forecast_recipients ?? null;
+    const recipients =
+      bohcHistory.find((row) => row.year === year && row.age_group === ageGroup)
+        ?.recipients ?? (year === baselineYear + 1 ? forecast : null);
     return { year, recipients, forecast };
   });
 
@@ -133,38 +158,91 @@ export default function AdminReportsTab() {
         </div>
       ) : (
         <>
-          <p className="ar-muted">
-            <strong>Demonstration forecast.</strong> Displayed history includes
-            synthetic totals for 2014–2019 and recorded totals for 2020–2025.
-            Model training also includes synthetic 2012–2013 data. Synthetic
-            history follows a 3–4% annual growth trend with small variations and
-            occasional slight declines. Forecasts and validation scores are illustrative.
-          </p>
-
           <section className="ar-card" aria-labelledby="forecast-trend-heading">
             <h3 id="forecast-trend-heading">Three-year demand forecast</h3>
             <p className="ar-muted">
-              Total annual patient volume across all age groups. Solid green shows history
-              and the connection to the 2026 prediction. Dashed blue connects the 2026–2028 predictions.
+              Total annual patient volume across all age groups. Solid green
+              shows history and the connection to the 2026 prediction. Dashed
+              blue connects the 2026–2028 predictions.
             </p>
-            <div className="ar-scroll" role="region" aria-label="Annual patient volume chart" tabIndex={0}>
-              <div className="ar-chart ar-trend-chart" role="img" aria-label="Three-year BOHC demand forecast">
-                <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 820, height: 340 }}>
-                  <LineChart data={trendData} margin={{ top: 16, right: 24, bottom: 8, left: 10 }}>
+            <div
+              className="ar-scroll"
+              role="region"
+              aria-label="Annual patient volume chart"
+              tabIndex={0}
+            >
+              <div
+                className="ar-chart ar-trend-chart"
+                role="img"
+                aria-label="Three-year BOHC demand forecast"
+              >
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  initialDimension={{ width: 820, height: 340 }}
+                >
+                  <LineChart
+                    data={trendData}
+                    margin={{ top: 16, right: 24, bottom: 8, left: 10 }}
+                  >
                     <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                    <XAxis dataKey="year" interval={0} tick={{ fontSize: 11 }} height={50} label={{ value: "Year", position: "insideBottom", offset: 0 }} />
-                    <YAxis tickFormatter={(value) => formatNumber(value)} width={90} allowDecimals={false} label={{ value: "Annual patient volume", angle: -90, position: "insideLeft", style: { textAnchor: "middle", fontSize: 12 } }} />
+                    <XAxis
+                      dataKey="year"
+                      interval={0}
+                      tick={{ fontSize: 11 }}
+                      height={50}
+                      label={{
+                        value: "Year",
+                        position: "insideBottom",
+                        offset: 0,
+                      }}
+                    />
+                    <YAxis
+                      tickFormatter={(value) => formatNumber(value)}
+                      width={90}
+                      allowDecimals={false}
+                      label={{
+                        value: "Annual patient volume",
+                        angle: -90,
+                        position: "insideLeft",
+                        style: { textAnchor: "middle", fontSize: 12 },
+                      }}
+                    />
                     <Tooltip formatter={formatChartTooltip} />
-                    <Line type="linear" dataKey="recipients" name="Historical (2014–2025)" stroke="#059669" strokeWidth={3} dot={{ r: 4 }} isAnimationActive={false} />
-                    <Line type="linear" dataKey="forecast" name="Prediction (2026–2028)" stroke="#1e4db7" strokeWidth={3} strokeDasharray="6 4" dot={{ r: 4 }} isAnimationActive={false} />
+                    <Line
+                      type="linear"
+                      dataKey="recipients"
+                      name="Historical (2014–2025)"
+                      stroke="#059669"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      isAnimationActive={false}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="forecast"
+                      name="Prediction (2026–2028)"
+                      stroke="#1e4db7"
+                      strokeWidth={3}
+                      strokeDasharray="6 4"
+                      dot={{ r: 4 }}
+                      isAnimationActive={false}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
             <ChartLegend />
-            <div className="ar-scroll" role="region" aria-label="Three-year forecast totals" tabIndex={0}>
+            <div
+              className="ar-scroll"
+              role="region"
+              aria-label="Three-year forecast totals"
+              tabIndex={0}
+            >
               <table className="ar-table ar-trend-table">
-                <caption>Predicted annual recipients for all three years</caption>
+                <caption>
+                  Predicted annual recipients for all three years
+                </caption>
                 <thead>
                   <tr>
                     <th scope="col">Year</th>
@@ -176,7 +254,9 @@ export default function AdminReportsTab() {
                   {forecastTotals.map((row) => (
                     <tr key={row.year}>
                       <th scope="row">{row.year}</th>
-                      <td>{row.horizon} {row.horizon === 1 ? "year" : "years"}</td>
+                      <td>
+                        {row.horizon} {row.horizon === 1 ? "year" : "years"}
+                      </td>
                       <td>{formatNumber(row.recipients)}</td>
                     </tr>
                   ))}
@@ -190,46 +270,93 @@ export default function AdminReportsTab() {
               <div>
                 <h3 id="bohc-chart-heading">BOHC recipients by age group</h3>
                 <p className="ar-muted">
-                  Annual patient volume for {ageGroup}. Solid green shows history and the
-                  connection to the 2026 prediction; dashed blue connects the 2026–2028 predictions.
+                  Annual patient volume for {ageGroup}. Solid green shows
+                  history and the connection to the 2026 prediction.
                 </p>
               </div>
               <label className="ar-year">
                 Age group
                 <select
                   value={ageGroup ?? ""}
-                  onChange={(event) =>
-                    setSelectedAgeGroup(event.target.value)
-                  }
+                  onChange={(event) => setSelectedAgeGroup(event.target.value)}
                 >
                   {ageGroups.map((group) => (
-                    <option key={group} value={group}>{group}</option>
+                    <option key={group} value={group}>
+                      {group}
+                    </option>
                   ))}
                 </select>
               </label>
             </div>
-            <div className="ar-scroll" role="region" aria-label="BOHC recipients chart" tabIndex={0}>
-              <div className="ar-chart" role="img" aria-label={`Annual BOHC patient volume for ${ageGroup}, 2014–2028`}>
-                <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 820, height: 340 }}>
-                  <LineChart data={chartData} margin={{ top: 16, right: 24, bottom: 8, left: 10 }}>
+            <div
+              className="ar-scroll"
+              role="region"
+              aria-label="BOHC recipients chart"
+              tabIndex={0}
+            >
+              <div
+                className="ar-chart"
+                role="img"
+                aria-label={`Annual BOHC patient volume for ${ageGroup}, 2014–2028`}
+              >
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  initialDimension={{ width: 820, height: 340 }}
+                >
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 16, right: 24, bottom: 8, left: 10 }}
+                  >
                     <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
                     <XAxis
                       dataKey="year"
                       interval={0}
                       tick={{ fontSize: 11, fill: "#475569" }}
                       height={50}
-                      label={{ value: "Year", position: "insideBottom", offset: 0, fontSize: 11, fill: "#64748b" }}
+                      label={{
+                        value: "Year",
+                        position: "insideBottom",
+                        offset: 0,
+                        fontSize: 11,
+                        fill: "#64748b",
+                      }}
                     />
                     <YAxis
                       tickFormatter={(value) => formatNumber(value)}
                       tick={{ fontSize: 11, fill: "#475569" }}
                       width={90}
                       allowDecimals={false}
-                      label={{ value: "Patient volume", angle: -90, position: "insideLeft", style: { textAnchor: "middle", fontSize: 12 } }}
+                      label={{
+                        value: "Patient volume",
+                        angle: -90,
+                        position: "insideLeft",
+                        style: { textAnchor: "middle", fontSize: 12 },
+                      }}
                     />
-                    <Tooltip formatter={formatChartTooltip} contentStyle={{ fontSize: "12px", borderRadius: "8px" }} />
-                    <Line type="linear" dataKey="recipients" name="Historical (2014–2025)" stroke="#059669" strokeWidth={3} dot={{ r: 4 }} isAnimationActive={false} />
-                    <Line type="linear" dataKey="forecast" name="Prediction (2026–2028)" stroke="#1e4db7" strokeWidth={3} strokeDasharray="6 4" dot={{ r: 4 }} isAnimationActive={false} />
+                    <Tooltip
+                      formatter={formatChartTooltip}
+                      contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="recipients"
+                      name="Historical (2014–2025)"
+                      stroke="#059669"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      isAnimationActive={false}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="forecast"
+                      name="Prediction (2026–2028)"
+                      stroke="#1e4db7"
+                      strokeWidth={3}
+                      strokeDasharray="6 4"
+                      dot={{ r: 4 }}
+                      isAnimationActive={false}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -241,14 +368,24 @@ export default function AdminReportsTab() {
             <h3>Forecast details</h3>
             <label className="ar-year">
               Forecast year
-              <select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
+              <select
+                value={selectedYear}
+                onChange={(event) =>
+                  setSelectedYear(Number(event.target.value))
+                }
+              >
                 {forecastYears.map((year) => (
-                  <option key={year} value={year}>{year}</option>
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
                 ))}
               </select>
             </label>
           </div>
-          <section className="ar-metrics" aria-label={`${selectedYear} forecast summary`}>
+          <section
+            className="ar-metrics"
+            aria-label={`${selectedYear} forecast summary`}
+          >
             {[
               {
                 label: `${selectedYear} predicted recipients`,
@@ -285,10 +422,12 @@ export default function AdminReportsTab() {
             className="ar-card"
             aria-labelledby="forecast-breakdown-heading"
           >
-            <h3 id="forecast-breakdown-heading">{selectedYear} forecast breakdown</h3>
+            <h3 id="forecast-breakdown-heading">
+              {selectedYear} forecast breakdown
+            </h3>
             <p className="ar-muted">
-              Expected demand, change from {baselineYear}, and uncertainty for each age
-              group.
+              Expected demand, change from {baselineYear}, and uncertainty for
+              each age group.
             </p>
             <div
               className="ar-scroll"
@@ -297,7 +436,10 @@ export default function AdminReportsTab() {
               tabIndex={0}
             >
               <table className="ar-table">
-                <caption>{baselineYear} actual recipients and {selectedYear} predictions</caption>
+                <caption>
+                  {baselineYear} actual recipients and {selectedYear}{" "}
+                  predictions
+                </caption>
                 <thead>
                   <tr>
                     {[
@@ -318,7 +460,8 @@ export default function AdminReportsTab() {
                 <tbody>
                   {selectedForecast.map((row) => {
                     const change =
-                      Number(row.forecast_recipients) - Number(row.baseline_recipients);
+                      Number(row.forecast_recipients) -
+                      Number(row.baseline_recipients);
                     return (
                       <tr key={row.age_group}>
                         <th scope="row">{row.age_group}</th>
@@ -335,7 +478,8 @@ export default function AdminReportsTab() {
                         <td>
                           {formatPercent(
                             forecastTotal > 0
-                              ? (Number(row.forecast_recipients) / forecastTotal) *
+                              ? (Number(row.forecast_recipients) /
+                                  forecastTotal) *
                                   100
                               : null,
                           )}
@@ -364,9 +508,10 @@ export default function AdminReportsTab() {
               </table>
             </div>
             <p className="ar-muted">
-              Change = prediction − {baselineYear} actual, including for later forecast years.
-              A dash in Change (%) means the {baselineYear} baseline is zero. Wider intervals indicate more uncertainty;
-              group intervals are not added into a total interval.
+              Change = prediction − {baselineYear} actual, including for later
+              forecast years. A dash in Change (%) means the {baselineYear}{" "}
+              baseline is zero. Wider intervals indicate more uncertainty; group
+              intervals are not added into a total interval.
             </p>
           </section>
 
@@ -378,12 +523,14 @@ export default function AdminReportsTab() {
               Model performance by age group
             </h3>
             <p className="ar-muted">
-              These scores compare {horizon}-year-ahead predictions with actual recipients,
-              using only data available at each training cutoff. Lower errors are better.
-              There are {selectedForecast[0].backtest_count} validation forecasts per age group;
-              the small sample limits confidence in these scores.
-              Small ARIMA models with drift are compared using AICc.
-              Planning projections assume the fitted annual increase or decrease continues.
+              These scores compare {horizon}-year-ahead predictions with actual
+              recipients, using only data available at each training cutoff.
+              Lower errors are better. There are{" "}
+              {selectedForecast[0].backtest_count} validation forecasts per age
+              group; the small sample limits confidence in these scores. Small
+              ARIMA models with drift are compared using AICc. Planning
+              projections assume the fitted annual increase or decrease
+              continues.
             </p>
             <div
               className="ar-scroll"
@@ -431,7 +578,10 @@ export default function AdminReportsTab() {
                     return (
                       <tr key={row.age_group}>
                         <th scope="row">{row.age_group}</th>
-                        <td>{row.selected_arima_order || "—"}{row.selected_arima_trend === "t" ? " · drift" : ""}</td>
+                        <td>
+                          {row.selected_arima_order || "—"}
+                          {row.selected_arima_trend === "t" ? " · drift" : ""}
+                        </td>
                         <td>{row.backtest_years || "—"}</td>
                         <td>{formatNumber(row.backtest_count)}</td>
                         <td>{formatNumber(row.backtest_mae, 2)}</td>
@@ -475,8 +625,9 @@ export default function AdminReportsTab() {
               <div>
                 <dt>Baseline · Last observed count</dt>
                 <dd>
-                  Repeats the last count available at each training cutoff for every forecast horizon. A lower
-                  ARIMA MAE means it performed better than this baseline.
+                  Repeats the last count available at each training cutoff for
+                  every forecast horizon. A lower ARIMA MAE means it performed
+                  better than this baseline.
                 </dd>
               </div>
             </dl>

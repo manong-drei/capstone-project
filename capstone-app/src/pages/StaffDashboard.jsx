@@ -13,9 +13,18 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
-import { CANCELLATION_REASONS, DOCTOR_UNAVAILABLE_REASON } from "@/constants/queueReasons";
+import {
+  CANCELLATION_REASONS,
+  DOCTOR_UNAVAILABLE_REASON,
+} from "@/constants/queueReasons";
 import api from "@/services/api";
-import { callNextQueue, updateQueueStatus, holdRemainingQueues, holdQueue, reactivateQueue } from "@/services/queueService";
+import {
+  callNextQueue,
+  updateQueueStatus,
+  holdRemainingQueues,
+  holdQueue,
+  reactivateQueue,
+} from "@/services/queueService";
 import StaffNavbar from "@/components/dashboards/staff/StaffNavbar";
 import StaffHeroBanner from "@/components/dashboards/staff/StaffHeroBanner";
 import QueuePanel from "@/components/dashboards/staff/QueuePanel";
@@ -53,7 +62,6 @@ export default function StaffDashboard() {
   const [doctorAvailable, setDoctorAvailable] = useState(null);
   const [doctorLeaveEnd, setDoctorLeaveEnd] = useState(null);
   const [walkInCapacity, setWalkInCapacity] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [clockOffset, setClockOffset] = useState(null);
   const [showManual, setShowManual] = useState(false);
   const { toasts, dismissToast, trackSmsStatuses, showToast } = useSmsToasts();
@@ -64,14 +72,17 @@ export default function StaffDashboard() {
   const fetchQueue = useCallback(
     async (signal) => {
       try {
-        const data = await api.get("/queue?category=dental&include_clock=1", { signal });
+        const data = await api.get("/queue?category=dental&include_clock=1", {
+          signal,
+        });
         if (signal?.aborted) return;
         const list = Array.isArray(data) ? data : (data?.data ?? []);
         const dentalQueues = list.filter(
           (queue) => queue.category === "dental",
         );
         setQueues(dentalQueues);
-        if (Number.isFinite(data?.server_time)) setClockOffset(data.server_time - performance.now());
+        if (Number.isFinite(data?.server_time))
+          setClockOffset(data.server_time - performance.now());
         trackSmsStatuses(
           dentalQueues.map((queue) => ({
             // Track the ticket so replacing its SMS job still reports the new status.
@@ -81,7 +92,6 @@ export default function StaffDashboard() {
             label: `Queue alert SMS for ${queue.queue_number}`,
           })),
         );
-        setLastUpdated(new Date());
         setError("");
       } catch (err) {
         if (signal?.aborted) return;
@@ -108,7 +118,14 @@ export default function StaffDashboard() {
         dentist ? Boolean(Number(dentist.is_available)) : null,
       );
       setDoctorLeaveEnd(dentist?.leave_end ?? null);
-      setWalkInCapacity(dentist ? { limit: Number(dentist.walk_in_limit), count: Number(dentist.walkin_count) } : null);
+      setWalkInCapacity(
+        dentist
+          ? {
+              limit: Number(dentist.walk_in_limit),
+              count: Number(dentist.walkin_count),
+            }
+          : null,
+      );
     } catch {
       if (signal?.aborted) return;
       setDoctorAvailable(null);
@@ -217,7 +234,9 @@ export default function StaffDashboard() {
     },
     {
       label: "Walk-ins today",
-      value: Number.isFinite(walkInCapacity?.count) ? walkInCapacity.count : "—",
+      value: Number.isFinite(walkInCapacity?.count)
+        ? walkInCapacity.count
+        : "—",
       icon: Clock3,
       color: "bg-violet-50 text-violet-700",
     },
@@ -306,7 +325,12 @@ export default function StaffDashboard() {
         {accountsPage ? (
           <PatientManager canManage={false} canRecover />
         ) : walkInPage ? (
-          <WalkInForm onSuccess={refresh} doctorLeaveEnd={doctorLeaveEnd} capacity={walkInCapacity} onWarning={showToast} />
+          <WalkInForm
+            onSuccess={refresh}
+            doctorLeaveEnd={doctorLeaveEnd}
+            capacity={walkInCapacity}
+            onWarning={showToast}
+          />
         ) : loading ? (
           <DashboardSkeleton />
         ) : (
@@ -358,17 +382,23 @@ export default function StaffDashboard() {
                 onQueueAction={handleQueueAction}
                 heldQueues={queues.filter((queue) => queue.status === "held")}
                 clockOffset={clockOffset}
-                onHoldRemaining={(count) => setQueueReasonRequest({
-                  bulk: true,
-                  title: `Hold ${count} remaining ticket${count === 1 ? "" : "s"}?`,
-                  description: "All waiting, called, and recoverable missed dental tickets when you confirm will be held for 24 hours. The patient receiving care will keep their turn. Doctor availability is managed separately.",
-                  reasons: [DOCTOR_UNAVAILABLE_REASON],
-                  submitLabel: "Confirm and hold remaining tickets",
-                })}
+                onHoldRemaining={(count) =>
+                  setQueueReasonRequest({
+                    bulk: true,
+                    title: `Hold ${count} remaining ticket${count === 1 ? "" : "s"}?`,
+                    description:
+                      "All waiting, called, and recoverable missed dental tickets when you confirm will be held for 24 hours. The patient receiving care will keep their turn. Doctor availability is managed separately.",
+                    reasons: [DOCTOR_UNAVAILABLE_REASON],
+                    submitLabel: "Confirm and hold remaining tickets",
+                  })
+                }
                 onCancelQueue={(id) =>
                   setQueueReasonRequest({
                     title: "Reason for cancellation",
-                    reasons: [DOCTOR_UNAVAILABLE_REASON, ...CANCELLATION_REASONS],
+                    reasons: [
+                      DOCTOR_UNAVAILABLE_REASON,
+                      ...CANCELLATION_REASONS,
+                    ],
                     id,
                     status: "cancelled",
                   })
@@ -384,23 +414,6 @@ export default function StaffDashboard() {
             </div>
           </>
         )}
-        <p className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-600">
-          <span
-            className={`h-2 w-2 rounded-full ${error ? "bg-amber-500" : "bg-emerald-500"}`}
-            aria-hidden="true"
-          />
-          {error ? "Refresh unavailable" : "Auto-refresh every 5 seconds"}
-          {lastUpdated && (
-            <span>
-              · Last updated{" "}
-              {lastUpdated.toLocaleTimeString("en-PH", {
-                timeZone: "Asia/Manila",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          )}
-        </p>
       </main>
     </div>
   );

@@ -15,6 +15,10 @@ All existing JWT sessions must log in again because the new middleware requires 
 
 ## Behavior
 
+- Queue cancellation notices require `npm run migrate:queue-cancellations` from `server/` before deploying the API/frontend. The rerunnable migration adds nullable cancellation-source/acknowledgment fields and the `queue_cancellation` SMS purpose while preserving existing purposes. It does not notify patients about historical cancellations.
+- Staff, doctor, and admin cancellations save the authenticated role, full 1–255-character reason and eligible SMS job in the queue transaction. Missing/invalid phones do not block cancellation. Self-cancellations, holds, no-shows and automatic expiry create no cancellation notice. Doctor cancellation is supported through the existing API; no new doctor control is added.
+- Cancellation SMS includes the ticket number, a shortened ASCII reason, and “Full reason in app,” within 160 characters. It uses the existing account/confirmed walk-in recipient rules, rechecks ownership, status and phone before submission, and follows the existing retry/uncertainty policy. Cancellation bodies are built from the saved ticket when sent, rather than duplicated in the outbox. SMS acknowledgment in the app does not suppress SMS delivery. Enable `SMS_ENABLED=true` with the existing Semaphore configuration and credits for delivery.
+- The patient dashboard checks pending notices through the existing five-second refresh. The full reason remains pending across days, logins and devices until “I understand” is successfully saved. Multiple notices appear oldest first; other patient dialogs finish first. Escape/backdrop clicks do not acknowledge a notice, and failed acknowledgment keeps it open for retry. Users without an app account can receive eligible walk-in SMS but cannot open the patient dialog.
 - New patient account and encrypted password SMS are committed together. No plaintext password is returned to the admin. Passwords are cryptographically random six-digit strings, including leading zeros. Five wrong attempts lock that account for 15 minutes in addition to the existing IP limiter.
 - The 72-hour lifetime begins at first delivery submission, including a rejected submission; retry attempts do not reset it. Login atomically consumes the temporary credential and grants only password setup and `/auth/me` access. Successful setup invalidates the old session and returns a normal JWT.
 - Queue positions and clinic displays use the same [alternating priority/regular turns, entry order within each group, and return placement](QUEUE_ORDERING.md) as call-next. Position 1 is next. The initial suppression decision is permanent, even if the admin later changes the threshold or the queue order changes.
@@ -35,6 +39,8 @@ Pending bodies are AES-GCM encrypted; bodies are deleted on submission, failure,
 
 ## Interfaces
 
+- `GET /api/queue/cancellations` → `{ success: true, cancellations: [{ id, queue_number, category, status_reason, cancelled_by_role, updated_at }] }`; patient-only, scoped to the authenticated patient, oldest first, including prior days. Empty results return `[]`.
+- `PATCH /api/queue/:id/acknowledge-cancellation` → `{ success: true }`; patient-only and idempotent for an owned clinic cancellation. Invalid IDs return 400; missing profiles/notices or another patient's notice return 404. Acknowledgment preserves the cancellation timestamp.
 - `GET /api/admin/sms-settings` → `{ success, data: { threshold, updated_at } }`.
 - `PUT /api/admin/sms-settings` accepts `{ threshold }`, integer 1–100; applies to both services.
 - `GET /api/admin/sms-jobs` returns the latest 100 jobs with masked recipients, job and provider references, send attempt counts, statuses, errors, and creation/update timestamps. No bodies or keys are returned.

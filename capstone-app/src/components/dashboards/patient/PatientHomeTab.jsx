@@ -22,7 +22,10 @@ function getWaitDisplay(queue, hasActiveQueue, doctorAvailability, queueError) {
   if (queue.status === QUEUE_STATUS.MISSED)
     return { value: "On hold", detail: "Report to staff to rejoin the queue" };
   if (queue.status === QUEUE_STATUS.HELD)
-    return { value: "Held", detail: `Report to staff before ${formatQueueDeadline(queue.held_expires_at)} to restore your ticket.` };
+    return {
+      value: "Held",
+      detail: `Report to staff before ${formatQueueDeadline(queue.held_expires_at)} to restore your ticket.`,
+    };
   if (doctorAvailability === 0)
     return {
       value: "Paused",
@@ -113,7 +116,7 @@ export default function PatientHomeTab({
           <p className="inline-block rounded-full bg-white px-3 py-1.5 text-xs font-bold tracking-wide text-neutral-900 shadow-sm sm:text-sm">
             E-KALUSUGAN PATIENT PORTAL
           </p>
-          <h1 className="mt-5 text-3xl leading-tight font-extrabold tracking-tight text-white sm:text-5xl">
+          <h1 className="patient-hero-heading mt-5 text-2xl leading-tight font-extrabold tracking-tight text-white sm:text-5xl lg:text-7xl">
             Your Health, Schedule.
             <span className="mt-1 block text-orange-300">
               No More Long Waits.

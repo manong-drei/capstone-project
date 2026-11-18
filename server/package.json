@@ -12,6 +12,7 @@
     "migrate:sms": "node src/config/migrateSmsNotifications.js",
     "migrate:sms-reviews": "node src/config/migrateSmsReviews.js",
     "migrate:queue-status-reason": "node src/config/migrateQueueStatusReason.js",
+    "migrate:queue-cancellations": "node src/config/migrateQueueCancellations.js",
     "migrate:queue-no-show": "node src/config/migrateQueueNoShow.js",
     "migrate:queue-grace": "node src/config/migrateQueueGracePeriod.js",
     "migrate:queue-holds": "node src/config/migrateQueueHolds.js",

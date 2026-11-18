@@ -44,6 +44,36 @@ async function mockDoctor(page) {
   return state;
 }
 
+test('doctor warns about walk-in capacity only after daily limits are saved', async ({ page }) => {
+  const state = await mockDoctor(page);
+  Object.assign(state.settings, { walk_in_limit: 30, walkin_count: 0 });
+  await page.goto('/doctor');
+  const input = page.getByLabel('Walk-ins — daily total limit', { exact: true });
+  await expect(input).toHaveValue('30');
+  for (const value of ['1', '2', '3', '4', '5', '10', '20', '30']) {
+    await input.fill('');
+    await input.pressSequentially(value, { delay: 100 });
+    await expect(page.getByText(/Walk-in slots almost full/)).toHaveCount(0);
+  }
+  expect(state.writes).toHaveLength(0);
+  await input.fill('5');
+  await page.route('**/api/doctor/daily-settings', async route => {
+    if (route.request().method() !== 'PUT') return route.fallback();
+    await route.fulfill({ status: 500, json: { message: 'Save failed' } });
+  });
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Save daily limits', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Save daily limits', exact: true })).toBeEnabled();
+  await expect(page.getByText(/Walk-in slots almost full/)).toHaveCount(0);
+  expect(state.settings.walk_in_limit).toBe(30);
+  await page.unroute('**/api/doctor/daily-settings');
+  await page.getByRole('button', { name: 'Save daily limits', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Saved ✓', exact: true })).toBeVisible();
+  await expect(page.getByText(/5 slots remaining today/)).toHaveCount(2);
+  expect(state.writes.filter(write => write.path === '/api/doctor/daily-settings')).toHaveLength(1);
+  expect(state.settings.walk_in_limit).toBe(5);
+});
+
 test('doctor uses the same low walk-in capacity flag and toast even when capacity is collapsed', async ({ page }) => {
   const state = await mockDoctor(page);
   await page.clock.install();

@@ -15,6 +15,8 @@ const ALLOWED_SERVICE_IDS = new Set(["CONSULTATION", "TOOTH_EXTRACTION"]);
 const GENERAL_SERVICE_ID = "GENERAL_CONSULTATION";
 const httpError = (status, message) =>
   Object.assign(new Error(message), { status });
+const validCancellationReason = (reason) =>
+  typeof reason === "string" && reason.trim().length > 0 && reason.trim().length <= 255;
 const splitName = (name) => {
   const [first_name, ...rest] = name.trim().replace(/\s+/g, " ").split(" ");
   return { first_name, last_name: rest.join(" ") };
@@ -607,19 +609,20 @@ const updateStatus = async (req, res) => {
       });
     }
 
-    if (status === "cancelled" && !String(reason ?? "").trim()) {
+    if (status === "cancelled" && !validCancellationReason(reason)) {
       return res.status(400).json({
         success: false,
-        message: "A reason is required for cancellation.",
+        message: "A cancellation reason of 1–255 characters is required.",
       });
     }
 
     const updated = await Queue.updateStatus(
       id,
       status,
-      status === "cancelled" ? String(reason).trim() : null,
+      status === "cancelled" ? reason.trim() : null,
       {
         doctorUserId: req.user.role === "doctor" ? req.user.user_id : undefined,
+        cancelledByRole: req.user.role,
       },
     );
     if (updated?.expired)
@@ -673,17 +676,17 @@ const cancelQueue = async (req, res) => {
     }
 
     const { reason } = req.body;
-    if (!String(reason ?? "").trim()) {
+    if (!validCancellationReason(reason)) {
       return res.status(400).json({
         success: false,
-        message: "Please select a cancellation reason.",
+        message: "A cancellation reason of 1–255 characters is required.",
       });
     }
 
     const updated = await Queue.updateStatus(
       id,
       "cancelled",
-      String(reason).trim(),
+      reason.trim(),
       { patientOnly: true },
     );
     if (updated?.expired)
@@ -703,6 +706,33 @@ const cancelQueue = async (req, res) => {
       success: false,
       message: err.status ? err.message : "Server error.",
     });
+  }
+};
+
+const getCancellations = async (req, res) => {
+  try {
+    const patient = await Patient.findByUserId(req.user.user_id);
+    if (!patient) return res.status(404).json({ success: false, message: "Patient profile not found." });
+    const cancellations = await Queue.findPendingCancellations(patient.patient_id);
+    res.set("Cache-Control", "no-store");
+    res.json({ success: true, cancellations });
+  } catch {
+    res.status(500).json({ success: false, message: "Unable to load cancellation notices." });
+  }
+};
+
+const acknowledgeCancellation = async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1)
+    return res.status(400).json({ success: false, message: "Invalid ticket ID." });
+  try {
+    const patient = await Patient.findByUserId(req.user.user_id);
+    if (!patient) return res.status(404).json({ success: false, message: "Patient profile not found." });
+    if (!(await Queue.acknowledgeCancellation(id, patient.patient_id)))
+      return res.status(404).json({ success: false, message: "Cancellation notice not found." });
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ success: false, message: "Unable to acknowledge cancellation. Please try again." });
   }
 };
 
@@ -750,6 +780,8 @@ module.exports = {
   getQueueStatus,
   getAllQueues,
   getMyQueue,
+  getCancellations,
+  acknowledgeCancellation,
   createQueue,
   createWalkIn,
   callNext,

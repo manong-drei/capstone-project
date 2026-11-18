@@ -46,7 +46,7 @@ async function reset(confirmedDatabase) {
       }
       const [consultResult] = await connection.query('DELETE FROM consultations WHERE queue_id IN (?)', [queueIds]);
       deleted.consultations = consultResult.affectedRows;
-      const [smsResult] = await connection.query("DELETE FROM sms_jobs WHERE purpose = 'queue_alert' AND queue_id IN (?)", [queueIds]);
+      const [smsResult] = await connection.query("DELETE FROM sms_jobs WHERE purpose IN ('queue_alert', 'queue_cancellation') AND queue_id IN (?)", [queueIds]);
       deleted.sms_jobs = smsResult.affectedRows;
       const [queueResult] = await connection.query('DELETE FROM queues WHERE id IN (?)', [queueIds]);
       deleted.queues = queueResult.affectedRows;

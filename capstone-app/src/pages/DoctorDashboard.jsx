@@ -96,6 +96,7 @@ export default function DoctorDashboard() {
   // Daily capacity state
   const [appointmentLimit, setAppointmentLimit] = useState(10);
   const [walkInLimit, setWalkInLimit] = useState(0);
+  const [appliedWalkInLimit, setAppliedWalkInLimit] = useState(0);
   const [bookedCount, setBookedCount] = useState(0);
   const [walkInCount, setWalkInCount] = useState(0);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -133,6 +134,7 @@ export default function DoctorDashboard() {
         { signal },
       );
       if (signal?.aborted) return;
+      setAppliedWalkInLimit(data.walk_in_limit ?? 0);
       if (!settingsDirty.current) {
         setAppointmentLimit(data.appointment_limit ?? 10);
         setWalkInLimit(data.walk_in_limit ?? 0);
@@ -160,6 +162,7 @@ export default function DoctorDashboard() {
       settingsDirty.current = false;
       setAppointmentLimit(apptLimit);
       setWalkInLimit(wiLimit);
+      setAppliedWalkInLimit(wiLimit);
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2500);
     } catch (err) {
@@ -204,6 +207,7 @@ export default function DoctorDashboard() {
       });
       settingsDirty.current = false;
       setIsAvailable(val);
+      setAppliedWalkInLimit(walkInLimit);
       setUnavailableReason(val ? "" : reason);
       return true;
     } catch (err) {
@@ -416,6 +420,7 @@ export default function DoctorDashboard() {
             setAppointmentLimit(value);
           }}
           walkInLimit={walkInLimit}
+          appliedWalkInLimit={appliedWalkInLimit}
           setWalkInLimit={(value) => {
             settingsDirty.current = true;
             setWalkInLimit(value);

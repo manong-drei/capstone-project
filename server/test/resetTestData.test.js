@@ -69,6 +69,7 @@ test('reset locks both categories and deletes only captured queue records in dep
     ['prescriptions', 'vital_signs', 'medical_records', 'consultations', 'sms_jobs', 'queues', 'appointments']);
   assert.deepEqual(queries.find(call => call.sql.startsWith('DELETE FROM queues')).values, [[11, 12]]);
   assert.deepEqual(queries.find(call => call.sql.startsWith('DELETE FROM prescriptions')).values, [[21]]);
+  assert.match(queries.find(call => call.sql.startsWith('DELETE FROM sms_jobs')).sql, /purpose IN \('queue_alert', 'queue_cancellation'\)/);
   const appointments = queries.find(call => call.sql.startsWith('DELETE FROM appointments'));
   assert.match(appointments.sql, /reason = 'Same-day queue registration'/);
   assert.deepEqual(appointments.values, ['2026-10-10']);
@@ -117,6 +118,7 @@ test('MySQL reset preserves other days and manual records, rolls back failure, a
         (4294967290, 1, 'Test'), (4294967290, 2, 'Old'), (4294967290, NULL, 'Unlinked')`);
       await connection.query(`INSERT INTO sms_jobs (purpose, queue_id, recipient, deduplication_key) VALUES
         ('queue_alert', 1, '09123456789', 'test:1'),
+        ('queue_cancellation', 1, '09123456789', 'test:cancellation:1'),
         ('queue_alert', 3, '09123456789', 'test:3'),
         ('temporary_password', NULL, '09123456789', 'test:password')`);
       await connection.query(`INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, reason) VALUES
@@ -141,14 +143,14 @@ test('MySQL reset preserves other days and manual records, rolls back failure, a
       t.mock.method(pool, 'getConnection', async () => transaction);
       demoTarget(t);
       await assert.rejects(reset('ekalusugan_demo'), /test rollback/);
-      for (const [table, expected] of [['queues', 3], ['consultations', 2], ['prescriptions', 2], ['vital_signs', 2], ['medical_records', 3], ['sms_jobs', 3], ['appointments', 3]]) {
+      for (const [table, expected] of [['queues', 3], ['consultations', 2], ['prescriptions', 2], ['vital_signs', 2], ['medical_records', 3], ['sms_jobs', 4], ['appointments', 3]]) {
         const [[{ count }]] = await connection.query(`SELECT COUNT(*) AS count FROM ${table}`);
         assert.equal(count, expected, `${table} restored after rollback`);
       }
 
       fail = false;
       const result = await reset('ekalusugan_demo');
-      assert.deepEqual(result.deleted, { prescriptions: 1, vital_signs: 1, medical_records: 1, consultations: 1, sms_jobs: 1, queues: 2, appointments: 1 });
+      assert.deepEqual(result.deleted, { prescriptions: 1, vital_signs: 1, medical_records: 1, consultations: 1, sms_jobs: 2, queues: 2, appointments: 1 });
       const [queues] = await connection.query('SELECT id FROM queues');
       assert.deepEqual(queues.map(queue => queue.id), [3]);
       for (const [table, expected] of [['consultations', 1], ['prescriptions', 1], ['vital_signs', 1], ['medical_records', 2], ['sms_jobs', 2], ['appointments', 2]]) {

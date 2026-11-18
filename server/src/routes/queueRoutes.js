@@ -6,6 +6,8 @@ const {
   getQueueStatus,
   getAllQueues,
   getMyQueue,
+  getCancellations,
+  acknowledgeCancellation,
   createQueue,
   createWalkIn,
   callNext,
@@ -24,6 +26,8 @@ router.get('/status',        authenticate,                                      
 
 // Patient routes
 router.get('/me',            authenticate, authorize('patient'),                    getMyQueue);
+router.get('/cancellations', authenticate, authorize('patient'),                    getCancellations);
+router.patch('/:id/acknowledge-cancellation', authenticate, authorize('patient'),    acknowledgeCancellation);
 router.post('/',             authenticate, authorize('patient'),                    createQueue);
 router.patch('/:id/cancel',  authenticate, authorize('patient'),                    cancelQueue);
 

@@ -2,7 +2,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const sms = require('../src/utils/sms');
 const { projectQueue, alertState } = require('../src/utils/queueOrder');
-const { failureDisposition, queueMessage } = require('../src/services/smsNotifications');
+const { failureDisposition, queueMessage, cancellationMessage } = require('../src/services/smsNotifications');
+
+test('cancellation SMS keeps the number and reason preview within one ASCII message', () => {
+  for (const reason of ['Transportation issue', 'émergency — dentist’s meeting', 'x'.repeat(255), '取消 😷', '   ']) {
+    const message = cancellationMessage({ queue_number: 'AQ10000', status_reason: reason });
+    assert.ok(message.length <= 160);
+    assert.doesNotMatch(message, /[^\x20-\x7e]/);
+    assert.match(message, /Ticket AQ10000 was cancelled\. Reason: /);
+    assert.match(message, /Full reason in app\. Do not reply\.$/);
+  }
+  assert.match(cancellationMessage({ queue_number: 'Q01', status_reason: 'émergency — dentist’s meeting' }), /emergency - dentist's meeting/);
+  assert.match(cancellationMessage({ queue_number: 'Q01', status_reason: 'x'.repeat(255) }), /\.\.\. Full reason in app/);
+});
 
 test('SMS positions use priority/regular alternation with FIFO within each group', () => {
   const row = (id, is_walk_in, type = 'regular') => ({ id, is_walk_in, type, created_at: new Date(0) });

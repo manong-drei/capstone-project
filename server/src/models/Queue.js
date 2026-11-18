@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const Doctor = require("./Doctor");
 const Appointment = require("./Appointment");
 const { projectQueue, alertState } = require("../utils/queueOrder");
+const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const conflict = (message) =>
   Object.assign(new Error(message), { status: 409 });
 const NO_SHOW_EXPIRED = "No-show — did not return within 10 minutes";
@@ -9,6 +10,40 @@ const HOLD_REASON = "Doctor unavailable — emergency or meeting";
 const HOLD_EXPIRED = "Doctor-unavailable hold expired after 24 hours";
 
 const Queue = {
+  smsRecipient: async (connection, queue) => {
+    const [[patient]] = await connection.query(
+      `SELECT p.user_id, p.contact_number, p.emg_contact_no, p.archived_into_patient_id,
+      u.phone, u.is_active FROM patients p LEFT JOIN users u ON u.user_id = p.user_id WHERE p.patient_id = ? FOR UPDATE`,
+      [queue.patient_id],
+    );
+    if (!patient || patient.archived_into_patient_id || (patient.user_id && !patient.is_active)) return null;
+    if (!queue.is_walk_in) return normalizePhilippineMobilePhone(patient.phone);
+    const contact = normalizePhilippineMobilePhone(queue.walk_in_contact);
+    return contact && (contact === normalizePhilippineMobilePhone(patient.contact_number)
+      || contact === normalizePhilippineMobilePhone(patient.emg_contact_no)) ? contact : null;
+  },
+
+  findPendingCancellations: async (patientId) => {
+    const [rows] = await pool.query(
+      `SELECT id, queue_number, category, status_reason, cancelled_by_role, updated_at
+       FROM queues WHERE patient_id = ? AND status = 'cancelled'
+       AND cancelled_by_role IS NOT NULL AND cancellation_acknowledged_at IS NULL
+       ORDER BY updated_at, id`,
+      [patientId],
+    );
+    return rows;
+  },
+
+  acknowledgeCancellation: async (id, patientId) => {
+    const [result] = await pool.query(
+      `UPDATE queues SET cancellation_acknowledged_at = COALESCE(cancellation_acknowledged_at, NOW()),
+       updated_at = updated_at WHERE id = ? AND patient_id = ? AND status = 'cancelled'
+       AND cancelled_by_role IS NOT NULL`,
+      [id, patientId],
+    );
+    return result.affectedRows > 0;
+  },
+
   daySql: (alias = "") => `DATE(COALESCE(${alias}held_reactivated_at, ${alias}created_at))`,
   activeSql: (alias = "") => `(
     (${alias}status IN ('waiting', 'called', 'serving', 'missed') AND ${Queue.daySql(alias)} = CURDATE())
@@ -365,7 +400,7 @@ const Queue = {
     id,
     status,
     statusReason = null,
-    { patientOnly = false, doctorUserId } = {},
+    { patientOnly = false, doctorUserId, cancelledByRole } = {},
   ) =>
     Queue._withTicket(id, async (ticket, conn) => {
       if (status === "done" && ticket.status === "done" && !patientOnly)
@@ -381,8 +416,11 @@ const Queue = {
                 : ["waiting", "called", "serving", "missed"]
               ).includes(ticket.status);
       if (!allowed) throw conflict("This queue status change is not allowed.");
-      if (status === "cancelled" && !String(statusReason || "").trim())
-        throw conflict("A cancellation reason is required.");
+      if (status === "cancelled") {
+        if (typeof statusReason !== "string" || !statusReason.trim() || statusReason.trim().length > 255)
+          throw conflict("A cancellation reason of 1–255 characters is required.");
+        statusReason = statusReason.trim();
+      }
       if (
         status === "done" &&
         ticket.is_walk_in &&
@@ -419,6 +457,18 @@ const Queue = {
         );
       }
       await Appointment.updateFromTicket(ticket, status, conn);
+      if (status === "cancelled" && !patientOnly && cancelledByRole) {
+        await conn.query(
+          "UPDATE queues SET cancelled_by_role = ?, cancellation_acknowledged_at = NULL WHERE id = ?",
+          [cancelledByRole, id],
+        );
+        const recipient = await Queue.smsRecipient(conn, ticket);
+        if (recipient) await conn.query(
+          `INSERT INTO sms_jobs (purpose, patient_id, queue_id, recipient, deduplication_key)
+           VALUES ('queue_cancellation', ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id = id`,
+          [ticket.patient_id, ticket.id, recipient, `queue-cancellation:${ticket.id}`],
+        );
+      }
       return Queue._fetchById(id, conn);
     }),
 

@@ -6,6 +6,54 @@ const sms = require('../src/utils/sms');
 const notifications = require('../src/services/smsNotifications');
 const recovery = require('../src/services/passwordRecovery');
 
+test('cancellation jobs send once after acknowledgment, and reject stale status, owners and recipients', async t => {
+  let ticket = { id: 6, patient_id: 42, category: 'dental', queue_number: 'AQ10', status: 'cancelled',
+    cancelled_by_role: 'staff', status_reason: 'Transportation issue', cancellation_acknowledged_at: new Date() };
+  let patient = { user_id: 7, phone: '09123456789', is_active: 1 };
+  const job = { id: 10, purpose: 'queue_cancellation', queue_id: 6, patient_id: 42,
+    recipient: '09123456789', state: 'queued', attempts: 0 };
+  t.mock.method(Queue, 'lockCategory', async () => {});
+  t.mock.method(Queue, 'projectWaiting', async () => assert.fail('Cancellation does not depend on queue position'));
+  const send = t.mock.method(sms, 'sendSMS', async () => ({ message_id: '42', status: 'queued', pauseMs: 0 }));
+  const connection = {
+    async beginTransaction() {}, async commit() {},
+    async query(sql) {
+      if (sql.includes('SELECT * FROM sms_jobs')) return [[job.state === 'queued' ? { ...job } : undefined]];
+      if (sql.includes('SELECT * FROM queues')) return [[ticket]];
+      if (sql.includes('FROM patients p')) return [[patient]];
+      if (sql.includes("'submitted', state), payload = NULL")) job.state = 'submitted';
+      else if (sql.includes("state = 'cancelled', payload = NULL")) job.state = 'cancelled';
+      else if (sql.includes('attempts = attempts + 1')) job.state = 'submitting';
+      return [{ affectedRows: 1 }];
+    },
+  };
+  await notifications.submitOne(connection);
+  await notifications.submitOne(connection);
+  assert.equal(send.mock.callCount(), 1);
+  assert.match(send.mock.calls[0].arguments[1], /AQ10.*Reason: Transportation issue/);
+  for (const change of [{ status: 'waiting' }, { cancelled_by_role: null }, { patient_id: 99 }]) {
+    const original = ticket;
+    ticket = { ...ticket, ...change };
+    job.state = 'queued';
+    await notifications.submitOne(connection);
+    assert.equal(job.state, 'cancelled');
+    ticket = original;
+  }
+  for (const change of [{ phone: '09987654321' }, { is_active: 0 }, { archived_into_patient_id: 9 }]) {
+    const original = patient;
+    patient = { ...patient, ...change };
+    job.state = 'queued';
+    await notifications.submitOne(connection);
+    assert.equal(job.state, 'cancelled');
+    patient = original;
+  }
+  ticket = null;
+  job.state = 'queued';
+  await notifications.submitOne(connection);
+  assert.equal(job.state, 'cancelled');
+  assert.equal(send.mock.callCount(), 1);
+});
+
 test('rollout suppresses first five; crossings, threshold jumps and restart create one job per eligible ticket', async () => {
   const saved = { getConnection: pool.getConnection, project: Queue.projectWaiting, lock: Queue.lockCategory, key: process.env.SMS_ENCRYPTION_KEY };
   process.env.SMS_ENCRYPTION_KEY = 'cd'.repeat(32);
