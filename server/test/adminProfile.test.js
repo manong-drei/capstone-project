@@ -110,7 +110,7 @@ test('MySQL repairs legacy admins through self-service and account management wi
     for (const [index, handler] of [auth.updateProfile, admin.updateStaff].entries()) {
       const req = { ...request, user: { user_id: ids[index], role: 'admin' }, params: { user_id: String(ids[index]) }, body: { first_name: 'Ana', last_name: 'Reyes' } };
       res = response();
-      await handler(req, res);
+      await handler(index ? { ...req, user: request.user } : req, res);
       assert.equal(res.statusCode, 200, JSON.stringify(res.body));
       const [[profile]] = await connection.query('SELECT * FROM staff WHERE user_id = ?', [ids[index]]);
       assert.equal(profile.first_name, 'Ana');

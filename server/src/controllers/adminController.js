@@ -264,6 +264,9 @@ const changeAccountState = (patient, active) => async (req, res) => {
   try {
     const userId = Number(req.params.user_id);
     if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(400).json({ success: false, message: 'Invalid account ID.' });
+    if (!patient && !active && userId === Number(req.user?.user_id)) {
+      return res.status(403).json({ success: false, message: 'You cannot deactivate your own account.' });
+    }
     const reason = active ? undefined : req.body?.reason;
     if (!active && !audit.DEACTIVATION_REASONS.has(reason)) {
       return res.status(400).json({ success: false, message: 'Select a valid reason for deactivation.' });
@@ -273,9 +276,6 @@ const changeAccountState = (patient, active) => async (req, res) => {
         "SELECT user_id, role, is_active FROM users WHERE user_id = ? FOR UPDATE", [userId]);
       if (!user || (patient ? user.role !== 'patient' : !['admin', 'staff', 'doctor'].includes(user.role))) {
         throw Object.assign(new Error('Account not found.'), { status: 404 });
-      }
-      if (!active && user.role === 'admin' && user.user_id === req.user.user_id) {
-        throw Object.assign(new Error('You cannot deactivate your own account.'), { status: 403 });
       }
       if (Number(user.is_active) === active) return;
       if (active) {
@@ -352,7 +352,13 @@ const recoverWorkforce = async (req, res) => {
 /** PUT /api/admin/staff/:user_id */
 const updateStaff = async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const user_id = Number(req.params.user_id);
+    if (!Number.isSafeInteger(user_id) || user_id <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid account ID." });
+    }
+    if (user_id === Number(req.user?.user_id)) {
+      return res.status(403).json({ success: false, message: "You cannot edit your own account in Staff Management." });
+    }
     const { first_name, middle_name, last_name, suffix, email, phone, license_number, position, gender, address } =
       req.body;
     const normalizedSuffix = normalizeSuffix(suffix);

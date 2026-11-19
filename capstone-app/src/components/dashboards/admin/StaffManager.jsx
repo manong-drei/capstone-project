@@ -364,16 +364,6 @@ export default function StaffManager() {
     setShowForm(false);
   };
 
-  const recoveryAction = (member) => member.is_active && member.user_id !== user?.user_id &&
-    Number.isSafeInteger(member.credential_version) && (
-      <AccountAction action="recovery" ariaLabel={`Issue temporary password for ${member.first_name} ${member.last_name}`}
-        title="Issue temporary password"
-        onClick={(event) => {
-          recoveryTrigger.current = event.currentTarget;
-          setRecoveryMember(member);
-        }} />
-    );
-
   const fetchStaff = useCallback(async (signal, background = false) => {
     if (!background) setLoading(true);
     try {
@@ -463,6 +453,32 @@ export default function StaffManager() {
       action === "deactivate" ? { reason } : undefined,
     );
     fetchStaff(undefined, true);
+  };
+
+  const accountActions = (member) => {
+    if (Number(member.user_id) === Number(user?.user_id)) {
+      return <span className="text-xs text-slate-500">Your account</span>;
+    }
+    const action = member.is_active ? "deactivate" : "reactivate";
+    return (
+      <>
+        {member.is_active && (
+          <AccountAction action="edit" onClick={() => setEditMember(member)} />
+        )}
+        {member.is_active && Number.isSafeInteger(member.credential_version) && (
+          <AccountAction
+            action="recovery"
+            ariaLabel={`Issue temporary password for ${member.first_name} ${member.last_name}`}
+            title="Issue temporary password"
+            onClick={(event) => {
+              recoveryTrigger.current = event.currentTarget;
+              setRecoveryMember(member);
+            }}
+          />
+        )}
+        <AccountAction action={action} onClick={() => openConfirm(member, action)} />
+      </>
+    );
   };
 
   const visibleStaff = showInactive ? staff : staff.filter((m) => m.is_active);
@@ -926,22 +942,7 @@ export default function StaffManager() {
                   <div
                     style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}
                   >
-                    {!isInactive && (
-                      <AccountAction
-                        action="edit"
-                        onClick={() => setEditMember(member)}
-                      />
-                    )}
-                    {recoveryAction(member)}
-                    <AccountAction
-                      action={isInactive ? "reactivate" : "deactivate"}
-                      onClick={() =>
-                        openConfirm(
-                          member,
-                          isInactive ? "reactivate" : "deactivate",
-                        )
-                      }
-                    />
+                    {accountActions(member)}
                   </div>
                 </div>
               );
@@ -1014,22 +1015,7 @@ export default function StaffManager() {
                     <div
                       style={{ display: "flex", gap: "6px", marginTop: "2px" }}
                     >
-                      {!isInactive && (
-                        <AccountAction
-                          action="edit"
-                          onClick={() => setEditMember(member)}
-                        />
-                      )}
-                      {recoveryAction(member)}
-                      <AccountAction
-                        action={isInactive ? "reactivate" : "deactivate"}
-                        onClick={() =>
-                          openConfirm(
-                            member,
-                            isInactive ? "reactivate" : "deactivate",
-                          )
-                        }
-                      />
+                      {accountActions(member)}
                     </div>
                   </div>
                 );

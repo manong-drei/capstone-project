@@ -77,7 +77,7 @@ test('all name write endpoints reject invalid optional fields before database ac
         first_name: 'Juan', last_name: 'Cruz', password: 'test-password', role: 'staff', position: 'Staff',
         phone: '09123456789', full_name: 'Juan Cruz', date_of_birth: '1990-01-01', gender: 'male',
         contact: '09123456789', address: 'Poblacion', services: ['CONSULTATION'], ...body,
-      }, params: { user_id: '7' }, user: { user_id: 7 } }, res);
+      }, params: { user_id: '7' }, user: { user_id: 8 } }, res);
       assert.equal(res.statusCode, 400, handler.name + JSON.stringify(body));
     }
   }

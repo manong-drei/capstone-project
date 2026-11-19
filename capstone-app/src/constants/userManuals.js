@@ -298,7 +298,7 @@ export const USER_MANUALS = {
           "In “New Staff Account”, select the role and fill Phone, First Name, Last Name, Email, and Password. Doctors also require License Number; staff require Position.",
           "Select “Create Account”. Use a valid Philippine mobile number and check any error about an existing phone, email, or license.",
           "Use “Edit” and “Save Changes” to update supported account details. This form does not change the role or password.",
-          "Use “Deactivate” or “Reactivate” and review the confirmation to change access. Deactivation requires a reason, which appears in Audit logs. Enable “Show inactive” to find deactivated accounts. You cannot deactivate your own administrator account.",
+          "Use “Deactivate” or “Reactivate” and review the confirmation to change access. Deactivation requires a reason, which appears in Audit logs. Enable “Show inactive” to find deactivated accounts. Your own account is read-only in Staff Management.",
         ],
       },
       {

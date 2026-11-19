@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const pool = require("../src/config/db");
 const User = require("../src/models/User");
 const authenticate = require("../src/middleware/authenticate");
-const { deactivateStaff, reactivateStaff, deactivationImpact } = require("../src/controllers/adminController");
+const { deactivateStaff, reactivateStaff, deactivationImpact, updateStaff } = require("../src/controllers/adminController");
 const { issueWorkforcePassword } = require("../src/services/accountAccess");
 
 const response = () => ({
@@ -66,6 +66,25 @@ test("only a verified real administrator or the deployment operator can issue th
   await issueWorkforcePassword(9, operator, { operator: true, expectedVersion: 5 });
   assert.deepEqual(events.slice(-2), ["deployment_operator", "commit"]);
   assert.equal(target.credential_version, 6);
+});
+
+test("staff management rejects an administrator's self-edit and self-deactivation before opening a transaction", async t => {
+  const query = t.mock.method(pool, "query", async () => assert.fail("Unexpected query"));
+  const connection = t.mock.method(pool, "getConnection", async () => assert.fail("Unexpected transaction"));
+  const req = { params: { user_id: "08" }, user: { user_id: "8", role: "admin" },
+    body: { first_name: "Edited", reason: "Duplicate account" } };
+  for (const handler of [updateStaff, deactivateStaff]) {
+    const forbidden = response();
+    await handler(req, forbidden);
+    assert.equal(forbidden.statusCode, 403);
+    assert.match(forbidden.body.message, /your own account/);
+
+    const invalid = response();
+    await handler({ ...req, params: { user_id: "8-invalid" } }, invalid);
+    assert.equal(invalid.statusCode, 400);
+  }
+  assert.equal(query.mock.callCount(), 0);
+  assert.equal(connection.mock.callCount(), 0);
 });
 
 test("deactivation revokes existing sessions permanently and does not depend on its impact lookup", async t => {

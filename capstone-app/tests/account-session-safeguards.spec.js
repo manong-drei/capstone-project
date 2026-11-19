@@ -103,11 +103,12 @@ test("a dirty profile warns before closing or reloading the form", async ({ page
 
 test("admin issues a workforce password and sees a refreshed deactivation impact", async ({ page }) => {
   await seedSession(page, { user_id: 8, role: "admin", credential_version: 1 });
+  const ownAccount = { user_id: "8", role: "admin", first_name: "Signed-in", last_name: "Admin", is_active: 1, credential_version: 1 };
   const member = { user_id: 9, role: "doctor", first_name: "Maria", last_name: "Santos", is_active: 1, phone: "09123456789", credential_version: 3 };
   let impactReads = 0;
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path === "/api/admin/staff") return route.fulfill({ json: { staff: [member] } });
+    if (path === "/api/admin/staff") return route.fulfill({ json: { staff: [ownAccount, member] } });
     if (path === "/api/admin/staff/9/account-recovery") {
       expect(route.request().postDataJSON()).toEqual({ expected_credential_version: 3, staff_password: "SyntheticAdmin1", identity_confirmed: true });
       return route.fulfill({ status: 201, json: { data: { temp_password: "102938", registered_phone: member.phone, expires_at: new Date(Date.now() + 1800000).toISOString() } } });
@@ -121,6 +122,10 @@ test("admin issues a workforce password and sees a refreshed deactivation impact
     return route.fulfill({ json: { data: [] } });
   });
   await page.goto("/admin/accounts/staff");
+  const ownRows = page.locator(".sm-table-row, .sm-cards-mobile > div").filter({ hasText: "Signed-in" });
+  await expect(ownRows.getByText("Your account", { exact: true })).toHaveCount(2);
+  await expect(ownRows.getByRole("button", { includeHidden: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Issue temporary password for Maria Santos" }).click();
   const recovery = page.getByRole("dialog", { name: "Workforce account recovery" });
   await recovery.getByLabel("Your password", { exact: true }).fill("SyntheticAdmin1");
