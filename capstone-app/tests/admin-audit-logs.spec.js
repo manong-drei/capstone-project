@@ -11,6 +11,15 @@ const sample = {
   details: { changes: { threshold: { from: 5, to: 7 } } },
 };
 
+const staffEvents = [
+  { id: 25, action: 'queue.bulk_held', target_type: 'queue', target_id: null, details: { held_count: 3 } },
+  { id: 24, action: 'queue.cancelled', target_type: 'queue', target_id: 75, details: {} },
+  { id: 23, action: 'patient.merged', target_type: 'patient', target_id: 41, target_name: 'Test Patient',
+    details: { patient_id: 41, target_patient_id: 42 } },
+  { id: 22, action: 'account.phone_changed', target_type: 'user', target_id: 10, target_name: 'Test Patient',
+    details: { phone: '*******4321', method: 'in_person' } },
+].map(event => ({ ...sample, actor_user_id: 9, actor_name: 'Test Staff', actor_role: 'staff', ...event }));
+
 async function setup(page) {
   await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '', contentType: 'text/css' }));
   await page.addInitScript(token => {
@@ -83,9 +92,10 @@ test('only failed and completed SMS recoveries appear in the action filter', asy
   await expect(events.getByText('An SMS password recovery attempt for Ana Test failed.')).toBeVisible();
   const actions = page.getByRole('combobox', { name: 'Action', exact: true });
   await expect(actions.locator('option')).toHaveText([
-    'All actions', 'Account created', 'Account deactivated', 'Account reactivated',
+    'All actions', 'Account created', 'Account deactivated', 'Account reactivated', 'Registered number changed',
     'Temporary password issued', 'Temporary password replaced', 'Recovery completed — password changed',
     'Recovery failed', 'Patient records merged', 'Duplicate warning overridden',
+    'Queue ticket cancelled', 'Remaining queue tickets held',
     'SMS threshold changed', 'Admin sign-in', 'Access denied',
   ]);
   await actions.selectOption('password.recovery_completed');
@@ -94,44 +104,69 @@ test('only failed and completed SMS recoveries appear in the action filter', asy
 for (const width of [1440, 375]) {
   test(`audit history filters, details and pagination work at ${width}px`, async ({ page }, testInfo) => {
     await setup(page);
+    await page.clock.install();
     const requests = [];
+    let newCancellation = false;
     await page.route('**/api/admin/audit-logs?**', route => {
       expect(route.request().method()).toBe('GET');
       const params = new URL(route.request().url()).searchParams;
       requests.push(Object.fromEntries(params));
       const current = Number(params.get('page'));
       const filtered = params.get('action') === 'access.denied';
+      const staffOnly = params.get('actorRole') === 'staff';
+      const cancellation = staffEvents[1];
       return route.fulfill({ json: {
         events: filtered ? [{ ...sample, id: 3, action: 'access.denied', outcome: 'denied', is_development: 1, details: { http_status: 403 } }]
-          : [{ ...sample, id: current === 1 ? 21 : 1 }],
-        pagination: { page: current, limit: 20, total: filtered ? 1 : 21, totalPages: filtered ? 1 : 2 },
+          : staffOnly ? [newCancellation ? { ...cancellation, id: 26, target_id: 76 } : cancellation]
+          : current === 1 ? [...staffEvents, sample] : [{ ...sample, id: 1 }],
+        pagination: { page: current, limit: 20, total: filtered || staffOnly ? 1 : 21, totalPages: filtered || staffOnly ? 1 : 2 },
       } });
     });
     await openAudit(page, width);
     const list = page.getByRole('list', { name: 'Audit events' });
     await expect(list).toContainText('SMS threshold changed');
     await expect(list).toContainText('Oct 29, 2026');
-    await list.getByText('View details', { exact: true }).click();
-    await expect(list).toContainText('5 → 7');
+    await expect(list).toContainText('Test Staff held 3 dental queue tickets.');
+    const cancellation = list.getByRole('listitem').filter({ hasText: 'Queue ticket cancelled' });
+    await expect(cancellation).toContainText('Test Staff cancelled queue ticket #75.');
+    await expect(cancellation).toContainText('Staff · Oct 29, 2026');
+    for (const [action, details] of [
+      ['SMS threshold changed', ['5 → 7']],
+      ['Patient records merged', ['Merged from patient', '#41', 'Merged into patient', '#42']],
+      ['Registered number changed', ['*******4321']],
+    ]) {
+      const entry = list.getByRole('listitem').filter({ has: page.getByRole('heading', { name: action, exact: true }) });
+      await entry.getByText('View details', { exact: true }).click();
+      for (const detail of details) await expect(entry.getByText(detail, { exact: true })).toBeVisible();
+    }
     await expect(page.getByText('Page 1 of 2', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByText('Page 2 of 2', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
     await page.getByLabel('From date', { exact: true }).fill('2026-10-29');
     await page.getByLabel('To date', { exact: true }).fill('2026-10-29');
-    await page.getByLabel('Admin name or ID', { exact: true }).fill('Test Admin');
+    await page.getByLabel('Actor name or ID', { exact: true }).fill('Test Admin');
+    await page.getByRole('combobox', { name: 'Actor role', exact: true }).selectOption('admin');
     await page.getByRole('combobox', { name: 'Action', exact: true }).selectOption('access.denied');
     await page.getByRole('combobox', { name: 'Outcome', exact: true }).selectOption('denied');
     await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
     await expect(list).toContainText('Access denied');
     await expect(list).toContainText('Development session');
     await expect(page.getByText('Page 1 of 1', { exact: true })).toBeVisible();
-    expect(requests.at(-1)).toMatchObject({ dateFrom: '2026-10-29', dateTo: '2026-10-29', actor: 'Test Admin', action: 'access.denied', outcome: 'denied', page: '1' });
+    expect(requests.at(-1)).toMatchObject({ dateFrom: '2026-10-29', dateTo: '2026-10-29', actor: 'Test Admin', actorRole: 'admin', action: 'access.denied', outcome: 'denied', page: '1' });
     await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
     await expect(list).toContainText('SMS threshold changed');
-    expect(requests.at(-1).action).toBe('');
-    await page.getByRole('button', { name: 'Refresh audit logs' }).click();
-    await expect(list).toContainText('SMS threshold changed');
+    expect(requests.at(-1)).toMatchObject({ actor: '', actorRole: '', action: '' });
+    await page.getByLabel('Actor name or ID', { exact: true }).fill('9');
+    await page.getByRole('combobox', { name: 'Actor role', exact: true }).selectOption('staff');
+    await page.getByRole('combobox', { name: 'Action', exact: true }).selectOption('queue.cancelled');
+    await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+    await expect(list.getByRole('listitem')).toHaveCount(1);
+    await expect(list).toContainText('queue ticket #75');
+    expect(requests.at(-1)).toMatchObject({ actor: '9', actorRole: 'staff', action: 'queue.cancelled', page: '1' });
+    newCancellation = true;
+    await page.clock.runFor(5_000);
+    await expect(list).toContainText('queue ticket #76');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await page.screenshot({ path: testInfo.outputPath(`audit-logs-${width}.png`), animations: 'disabled', fullPage: true });
   });
@@ -153,6 +188,7 @@ test('audit history distinguishes loading, failure and empty results and recover
   mode = 'empty'; await page.getByRole('button', { name: 'Try again', exact: true }).click();
   await expect(page.getByText('No audit logs match these filters.')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
-  mode = 'success'; await page.getByRole('button', { name: 'Refresh audit logs' }).click();
+  mode = 'success';
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.getByRole('list', { name: 'Audit events' })).toContainText('SMS threshold changed');
 });

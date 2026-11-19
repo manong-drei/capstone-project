@@ -380,7 +380,7 @@ const createWalkIn = async (req, res) => {
          WHERE is_walk_in = 1 AND category = 'dental' AND DATE(created_at) = CURDATE()
            AND status != 'cancelled'`,
       );
-      if (walkinToday >= (settings?.walk_in_limit ?? 0)) {
+      if (walkinToday >= (settings?.walk_in_limit ?? Doctor.DEFAULT_WALK_IN_LIMIT)) {
         throw httpError(409, "Walk-in slots are full for today.");
       }
     }
@@ -623,6 +623,7 @@ const updateStatus = async (req, res) => {
       {
         doctorUserId: req.user.role === "doctor" ? req.user.user_id : undefined,
         cancelledByRole: req.user.role,
+        auditRequest: req,
       },
     );
     if (updated?.expired)
@@ -767,7 +768,7 @@ const ticketAction = (action) => async (req, res) => {
 module.exports = {
   holdRemaining: async (req, res) => {
     try {
-      const result = await Queue.holdRemaining();
+      const result = await Queue.holdRemaining(req);
       wakeWorker();
       res.json(result);
     } catch (err) {

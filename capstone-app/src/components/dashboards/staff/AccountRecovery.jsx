@@ -14,14 +14,20 @@ import {
   X,
 } from "lucide-react";
 import api from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
+import useUnsavedChanges from "@/hooks/useUnsavedChanges";
 
 export default function AccountRecovery({
   returnFocusRef,
   patient,
+  member,
   eligible,
   onRecovered,
   onClose,
 }) {
+  const { expired, token } = useAuth();
+  const account = patient?.account ?? member;
+  const person = patient ?? member;
   const dialogRef = useRef(null);
   const passwordRef = useRef(null);
   const [password, setPassword] = useState("");
@@ -29,23 +35,35 @@ export default function AccountRecovery({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [changePhone, setChangePhone] = useState(false);
+  const [newPhone, setNewPhone] = useState("");
+  const [verified, setVerified] = useState(false);
+  const [interrupted, setInterrupted] = useState(false);
+  if (expired && !interrupted) {
+    setInterrupted(true);
+    setPassword("");
+    setShowPassword(false);
+    setResult(null);
+  } else if (!expired && interrupted) setInterrupted(false);
+  const canDiscard = useUnsavedChanges(!result && Boolean(newPhone || verified), busy);
+  const close = async () => { if (await canDiscard()) onClose(); };
   const name = [
-    patient.first_name,
-    patient.middle_name,
-    patient.last_name,
-    patient.suffix,
+    person.first_name,
+    person.middle_name,
+    person.last_name,
+    person.suffix,
   ]
     .filter(Boolean)
     .join(" ");
   const initials =
-    [patient.first_name?.[0], patient.last_name?.[0]]
+    [person.first_name?.[0], person.last_name?.[0]]
       .filter(Boolean)
       .join("")
       .toUpperCase() || "?";
-  const birthDate = patient.date_of_birth
+  const birthDate = patient?.date_of_birth
     ? new Date(patient.date_of_birth)
     : null;
-  const details = [
+  const details = patient ? [
     {
       label: "Date of birth",
       value:
@@ -78,7 +96,7 @@ export default function AccountRecovery({
       Icon: MapPin,
       fullWidth: true,
     },
-  ];
+  ] : [{ label: "Role", value: member.role, Icon: UserRound }];
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -105,21 +123,31 @@ export default function AccountRecovery({
 
   const recover = async (event) => {
     event.preventDefault();
-    if (busy || !eligible || !password) return;
+    if (busy || expired || !eligible || !password || ((member || changePhone) && !verified) ||
+        (changePhone && !newPhone.trim())) return;
     setBusy(true);
     setError("");
-    const version = patient.account.credential_version;
+    const version = account.credential_version;
     try {
       const response = await api.post(
-        `/patients/${patient.patient_id}/account-recovery`,
-        {
+        patient ? `/patients/${patient.patient_id}/account-recovery` : `/admin/staff/${member.user_id}/account-recovery`,
+        patient ? {
           expected_credential_version: version,
-          confirmed_phone: patient.account.phone,
+          confirmed_phone: account.phone,
           staff_password: password,
+          ...(changePhone && { new_phone: newPhone.trim(), new_phone_verified: true }),
+        } : {
+          expected_credential_version: version,
+          staff_password: password,
+          identity_confirmed: true,
         },
       );
+      onRecovered(version + 1, response.data.registered_phone);
+      if (sessionStorage.getItem("ek_token") !== token) return;
       setResult(response.data);
-      onRecovered(version + 1);
+      setNewPhone("");
+      setVerified(false);
+      setChangePhone(false);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -136,10 +164,10 @@ export default function AccountRecovery({
       aria-labelledby="account-recovery-title"
       onCancel={(event) => {
         event.preventDefault();
-        if (!busy) onClose();
+        close();
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget && !busy) onClose();
+        if (event.target === event.currentTarget) close();
       }}
       className="fixed inset-0 m-auto max-h-[calc(100dvh_-_1.5rem)] w-[calc(100%_-_1.5rem)] max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-0 font-[Poppins,sans-serif] text-slate-700 shadow-2xl shadow-slate-900/10 backdrop:bg-slate-900/40 backdrop:backdrop-blur-sm"
     >
@@ -154,7 +182,7 @@ export default function AccountRecovery({
               id="account-recovery-title"
               className="text-base font-semibold text-[#1a3a8f]"
             >
-              Account recovery
+              {member ? "Workforce account recovery" : "Account recovery"}
             </h2>
           </div>
         </div>
@@ -162,7 +190,7 @@ export default function AccountRecovery({
           type="button"
           aria-label="Close recovery"
           disabled={busy}
-          onClick={onClose}
+          onClick={close}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-[#1a3a8f] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <X size={20} aria-hidden="true" />
@@ -184,7 +212,7 @@ export default function AccountRecovery({
             </div>
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500">
-                Patient #{patient.patient_id}
+                {patient ? `Patient #${patient.patient_id}` : `Account #${member.user_id}`}
               </p>
               <h3 className="mt-0.5 text-base font-semibold text-slate-900 [overflow-wrap:anywhere]">
                 {name}
@@ -235,8 +263,9 @@ export default function AccountRecovery({
                 {result.temp_password}
               </p>
               <div className="space-y-2 text-xs leading-relaxed text-slate-600">
+                <p>Registered login number <strong>{result.registered_phone}</strong></p>
                 <p>
-                  Hand this password directly to the patient. It works for one
+                  Hand this password directly to the account holder. It works for one
                   login until{" "}
                   {new Date(result.expires_at).toLocaleString("en-PH", {
                     timeZone: "Asia/Manila",
@@ -244,7 +273,7 @@ export default function AccountRecovery({
                   (Philippine time).
                 </p>
                 <p>
-                  The patient must choose a new password after login.{" "}
+                  The account holder must choose a new password after login.{" "}
                   <span className="font-medium text-slate-900">
                     Closing this window hides the temporary password
                     permanently.
@@ -259,6 +288,35 @@ export default function AccountRecovery({
                   Issue a temporary password
                 </h3>
               </div>
+              {(member || changePhone) && <p className="text-sm text-slate-600">Registered login number <strong>{account.phone}</strong></p>}
+              {patient && (
+                <button type="button" aria-expanded={changePhone} disabled={busy} className="text-sm font-semibold text-blue-700 underline"
+                  onClick={async () => {
+                    if (changePhone && newPhone && !await canDiscard()) return;
+                    setChangePhone(!changePhone);
+                    setNewPhone("");
+                    setVerified(false);
+                  }}>
+                  {changePhone ? "Keep current registered number" : "Change registered number"}
+                </button>
+              )}
+              {changePhone && (
+                <label className="block text-sm font-medium">
+                  New registered mobile number
+                  <input required type="tel" autoComplete="off" value={newPhone} disabled={busy}
+                    onChange={(event) => { setNewPhone(event.target.value); setVerified(false); }}
+                    className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3" />
+                </label>
+              )}
+              {(member || changePhone) && (
+                <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" required checked={verified} disabled={busy}
+                    onChange={(event) => setVerified(event.target.checked)} />
+                  {changePhone
+                    ? "I verified the patient’s identity and confirmed they have the new phone in person."
+                    : "I verified the account holder’s identity in person."}
+                </label>
+              )}
               <div>
                 <label
                   htmlFor="recovery-staff-password"
@@ -318,7 +376,7 @@ export default function AccountRecovery({
                   {error}
                 </p>
               )}
-              <p className="rounded-xl bg-orange-50 px-3.5 py-3 text-xs leading-relaxed text-orange-900">
+              <p id="recovery-password-hint" className="rounded-xl bg-orange-50 px-3.5 py-3 text-xs leading-relaxed text-orange-900">
                 Issuing a password replaces the old password and signs out
                 existing sessions. The temporary password expires in{" "}
                 <strong className="font-semibold">30 minutes</strong> and works
@@ -326,7 +384,7 @@ export default function AccountRecovery({
               </p>
               <button
                 type="submit"
-                disabled={busy || !eligible || !password}
+                disabled={busy || !eligible || !password || ((member || changePhone) && !verified) || (changePhone && !newPhone.trim())}
                 className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a3a8f] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-orange-700"
               >
                 {busy ? (

@@ -2,6 +2,8 @@ import axios from 'axios'
 import { QUEUE_UPDATES_CHANNEL } from '@/constants/queue'
 import { notifyDataChange } from './dataSync'
 
+export const SESSION_INTERRUPTED = 'ekalusugan-session-interrupted'
+
 const api = axios.create({
   baseURL: (import.meta.env.PROD && import.meta.env.VITE_API_URL) || '/api',
   headers: { 'Content-Type': 'application/json' },
@@ -29,7 +31,12 @@ api.interceptors.response.use(
   },
   (err)  => {
     const message = err.response?.data?.message || 'Something went wrong. Please try again.'
-    return Promise.reject(new Error(message))
+    const code = err.response?.data?.code
+    const token = err.config?.headers?.Authorization?.slice(7)
+    if (token && (code === 'SESSION_EXPIRED' || code === 'SESSION_REVOKED')) {
+      window.dispatchEvent(new CustomEvent(SESSION_INTERRUPTED, { detail: { token, code } }))
+    }
+    return Promise.reject(Object.assign(new Error(message), { code }))
   }
 )
 

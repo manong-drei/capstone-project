@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { createHash } = require("node:crypto");
 
 const patientName = "COALESCE(NULLIF(CONCAT_WS(' ', p.first_name, NULLIF(TRIM(p.middle_name), ''), p.last_name, NULLIF(TRIM(p.suffix), '')), ''), q.walk_in_name, 'Unknown patient')";
 
@@ -48,8 +49,8 @@ module.exports = {
     return visits;
   },
 
-  async findConsultation(doctorId, consultationId) {
-    const [[consultation]] = await pool.query(`
+  async findConsultation(doctorId, consultationId, connection = pool) {
+    const [[consultation]] = await connection.query(`
       SELECT c.consultation_id, c.chief_complaint, c.notes, c.diagnosis,
              q.queue_number, DATE_FORMAT(q.created_at, '%Y-%m-%d') AS visit_date,
              ${patientName} AS patient_full_name,
@@ -60,14 +61,19 @@ module.exports = {
       WHERE c.consultation_id = ? AND c.doctor_id = ?
     `, [consultationId, doctorId]);
     if (!consultation) return null;
-    const [prescriptions] = await pool.query(
+    const [rows] = await connection.query(
       "SELECT medication_name FROM prescriptions WHERE consultation_id = ?",
       [consultationId],
     );
+    const prescriptions = rows.map((row) => row.medication_name);
+    const revision = createHash("sha256").update(JSON.stringify([
+      consultation.chief_complaint, consultation.notes, consultation.diagnosis, [...prescriptions].sort(),
+    ])).digest("hex");
     return {
       ...consultation,
       notes: [consultation.chief_complaint, consultation.notes].filter(Boolean).join("\n\n"),
-      prescriptions: prescriptions.map((row) => row.medication_name),
+      prescriptions,
+      revision,
     };
   },
 };

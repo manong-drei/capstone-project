@@ -372,9 +372,8 @@ export default function PasswordRecoveryDialog({ onClose }) {
           )}
 
           <p className="mt-5 border-t border-slate-100 pt-4 text-xs leading-relaxed text-slate-500">
-            Cannot access your registered number or receive a code? Visit clinic
-            reception for identity verification and account recovery. Never
-            share your code or password.
+            Lost your phone, missed the activation text, or ran out of time during password setup? Visit clinic reception for identity verification and account recovery.
+            Staff and dentists should contact an administrator. Administrators should contact another administrator.
           </p>
         </>
       )}

@@ -9,7 +9,7 @@ const theme = "bg-gradient-to-r from-[#1a3a8f] to-[#1e4db7] text-white";
 const control = "inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2.5 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white aria-[current=page]:bg-white/15";
 const desktopRow = "gap-2 text-xs font-medium";
 const menuRow = "w-full gap-3 py-2 text-left text-[13px] font-semibold";
-const menuIcon = "grid size-7 shrink-0 place-items-center rounded-md bg-white/15";
+const menuIcon = "grid size-7 shrink-0 place-items-center";
 
 export default function StaffNavbar({ identity, onLogout, onHelp, sections = [] }) {
   const dashboardPath = ACCOUNT_ROUTES[identity.role]?.dashboard || ROUTES.STAFF_DASHBOARD;

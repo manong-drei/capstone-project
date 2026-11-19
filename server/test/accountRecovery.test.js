@@ -14,7 +14,12 @@ const devBypass = require("../src/middleware/devBypass");
 const { sessionResponse } = require("../src/utils/authSession");
 
 test.after(() => pool.end());
-const request = (version = 2) => ({ params: { id: "42" }, body: { expected_credential_version: version, confirmed_phone: "09123456789", staff_password: "StaffPassword1" }, user: { user_id: 8, credential_version: 1 } });
+const request = (version = 2) => ({
+  params: { id: "42" },
+  body: { expected_credential_version: version, confirmed_phone: "09123456789", staff_password: "StaffPassword1" },
+  user: { user_id: 8, credential_version: 1 },
+  auditActor: { user_id: 8, role: "staff", name: "Test Staff" },
+});
 const response = () => ({
   statusCode: 200, headers: {},
   status(code) { this.statusCode = code; return this; },
@@ -30,11 +35,14 @@ async function database(t) {
     user: { user_id: 7, role: "patient", phone: "09123456789", is_active: 1, credential_version: 2, must_change_password: 0, password_hash: await bcrypt.hash("OldPassword1", 4), temp_password_used_at: now, login_failures: 4, login_locked_until: now },
     staff: { user_id: 8, role: "staff", is_active: 1, credential_version: 1, must_change_password: 0, password_hash: await bcrypt.hash("StaffPassword1", 4) },
     jobs: [{ state: "queued" }, { state: "submitting" }, { state: "submitted" }],
+    grant: { status: "verified", reset_token_hash: "opaque" },
     audits: [],
+    unifiedAudits: [],
   };
   const events = [];
   let held = Promise.resolve();
-  let failAudit = false;
+  let failAudit;
+  let duplicatePhone = false;
   t.mock.method(User, "generateTempPassword", () => "012345");
   t.mock.method(User, "findByIdWithHash", async id => id === 7 ? state.user && { ...state.user } : state.staff && { ...state.staff, user_id: id });
   t.mock.method(pool, "getConnection", async () => {
@@ -63,13 +71,29 @@ async function database(t) {
           password_hash: values[0], credential_version: values[1], must_change_password: 1,
           temp_password_expires_at: values[2], temp_password_used_at: null, login_failures: 0, login_locked_until: null,
         });
-        else if (sql.includes("UPDATE sms_jobs")) {
-          assert.match(sql, /purpose = 'temporary_password'/);
+        else if (sql.startsWith("UPDATE users SET phone")) {
+          if (duplicatePhone) throw Object.assign(new Error("Duplicate"), { code: "ER_DUP_ENTRY" });
+          working.user.phone = values[0];
+        } else if (sql.startsWith("UPDATE patients SET contact_number")) {
+          working.patient.contact_number = values[0];
+        } else if (sql.startsWith("UPDATE password_recoveries")) {
+          working.grant = { status: "cancelled", reset_token_hash: null };
+        } else if (sql.startsWith("UPDATE sms_jobs j")) {
+          assert.match(sql, /q.is_walk_in = 0/);
+          assert.match(sql, /j.provider_message_id IS NULL/);
+          working.jobs.filter(job => job.purpose === "queue_alert" && !job.walkIn && job.state === "queued")
+            .forEach(job => { job.recipient = values[0]; });
+        } else if (sql.startsWith("UPDATE sms_jobs")) {
+          assert.match(sql, /purpose IN \('temporary_password','password_recovery'\)/);
           assert.match(sql, /state IN \('queued','submitting'\)/);
-          working.jobs.filter(job => ["queued", "submitting"].includes(job.state)).forEach(job => Object.assign(job, { state: "cancelled", payload: null }));
+          working.jobs.filter(job => job.purpose !== "queue_alert" && ["queued", "submitting"].includes(job.state))
+            .forEach(job => Object.assign(job, { state: "cancelled", payload: null }));
         } else if (sql.includes("INSERT INTO patient_audit")) {
-          if (failAudit) throw new Error("synthetic audit failure");
+          if (failAudit === "patient_audit") throw new Error("synthetic audit failure");
           working.audits.push({ patient_id: values[0], actor_user_id: values[1], action: values[2], details: JSON.parse(values[3]) });
+        } else if (sql.includes("INSERT INTO audit_logs")) {
+          if (failAudit === values[4]) throw new Error("synthetic audit failure");
+          working.unifiedAudits.push(values);
         } else if (sql.includes("temp_password_used_at = IF")) working.user.temp_password_used_at = now;
         else if (sql.includes("login_failures = IF")) {
           working.user.login_failures = working.user.login_locked_until ? 1 : working.user.login_failures + 1;
@@ -91,7 +115,7 @@ async function database(t) {
     }
     return [[]];
   });
-  return { state, events, now, failAudit: () => { failAudit = true; } };
+  return { state, events, now, failAudit: (action = "patient_audit") => { failAudit = action; }, duplicate: () => { duplicatePhone = true; } };
 }
 
 test("profile exposes only safe account metadata and nullable unlinked accounts", async t => {
@@ -188,6 +212,9 @@ test("issuance commits hash, expiry, credential rotation, SMS cancellation and s
   assert.ok(!JSON.stringify(state.audits).includes("012345"));
   assert.ok(!JSON.stringify(state.audits).includes("Ana"));
   assert.ok(!JSON.stringify(state.audits).includes("StaffPassword1"));
+  assert.deepEqual(state.unifiedAudits.map(row => row.slice(0, 8)),
+    [[8, "Test Staff", "staff", 0, "password.issued", "user", 7, "success"]]);
+  assert.deepEqual(JSON.parse(state.unifiedAudits[0][10]), { patient_id: 42, method: "in_person" });
 });
 
 test("ineligible accounts and incomplete records roll back without replacing credentials", async t => {
@@ -229,6 +256,57 @@ test("audit failure rolls back and simultaneous issuances with the same version 
   assert.equal(res.statusCode, 500);
   assert.deepEqual(db.state, before);
   assert.equal(res.body.data, undefined);
+});
+
+test("phone replacement rotates credentials, moves only unsent online messages, and rolls back as one operation", async t => {
+  const db = await database(t);
+  const { state } = db;
+  const oldPhone = state.user.phone;
+  state.patient.contact_number = "+63 912 345 6789";
+  state.jobs.push(
+    { purpose: "password_recovery", state: "queued", recipient: oldPhone },
+    { purpose: "queue_alert", state: "queued", recipient: oldPhone },
+    { purpose: "queue_alert", state: "queued", recipient: oldPhone, walkIn: true },
+    { purpose: "queue_alert", state: "submitted", recipient: oldPhone },
+  );
+  const req = request();
+  Object.assign(req.body, { new_phone: "+63 998 765 4321", new_phone_verified: true });
+  const unverified = response();
+  await recoverAccount({ ...req, body: { ...req.body, new_phone_verified: false } }, unverified);
+  assert.equal(unverified.statusCode, 400);
+  const before = structuredClone(state);
+  const results = [response(), response()];
+  await Promise.all(results.map(res => recoverAccount(req, res)));
+  assert.deepEqual(results.map(res => res.statusCode).sort(), [201, 409]);
+  assert.equal(state.user.phone, "09987654321");
+  assert.equal(state.user.credential_version, 3);
+  assert.equal(state.patient.contact_number, state.user.phone);
+  assert.deepEqual(state.grant, { status: "cancelled", reset_token_hash: null });
+  assert.equal(state.jobs[3].state, "cancelled");
+  assert.deepEqual(state.jobs.slice(-3).map(job => job.recipient), ["09987654321", oldPhone, oldPhone]);
+  assert.deepEqual(state.unifiedAudits.map(row => row[4]), ["account.phone_changed", "password.issued"]);
+  assert.deepEqual(JSON.parse(state.unifiedAudits[0][10]), {
+    patient_id: 42, method: "in_person", phone: "*******4321",
+  });
+
+  Object.assign(state, structuredClone(before));
+  state.patient.contact_number = "09222222222";
+  const separate = response();
+  await recoverAccount(req, separate);
+  assert.equal(separate.statusCode, 201);
+  assert.equal(state.patient.contact_number, "09222222222");
+
+  Object.assign(state, structuredClone(before));
+  db.failAudit("password.issued");
+  const failedAudit = response();
+  await recoverAccount(req, failedAudit);
+  assert.equal(failedAudit.statusCode, 500);
+  assert.deepEqual(state, before);
+  db.duplicate();
+  const duplicate = response();
+  await recoverAccount(req, duplicate);
+  assert.equal(duplicate.statusCode, 409);
+  assert.deepEqual(state, before);
 });
 
 test("login distinguishes incorrect credentials from an account lockout", async t => {
@@ -295,7 +373,10 @@ test("real route enforces staff/admin permissions, rejects development identitie
     }
   });
   const actors = { 1001: "staff", 1002: "admin", 1003: "patient", 1004: "doctor", 1005: "staff", 1006: "staff", 1007: "staff", 1008: "staff" };
-  t.mock.method(User, "findById", async id => ({ user_id: id, role: actors[id], is_active: 1, credential_version: 1, must_change_password: 0 }));
+  t.mock.method(User, "findById", async id => ({
+    user_id: id, role: actors[id], audit_name: `Verified ${actors[id]}`,
+    is_active: 1, credential_version: 1, must_change_password: 0,
+  }));
   const app = express();
   app.use(express.json());
   app.use(devBypass);
@@ -316,6 +397,8 @@ test("real route enforces staff/admin permissions, rejects development identitie
     assert.equal(res.status, 201);
     assert.equal(res.headers.get("cache-control"), "no-store");
   }
+  assert.deepEqual(db.state.unifiedAudits.map(row => row.slice(0, 3)),
+    [[1001, "Verified staff", "staff"], [1002, "Verified admin", "admin"]]);
   for (let i = 0; i < 10; i++) assert.equal((await dispatch(1005, {})).status, 400);
   const limited = await dispatch(1005, {});
   assert.equal(limited.status, 429);

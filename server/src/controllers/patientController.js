@@ -3,8 +3,9 @@ const Queue = require("../models/Queue");
 const User = require("../models/User");
 const Doctor = require("../models/Doctor");
 const DoctorHistory = require("../models/DoctorHistory");
-const bcrypt = require("bcryptjs");
 const pool = require("../config/db");
+const audit = require("../services/auditLog");
+const { requireRecoveryActor, requireRecoveryPassword, issueTemporaryPassword } = require("../services/accountAccess");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeProfileChanges } = require("../utils/profile");
 
@@ -150,21 +151,6 @@ const mergePatient = async (req, res) => {
   }
 };
 
-const requireRecoveryPassword = async (req) => {
-  const password = req.body?.staff_password;
-  if (typeof password !== "string" || !password || password.length > 128) {
-    throw Object.assign(new Error("Enter your sign-in password."), { status: 400 });
-  }
-  const actor = await User.findByIdWithHash(req.user.user_id);
-  if (!actor || !actor.is_active || !["staff", "admin"].includes(actor.role) ||
-      actor.must_change_password || actor.credential_version !== req.user.credential_version) {
-    throw Object.assign(new Error("Sign in again before recovering a patient account."), { status: 403 });
-  }
-  if (!await User.verifyPassword(password, actor.password_hash)) {
-    throw Object.assign(new Error("Your password is incorrect."), { status: 403 });
-  }
-};
-
 /** POST /api/patients/:id/account-recovery/verify-password */
 const verifyRecoveryPassword = async (req, res) => {
   res.set("Cache-Control", "no-store");
@@ -184,11 +170,19 @@ const verifyRecoveryPassword = async (req, res) => {
 const recoverAccount = async (req, res) => {
   res.set("Cache-Control", "no-store");
   const patientId = Number(req.params.id);
-  const { expected_credential_version: expectedVersion, confirmed_phone: confirmedPhone } = req.body || {};
+  const { expected_credential_version: expectedVersion, confirmed_phone: confirmedPhone,
+    new_phone: newPhoneInput, new_phone_verified: newPhoneVerified } = req.body || {};
+  const changingPhone = newPhoneInput !== undefined || newPhoneVerified !== undefined;
+  const newPhone = typeof newPhoneInput === "string" && /^[+\d ()-]+$/.test(newPhoneInput.trim()) &&
+    normalizePhilippineMobilePhone(newPhoneInput);
   if (!Number.isSafeInteger(patientId) || patientId < 1 ||
       !Number.isSafeInteger(expectedVersion) || expectedVersion < 1 ||
       typeof confirmedPhone !== "string" || !normalizePhilippineMobilePhone(confirmedPhone)) {
     return res.status(400).json({ success: false, message: "Confirm the patient's registered phone number before recovery." });
+  }
+  if (changingPhone && (!newPhone || newPhoneVerified !== true ||
+      newPhone === normalizePhilippineMobilePhone(confirmedPhone))) {
+    return res.status(400).json({ success: false, message: "Verify possession of a different Philippine mobile number." });
   }
 
   let connection;
@@ -196,8 +190,10 @@ const recoverAccount = async (req, res) => {
     await requireRecoveryPassword(req);
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    if (changingPhone) await Queue.lockCategory("dental", connection);
+    await requireRecoveryActor(req, connection);
     const [[patient]] = await connection.query(
-      "SELECT patient_id, user_id, archived_into_patient_id, first_name, middle_name, last_name, suffix, date_of_birth, barangay, city FROM patients WHERE patient_id = ? FOR UPDATE",
+      "SELECT patient_id, user_id, archived_into_patient_id, first_name, middle_name, last_name, suffix, date_of_birth, barangay, city, contact_number FROM patients WHERE patient_id = ? FOR UPDATE",
       [patientId],
     );
     if (!patient) throw Object.assign(new Error("Patient not found."), { status: 404 });
@@ -223,34 +219,37 @@ const recoverAccount = async (req, res) => {
       throw Object.assign(new Error("Complete the patient's identity record before account recovery."), { status: 409 });
     }
 
-    const password = User.generateTempPassword();
-    const version = user.credential_version + 1;
-    const expiresAt = user.recovery_expires_at.toISOString();
-    await connection.query(
-      `UPDATE users SET password_hash = ?, must_change_password = 1, credential_version = ?,
-       temp_password_expires_at = ?, temp_password_used_at = NULL,
-       login_failures = 0, login_locked_until = NULL WHERE user_id = ?`,
-      [await bcrypt.hash(password, 10), version, user.recovery_expires_at, user.user_id],
-    );
-    await connection.query(
-      `UPDATE sms_jobs SET state = 'cancelled', payload = NULL, last_error = 'credential_replaced'
-       WHERE user_id = ? AND purpose = 'temporary_password' AND state IN ('queued','submitting')`,
-      [user.user_id],
-    );
+    if (changingPhone) {
+      const oldPhone = normalizePhilippineMobilePhone(user.phone);
+      await connection.query("UPDATE users SET phone = ? WHERE user_id = ?", [newPhone, user.user_id]);
+      if (!patient.contact_number?.trim() || normalizePhilippineMobilePhone(patient.contact_number) === oldPhone) {
+        await connection.query("UPDATE patients SET contact_number = ? WHERE patient_id = ?", [newPhone, patientId]);
+      }
+      await connection.query(`UPDATE sms_jobs j JOIN queues q ON q.id = j.queue_id
+        SET j.recipient = ? WHERE j.patient_id = ? AND q.patient_id = j.patient_id
+        AND q.is_walk_in = 0 AND j.recipient = ? AND j.state = 'queued'
+        AND j.provider_message_id IS NULL AND j.purpose IN ('queue_alert','queue_cancellation')`,
+      [newPhone, patientId, oldPhone]);
+      user.phone = newPhone;
+      await audit.write(req, {
+        action: "account.phone_changed", target_type: "user", target_id: user.user_id,
+        details: { patient_id: patientId, method: "in_person", phone: newPhone },
+      }, connection);
+    }
+    const credential = await issueTemporaryPassword(connection, user);
     await Patient.audit(patientId, req.user.user_id, "account_recovery", {
       user_id: user.user_id,
       verification: { phone: true, staff_password: true },
-      credential_version: version,
-      expires_at: expiresAt,
+      credential_version: user.credential_version + 1,
+      expires_at: credential.expires_at,
     }, connection, req);
     await connection.commit();
-    res.status(201).json({ success: true, data: {
-      temp_password: password,
-      expires_at: expiresAt,
-      registered_phone: user.phone,
-    } });
+    res.status(201).json({ success: true, data: credential });
   } catch (err) {
     if (connection) await connection.rollback();
+    if (changingPhone && err.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ success: false, message: "That mobile number is already registered." });
+    }
     res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Unable to recover this account. Refresh the profile before trying again." });
   } finally {
     connection?.release();

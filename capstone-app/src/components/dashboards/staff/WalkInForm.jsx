@@ -1,4 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
+import useUnsavedChanges from "@/hooks/useUnsavedChanges";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -70,7 +71,12 @@ const BAGO_BARANGAYS = [
   "Taloc",
 ];
 
-export default function WalkInForm({ onSuccess, doctorLeaveEnd, capacity, onWarning }) {
+export default function WalkInForm({
+  onSuccess,
+  doctorLeaveEnd,
+  capacity,
+  onWarning,
+}) {
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -96,6 +102,8 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd, capacity, onWarn
   const [alternateContact, setAlternateContact] = useState("");
   const [searching, setSearching] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  useUnsavedChanges(Object.values(form).some(Boolean) || selectedServices.length > 0 ||
+    manualPriority || noMobile || Boolean(alternateContact), loading);
   const today = clinicDay(new Date());
   const [year, month, day] = today.split("-").map(Number);
   const [birthYear, birthMonth, birthDay] = form.dateOfBirth
@@ -341,7 +349,11 @@ export default function WalkInForm({ onSuccess, doctorLeaveEnd, capacity, onWarn
         <p className="text-sm text-slate-500">
           Fields marked with an asterisk (*) are required.
         </p>
-        <WalkInCapacityWarning limit={capacity?.limit} count={capacity?.count} onWarning={onWarning} />
+        <WalkInCapacityWarning
+          limit={capacity?.limit}
+          count={capacity?.count}
+          onWarning={onWarning}
+        />
         {doctorLeaveEnd && (
           <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             The dentist is on approved leave through{" "}

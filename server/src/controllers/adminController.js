@@ -9,6 +9,7 @@ const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeSuffix, normalizeMiddleName, normalizeNamePart } = require("../utils/name");
 const { enqueuePassword, wakeWorker } = require('../services/smsNotifications');
 const { parsePagination } = require("../utils/pagination");
+const { closeRecovery, issueWorkforcePassword } = require("../services/accountAccess");
 
 /** GET /api/admin/overview — live stats for the admin dashboard */
 const getOverview = async (req, res) => {
@@ -68,7 +69,7 @@ const getOverview = async (req, res) => {
 const getStaff = async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT u.user_id, u.email, u.phone, u.role, u.is_active,
+      SELECT u.user_id, u.email, u.phone, u.role, u.is_active, u.credential_version,
              d.first_name, d.middle_name, d.last_name, d.suffix,
              d.license_number, d.specialization_id, NULL AS position, d.gender, d.address
       FROM   users u
@@ -77,7 +78,7 @@ const getStaff = async (req, res) => {
 
       UNION ALL
 
-      SELECT u.user_id, u.email, u.phone, u.role, u.is_active,
+      SELECT u.user_id, u.email, u.phone, u.role, u.is_active, u.credential_version,
              s.first_name, s.middle_name, s.last_name, s.suffix,
              NULL AS license_number, NULL AS specialization_id, s.position, s.gender, s.address
       FROM   users u
@@ -276,7 +277,14 @@ const changeAccountState = (patient, active) => async (req, res) => {
       if (!active && user.role === 'admin' && user.user_id === req.user.user_id) {
         throw Object.assign(new Error('You cannot deactivate your own account.'), { status: 403 });
       }
-      await connection.query('UPDATE users SET is_active = ? WHERE user_id = ?', [active, userId]);
+      if (Number(user.is_active) === active) return;
+      if (active) {
+        await connection.query('UPDATE users SET is_active = 1 WHERE user_id = ?', [userId]);
+      } else {
+        await connection.query(`UPDATE users SET is_active = 0, credential_version = credential_version + 1,
+          temp_password_expires_at = NULL, temp_password_used_at = NULL WHERE user_id = ?`, [userId]);
+        await closeRecovery(connection, userId, "account_deactivated");
+      }
       await audit.write(req, { action: active ? 'account.reactivated' : 'account.deactivated',
         target_type: 'user', target_id: userId, reason,
         details: { assigned_role: user.role, changes: { is_active: { from: user.is_active, to: active } } } }, connection);
@@ -291,6 +299,55 @@ const deactivateStaff = changeAccountState(false, 0);
 const reactivateStaff = changeAccountState(false, 1);
 const deactivatePatient = changeAccountState(true, 0);
 const reactivatePatient = changeAccountState(true, 1);
+
+const deactivationImpact = async (req, res) => {
+  const userId = Number(req.params.user_id);
+  if (!Number.isSafeInteger(userId) || userId < 1) {
+    return res.status(400).json({ success: false, message: "Invalid account ID." });
+  }
+  try {
+    const [[user]] = await pool.query(
+      `SELECT u.role, p.patient_id, d.doctor_id FROM users u
+       LEFT JOIN patients p ON p.user_id = u.user_id AND u.role = 'patient'
+       LEFT JOIN doctors d ON d.user_id = u.user_id AND u.role = 'doctor'
+       WHERE u.user_id = ?`, [userId]);
+    if (!user) return res.status(404).json({ success: false, message: "Account not found." });
+    const patient = user.role === "patient";
+    const id = patient ? user.patient_id : user.doctor_id;
+    const key = patient ? "patient_id" : "doctor_id";
+    const [appointments, tickets] = id == null ? [[], []] : (await Promise.all([
+      pool.query(`SELECT appointment_id, DATE_FORMAT(appointment_date, '%Y-%m-%d') AS date,
+        appointment_time AS time, status FROM appointments
+        WHERE ${key} = ? AND appointment_date >= CURDATE() AND status IN ('pending','confirmed')
+        ORDER BY appointment_date, appointment_time, appointment_id`, [id]),
+      pool.query(`SELECT q.id, q.queue_number, q.status FROM queues q
+        ${patient ? "" : "JOIN appointments a ON a.appointment_id = q.appointment_id"}
+        WHERE ${patient ? "q.patient_id" : "a.doctor_id"} = ? AND ${Queue.activeSql("q.")}
+        ORDER BY q.created_at, q.id`, [id]),
+    ])).map(([rows]) => rows);
+    res.set("Cache-Control", "no-store");
+    res.json({ success: true, data: { appointments, tickets, review_shared_queue: user.role === "doctor" } });
+  } catch {
+    res.status(503).json({ success: false, message: "Unable to load affected visits." });
+  }
+};
+
+const recoverWorkforce = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (req.body?.identity_confirmed !== true) {
+    return res.status(400).json({ success: false, message: "Confirm the account holder’s identity in person." });
+  }
+  try {
+    const data = await issueWorkforcePassword(Number(req.params.user_id), req, {
+      expectedVersion: req.body.expected_credential_version,
+    });
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    res.status(error.status || 500).json({
+      success: false, message: error.status ? error.message : "Unable to issue a temporary password.",
+    });
+  }
+};
 
 /** PUT /api/admin/staff/:user_id */
 const updateStaff = async (req, res) => {
@@ -662,6 +719,8 @@ module.exports = {
   createStaff,
   deactivateStaff,
   reactivateStaff,
+  deactivationImpact,
+  recoverWorkforce,
   updateStaff,
   getPatients,
   createPatient,

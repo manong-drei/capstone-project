@@ -1,4 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
+import useAppDialog from "@/hooks/useAppDialog";
 import {
   lazy,
   Suspense,
@@ -63,6 +64,7 @@ const loadRemarksDrafts = (userId) => {
   return {};
 };
 export default function DoctorDashboard() {
+  const showDialog = useAppDialog();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { logout, user } = useAuth();
@@ -166,7 +168,7 @@ export default function DoctorDashboard() {
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2500);
     } catch (err) {
-      alert(err.message || "Failed to save settings.");
+      await showDialog({ title: "Could not save daily limits", message: err.message || "Failed to save settings." });
     } finally {
       setSettingsLoading(false);
     }
@@ -211,7 +213,7 @@ export default function DoctorDashboard() {
       setUnavailableReason(val ? "" : reason);
       return true;
     } catch (err) {
-      alert(err.message || "Failed to update availability.");
+      await showDialog({ title: "Could not update availability", message: err.message || "Failed to update availability." });
     } finally {
       setAvailLoading(false);
     }
@@ -260,7 +262,7 @@ export default function DoctorDashboard() {
       await api.post("/queue/call-next", { category: "dental" });
       await fetchAllQueues();
     } catch (err) {
-      alert(err.message);
+      await showDialog({ title: "Could not call the next patient", message: err.message });
     } finally {
       setQueueActionLoading(false);
     }
@@ -290,7 +292,7 @@ export default function DoctorDashboard() {
       await fetchAllQueues();
     } catch (err) {
       await fetchAllQueues();
-      alert(err.message);
+      await showDialog({ title: "Could not finish the visit or call the next patient", message: err.message });
     } finally {
       setQueueActionLoading(false);
     }
@@ -309,7 +311,7 @@ export default function DoctorDashboard() {
       await fetchAllQueues();
     } catch (err) {
       await fetchAllQueues();
-      alert(err.message);
+      await showDialog({ title: "Could not update the queue", message: err.message });
     } finally {
       setQueueActionLoading(false);
     }
@@ -337,7 +339,7 @@ export default function DoctorDashboard() {
       setServingPatient(null);
       fetchAllQueues();
     } catch (err) {
-      alert(err.message);
+      await showDialog({ title: "Could not save consultation notes", message: err.message });
     } finally {
       setConsultLoading(false);
     }

@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "test": "node --test",
     "test:db": "node src/config/testConnection.js",
+    "recover:admin": "node src/recoverAdmin.js",
     "migrate:queue-sequences": "node src/config/migrateQueueSequences.js",
     "migrate:sms": "node src/config/migrateSmsNotifications.js",
     "migrate:sms-reviews": "node src/config/migrateSmsReviews.js",

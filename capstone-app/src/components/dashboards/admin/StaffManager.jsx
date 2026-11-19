@@ -1,12 +1,19 @@
 import useLiveData from "@/hooks/useLiveData";
-import { useCallback, useState } from "react";
+import useUnsavedChanges from "@/hooks/useUnsavedChanges";
+import { useAuth } from "@/hooks/useAuth";
+import { useCallback, useRef, useState } from "react";
 import Icon from "@/components/common/AppIcons";
 import AccountAction from "./AccountAction";
 import AccountStatusDialog from "./AccountStatusDialog";
+import AccountRecovery from "@/components/dashboards/staff/AccountRecovery";
 import api from "@/services/api";
 import { getNameFields } from "@/utils/nameDisplay";
 
 const ROLES = ["doctor", "staff", "admin"];
+const EMPTY_STAFF = {
+  first_name: "", middle_name: "", last_name: "", suffix: "", email: "", phone: "",
+  password: "", role: "doctor", gender: "", address: "", license_number: "", position: "",
+};
 
 const STAFF_RESPONSIVE_CSS = `
   .sm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -112,11 +119,14 @@ function EditStaffModal({ member, onSave, onClose }) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const confirmDiscard = useUnsavedChanges(Object.entries(form).some(([field, value]) => value !== (member[field] || "")), saving);
+  const close = async () => { if (await confirmDiscard()) onClose(); };
 
   const handleChange = (field, value) =>
     setForm((p) => ({ ...p, [field]: value }));
 
   const handleSave = async () => {
+    if (saving) return;
     setError("");
     if (!form.first_name || !form.last_name) {
       setError("First and last name are required.");
@@ -145,7 +155,7 @@ function EditStaffModal({ member, onSave, onClose }) {
         justifyContent: "center",
         padding: "16px",
       }}
-      onClick={onClose}
+      onClick={close}
     >
       <div
         style={{
@@ -179,7 +189,7 @@ function EditStaffModal({ member, onSave, onClose }) {
             Edit Staff Account
           </h3>
           <button
-            onClick={onClose}
+            onClick={close}
             style={{
               background: "none",
               border: "none",
@@ -287,7 +297,7 @@ function EditStaffModal({ member, onSave, onClose }) {
 
         <div style={{ display: "flex", gap: "8px" }}>
           <button
-            onClick={onClose}
+            onClick={close}
             style={{
               flex: 1,
               padding: "9px",
@@ -325,6 +335,7 @@ function EditStaffModal({ member, onSave, onClose }) {
 }
 
 export default function StaffManager() {
+  const { user, expired } = useAuth();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
@@ -340,21 +351,28 @@ export default function StaffManager() {
     action: "",
   });
   const [editMember, setEditMember] = useState(null);
+  const [recoveryMember, setRecoveryMember] = useState(null);
+  const recoveryTrigger = useRef(null);
 
-  const [form, setForm] = useState({
-    first_name: "",
-    middle_name: "",
-    last_name: "",
-    suffix: "",
-    email: "",
-    phone: "",
-    password: "",
-    role: "doctor",
-    gender: "",
-    address: "",
-    license_number: "",
-    position: "",
-  });
+  const [form, setForm] = useState(EMPTY_STAFF);
+  if (expired && form.password) setForm({ ...form, password: "" });
+  const confirmDiscard = useUnsavedChanges(showForm && Object.entries(form).some(([field, value]) => value !== EMPTY_STAFF[field]), submitting);
+  const closeForm = async () => {
+    if (!await confirmDiscard()) return;
+    setForm(EMPTY_STAFF);
+    setFormError("");
+    setShowForm(false);
+  };
+
+  const recoveryAction = (member) => member.is_active && member.user_id !== user?.user_id &&
+    Number.isSafeInteger(member.credential_version) && (
+      <AccountAction action="recovery" ariaLabel={`Issue temporary password for ${member.first_name} ${member.last_name}`}
+        title="Issue temporary password"
+        onClick={(event) => {
+          recoveryTrigger.current = event.currentTarget;
+          setRecoveryMember(member);
+        }} />
+    );
 
   const fetchStaff = useCallback(async (signal, background = false) => {
     if (!background) setLoading(true);
@@ -386,6 +404,7 @@ export default function StaffManager() {
   };
 
   const handleAddStaff = async () => {
+    if (submitting) return;
     setFormError("");
     if (
       !form.first_name ||
@@ -409,20 +428,7 @@ export default function StaffManager() {
     try {
       await api.post("/admin/staff", form);
       setShowForm(false);
-      setForm({
-        first_name: "",
-        middle_name: "",
-        last_name: "",
-        suffix: "",
-        email: "",
-        phone: "",
-        password: "",
-        role: "doctor",
-        gender: "",
-        address: "",
-        license_number: "",
-        position: "",
-      });
+      setForm(EMPTY_STAFF);
       fetchStaff();
     } catch (err) {
       setFormError(err.message);
@@ -452,16 +458,11 @@ export default function StaffManager() {
 
   const handleConfirmAction = async (reason) => {
     const { memberId, action } = confirm;
-    closeConfirm();
-    try {
-      await api.patch(
-        `/admin/staff/${memberId}/${action}`,
-        action === "deactivate" ? { reason } : undefined,
-      );
-      fetchStaff();
-    } catch (err) {
-      alert(err.message);
-    }
+    await api.patch(
+      `/admin/staff/${memberId}/${action}`,
+      action === "deactivate" ? { reason } : undefined,
+    );
+    fetchStaff(undefined, true);
   };
 
   const visibleStaff = showInactive ? staff : staff.filter((m) => m.is_active);
@@ -476,10 +477,20 @@ export default function StaffManager() {
       {confirm.open && (
         <AccountStatusDialog
           name={confirm.memberName}
+          userId={confirm.memberId}
           action={confirm.action}
           onConfirm={handleConfirmAction}
           onCancel={closeConfirm}
         />
+      )}
+
+      {recoveryMember && (
+        <AccountRecovery member={recoveryMember} eligible returnFocusRef={recoveryTrigger}
+          onClose={() => setRecoveryMember(null)}
+          onRecovered={(version) => {
+            setRecoveryMember((member) => member && ({ ...member, credential_version: version }));
+            fetchStaff(undefined, true);
+          }} />
       )}
 
       {editMember && (
@@ -545,7 +556,7 @@ export default function StaffManager() {
             Show inactive
           </label>
           <button
-            onClick={() => setShowForm((prev) => !prev)}
+            onClick={() => showForm ? closeForm() : setShowForm(true)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -722,7 +733,7 @@ export default function StaffManager() {
 
           <div style={{ display: "flex", gap: "8px" }}>
             <button
-              onClick={() => setShowForm(false)}
+              onClick={closeForm}
               style={{
                 flex: 1,
                 padding: "9px",
@@ -921,6 +932,7 @@ export default function StaffManager() {
                         onClick={() => setEditMember(member)}
                       />
                     )}
+                    {recoveryAction(member)}
                     <AccountAction
                       action={isInactive ? "reactivate" : "deactivate"}
                       onClick={() =>
@@ -1008,6 +1020,7 @@ export default function StaffManager() {
                           onClick={() => setEditMember(member)}
                         />
                       )}
+                      {recoveryAction(member)}
                       <AccountAction
                         action={isInactive ? "reactivate" : "deactivate"}
                         onClick={() =>

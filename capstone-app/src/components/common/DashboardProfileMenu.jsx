@@ -54,7 +54,7 @@ export function ProfileActions({
     : "text-slate-700 hover:bg-slate-100 focus-visible:outline-blue-600";
 
   const profileIconClass = mobile
-    ? "bg-white/15 text-white"
+    ? "text-white"
     : "bg-blue-50 text-blue-600 group-hover:bg-blue-100";
 
   const logoutClass = mobile
@@ -62,7 +62,7 @@ export function ProfileActions({
     : "text-red-600 hover:bg-red-50 focus-visible:outline-red-600";
 
   const logoutIconClass = mobile
-    ? "bg-red-500/30 text-red-100"
+    ? "text-red-100"
     : "bg-red-50 text-red-600 group-hover:bg-red-100";
 
   const dividerClass = mobile ? "bg-white/15" : "bg-slate-100";

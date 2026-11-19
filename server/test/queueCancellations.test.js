@@ -10,9 +10,9 @@ const migrate = require('../src/config/migrateQueueCancellations');
 
 test.after(() => pool.end());
 
-function fixture(t, { patient = { user_id: 11, phone: '09123456789', is_active: 1 }, fail = false } = {}) {
+function fixture(t, { patient = { user_id: 11, phone: '09123456789', is_active: 1 }, fail = false, failAudit = false } = {}) {
   let state = { ticket: { id: 1, patient_id: 7, category: 'dental', queue_number: 'AQ11', status: 'waiting',
-    services: '[]', is_today: 1, appointment_id: 5 }, jobs: [], appointment: 'confirmed' };
+    services: '[]', is_today: 1, appointment_id: 5 }, jobs: [], audits: [], appointment: 'confirmed' };
   let tail = Promise.resolve();
   t.mock.method(Queue, 'lockCategory', async (category, connection) => connection.lock());
   t.mock.method(pool, 'getConnection', async () => {
@@ -39,6 +39,9 @@ function fixture(t, { patient = { user_id: 11, phone: '09123456789', is_active: 
         else if (sql.startsWith('INSERT INTO sms_jobs')) {
           if (fail) throw new Error('outbox unavailable');
           working.jobs.push(values);
+        } else if (sql.startsWith('INSERT INTO audit_logs')) {
+          if (failAudit) throw new Error('audit unavailable');
+          working.audits.push(values);
         } else assert.fail(`Unexpected query: ${sql}`);
         return [{ affectedRows: 1 }];
       },
@@ -47,17 +50,35 @@ function fixture(t, { patient = { user_id: 11, phone: '09123456789', is_active: 
   return () => state;
 }
 
+const auditRequest = role => ({ auditActor: { user_id: 4, role, name: 'Clinic Operator' } });
+
 test('each clinic role atomically cancels the linked booking and creates exactly one SMS job', async t => {
   for (const cancelledByRole of ['staff', 'doctor', 'admin']) await t.test(cancelledByRole, async t => {
     const state = fixture(t);
-    const results = await Promise.allSettled([1, 2].map(() => Queue.updateStatus(1, 'cancelled', '  Wait time too long  ', { cancelledByRole })));
+    const results = await Promise.allSettled([1, 2].map(() => Queue.updateStatus(1, 'cancelled', '  Wait time too long  ', {
+      cancelledByRole, auditRequest: auditRequest(cancelledByRole),
+    })));
     assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
     assert.equal(results.find(result => result.status === 'rejected').reason.status, 409);
     assert.equal(state().ticket.cancelled_by_role, cancelledByRole);
     assert.equal(state().ticket.status_reason, 'Wait time too long');
     assert.equal(state().appointment, 'cancelled');
+    assert.deepEqual(state().audits.map(row => row.slice(0, 9)), cancelledByRole === 'doctor'
+      ? []
+      : [[4, 'Clinic Operator', cancelledByRole, 0, 'queue.cancelled', 'queue', 1, 'success', null]]);
     assert.deepEqual(state().jobs, [[7, 1, '09123456789', 'queue-cancellation:1']]);
   });
+});
+
+test('an audit write failure rolls back the ticket, linked booking and SMS job', async t => {
+  const state = fixture(t, { failAudit: true });
+  await assert.rejects(Queue.updateStatus(1, 'cancelled', 'Leaving', {
+    cancelledByRole: 'staff', auditRequest: auditRequest('staff'),
+  }), /audit unavailable/);
+  assert.equal(state().ticket.status, 'waiting');
+  assert.equal(state().appointment, 'confirmed');
+  assert.deepEqual(state().jobs, []);
+  assert.deepEqual(state().audits, []);
 });
 
 test('an outbox write failure rolls back the cancellation, booking and notification', async t => {
@@ -67,6 +88,7 @@ test('an outbox write failure rolls back the cancellation, booking and notificat
   assert.equal(state().ticket.cancelled_by_role, undefined);
   assert.equal(state().appointment, 'confirmed');
   assert.deepEqual(state().jobs, []);
+  assert.deepEqual(state().audits, []);
 });
 
 test('invalid phones, inactive or archived associations still get an in-app notice without an SMS job', async t => {
@@ -85,6 +107,7 @@ test('patient self-cancellation creates neither a clinic notice nor an SMS job',
   await Queue.updateStatus(1, 'cancelled', 'Leaving', { patientOnly: true });
   assert.equal(state().ticket.cancelled_by_role, undefined);
   assert.deepEqual(state().jobs, []);
+  assert.deepEqual(state().audits, []);
 });
 
 test('pending query retains older notices, exposes only notice fields, and acknowledgment is scoped to its owner', async t => {
@@ -116,6 +139,8 @@ test('routes enforce roles, ownership and reason validation and use the authenti
   t.mock.method(Queue, 'acknowledgeCancellation', async (id, patientId) => id === 1 && patientId === 7);
   const update = t.mock.method(Queue, 'updateStatus', async (id, status, reason, options) => {
     assert.equal(options.cancelledByRole, role);
+    assert.equal(options.auditRequest.auditActor.role, role);
+    assert.equal(options.auditRequest.auditActor.user_id, 11);
     assert.equal(reason, 'Leaving');
     return { id, status };
   });

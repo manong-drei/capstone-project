@@ -1,4 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
+import useAppDialog from "@/hooks/useAppDialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { generatePath, Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -71,6 +72,7 @@ export default function StaffPatientProfile() {
 }
 
 function PatientProfile({ id }) {
+  const showDialog = useAppDialog();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { identity } = useDashboardIdentity();
@@ -168,14 +170,14 @@ function PatientProfile({ id }) {
   );
 
   const merge = async () => {
-    if (
-      merging ||
-      !targetId ||
-      !window.confirm(
-        "Move every queue visit to the selected patient and archive this record?",
-      )
-    )
-      return;
+    if (merging || !targetId) return;
+    const confirmed = await showDialog({
+      title: "Merge patient records?",
+      message: "Every queue visit will move to the selected patient, and this record will be archived.",
+      confirmLabel: "Merge records",
+      destructive: true,
+    });
+    if (!confirmed) return;
     setMerging(true);
     setMergeError("");
     try {
@@ -416,11 +418,12 @@ function PatientProfile({ id }) {
                   setShowRecovery(false);
                   recoveryButtonRef.current?.focus();
                 }}
-                onRecovered={(version) =>
+                onRecovered={(version, phone) =>
                   setPatient((previous) => ({
                     ...previous,
                     account: {
                       ...previous.account,
+                      phone,
                       credential_version: version,
                     },
                   }))

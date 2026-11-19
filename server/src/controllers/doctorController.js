@@ -328,7 +328,7 @@ const getDailySettings = async (req, res) => {
     );
     res.status(200).json({
       appointment_limit: settings?.appointment_limit ?? 10,
-      walk_in_limit: settings?.walk_in_limit ?? 0,
+      walk_in_limit: settings?.walk_in_limit ?? Doctor.DEFAULT_WALK_IN_LIMIT,
       booked_count: booked_count ?? 0,
       walkin_count: walkin_count ?? 0,
       is_available: approvedLeave ? 0 : (settings?.is_available ?? 1),
@@ -520,6 +520,75 @@ const getConsultation = async (req, res) => {
   }
 };
 
+async function insertPrescription(connection, consultationId, directions) {
+  if (!directions) return;
+  const [saved] = await connection.query(
+    "INSERT INTO prescriptions (consultation_id, medication_name) VALUES (?, ?)",
+    [consultationId, directions],
+  );
+  if (saved.warningStatus) {
+    const [[stored]] = await connection.query(
+      "SELECT medication_name FROM prescriptions WHERE prescription_id = ?",
+      [saved.insertId],
+    );
+    if (stored?.medication_name !== directions) {
+      throw new Error("Prescription text changed during the write.");
+    }
+  }
+}
+
+const updateConsultation = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (req.devBypass || req.user.purpose !== "session") {
+    return res.status(403).json({ success: false, message: "Sign in with your dentist account to edit a consultation." });
+  }
+  const id = Number(req.params.id);
+  const { revision, ...changes } = req.body ?? {};
+  const fields = Object.entries(changes);
+  if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id <= 0 ||
+      typeof revision !== "string" || !/^[a-f0-9]{64}$/.test(revision) || !fields.length ||
+      fields.some(([name, value]) => !["notes", "diagnosis", "prescription"].includes(name) ||
+        typeof value !== "string" || Buffer.byteLength(value, "utf8") > 65535)) {
+    return res.status(400).json({ success: false, message: "Provide a valid consultation and text for the fields you want to change." });
+  }
+
+  try {
+    const doctor = await Doctor.findByUserId(req.user.user_id);
+    if (!doctor) return res.status(404).json({ success: false, message: "Dentist profile not found." });
+    const data = await audit.transaction(async (connection) => {
+      const [[owned]] = await connection.query(
+        "SELECT consultation_id FROM consultations WHERE consultation_id = ? AND doctor_id = ? FOR UPDATE",
+        [id, doctor.doctor_id],
+      );
+      if (!owned) {
+        throw Object.assign(new Error("Consultation not found."), { status: 404 });
+      }
+      const current = await DoctorHistory.findConsultation(doctor.doctor_id, id, connection);
+      if (current.revision !== revision) {
+        throw Object.assign(new Error("This consultation has changed. Reopen it to review the latest version before saving."), { status: 409 });
+      }
+
+      if (Object.hasOwn(changes, "notes")) {
+        await connection.query("UPDATE consultations SET chief_complaint = ?, notes = NULL WHERE consultation_id = ?",
+          [changes.notes.trim() || null, id]);
+      }
+      if (Object.hasOwn(changes, "diagnosis")) {
+        await connection.query("UPDATE consultations SET diagnosis = ? WHERE consultation_id = ?",
+          [changes.diagnosis.trim() || null, id]);
+      }
+      if (Object.hasOwn(changes, "prescription")) {
+        await connection.query("DELETE FROM prescriptions WHERE consultation_id = ?", [id]);
+        await insertPrescription(connection, id, changes.prescription.trim());
+      }
+      return DoctorHistory.findConsultation(doctor.doctor_id, id, connection);
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    if (!err.status) console.error("Consultation update failed.", err.code || err.name);
+    res.status(err.status || 500).json({ success: false, message: err.status ? err.message : "Unable to save consultation changes." });
+  }
+};
+
 /** POST /api/doctor/consultations **/
 const createConsultation = async (req, res) => {
   try {
@@ -612,25 +681,7 @@ const createConsultation = async (req, res) => {
 
       const consultation_id = consultResult.insertId;
 
-      if (directions) {
-        const [saved] = await connection.query(
-          `INSERT INTO prescriptions
-            (consultation_id, medication_name)
-           VALUES (?, ?)`,
-          [consultation_id, directions],
-        );
-
-        if (saved.warningStatus) {
-          const [[stored]] = await connection.query(
-            "SELECT medication_name FROM prescriptions WHERE prescription_id = ?",
-            [saved.insertId],
-          );
-
-          if (stored?.medication_name !== directions) {
-            throw new Error("Prescription text changed during the write.");
-          }
-        }
-      }
+      await insertPrescription(connection, consultation_id, directions);
 
       // Do not change queue or appointment status here.
       return { consultation_id };
@@ -656,7 +707,7 @@ const createConsultation = async (req, res) => {
       consultation_id: result.consultation_id,
     });
   } catch (err) {
-    if (!err.status) console.error(err);
+    if (!err.status) console.error("Consultation could not be saved.");
 
     res.status(err.status || 500).json({
       success: false,
@@ -671,6 +722,7 @@ module.exports = {
   getDoctorRecords,
   getPatientHistory,
   getConsultation,
+  updateConsultation,
   createConsultation,
   getDailySettings,
   upsertDailySettings,

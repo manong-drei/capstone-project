@@ -6,6 +6,7 @@ const {
   getDoctorRecords,
   getPatientHistory,
   getConsultation,
+  updateConsultation,
   createConsultation,
   getDailySettings,
   upsertDailySettings,
@@ -43,6 +44,7 @@ router.put("/daily-report", authenticate, authorize("doctor"), saveDailyReport);
 router.get("/monthly-report", authenticate, authorize("doctor"), getMonthlyReport);
 router.get("/patient-history", authenticate, authorize("doctor"), getPatientHistory);
 router.get("/consultations/:id", authenticate, authorize("doctor"), getConsultation);
+router.patch("/consultations/:id", authenticate, authorize("doctor"), updateConsultation);
 router.post(
   "/consultations",
   authenticate,

@@ -1,4 +1,6 @@
 import useLiveData from "@/hooks/useLiveData";
+import useUnsavedChanges from "@/hooks/useUnsavedChanges";
+import useAppDialog from "@/hooks/useAppDialog";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/common/AppIcons";
 import AccountAction from "./AccountAction";
@@ -8,6 +10,11 @@ import api from "@/services/api";
 import ToastNotifications from "@/components/common/ToastNotifications";
 import useSmsToasts from "@/hooks/useSmsToasts";
 import { getNameFields } from "@/utils/nameDisplay";
+
+const EMPTY_PATIENT = {
+  first_name: "", middle_name: "", last_name: "", suffix: "", phone: "",
+  address: "", date_of_birth: "", gender: "", priority_category: "",
+};
 
 const PM_RESPONSIVE_CSS = `
   :root { --pm-focus: #4f46e5; --pm-focus-ring: rgba(79, 70, 229, 0.15); }
@@ -103,6 +110,7 @@ function statusBadge(isActive) {
 }
 
 export default function PatientManager({ canManage = true, canRecover = false }) {
+  const showDialog = useAppDialog();
   const recoveryTrigger = useRef(null);
   const [recoveryPatient, setRecoveryPatient] = useState(null);
   const [openingRecovery, setOpeningRecovery] = useState(false);
@@ -145,12 +153,14 @@ export default function PatientManager({ canManage = true, canRecover = false })
   );
 
   const replacePassword = async (patient) => {
-    if (
-      !window.confirm(
-        `Confirm you have verified ${patient.full_name}'s identity and registered mobile number. Issue a new temporary password? The old password and setup session will be invalidated.`,
-      )
-    )
-      return;
+    if (smsBusy) return;
+    const confirmed = await showDialog({
+      title: "Issue a replacement password?",
+      message: `Confirm you verified ${patient.full_name}’s identity and registered mobile number. The new temporary password invalidates the old password and setup session.`,
+      confirmLabel: "Issue replacement password",
+      destructive: true,
+    });
+    if (!confirmed) return;
     setSmsBusy(true);
     try {
       const result = await api.post(
@@ -184,17 +194,14 @@ export default function PatientManager({ canManage = true, canRecover = false })
     action: "",
   });
 
-  const [form, setForm] = useState({
-    first_name: "",
-    middle_name: "",
-    last_name: "",
-    suffix: "",
-    phone: "",
-    address: "",
-    date_of_birth: "",
-    gender: "",
-    priority_category: "",
-  });
+  const [form, setForm] = useState(EMPTY_PATIENT);
+  const confirmDiscard = useUnsavedChanges(showForm && Object.values(form).some(Boolean), submitting);
+  const closeForm = async () => {
+    if (!await confirmDiscard()) return;
+    setForm(EMPTY_PATIENT);
+    setFormError("");
+    setShowForm(false);
+  };
 
   const fetchPatients = useCallback(
     async (silent = false, signal) => {
@@ -250,6 +257,7 @@ export default function PatientManager({ canManage = true, canRecover = false })
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleAddPatient = async () => {
+    if (submitting) return;
     setFormError("");
     if (
       !form.first_name ||
@@ -271,17 +279,7 @@ export default function PatientManager({ canManage = true, canRecover = false })
         label: `Temporary password SMS for ${[form.first_name, form.middle_name, form.last_name, form.suffix].filter(Boolean).join(" ")}`,
       });
       setShowForm(false);
-      setForm({
-        first_name: "",
-        middle_name: "",
-        last_name: "",
-        suffix: "",
-        phone: "",
-        address: "",
-        date_of_birth: "",
-        gender: "",
-        priority_category: "",
-      });
+      setForm(EMPTY_PATIENT);
       setRefresh((value) => value + 1);
     } catch (err) {
       setFormError(err.message);
@@ -308,13 +306,8 @@ export default function PatientManager({ canManage = true, canRecover = false })
 
   const handleConfirmAction = async (reason) => {
     const { userId, action } = confirm;
-    closeConfirm();
-    try {
-      await api.patch(`/admin/patients/${userId}/${action}`, action === "deactivate" ? { reason } : undefined);
-      setRefresh((value) => value + 1);
-    } catch (err) {
-      alert(err.message);
-    }
+    await api.patch(`/admin/patients/${userId}/${action}`, action === "deactivate" ? { reason } : undefined);
+    setRefresh((value) => value + 1);
   };
 
   const totalPages = Math.max(1, Math.ceil(totalPatients / PATIENTS_PER_PAGE));
@@ -333,14 +326,18 @@ export default function PatientManager({ canManage = true, canRecover = false })
             !!recoveryPatient.account.phone && !!recoveryPatient.date_of_birth &&
             ["first_name", "last_name", "barangay", "city"].every((key) => recoveryPatient[key]?.trim())}
           onClose={() => setRecoveryPatient(null)}
-          onRecovered={(version) => setRecoveryPatient((patient) => ({
-            ...patient, account: { ...patient.account, credential_version: version },
-          }))}
+          onRecovered={(version, phone) => {
+            setRecoveryPatient((patient) => patient && ({
+              ...patient, account: { ...patient.account, phone, credential_version: version },
+            }));
+            setRefresh((value) => value + 1);
+          }}
         />
       )}
       {canManage && confirm.open && (
         <AccountStatusDialog
           name={confirm.patientName}
+          userId={confirm.userId}
           action={confirm.action}
           onConfirm={handleConfirmAction}
           onCancel={closeConfirm}
@@ -403,7 +400,7 @@ export default function PatientManager({ canManage = true, canRecover = false })
             Show inactive
           </label>
           <button
-            onClick={() => setShowForm((prev) => !prev)}
+            onClick={() => showForm ? closeForm() : setShowForm(true)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -582,7 +579,7 @@ export default function PatientManager({ canManage = true, canRecover = false })
 
           <div style={{ display: "flex", gap: "8px" }}>
             <button
-              onClick={() => setShowForm(false)}
+              onClick={closeForm}
               style={{
                 flex: 1,
                 padding: "9px",

@@ -217,7 +217,7 @@ test("patient history reports load failures, retries, and distinguishes empty hi
   await expect(page.getByText("No patient history yet.", { exact: true })).toBeVisible();
 });
 
-test("consultation notes show loading and a retryable error while keeping records read-only", async ({ page }) => {
+test("consultation notes show loading and a retryable error", async ({ page }) => {
   await mockDoctor(page);
   let finish;
   const pending = new Promise(resolve => { finish = resolve; });
@@ -239,4 +239,53 @@ test("consultation notes show loading and a retryable error while keeping record
   await expect(dialog).toContainText("Saved notes");
   await expect(dialog.getByText("Not recorded", { exact: true })).toHaveCount(2);
   await expect(dialog.getByRole("textbox")).toHaveCount(0);
+});
+
+test("dentist edits individual fields and can delete just the notes on a past visit", async ({ page }) => {
+  const responses = await mockDoctor(page);
+  const path = "/api/doctor/consultations/12";
+  const writes = [];
+  responses[path].data.revision = "version-1";
+  await page.route(`**${path}`, (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    const { revision, prescription, ...changes } = route.request().postDataJSON();
+    expect(revision).toBe(responses[path].data.revision);
+    writes.push(route.request().postDataJSON());
+    Object.assign(responses[path].data, changes, {
+      revision: `version-${writes.length + 1}`,
+      ...(prescription !== undefined && { prescriptions: prescription ? [prescription] : [] }),
+    });
+    return route.fulfill({ json: responses[path] });
+  });
+  await page.goto("/doctor/consultations/12?filter=all");
+  const dialog = page.getByRole("dialog", { name: "Consultation Notes", exact: true });
+  const edit = dialog.getByRole("button", { name: "Edit consultation" });
+  const prescription = dialog.getByLabel("Prescription / Recommendations");
+  await edit.click();
+  await expect(prescription).toHaveValue("Follow-up instructions");
+  await prescription.fill("Updated prescription");
+  await dialog.getByRole("button", { name: "Save changes" }).click();
+  await expect(dialog.getByRole("status")).toHaveText("Consultation updated.");
+  await expect(dialog).toContainText("Return visit notes");
+  expect(writes).toEqual([{ revision: "version-1", prescription: "Updated prescription" }]);
+
+  await dialog.getByRole("button", { name: "Delete notes" }).click();
+  const confirm = page.getByRole("dialog", { name: "Delete consultation notes?" });
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  expect(writes).toHaveLength(1);
+  await dialog.getByRole("button", { name: "Delete notes" }).click();
+  await confirm.getByRole("button", { name: "Delete notes" }).click();
+  await expect(dialog.getByRole("status")).toHaveText("Consultation notes deleted.");
+  await expect(dialog).toContainText("Return diagnosis");
+  await expect(dialog).toContainText("Updated prescription");
+  await expect(dialog.getByText("Not recorded", { exact: true })).toHaveCount(1);
+  expect(writes[1]).toEqual({ revision: "version-2", notes: "" });
+
+  await page.reload();
+  await edit.click();
+  await expect(dialog.getByLabel("Consultation Notes", { exact: true })).toHaveValue("");
+  await prescription.fill("");
+  await dialog.getByRole("button", { name: "Save changes" }).click();
+  await expect(dialog.getByText("Not recorded", { exact: true })).toHaveCount(2);
+  expect(writes[2]).toEqual({ revision: "version-3", prescription: "" });
 });

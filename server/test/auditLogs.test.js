@@ -20,7 +20,10 @@ const { migrate } = require('../src/config/migrateAuditLogs');
 
 test.after(() => pool.end());
 const response = () => ({ statusCode: 200, set() { return this; }, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
-const request = () => ({ auditActor: { user_id: 4, name: 'Test Admin', role: 'admin' }, user: { user_id: 4, role: 'admin' }, ip: '127.0.0.1', body: {}, params: {} });
+const request = (role = 'admin') => ({
+  auditActor: { user_id: 4, name: role === 'staff' ? 'Test Staff' : 'Test Admin', role },
+  user: { user_id: 4, role }, ip: '127.0.0.1', body: {}, params: {},
+});
 
 test('migration preserves the original audit table and safely resumes without importing its contents', async () => {
   const calls = [];
@@ -92,6 +95,7 @@ test('Philippine date ranges are inclusive across UTC midnight; all filters and 
   for (const query of [
     { dateFrom: '2026-02-30' }, { dateTo: 'bad' }, { dateFrom: '2026-10-30', dateTo: '2026-10-29' },
     { actor: ['4'] }, { actor: 'a'.repeat(201) }, { action: 'unknown' }, { action: 'patient.viewed' }, { outcome: 'unknown' },
+    { actorRole: 'patient' }, { actorRole: ['admin', 'staff'] },
     { page: '0' }, { limit: '101' }, { dateFrom: '2026-01-01T00:00:00Z' },
   ]) assert.throws(() => filters(query), { status: 400 });
 });
@@ -113,6 +117,15 @@ test('audit listing has deterministic ordering, pagination, UTC serialization an
   assert.match(calls[1].sql, /ORDER BY entry\.created_at DESC, entry\.id DESC/);
   assert.match(calls[1].sql, /AS target_name/);
   assert.match(calls[1].sql, /AS created_at/);
+  for (const role of ['admin', 'staff']) {
+    const roleLogs = response();
+    await getAuditLogs({ query: { actorRole: role, actor: '4', action: 'queue.cancelled', page: '2' } }, roleLogs);
+    const [countQuery, pageQuery] = calls.slice(-2);
+    assert.match(countQuery.sql, /actor_role = \? AND action = \?/);
+    assert.match(pageQuery.sql, /actor_role = \? AND action = \?.*LIMIT \? OFFSET \?/);
+    assert.deepEqual(countQuery.values, ['%4%', '4', role, 'queue.cancelled']);
+    assert.deepEqual(pageQuery.values, ['%4%', '4', role, 'queue.cancelled', 20, 20]);
+  }
   t.mock.method(console, 'error', () => {});
   queryMock.mock.mockImplementation(async () => { throw new Error('secret connection string'); });
   const failed = response(); await getAuditLogs({ query: {} }, failed);
@@ -122,18 +135,21 @@ test('audit listing has deterministic ordering, pagination, UTC serialization an
 test('audit endpoint is read-only and only a current verified admin can access it', async t => {
   const route = router.stack.find(layer => layer.route?.path === '/audit-logs').route;
   assert.deepEqual(Object.keys(route.methods), ['get']);
-  t.mock.method(User, 'findById', async () => ({ user_id: 4, role: 'patient', is_active: 1, credential_version: 1 }));
+  let role = 'patient';
+  t.mock.method(User, 'findById', async () => ({ user_id: 4, role, is_active: 1, credential_version: 1 }));
   process.env.JWT_SECRET = 'audit-test-only';
   t.after(() => { delete process.env.JWT_SECRET; });
-  const req = { headers: { authorization: `Bearer ${jwt.sign({ user_id: 4, role: 'admin', purpose: 'session', credential_version: 1 }, process.env.JWT_SECRET)}` }, path: '/audit-logs', method: 'GET' };
-  const res = response();
-  for (const layer of route.stack) {
-    let next = false;
-    await layer.handle(req, res, () => { next = true; });
-    if (!next) break;
+  for (role of ['patient', 'staff']) {
+    const req = { headers: { authorization: `Bearer ${jwt.sign({ user_id: 4, role: 'admin', purpose: 'session', credential_version: 1 }, process.env.JWT_SECRET)}` }, path: '/audit-logs', method: 'GET' };
+    const res = response();
+    for (const layer of route.stack) {
+      let next = false;
+      await layer.handle(req, res, () => { next = true; });
+      if (!next) break;
+    }
+    assert.equal(res.statusCode, 403);
+    assert.equal(req.auditActor.role, role);
   }
-  assert.equal(res.statusCode, 403);
-  assert.equal(req.auditActor.role, 'patient');
   let passed = false;
   await authenticate({ headers: {} }, response(), () => { passed = true; });
   assert.equal(passed, false);
@@ -166,7 +182,15 @@ test('account status changes record the reason and before/after values and roll 
           assert.equal(values[8], 'Duplicate account');
           assert.deepEqual(JSON.parse(values[10]).changes.is_active, { from: 1, to: 0 });
           calls.push('audit'); if (fails) throw new Error('audit unavailable');
-        } else calls.push('update');
+        } else if (sql.includes('UPDATE users')) {
+          assert.match(sql, /credential_version = credential_version \+ 1/);
+          assert.match(sql, /temp_password_expires_at = NULL/);
+          calls.push('update');
+        } else if (sql.includes('UPDATE password_recoveries')) {
+          calls.push('revoke grants');
+        } else if (sql.includes('UPDATE sms_jobs')) {
+          calls.push('cancel texts');
+        }
         return [{}];
       },
     };
@@ -176,7 +200,7 @@ test('account status changes record the reason and before/after values and roll 
     const deactivate = fails ? admin.deactivatePatient : admin.deactivateStaff;
     await deactivate(req, res);
     assert.equal(res.statusCode, fails ? 500 : 200);
-    assert.deepEqual(calls, ['begin', 'update', 'audit', fails ? 'rollback' : 'commit', 'release']);
+    assert.deepEqual(calls, ['begin', 'update', 'revoke grants', 'cancel texts', 'audit', fails ? 'rollback' : 'commit', 'release']);
     connectionMock.mock.restore(); errorMock.mock.restore();
   }
 });
@@ -195,20 +219,24 @@ test('SMS threshold changes record the locked previous value and rollback on aud
   assert.equal(res.statusCode, 500); assert.deepEqual(calls, ['update', 'rollback']);
 });
 
-test('patient hooks preserve source audit and only emit merge, credential issuance and duplicate override events', async t => {
+test('patient hooks preserve source audit and attribute major staff events', async t => {
   const events = [];
   const sourceActions = [];
   const conn = { async query(sql, values) {
     if (sql.includes('INSERT INTO patient_audit')) sourceActions.push(values[2]);
-    if (sql.includes('INSERT INTO audit_logs')) events.push({ action: values[4], targetId: values[6], details: JSON.parse(values[10]) });
+    if (sql.includes('INSERT INTO audit_logs')) {
+      assert.deepEqual(values.slice(0, 3), [4, 'Test Staff', 'staff']);
+      events.push({ action: values[4], targetId: values[6], details: JSON.parse(values[10]) });
+    }
     return [{}];
   } };
-  const req = request();
+  const req = request('staff');
   await Patient.audit(1, 4, 'merged_into', { target_patient_id: 2 }, conn, req);
   await Patient.audit(2, 4, 'merged_from', { source_patient_id: 1 }, conn, req);
   await Patient.audit(1, 4, 'account_recovery', { user_id: 8, verification: { date_of_birth: true }, temp_password: 'secret' }, conn, req);
   await Patient.audit(3, 4, 'create', { duplicate_override: true, possible_patient_ids: [1] }, conn, req);
   for (const action of ['view', 'create', 'update', 'queue']) await Patient.audit(1, 4, action, null, conn, req);
+  await audit.write(req, { action: 'sms.threshold_changed' }, conn);
   assert.deepEqual(events.map(event => event.action), ['patient.merged', 'password.issued', 'patient.duplicate_override']);
   assert.deepEqual(events[1], { action: 'password.issued', targetId: 8, details: { patient_id: 1, method: 'in_person' } });
   assert.deepEqual(sourceActions, ['merged_into', 'merged_from', 'account_recovery', 'create', 'view', 'create', 'update', 'queue']);
@@ -218,21 +246,28 @@ test('patient hooks preserve source audit and only emit merge, credential issuan
   await Patient.audit(1, 4, 'view', null, pool, req);
 });
 
-test('queue changes and related appointments still share the same transaction without an audit write', async t => {
+test('routine queue updates and individual holds do not emit unified audit events', async t => {
   const statements = [];
   const conn = { async query(sql, values) {
     statements.push({ sql, values });
+    if (sql.startsWith('SELECT DATE_ADD')) return [[{ deadline: new Date('2026-10-30T08:00:00Z') }]];
     return [[]];
   } };
-  t.mock.method(Queue, '_withTicket', async (id, change) => change({ id, status: 'waiting', patient_id: 5, appointment_id: 22 }, conn));
+  t.mock.method(Queue, '_withTicket', async (id, change) => change({
+    id, category: 'dental', status: 'called', patient_id: 5, appointment_id: 22,
+  }, conn));
   t.mock.method(Queue, '_fetchById', async () => ({ id: 7, status: 'cancelled' }));
   await Queue.updateStatus(7, 'cancelled', 'Wait time too long');
   assert.deepEqual(statements.map(row => row.values), [
     ['cancelled', 'Wait time too long', 7],
     ['cancelled', 22, 5],
   ]);
-  assert.match(statements[0].sql, /^UPDATE queues/);
   assert.match(statements[1].sql, /^UPDATE appointments[\s\S]*WHERE appointment_id = \? AND patient_id = \? AND status IN \('pending', 'confirmed'\)/);
+  await Queue.updateStatus(7, 'serving', null, { auditRequest: request('staff') });
+  await Queue.hold(7);
+  assert.match(statements[0].sql, /^UPDATE queues/);
+  assert.ok(statements.some(row => row.sql.includes("SET status = 'held'")));
+  assert.ok(statements.every(row => !row.sql.includes('audit_logs')));
 });
 
 test('appointment and self-service password changes do not depend on audit writes', async t => {
@@ -283,11 +318,22 @@ test('rejected/denied requests use trusted actors, include a safe outcome, and d
   await finish({ ...request(), path: '/admin/staff/9/deactivate', method: 'PATCH' }, 400);
   await finish({ auditActor: { user_id: 9, role: 'patient' }, path: '/doctor/7/records', method: 'GET' }, 403);
   await finish({ ...request(), path: '/admin/staff', method: 'POST' }, 201);
-  assert.deepEqual(events.map(event => event.action), ['access.denied', 'access.denied', 'account.deactivated', 'access.denied']);
+  await finish({ ...request('staff'), path: '/patients/7/merge', method: 'POST' }, 409);
+  await finish({ ...request('staff'), path: '/patients/7/account-recovery', method: 'POST' }, 403);
+  await finish({ ...request('staff'), path: '/QUEUE/7/STATUS/', method: 'PATCH', body: { status: 'cancelled', reason: 'private' } }, 409);
+  await finish({ ...request('staff'), path: '/queue/hold-remaining', method: 'POST' }, 500);
+  await finish({ ...request('staff'), path: '/queue/hold-remaining', method: 'POST' }, 200);
+  await finish({ ...request('staff'), path: '/queue/7/hold', method: 'POST' }, 409);
+  await finish({ ...request('staff'), path: '/queue/7/status', method: 'PATCH', body: { status: 'done' } }, 409);
+  assert.deepEqual(events.map(event => event.action), [
+    'access.denied', 'access.denied', 'account.deactivated', 'access.denied',
+    'patient.merged', 'access.denied', 'queue.cancelled', 'queue.bulk_held',
+  ]);
   assert.equal(events[0].force, true);
   assert.equal(events[1].target_type, 'queue'); assert.equal(events[1].target_id, '7');
   assert.equal(events[2].outcome, 'failed');
   assert.equal(events[3].force, true); assert.equal(events[3].target_type, 'doctor');
+  assert.deepEqual(events[6].details, { http_status: 409 });
 });
 
 test('development identities are explicit and cannot be mistaken for named production admins', async t => {
@@ -304,7 +350,10 @@ test('account creation and password issuance or replacement audit on the mutatio
   const conn = {
     async beginTransaction() { committed = false; }, async commit() { committed = true; }, async rollback() {}, release() {},
     async query(sql, values) {
-      if (sql.includes('INSERT INTO audit_logs')) { assert.equal(committed, false); entries.push({ action: values[4], details: JSON.parse(values[10]) }); }
+      if (sql.includes('INSERT INTO audit_logs')) {
+        assert.equal(committed, false);
+        entries.push({ actorRole: values[2], action: values[4], details: JSON.parse(values[10]) });
+      }
       if (sql.includes('SELECT * FROM users')) return [[{ user_id: 9, is_active: 1, must_change_password: 1, phone: '09123456789', credential_version: 1 }]];
       if (sql.includes('SELECT patient_id FROM patients')) return [[{ patient_id: 42 }]];
       return [{ insertId: sql.includes('INSERT INTO users') ? 9 : sql.includes('INSERT INTO patients') ? 42 : 1 }];
@@ -321,10 +370,11 @@ test('account creation and password issuance or replacement audit on the mutatio
   const key = process.env.SMS_ENCRYPTION_KEY; process.env.SMS_ENCRYPTION_KEY = 'ab'.repeat(32);
   t.after(() => { if (key === undefined) delete process.env.SMS_ENCRYPTION_KEY; else process.env.SMS_ENCRYPTION_KEY = key; });
   req.body = { first_name: 'Private', last_name: 'Patient', phone: '09123456789', address: 'Poblacion', date_of_birth: '1990-01-01', gender: 'Female' };
-  res = response(); await admin.createPatient(req, res); assert.equal(res.statusCode, 201);
+  res = response(); await admin.createPatient({ ...request('staff'), body: req.body }, res); assert.equal(res.statusCode, 201);
   req.body = { identity_confirmed: true };
   res = response(); await sms.replacePassword(req, res); assert.equal(res.statusCode, 201);
   assert.deepEqual(entries.map(row => row.action), ['account.created', 'account.created', 'password.issued', 'password.replaced']);
+  assert.deepEqual(entries.map(row => row.actorRole), ['admin', 'staff', 'staff', 'admin']);
   assert.doesNotMatch(JSON.stringify(entries), /PrivateName|PrivatePassword|1990-01-01|Poblacion|09123456789/);
 });
 

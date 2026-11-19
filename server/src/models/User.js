@@ -30,17 +30,17 @@ const User = {
     const [rows] = await pool.query(
       `SELECT u.user_id, u.phone, u.role, u.is_active, u.created_at, u.must_change_password, u.credential_version,
           CONCAT_WS(' ', s.first_name, NULLIF(s.middle_name, ''), s.last_name, NULLIF(s.suffix, '')) AS audit_name
-         FROM users u LEFT JOIN staff s ON s.user_id = u.user_id AND u.role = 'admin' WHERE u.user_id = ?`,
+         FROM users u LEFT JOIN staff s ON s.user_id = u.user_id AND u.role IN ('admin', 'staff') WHERE u.user_id = ?`,
       [user_id],
     );
     return rows[0] || null;
   },
 
-  findByIdWithHash: async (user_id) => {
-    const [rows] = await pool.query(
+  findByIdWithHash: async (user_id, connection = pool) => {
+    const [rows] = await connection.query(
       `SELECT *, GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(),
          DATE_ADD(password_changed_at, INTERVAL 5 MINUTE))) AS password_retry_seconds
-       FROM users WHERE user_id = ?`,
+       FROM users WHERE user_id = ?${connection === pool ? "" : " FOR UPDATE"}`,
       [user_id],
     );
     return rows[0] || null;

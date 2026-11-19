@@ -49,7 +49,7 @@ for (const width of [1440, 375]) {
     await expect(dialog.locator("dl > div").filter({ hasText: "Date added" }).locator("dd")).toContainText("12:30 AM");
     const rows = dialog.locator("tbody tr");
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator("td")).toHaveText(["Oct 18, 2026", "Available", "10", "Not set"]);
+    await expect(rows.nth(0).locator("td")).toHaveText(["Oct 18, 2026", "Available", "10", "0"]);
     await expect(rows.nth(1).locator("td")).toHaveText(["Oct 17, 2026", "Unavailable", "0", "5"]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     const bounds = await dialog.boundingBox();

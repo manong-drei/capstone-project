@@ -61,8 +61,10 @@ test('doctor warns about walk-in capacity only after daily limits are saved', as
     if (route.request().method() !== 'PUT') return route.fallback();
     await route.fulfill({ status: 500, json: { message: 'Save failed' } });
   });
-  page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: 'Save daily limits', exact: true }).click();
+  const error = page.getByRole('alertdialog', { name: 'Could not save daily limits' });
+  await expect(error).toContainText('Save failed');
+  await error.getByRole('button', { name: 'OK' }).click();
   await expect(page.getByRole('button', { name: 'Save daily limits', exact: true })).toBeEnabled();
   await expect(page.getByText(/Walk-in slots almost full/)).toHaveCount(0);
   expect(state.settings.walk_in_limit).toBe(30);

@@ -287,8 +287,8 @@ test("all eleven measures keep their original field positions and unsaved naviga
   }
   await selectMeasure(page, 10);
   for (let field = 0; field < 4; field++) await countInputs(page).nth(field).fill(String(field));
-  page.once("dialog", dialog => dialog.dismiss());
   await page.getByRole("button", { name: "Back to analytics", exact: true }).click();
+  await page.getByRole("dialog", { name: "Discard unsaved changes?" }).getByRole("button", { name: "Keep editing" }).click();
   await expect(page).toHaveURL(/\/doctor\/reports\/daily/);
   await expect(countInputs(page).nth(3)).toHaveValue("3");
   await page.getByRole("button", { name: "Save entries", exact: true }).click();

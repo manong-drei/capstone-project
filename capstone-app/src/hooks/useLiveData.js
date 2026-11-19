@@ -1,14 +1,22 @@
-import { useEffect } from 'react';
+import { useContext, useEffect, useRef } from 'react';
+import { AuthContext } from './useAuth';
 import { subscribeToDataChanges } from '@/services/dataSync';
 
 // Supply a useCallback loader so renders do not restart its request lifecycle.
 export default function useLiveData(load, enabled = true, refreshKey = 0) {
+  const expired = Boolean(useContext(AuthContext)?.expired);
+  const resuming = useRef(false);
   useEffect(() => {
+    if (expired) {
+      resuming.current = true;
+      return;
+    }
     if (!enabled) return;
     const controller = new AbortController();
     let running = false;
     let pending = false;
-    let background = false;
+    let background = resuming.current;
+    resuming.current = false;
     const refresh = async (reason) => {
       if (controller.signal.aborted) return;
       if (running) {
@@ -32,5 +40,5 @@ export default function useLiveData(load, enabled = true, refreshKey = 0) {
     const unsubscribe = subscribeToDataChanges(refresh);
     void refresh('initial');
     return () => { controller.abort(); unsubscribe(); };
-  }, [load, enabled, refreshKey]);
+  }, [load, enabled, refreshKey, expired]);
 }

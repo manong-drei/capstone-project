@@ -37,24 +37,40 @@ const formatServices = (appt) => {
   } catch {
     /* fall through */
   }
-  return appt?.cancellation_reason || (appt?.reason === "Same-day queue registration" ? "—" : appt?.reason) || "—";
+  return (
+    appt?.cancellation_reason ||
+    (appt?.reason === "Same-day queue registration" ? "—" : appt?.reason) ||
+    "—"
+  );
 };
 
 function HistoryPatient({ visit }) {
   const name = visit.patient_full_name || "—";
   return visit.patient_id ? (
-    <Link to={generatePath(ROUTES.ADMIN_PATIENT_PROFILE, { id: String(visit.patient_id) })} className="font-semibold text-blue-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600">
+    <Link
+      to={generatePath(ROUTES.ADMIN_PATIENT_PROFILE, {
+        id: String(visit.patient_id),
+      })}
+      className="font-semibold text-blue-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600"
+    >
       {name}
     </Link>
-  ) : name;
+  ) : (
+    name
+  );
 }
 
 function TicketType({ visit }) {
   const walkIn = visit.visit_type === "walk_in";
   return (
-    <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${walkIn ? "bg-orange-50 text-orange-800" : "bg-blue-50 text-blue-800"}`}>
-      {walkIn ? "Walk-in" : "Appointment"}{visit.queue_number ? ` · ${visit.queue_number}` : ""}
-      {visit.original_queue_number && visit.original_queue_number !== visit.queue_number && ` · Originally ${visit.original_queue_number}`}
+    <span
+      className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${walkIn ? "bg-orange-50 text-orange-800" : "bg-blue-50 text-blue-800"}`}
+    >
+      {walkIn ? "Walk-in" : "Appointment"}
+      {visit.queue_number ? ` · ${visit.queue_number}` : ""}
+      {visit.original_queue_number &&
+        visit.original_queue_number !== visit.queue_number &&
+        ` · Originally ${visit.original_queue_number}`}
     </span>
   );
 }
@@ -62,25 +78,49 @@ function TicketType({ visit }) {
 export default function AdminPatientsHistoryTab() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = Math.max(1, parseInt(searchParams.get("page"), 10) || 1);
-  const setCurrentPage = useCallback((page, options) => setSearchParams((current) => {
-    if (page === 1) current.delete("page"); else current.set("page", page);
-    return current;
-  }, options), [setSearchParams]);
-  const [result, setResult] = useState({ data: [], summary: {}, pagination: {} });
+  const setCurrentPage = useCallback(
+    (page, options) =>
+      setSearchParams((current) => {
+        if (page === 1) current.delete("page");
+        else current.set("page", page);
+        return current;
+      }, options),
+    [setSearchParams],
+  );
+  const [result, setResult] = useState({
+    data: [],
+    summary: {},
+    pagination: {},
+  });
   const [apptLoading, setApptLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const pageSize = 10;
-  useLiveData(useCallback(async (signal) => {
-    try {
-      const response = await getAllAppointments({ page: currentPage, limit: pageSize, includeWalkIns: true }, signal);
-      if (!signal.aborted) {
-        setResult(response); setError('');
-        if (response.pagination.page !== currentPage) setCurrentPage(response.pagination.page, { replace: true });
-      }
-    } catch (err) { if (!signal.aborted) setError(err.message); }
-    finally { if (!signal.aborted) setApptLoading(false); }
-  }, [currentPage, setCurrentPage]), true, retry);
+  useLiveData(
+    useCallback(
+      async (signal) => {
+        try {
+          const response = await getAllAppointments(
+            { page: currentPage, limit: pageSize, includeWalkIns: true },
+            signal,
+          );
+          if (!signal.aborted) {
+            setResult(response);
+            setError("");
+            if (response.pagination.page !== currentPage)
+              setCurrentPage(response.pagination.page, { replace: true });
+          }
+        } catch (err) {
+          if (!signal.aborted) setError(err.message);
+        } finally {
+          if (!signal.aborted) setApptLoading(false);
+        }
+      },
+      [currentPage, setCurrentPage],
+    ),
+    true,
+    retry,
+  );
 
   const appointments = result.data;
   const totalPages = result.pagination.totalPages ?? 1;
@@ -133,7 +173,8 @@ export default function AdminPatientsHistoryTab() {
             lineHeight: 1.6,
           }}
         >
-          Review appointments and walk-in visits, including services, doctor, and status.
+          Review appointments and walk-in visits, including services, doctor,
+          and status.
         </p>
       </div>
 
@@ -213,11 +254,16 @@ export default function AdminPatientsHistoryTab() {
         {error ? (
           <div role="alert">
             <p>{error}</p>
-            <button type="button" onClick={() => {
-              setApptLoading(true);
-              setError("");
-              setRetry((value) => value + 1);
-            }}>Retry</button>
+            <button
+              type="button"
+              onClick={() => {
+                setApptLoading(true);
+                setError("");
+                setRetry((value) => value + 1);
+              }}
+            >
+              Retry
+            </button>
           </div>
         ) : apptLoading ? (
           <p style={{ margin: 0, color: "#94a3b8", fontSize: "13px" }}>
@@ -258,7 +304,11 @@ export default function AdminPatientsHistoryTab() {
                 <tbody>
                   {appointments.map((appt) => (
                     <tr
-                      key={appt.queue_id ? `queue-${appt.queue_id}` : `appointment-${appt.appointment_id}`}
+                      key={
+                        appt.queue_id
+                          ? `queue-${appt.queue_id}`
+                          : `appointment-${appt.appointment_id}`
+                      }
                       style={{ borderBottom: "1px solid #f1f5f9" }}
                     >
                       <td
@@ -292,7 +342,13 @@ export default function AdminPatientsHistoryTab() {
                         {formatServices(appt)}
                       </td>
                       <td style={{ padding: "12px" }}>
-                        <StatusBadge status={['held', 'expired'].includes(appt.queue_status) ? appt.queue_status : appt.status} />
+                        <StatusBadge
+                          status={
+                            ["held", "expired"].includes(appt.queue_status)
+                              ? appt.queue_status
+                              : appt.status
+                          }
+                        />
                       </td>
                     </tr>
                   ))}
@@ -301,12 +357,14 @@ export default function AdminPatientsHistoryTab() {
             </div>
 
             {/* Mobile cards */}
-            <div
-              className="ad-show-on-mobile"
-            >
+            <div className="ad-show-on-mobile">
               {appointments.map((appt) => (
                 <div
-                  key={appt.queue_id ? `queue-${appt.queue_id}` : `appointment-${appt.appointment_id}`}
+                  key={
+                    appt.queue_id
+                      ? `queue-${appt.queue_id}`
+                      : `appointment-${appt.appointment_id}`
+                  }
                   style={{
                     border: "1px solid #e2e8f0",
                     borderRadius: "12px",
@@ -339,11 +397,19 @@ export default function AdminPatientsHistoryTab() {
                     </span>
                   </div>
                   <TicketType visit={appt} />
-                  <span className="text-xs text-slate-600">Doctor: {formatDoctorName(appt)}</span>
+                  <span className="text-xs text-slate-600">
+                    Doctor: {formatDoctorName(appt)}
+                  </span>
                   <span style={{ fontSize: "12px", color: "#475569" }}>
                     {formatServices(appt)}
                   </span>
-                  <StatusBadge status={['held', 'expired'].includes(appt.queue_status) ? appt.queue_status : appt.status} />
+                  <StatusBadge
+                    status={
+                      ["held", "expired"].includes(appt.queue_status)
+                        ? appt.queue_status
+                        : appt.status
+                    }
+                  />
                 </div>
               ))}
             </div>

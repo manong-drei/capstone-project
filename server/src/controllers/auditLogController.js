@@ -11,7 +11,7 @@ function filters(query) {
   const conditions = [];
   const values = [];
   const invalid = () => { throw Object.assign(new Error('Invalid audit log filters.'), { status: 400 }); };
-  for (const name of ['dateFrom', 'dateTo', 'actor', 'action', 'outcome']) {
+  for (const name of ['dateFrom', 'dateTo', 'actor', 'actorRole', 'action', 'outcome']) {
     if (query[name] !== undefined && (typeof query[name] !== 'string' || query[name].length > 200)) invalid();
   }
   for (const name of ['dateFrom', 'dateTo']) {
@@ -30,10 +30,14 @@ function filters(query) {
     conditions.push("(actor_name LIKE ? ESCAPE '!' OR CAST(actor_user_id AS CHAR) = ?)");
     values.push(`%${query.actor.trim().replace(/[!%_]/g, '!$&')}%`, query.actor.trim());
   }
-  for (const [name, allowed] of [['action', ACTIONS], ['outcome', OUTCOMES]]) {
+  for (const [name, column, allowed] of [
+    ['actorRole', 'actor_role', ['admin', 'staff']],
+    ['action', 'action', ACTIONS],
+    ['outcome', 'outcome', OUTCOMES],
+  ]) {
     if (!query[name]) continue;
     if (!allowed.includes(query[name])) invalid();
-    conditions.push(`${name} = ?`); values.push(query[name]);
+    conditions.push(`${column} = ?`); values.push(query[name]);
   }
   if (!query.action) {
     conditions.push('action IN (?)');

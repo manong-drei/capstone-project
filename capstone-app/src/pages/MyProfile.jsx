@@ -1,4 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
+import useUnsavedChanges from "@/hooks/useUnsavedChanges";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, LockKeyhole, Pencil } from "lucide-react";
@@ -91,6 +92,7 @@ export default function MyProfile() {
     : authService.updateProfile;
   const [profile, setProfile] = useState(null);
   const [draft, setDraft] = useState(null);
+  const [base, setBase] = useState(null);
   const [retry, setRetry] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -104,7 +106,7 @@ export default function MyProfile() {
       const { data } = await loadProfile({ signal });
       if (!signal.aborted) { setProfile(data); setLoadError(''); }
     } catch (error) { if (!signal.aborted) setLoadError(error.message); }
-  }, [loadProfile]), draft === null && !saving, user.user_id + ":" + retry);
+  }, [loadProfile]), !saving, user.user_id + ":" + retry);
 
   useEffect(() => {
     if (saved) editButtonRef.current?.focus();
@@ -126,10 +128,11 @@ export default function MyProfile() {
   const isEditing = draft !== null;
   const changes = Object.fromEntries(
     Object.entries(draft ?? {}).filter(
-      ([key, value]) => value !== String(values[key] ?? ""),
+      ([key, value]) => value !== base?.[key],
     ),
   );
   const hasChanges = Object.keys(changes).length > 0;
+  const confirmDiscard = useUnsavedChanges(hasChanges, saving);
   const priorityEligible = isPatient && hasActivePatientPriority(profile);
   const accountDetails = [
     ...(isPatient
@@ -160,6 +163,7 @@ export default function MyProfile() {
       const { data } = await saveProfile(changes);
       setProfile(data);
       setDraft(null);
+      setBase(null);
       setSaved(true);
     } catch (error) {
       setSaveError(error.message);
@@ -277,8 +281,12 @@ export default function MyProfile() {
                     aria-expanded={isEditing}
                     aria-controls="profile-personal-information"
                     disabled={saving}
-                    onClick={() => {
-                      setDraft(isEditing ? null : Object.fromEntries(fields.map(({ key }) => [key, String(values[key] ?? "")])));
+                    onClick={async () => {
+                      if (!isEditing || await confirmDiscard()) {
+                        const next = isEditing ? null : Object.fromEntries(fields.map(({ key }) => [key, String(values[key] ?? "")]));
+                        setBase(next);
+                        setDraft(next);
+                      }
                       setSaveError("");
                       setSaved(false);
                     }}

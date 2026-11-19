@@ -26,6 +26,8 @@ The admin **Audit Logs** tab shows completed and failed SMS recoveries. Each rec
 
 The in-person flow remains available for patients who cannot receive SMS or access their registered number. Receptionists use the existing `staff` role; admins have the same recovery access.
 
+If the patient lost their registered phone, select **Change registered number** in the recovery dialog. Verify the patient and confirm they have the new phone in person. The patient signs in with the number shown alongside the new temporary password. Older login sessions, recovery grants, and temporary passwords are revoked. An already submitted SMS may still arrive.
+
 ## Clinic workflow
 
 1. Patients who cannot complete SMS recovery visit clinic reception.
@@ -34,7 +36,7 @@ The in-person flow remains available for patients who cannot receive SMS or acce
 4. Stop if anything differs or identity remains uncertain. Personal details can be known by others; these confirmations record the receptionist's judgment, not automated proof of identity. Missing identity details, archived/unlinked records, and inactive accounts must be resolved separately by an admin.
 5. Confirm issuance. This immediately replaces the old password and invalidates all existing sessions, including any password-setup session. A stale profile is rejected; refresh and verify again.
 6. Hand the temporary password directly to the verified patient. It appears once, remains only in browser component memory, and disappears when closed, expired, or left. Refreshing cannot retrieve it. If the issuance response is lost, refresh the profile, verify identity again, and issue a replacement.
-7. The patient logs in with their unchanged registered phone number and the temporary password within 30 minutes. Login consumes the password once and grants 15 minutes to choose a new password before accessing the dashboard. A lost or expired setup session requires another verified issuance.
+7. The patient logs in with the registered phone number shown in the dialog and the temporary password within 30 minutes. Login consumes the password once and grants 15 minutes to choose a new password before accessing the dashboard. A lost or expired setup session requires another verified issuance.
 
 ## API contract
 
@@ -72,7 +74,15 @@ One transaction locks the patient and account, checks version and eligibility, g
 
 The same transaction writes `patient_audit.action = 'account_recovery'` with actor/patient IDs and details containing the account ID, confirmed checklist, new credential version, and expiry. The audit contains no password or duplicated identity details. Any failure before commit rolls back the credential, SMS cancellation, and audit together. Passwords appear only in the successful authorized issuance response; keep that response out of application/proxy logs and use HTTPS in deployment.
 
+The admin **Audit Logs** tab shows in-person password issuance by staff and administrators. If recovery also changes the registered mobile number, a second entry records the change with the new number masked to its last four digits.
+
 The existing account login lockout and IP limiter, one-use redemption, setup-only JWT access, and permanent-password validation remain in force. Account creation and admin SMS replacement retain their current behavior and 72-hour SMS expiry.
+
+## Workforce recovery
+
+An administrator can issue a 30-minute single-use password from **Staff Accounts** after confirming the workforce member’s identity in person and entering their own sign-in password. Keep a second active administrator available for recovery.
+
+If no administrator can sign in, an authorized deployment operator can run `npm run recover:admin -- <user-id>` from the server directory in a private interactive terminal connected to the intended database. Confirm the target by user ID and the displayed phone suffix, then give the one-time credential directly to the verified administrator. The command records the operator’s OS account and the target user ID in Admin Audit Logs.
 
 ## Verification
 

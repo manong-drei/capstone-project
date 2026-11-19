@@ -1,18 +1,21 @@
 import useLiveData from "@/hooks/useLiveData";
 import { useCallback, useState } from "react";
-import { RefreshCw, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import api from "@/services/api";
 
 const ACTIONS = {
   "account.created": "Account created",
   "account.deactivated": "Account deactivated",
   "account.reactivated": "Account reactivated",
+  "account.phone_changed": "Registered number changed",
   "password.issued": "Temporary password issued",
   "password.replaced": "Temporary password replaced",
   "password.recovery_completed": "Recovery completed — password changed",
   "password.recovery_failed": "Recovery failed",
   "patient.merged": "Patient records merged",
   "patient.duplicate_override": "Duplicate warning overridden",
+  "queue.cancelled": "Queue ticket cancelled",
+  "queue.bulk_held": "Remaining queue tickets held",
   "sms.threshold_changed": "SMS threshold changed",
   "auth.login": "Admin sign-in",
   "access.denied": "Access denied",
@@ -21,49 +24,107 @@ const EMPTY_FILTERS = {
   dateFrom: "",
   dateTo: "",
   actor: "",
+  actorRole: "",
   action: "",
   outcome: "",
 };
 const clinicDate = new Intl.DateTimeFormat("en-US", {
-  timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric",
+  timeZone: "Asia/Manila",
+  month: "short",
+  day: "numeric",
+  year: "numeric",
 });
 const clinicTime = new Intl.DateTimeFormat("en-US", {
-  timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", hour12: true,
+  timeZone: "Asia/Manila",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
 });
-const roles = { admin: "Administrator", doctor: "Doctor", staff: "Staff", patient: "Patient" };
+const roles = {
+  admin: "Administrator",
+  doctor: "Doctor",
+  staff: "Staff",
+  patient: "Patient",
+};
 const targetTypes = {
-  user: "account", patient: "patient record", doctor: "doctor record", admin: "admin area",
-  sms_settings: "SMS settings", queue: "queue ticket", appointment: "appointment", patient_history: "patient history",
+  user: "account",
+  patient: "patient record",
+  doctor: "doctor record",
+  admin: "admin area",
+  sms_settings: "SMS settings",
+  queue: "queue ticket",
+  appointment: "appointment",
+  patient_history: "patient history",
 };
 const recoveryReasons = {
   incorrect_code: "An incorrect verification code was entered",
   attempts_exhausted: "Too many incorrect verification codes were entered",
   delivery_failed: "The verification text could not be delivered",
 };
-const accountStatus = { 1: "Active", 0: "Deactivated", true: "Active", false: "Deactivated" };
+const accountStatus = {
+  1: "Active",
+  0: "Deactivated",
+  true: "Active",
+  false: "Deactivated",
+};
 const inputClass =
   "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-2 focus:outline-blue-600";
 const buttonClass =
   "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
 
 function eventSummary(event, details) {
-  const actor = event.actor_name && !/^User #\d+$/.test(event.actor_name)
-    ? event.actor_name
-    : roles[event.actor_role] || "An unknown actor";
+  const actor =
+    event.actor_name && !/^User #\d+$/.test(event.actor_name)
+      ? event.actor_name
+      : roles[event.actor_role] || "An unknown actor";
   const role = roles[details.assigned_role || event.target_role];
   const name = details.patient_name || event.target_name;
   const target = name
     ? `${name}${role ? ` (${role})` : ""}`
     : `the ${role && event.target_type === "user" ? `${role.toLowerCase()} account` : targetTypes[event.target_type] || "requested resource"}`;
   const succeeded = event.outcome === "success";
+  const heldCount = details.held_count;
   const activity = {
-    "account.created": ["created an account for", "create an account for", name ? target : role ? `a ${role.toLowerCase()}` : "a new user"],
+    "account.created": [
+      "created an account for",
+      "create an account for",
+      name ? target : role ? `a ${role.toLowerCase()}` : "a new user",
+    ],
     "account.deactivated": ["deactivated", "deactivate", target],
     "account.reactivated": ["reactivated", "reactivate", target],
-    "password.issued": ["issued a temporary password for", "issue a temporary password for", target],
-    "password.replaced": ["replaced the temporary password for", "replace the temporary password for", target],
-    "patient.merged": ["merged the record for", "merge the record for", name ? name : "the patient"],
-    "patient.duplicate_override": ["overrode a duplicate warning for", "override a duplicate warning for", name ? name : "the patient"],
+    "account.phone_changed": ["changed the registered mobile number for", "change the registered mobile number for", target],
+    "password.issued": [
+      "issued a temporary password for",
+      "issue a temporary password for",
+      target,
+    ],
+    "password.replaced": [
+      "replaced the temporary password for",
+      "replace the temporary password for",
+      target,
+    ],
+    "patient.merged": [
+      "merged the record for",
+      "merge the record for",
+      name ? name : "the patient",
+    ],
+    "patient.duplicate_override": [
+      "overrode a duplicate warning for",
+      "override a duplicate warning for",
+      name ? name : "the patient",
+    ],
+    "queue.cancelled": [
+      "cancelled",
+      "cancel",
+      event.target_id ? `queue ticket #${event.target_id}` : "the queue ticket",
+    ],
+    "queue.bulk_held": [
+      "held",
+      "hold",
+      heldCount
+        ? `${heldCount} dental queue ticket${heldCount === 1 ? "" : "s"}`
+        : "the remaining dental queue tickets",
+    ],
     "sms.threshold_changed": ["changed", "change", "the SMS queue threshold"],
   }[event.action];
   if (activity) {
@@ -76,7 +137,9 @@ function eventSummary(event, details) {
     case "password.recovery_failed":
       return `An SMS password recovery attempt for ${name || "the patient"} failed.`;
     case "auth.login":
-      return succeeded ? `${actor} signed in to the admin dashboard.` : `A sign-in attempt for ${target} failed.`;
+      return succeeded
+        ? `${actor} signed in to the admin dashboard.`
+        : `A sign-in attempt for ${target} failed.`;
     case "access.denied":
       return `${actor} was denied access to ${target}.`;
     default:
@@ -87,23 +150,49 @@ function eventSummary(event, details) {
 function EventDetails({ event, details }) {
   const status = details.changes?.is_active;
   const threshold = details.changes?.threshold;
+  const isMerge = event.action === "patient.merged";
+  const sourcePatient = details.source_patient_id || (isMerge && event.target_id);
   const fields = [
-    ["Account status", status && `${accountStatus[status.from] ?? "Unavailable"} → ${accountStatus[status.to] ?? "Unavailable"}`],
-    ["SMS queue threshold", threshold && `${threshold.from ?? "Unavailable"} → ${threshold.to ?? "Unavailable"}`],
-    ["Credential delivery", { sms: "SMS", in_person: "In person" }[details.method]],
+    [
+      "Account status",
+      status &&
+        `${accountStatus[status.from] ?? "Unavailable"} → ${accountStatus[status.to] ?? "Unavailable"}`,
+    ],
+    [
+      "SMS queue threshold",
+      threshold &&
+        `${threshold.from ?? "Unavailable"} → ${threshold.to ?? "Unavailable"}`,
+    ],
+    [
+      "Credential delivery",
+      { sms: "SMS", in_person: "In person", deployment_operator: "Deployment operator" }[details.method],
+    ],
     ["Masked phone", details.phone],
-    ["Patient record", details.patient_id && `#${details.patient_id}`],
-    ["Merged from patient", details.source_patient_id && `#${details.source_patient_id}`],
-    ["Merged into patient", details.target_patient_id && `#${details.target_patient_id}`],
-    ["Possible duplicate records", details.possible_patient_ids?.map((id) => `#${id}`).join(", ")],
+    ["Patient record", !isMerge && details.patient_id ? `#${details.patient_id}` : null],
+    [
+      "Merged from patient",
+      sourcePatient ? `#${sourcePatient}` : null,
+    ],
+    [
+      "Merged into patient",
+      details.target_patient_id && `#${details.target_patient_id}`,
+    ],
+    [
+      "Possible duplicate records",
+      details.possible_patient_ids?.map((id) => `#${id}`).join(", "),
+    ],
     ["Recovery reference", details.recovery_id],
     ["HTTP response", details.http_status],
-    ["Recorded at (UTC)", <time dateTime={event.created_at}>{event.created_at}</time>],
+    [
+      "Recorded at (UTC)",
+      <time dateTime={event.created_at}>{event.created_at}</time>,
+    ],
   ];
   const references = [
     `Event #${event.id}`,
     event.actor_user_id && `Actor #${event.actor_user_id}`,
-    event.target_id && `Target ${event.target_type === "user" ? "user" : targetTypes[event.target_type] || "record"} #${event.target_id}`,
+    event.target_id &&
+      `Target ${event.target_type === "user" ? "user" : targetTypes[event.target_type] || "record"} #${event.target_id}`,
   ].filter(Boolean);
   return (
     <details className="mt-3 border-t border-slate-100 pt-3 text-sm">
@@ -111,12 +200,17 @@ function EventDetails({ event, details }) {
         View details
       </summary>
       <dl className="mt-3 space-y-2 text-xs text-slate-600">
-        {fields.filter(([, value]) => value != null && value !== "").map(([label, value]) => (
-          <div key={label} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="font-semibold">{label}</dt>
-            <dd className="min-w-0 wrap-anywhere">{value}</dd>
-          </div>
-        ))}
+        {fields
+          .filter(([, value]) => value != null && value !== "")
+          .map(([label, value]) => (
+            <div
+              key={label}
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1"
+            >
+              <dt className="font-semibold">{label}</dt>
+              <dd className="min-w-0 wrap-anywhere">{value}</dd>
+            </div>
+          ))}
       </dl>
       <p className="mt-3 text-xs text-slate-500">{references.join(" · ")}</p>
     </details>
@@ -195,24 +289,11 @@ export default function AdminAuditLogsTab() {
               Audit Logs
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Review administrator activity and patient account recovery.
-              Event summaries use Philippine Standard Time (UTC+8).
+              Review administrator and staff activity and patient account recovery.
+              Times use Philippine Standard Time (UTC+8).
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          className={`${buttonClass} inline-flex items-center gap-2`}
-          onClick={reload}
-          disabled={loading}
-          aria-label="Refresh audit logs"
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-            aria-hidden="true"
-          />
-          Refresh
-        </button>
       </div>
       <form
         onSubmit={apply}
@@ -235,7 +316,7 @@ export default function AdminAuditLogsTab() {
             </label>
           ))}
           <label className="text-xs font-semibold text-slate-600">
-            Admin name or ID
+            Actor name or ID
             <input
               type="search"
               maxLength={200}
@@ -245,6 +326,20 @@ export default function AdminAuditLogsTab() {
                 setDraft({ ...draft, actor: event.target.value })
               }
             />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Actor role
+            <select
+              className={inputClass}
+              value={draft.actorRole}
+              onChange={(event) =>
+                setDraft({ ...draft, actorRole: event.target.value })
+              }
+            >
+              <option value="">All roles</option>
+              <option value="admin">Administrator</option>
+              <option value="staff">Staff</option>
+            </select>
           </label>
           <label className="text-xs font-semibold text-slate-600">
             Action
@@ -332,7 +427,8 @@ export default function AdminAuditLogsTab() {
                     (typeof event.details === "string"
                       ? JSON.parse(event.details)
                       : event.details) ?? {};
-                  const reason = event.reason || recoveryReasons[details.recovery_reason];
+                  const reason =
+                    event.reason || recoveryReasons[details.recovery_reason];
                   const recordedAt = new Date(event.created_at);
                   return (
                     <li
@@ -359,12 +455,21 @@ export default function AdminAuditLogsTab() {
                       </p>
                       {reason && reason !== ACTIONS[event.action] && (
                         <p className="mt-1 break-words text-sm text-slate-600">
-                          <span className="font-semibold text-slate-800">Reason:</span> {reason}
+                          <span className="font-semibold text-slate-800">
+                            Reason:
+                          </span>{" "}
+                          {reason}
                         </p>
                       )}
-                      <time className="mt-2 block text-xs text-slate-500" dateTime={event.created_at}>
-                        {clinicDate.format(recordedAt)} · {clinicTime.format(recordedAt)}
-                      </time>
+                      <p className="mt-2 text-xs text-slate-500">
+                        {roles[event.actor_role] && (
+                          <>{roles[event.actor_role]} · </>
+                        )}
+                        <time dateTime={event.created_at}>
+                          {clinicDate.format(recordedAt)} ·{" "}
+                          {clinicTime.format(recordedAt)}
+                        </time>
+                      </p>
                       <EventDetails event={event} details={details} />
                     </li>
                   );

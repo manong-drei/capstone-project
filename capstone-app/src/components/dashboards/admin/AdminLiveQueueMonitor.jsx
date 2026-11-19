@@ -1,13 +1,6 @@
 import useLiveData from "@/hooks/useLiveData";
 import { useCallback, useState } from "react";
-import {
-  Activity,
-  ArrowRight,
-  Inbox,
-  Megaphone,
-  RefreshCw,
-  ShieldCheck,
-} from "lucide-react";
+import { Inbox, ShieldCheck } from "lucide-react";
 import QueueReasonModal from "@/components/common/QueueReasonModal";
 import StatusBadge from "@/components/common/StatusBadge";
 import { Skeleton } from "@/components/common/LoadingState";
@@ -17,7 +10,6 @@ import { getAllQueues, updateQueueStatus } from "@/services/queueService";
 import { formatQueueTime, getQueueDisplayName } from "@/utils/queueDisplay";
 
 const SERVICE_CATEGORY = "dental";
-const POLL_INTERVAL_MS = 15_000;
 const TICKETS_PER_PAGE = 5;
 const ACTIVE_STATUSES = [
   QUEUE_STATUS.WAITING,
@@ -55,7 +47,6 @@ function QueueSummary({ queues }) {
     <section aria-label="Dental live queue" className="min-w-0">
       <div className="rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 py-6 text-center text-white">
         <p className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-100">
-          <Megaphone size={16} aria-hidden="true" />
           {serving?.status === QUEUE_STATUS.CALLED
             ? "Called — awaiting patient"
             : "Now serving"}
@@ -77,9 +68,9 @@ function QueueSummary({ queues }) {
       </div>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl bg-blue-50/60 p-4">
         <div className="min-w-0">
-          <h4 className="flex items-center gap-1 text-xs font-semibold text-slate-600">
-            Up next <ArrowRight className="h-3 w-3" aria-hidden="true" />
-          </h4>
+          <h2 className="flex items-center gap-1 text-xs font-semibold text-slate-600">
+            Up next
+          </h2>
           <p className="mt-1 break-words text-xl font-bold tracking-tight text-[#1a3a8f]">
             {next?.queue_number ?? "—"}
           </p>
@@ -224,9 +215,6 @@ export default function AdminLiveQueueMonitor() {
 
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 p-4 sm:p-5">
         <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">
-            <Activity className="h-5 w-5" aria-hidden="true" />
-          </span>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h3

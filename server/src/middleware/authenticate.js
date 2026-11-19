@@ -18,6 +18,15 @@ module.exports = async (req, res, next) => {
   const token = header.split(" ")[1];
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    const expired = error.name === "TokenExpiredError";
+    return res.status(401).json({
+      success: false,
+      code: expired ? "SESSION_EXPIRED" : "SESSION_REVOKED",
+      message: expired ? "Session expired. Please log in again." : "Invalid session. Please log in again.",
+    });
+  }
+  try {
     if (
       process.env.NODE_ENV === "development" &&
       req.user.purpose === "development" &&
@@ -37,7 +46,8 @@ module.exports = async (req, res, next) => {
         .status(401)
         .json({
           success: false,
-          message: "Session expired. Please log in again.",
+          code: "SESSION_REVOKED",
+          message: "This session is no longer active. Please log in again.",
         });
     }
     req.user.role = user.role;
@@ -53,6 +63,7 @@ module.exports = async (req, res, next) => {
           .status(403)
           .json({
             success: false,
+            ...(!setup && { code: "SESSION_REVOKED" }),
             message: "Change your temporary password before continuing.",
           });
       }
@@ -60,7 +71,7 @@ module.exports = async (req, res, next) => {
     next();
   } catch {
     res
-      .status(401)
-      .json({ success: false, message: "Invalid or expired token." });
+      .status(503)
+      .json({ success: false, code: "AUTH_UNAVAILABLE", message: "Unable to verify your session right now. Please try again." });
   }
 };

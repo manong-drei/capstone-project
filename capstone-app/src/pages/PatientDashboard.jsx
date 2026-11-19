@@ -1,4 +1,5 @@
 import useLiveData from "@/hooks/useLiveData";
+import useAppDialog from "@/hooks/useAppDialog";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { History, LayoutDashboard } from "lucide-react";
@@ -34,6 +35,7 @@ const pages = {
 };
 
 export default function PatientDashboard() {
+  const showDialog = useAppDialog();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { logout } = useAuth();
@@ -177,7 +179,7 @@ export default function PatientDashboard() {
       fetchMyQueue();
       fetchQueueStatus();
     } catch (err) {
-      alert(err.message || "Failed to get queue number.");
+      await showDialog({ title: "Could not request a queue ticket", message: err.message || "Failed to get queue number." });
       await fetchQueueStatus();
     }
   };
@@ -187,7 +189,7 @@ export default function PatientDashboard() {
       fetchMyQueue();
       fetchQueueStatus();
     } catch (err) {
-      alert(err.message);
+      await showDialog({ title: "Could not cancel the ticket", message: err.message });
     }
   };
   if (!activeTab) return <Navigate to={ROUTES.PATIENT_DASHBOARD} replace />;

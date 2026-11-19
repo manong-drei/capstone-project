@@ -6,10 +6,8 @@ import {
   CalendarPlus,
   CheckCircle2,
   ChevronDown,
-  Clock3,
   ClipboardPenLine,
   HeartPulse,
-  ListOrdered,
   LoaderCircle,
   Megaphone,
   ShieldCheck,
@@ -129,7 +127,6 @@ export default function DoctorHomeTab({
           </div>
           <div className="space-y-3 text-xs">
             <p className="flex items-center gap-2 text-blue-100">
-              <CalendarDays size={16} className="shrink-0" aria-hidden="true" />
               {new Date().toLocaleDateString("en-PH", {
                 timeZone: "Asia/Manila",
                 weekday: "long",
@@ -139,7 +136,6 @@ export default function DoctorHomeTab({
               })}
             </p>
             <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 font-medium">
-              <Stethoscope size={16} className="shrink-0" aria-hidden="true" />
               <span
                 className={`h-2 w-2 shrink-0 rounded-full ${!initialLoading && isAvailable && !approvedLeave ? "bg-emerald-300" : "bg-amber-300"}`}
                 aria-hidden="true"
@@ -212,11 +208,6 @@ export default function DoctorHomeTab({
                     id="doctor-queue-title"
                     className="flex items-center gap-2 text-sm font-semibold text-slate-900"
                   >
-                    <ListOrdered
-                      size={18}
-                      className="text-blue-700"
-                      aria-hidden="true"
-                    />
                     Dental queue
                   </h3>
                   <span className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
@@ -225,11 +216,6 @@ export default function DoctorHomeTab({
                 </div>
                 <div className="m-4 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 p-6 text-center text-white sm:m-5">
                   <p className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-100">
-                    <Megaphone
-                      size={16}
-                      className="shrink-0"
-                      aria-hidden="true"
-                    />
                     {calledQueue ? "Called — awaiting patient" : "Now serving"}
                   </p>
                   <p className="my-3 break-words text-5xl font-bold tracking-tight">
@@ -333,11 +319,6 @@ export default function DoctorHomeTab({
                 className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
               >
                 <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4">
-                  <Clock3
-                    size={18}
-                    className="text-blue-700"
-                    aria-hidden="true"
-                  />
                   <h3
                     id="doctor-next-title"
                     className="text-sm font-semibold text-slate-900"
@@ -408,11 +389,6 @@ export default function DoctorHomeTab({
                     id="doctor-availability-title"
                     className="flex items-center gap-2 text-sm font-semibold text-slate-900"
                   >
-                    <CalendarDays
-                      size={18}
-                      className="shrink-0 text-blue-700"
-                      aria-hidden="true"
-                    />
                     Today's availability
                   </h3>
                   <p className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-slate-500">
@@ -430,7 +406,10 @@ export default function DoctorHomeTab({
                 <button
                   type="button"
                   onClick={() =>
-                    !availLoading && (isAvailable ? setShowUnavailable(true) : onToggleAvailability(true))
+                    !availLoading &&
+                    (isAvailable
+                      ? setShowUnavailable(true)
+                      : onToggleAvailability(true))
                   }
                   disabled={availLoading || !!approvedLeave}
                   className={`min-h-11 shrink-0 rounded-xl border-2 px-4 py-2 text-xs font-bold shadow-md transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-70 ${
@@ -447,24 +426,79 @@ export default function DoctorHomeTab({
                         ? "Available"
                         : "Unavailable"}
                 </button>
-                {!isAvailable && unavailableReason && <p className="w-full text-sm text-slate-600">Reason: {unavailableReason}</p>}
-                {showUnavailable && isAvailable && !approvedLeave && <form className="w-full space-y-3" onSubmit={async event => {
-                  event.preventDefault();
-                  const reason = reasonCategory === "Others" ? otherReason.trim() : reasonCategory;
-                  if (!reason) return;
-                  if (await onToggleAvailability(false, reason)) { setShowUnavailable(false); setReasonCategory(""); setOtherReason(""); }
-                }}>
-                  <label className="block text-sm font-semibold">Reason
-<select aria-label="Reason" required value={reasonCategory} onChange={event => setReasonCategory(event.target.value)} className="mt-2 block min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 text-slate-800">
-<option value="">Select a reason</option>
-{DOCTOR_ABSENCE_REASONS.map(reason => <option key={reason}>{reason}</option>)}
-</select></label>
-{reasonCategory === "Others" && <label className="block text-sm font-semibold">Please specify
-<textarea required maxLength={500} value={otherReason} onChange={event => setOtherReason(event.target.value)} className="mt-2 block w-full rounded-xl border border-slate-300 bg-white p-2 text-slate-800" />
-</label>}
-                  <button type="submit" disabled={availLoading || (reasonCategory === "Others" && !otherReason.trim())} className="min-h-11 rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Confirm unavailable</button>
-                  <button type="button" disabled={availLoading} onClick={() => setShowUnavailable(false)} className="ml-2 min-h-11 px-4 py-2 text-sm">Cancel</button>
-                </form>}
+                {!isAvailable && unavailableReason && (
+                  <p className="w-full text-sm text-slate-600">
+                    Reason: {unavailableReason}
+                  </p>
+                )}
+                {showUnavailable && isAvailable && !approvedLeave && (
+                  <form
+                    className="w-full space-y-3"
+                    onSubmit={async (event) => {
+                      event.preventDefault();
+                      const reason =
+                        reasonCategory === "Others"
+                          ? otherReason.trim()
+                          : reasonCategory;
+                      if (!reason) return;
+                      if (await onToggleAvailability(false, reason)) {
+                        setShowUnavailable(false);
+                        setReasonCategory("");
+                        setOtherReason("");
+                      }
+                    }}
+                  >
+                    <label className="block text-sm font-semibold">
+                      Reason
+                      <select
+                        aria-label="Reason"
+                        required
+                        value={reasonCategory}
+                        onChange={(event) =>
+                          setReasonCategory(event.target.value)
+                        }
+                        className="mt-2 block min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 text-slate-800"
+                      >
+                        <option value="">Select a reason</option>
+                        {DOCTOR_ABSENCE_REASONS.map((reason) => (
+                          <option key={reason}>{reason}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {reasonCategory === "Others" && (
+                      <label className="block text-sm font-semibold">
+                        Please specify
+                        <textarea
+                          required
+                          maxLength={500}
+                          value={otherReason}
+                          onChange={(event) =>
+                            setOtherReason(event.target.value)
+                          }
+                          className="mt-2 block w-full rounded-xl border border-slate-300 bg-white p-2 text-slate-800"
+                        />
+                      </label>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={
+                        availLoading ||
+                        (reasonCategory === "Others" && !otherReason.trim())
+                      }
+                      className="min-h-11 rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      Confirm unavailable
+                    </button>
+                    <button
+                      type="button"
+                      disabled={availLoading}
+                      onClick={() => setShowUnavailable(false)}
+                      className="ml-2 min-h-11 px-4 py-2 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                )}
                 <div className="w-full border-t border-slate-100 pt-4">
                   <button
                     type="button"
@@ -491,11 +525,6 @@ export default function DoctorHomeTab({
                 >
                   <span>
                     <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                      <CalendarDays
-                        size={18}
-                        className="text-blue-700"
-                        aria-hidden="true"
-                      />
                       Daily capacity
                     </span>
                   </span>
@@ -506,7 +535,11 @@ export default function DoctorHomeTab({
                   />
                 </button>
                 <div className="px-5 pb-3">
-                  <WalkInCapacityWarning limit={appliedWalkInLimit} count={walkInCount} onWarning={showToast} />
+                  <WalkInCapacityWarning
+                    limit={appliedWalkInLimit}
+                    count={walkInCount}
+                    onWarning={showToast}
+                  />
                 </div>
                 {!capacityCollapsed && (
                   <div
@@ -514,7 +547,8 @@ export default function DoctorHomeTab({
                     className="space-y-5 border-t border-slate-100 p-5"
                   >
                     <p className="text-sm leading-relaxed text-slate-600">
-                      Saving replaces today's total limits. It does not add slots or reset slots already used.
+                      Saving replaces today's total limits. It does not add
+                      slots or reset slots already used.
                     </p>
                     <div>
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -548,7 +582,8 @@ export default function DoctorHomeTab({
                         <span>10 (max)</span>
                       </div>
                       <p className="mt-3 text-sm font-semibold text-slate-900">
-                        {appointmentLimit} total · {bookedCount} used · {Math.max(0, appointmentLimit - bookedCount)} available
+                        {appointmentLimit} total · {bookedCount} used ·{" "}
+                        {Math.max(0, appointmentLimit - bookedCount)} available
                       </p>
                       <progress
                         aria-label="Appointment capacity used"
@@ -603,7 +638,8 @@ export default function DoctorHomeTab({
                         </span>
                       </div>
                       <p className="mt-3 text-sm font-semibold text-slate-900">
-                        {walkInLimit} total · {walkInCount} used · {Math.max(0, walkInLimit - walkInCount)} available
+                        {walkInLimit} total · {walkInCount} used ·{" "}
+                        {Math.max(0, walkInLimit - walkInCount)} available
                       </p>
                       <progress
                         aria-label="Walk-in capacity used"

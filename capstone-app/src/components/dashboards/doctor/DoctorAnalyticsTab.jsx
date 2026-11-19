@@ -1,6 +1,7 @@
 import useLiveData from "@/hooks/useLiveData";
-import { useCallback, useEffect, useState } from "react";
-import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import useUnsavedChanges from "@/hooks/useUnsavedChanges";
 import { ROUTES } from "@/constants/routes";
 import {
   ArrowLeft,
@@ -717,19 +718,11 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
   const [reportLoading, setReportLoading] = useState(true);
   const [reportError, setReportError] = useState("");
   const [reportRetry, setReportRetry] = useState(0);
-  const blocker = useBlocker(dirty || saving);
+  useUnsavedChanges(dirty, saving, useCallback(() => setDirty(false), []));
   const query = new URLSearchParams({
     period,
     ...(anchorDate ? { date: anchorDate } : {}),
   }).toString();
-
-  useEffect(() => {
-    if (blocker.state !== "blocked") return;
-    if (!saving && window.confirm("Discard unsaved barangay entries?")) {
-      setDirty(false);
-      blocker.proceed();
-    } else blocker.reset();
-  }, [blocker, saving]);
 
   useLiveData(useCallback(async (signal, background) => {
     if (!background) setLoading(true);
@@ -761,16 +754,6 @@ export default function DoctorAnalyticsTab({ onBack, dailyEntry = false }) {
     } catch (err) { if (!signal.aborted) setReportError(err.message || 'Could not load report.'); }
     finally { if (!signal.aborted) setReportLoading(false); }
   }, [query]), !manualOpen, reportRetry);
-
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
 
   const selectPeriod = (value) => {
     if (value === period) return;

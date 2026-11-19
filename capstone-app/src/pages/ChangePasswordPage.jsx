@@ -9,17 +9,15 @@ import { useAuth } from "@/hooks/useAuth";
 import * as authService from "@/services/authService";
 import { ACCOUNT_ROUTES, ROUTES } from "@/constants/routes";
 
+const EMPTY_PASSWORDS = { oldPassword: "", newPassword: "", confirmPassword: "" };
+
 const ChangePasswordPage = () => {
   const navigate = useNavigate();
-  const { user, login } = useAuth();
+  const { user, login, expired } = useAuth();
   const setup = !!user?.must_change_password;
   const profilePath = ACCOUNT_ROUTES[user.role].profile;
 
-  const [form, setForm] = useState({
-    oldPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
+  const [form, setForm] = useState(EMPTY_PASSWORDS);
 
   const [showTerms, setShowTerms] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,6 +27,13 @@ const ChangePasswordPage = () => {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  if (expired && (form !== EMPTY_PASSWORDS || showTerms || showOldPassword || showNewPassword || showConfirmPassword)) {
+    setForm(EMPTY_PASSWORDS);
+    setShowTerms(false);
+    setShowOldPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  }
 
   const handleChange = (e) => {
     setError("");

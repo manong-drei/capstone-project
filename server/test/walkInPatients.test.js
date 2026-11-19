@@ -118,7 +118,8 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
 
     for (const [name, limit, count, expectedStatus] of [
       ["zero walk-in capacity blocks registration", 0, 0, 409],
-      ["missing daily settings blocks registration", null, 0, 409],
+      ["missing daily settings allows the 30th dental walk-in", null, 29, 201],
+      ["missing daily settings blocks dental walk-ins after 30", null, 30, 409],
       ["the last available walk-in slot can be used", 5, 4, 201],
       ["full walk-in capacity blocks registration", 5, 5, 409],
     ]) {
@@ -138,6 +139,8 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
         if (expectedStatus === 409) {
           assert.equal(queueInput, undefined);
           assert.equal(res.body.message, "Walk-in slots are full for today.");
+        } else {
+          assert.equal(res.body.queue.queue_number, "Q01");
         }
       });
     }

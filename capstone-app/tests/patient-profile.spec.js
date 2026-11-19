@@ -146,11 +146,13 @@ test("eligible walk-in merges preserve confirmation and navigate within the admi
   await page.goto("/admin/patients/42");
   await page.getByLabel("Find the correct patient").fill("Correct");
   await page.getByRole("radio").check();
-  page.once("dialog", (dialog) => dialog.dismiss());
-  await page.getByRole("button", { name: "Merge into selected patient" }).click();
+  const merge = page.getByRole("button", { name: "Merge into selected patient" });
+  const confirmMerge = page.getByRole("dialog", { name: "Merge patient records?" });
+  await merge.click();
+  await confirmMerge.getByRole("button", { name: "Cancel" }).click();
   expect(state.merges).toHaveLength(0);
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Merge into selected patient" }).click();
+  await merge.click();
+  await confirmMerge.getByRole("button", { name: "Merge records" }).click();
   await expect(page).toHaveURL(/\/admin\/patients\/43$/);
   await expect(page.getByRole("region", { name: "Correct Santos" })).toBeVisible();
   expect(state.merges).toEqual([{ target_patient_id: 43, confirm: true }]);

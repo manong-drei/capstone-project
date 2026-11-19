@@ -128,6 +128,7 @@ const LoginPage = () => {
               type="button"
               onClick={() => setShowRecoveryHelp(true)}
               aria-haspopup="dialog"
+              aria-expanded={showRecoveryHelp}
               className="font-semibold text-blue-700 hover:underline focus-visible:outline-2 focus-visible:outline-blue-600"
             >
               Forgot password?

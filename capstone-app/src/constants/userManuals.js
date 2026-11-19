@@ -96,7 +96,7 @@ export const USER_MANUALS = {
           "Expand “Daily capacity”. Adjust the “Appointment Limit” slider from 0 to 10 and enter “Walk-In Capacity” from 0 to 30. The progress bars show how many slots are already used today.",
           "Select “Apply” and look for “Saved ✓”. If “Lower Appointment Limit?” appears, review the existing booked count before selecting “Continue”. Existing bookings remain.",
         ],
-        note: "Walk-In Capacity of 0 means “Not set”, so it does not set a zero-patient limit. Recheck the date and settings when starting a new day.",
+        note: "Days without a saved limit have 30 dental walk-in slots. Saving a limit of 0 closes dental walk-in registration for that day.",
       },
       {
         id: "doctor-leave", title: "Request planned leave", summary: "Leave dates require admin approval; daily availability and capacity changes do not.",
@@ -151,7 +151,7 @@ export const USER_MANUALS = {
     screen: {
       src: "/assets/manual/doctor-capacity.png", alt: "Expanded doctor Daily capacity panel with numbered markers for its toggle, Appointment Limit slider, Walk-In Capacity field, and Apply button.",
       description: "This annotated example shows where to set today's capacity. The numbers shown are examples, not required clinic limits.",
-      labels: ["Daily capacity: select the heading to expand or collapse the controls.", "Appointment Limit: use the slider to set the daily appointment limit, up to 10.", "Walk-In Capacity: enter the daily walk-in capacity. An empty field or 0 is displayed as “Not set”.", "Apply: saves the selected capacity values. Wait for the saved confirmation."],
+      labels: ["Daily capacity: select the heading to expand or collapse the controls.", "Appointment Limit: use the slider to set the daily appointment limit, up to 10.", "Enter the daily walk-in capacity in the Walk-In Capacity field. Saving an empty field or 0 closes walk-in registration for the day.", "Apply: saves the selected capacity values. Wait for the saved confirmation."],
     },
     troubleshooting: [
       ["Next is unavailable or another patient is active.", "Resolve the called or serving ticket first. Confirm presence, complete care, or follow the recall/skip controls as appropriate. Check that waiting tickets remain and no update is still running."],

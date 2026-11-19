@@ -116,7 +116,7 @@ function DoctorRecordsDialog({ doctorId, onClose }) {
                           <td className="whitespace-nowrap px-4 py-3">{formatDate(record.date)}</td>
                           <td className="px-4 py-3"><StatusBadge status={record.is_available ? "available" : "unavailable"} /></td>
                           <td className="px-4 py-3">{record.appointment_limit}</td>
-                          <td className="whitespace-nowrap px-4 py-3">{record.walk_in_limit === 0 ? "Not set" : record.walk_in_limit}</td>
+                          <td className="whitespace-nowrap px-4 py-3">{record.walk_in_limit}</td>
                         </tr>
                       ))}
                     </tbody>

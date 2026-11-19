@@ -8,10 +8,13 @@ test.after(() => pool.end());
 
 test("overview and doctor roster count only active doctor accounts", async t => {
   const active = [{ doctor_id: 4, is_available: 0 }];
-  t.mock.method(pool, "query", async sql => {
+  t.mock.method(pool, "query", async (sql, params) => {
     if (sql.includes("FROM doctors d")) {
       assert.match(sql, /JOIN users u ON u\.user_id = d\.user_id\s+AND u\.role = 'doctor' AND u\.is_active = 1/);
-      return sql.includes("COUNT(*)") ? [[{ count: active.length }]] : [active];
+      if (sql.startsWith("SELECT COUNT(*)")) return [[{ count: active.length }]];
+      assert.match(sql, /COALESCE\(dds\.walk_in_limit, \?\) AS walk_in_limit/);
+      assert.deepEqual(params, [30]);
+      return [active];
     }
     return sql.includes("GROUP BY") ? [[]] : [[{ count: 4 }]];
   });

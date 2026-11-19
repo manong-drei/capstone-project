@@ -7,6 +7,43 @@ const User = require('../src/models/User');
 const router = require('../src/routes/queueRoutes');
 const migrate = require('../src/config/migrateQueueHolds');
 
+test('bulk holds audit the actual count before commit and skip empty holds', async t => {
+  const req = { auditActor: { user_id: 4, role: 'staff', name: 'Test Staff' } };
+  let eligible = [{ id: 3 }, { id: 7 }];
+  let failAudit = false;
+  const operations = [];
+  t.mock.method(Queue, 'lockCategory', async () => {});
+  t.mock.method(pool, 'getConnection', async () => ({
+    async beginTransaction() {},
+    async query(sql, values) {
+      if (sql.startsWith('SELECT id FROM queues')) return [eligible];
+      if (sql.startsWith('SELECT DATE_ADD')) return [[{ deadline: new Date('2026-10-30T08:00:00Z') }]];
+      if (sql.startsWith('UPDATE queues')) {
+        assert.deepEqual(values[2], [3, 7]);
+        operations.push('hold');
+      } else if (sql.startsWith('INSERT INTO audit_logs')) {
+        assert.deepEqual(values.slice(0, 8), [4, 'Test Staff', 'staff', 0, 'queue.bulk_held', 'queue', null, 'success']);
+        assert.deepEqual(JSON.parse(values[10]), { held_count: 2 });
+        if (failAudit) throw new Error('audit unavailable');
+        operations.push('audit');
+      } else {
+        assert.fail(`Unexpected query: ${sql}`);
+      }
+    },
+    async commit() { operations.push('commit'); },
+    async rollback() { operations.push('rollback'); },
+    release() {},
+  }));
+  assert.equal((await Queue.holdRemaining(req)).held_count, 2);
+  assert.deepEqual(operations.splice(0), ['hold', 'audit', 'commit']);
+  failAudit = true;
+  await assert.rejects(Queue.holdRemaining(req), /audit unavailable/);
+  assert.deepEqual(operations.splice(0), ['hold', 'rollback']);
+  eligible = [];
+  assert.equal((await Queue.holdRemaining(req)).held_count, 0);
+  assert.deepEqual(operations, ['commit']);
+});
+
 test('hold migration is idempotent and preserves existing ticket data', async t => {
   const columns = [{ Field: 'queue_number', Type: 'varchar(20)' }];
   const indexes = [];
@@ -38,7 +75,11 @@ test('hold endpoints are staff-only and validate IDs, missing tickets, invalid t
   let failure;
   let writes = 0;
   t.mock.method(User, 'findById', async () => ({ user_id: 4, role, is_active: 1, credential_version: 1, must_change_password: 0 }));
-  for (const method of ['hold', 'reactivate', 'holdRemaining']) t.mock.method(Queue, method, async () => {
+  for (const method of ['hold', 'reactivate', 'holdRemaining']) t.mock.method(Queue, method, async input => {
+    if (method === 'holdRemaining') {
+      assert.equal(input.auditActor.role, 'staff');
+      assert.equal(input.auditActor.user_id, 4);
+    }
     writes++;
     if (failure) throw Object.assign(new Error('Invalid transition.'), { status: 409 });
     return result;

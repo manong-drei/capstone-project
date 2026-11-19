@@ -40,6 +40,7 @@ async function mockApp(page, { role = "staff", signedIn = true, patientPatch = {
       else if (state.recoveryError) { status = 409; body = { message: state.recoveryError }; }
       else {
         state.patient.account.credential_version++;
+        if (req.postDataJSON().new_phone) state.patient.account.phone = req.postDataJSON().new_phone;
         status = 201;
         body = { success: true, data: { temp_password: "012345", registered_phone: state.patient.account.phone, expires_at: new Date(Date.now() + 30 * 60000).toISOString() } };
       }
@@ -62,6 +63,28 @@ async function openRecovery(page) {
   await page.getByLabel("Your password", { exact: true }).fill("StaffPassword1");
   await expect(page.getByRole("button", { name: "Issue temporary password" })).toBeEnabled();
 }
+
+test("reception verifies possession before replacing a patient’s registered mobile", async ({ page }) => {
+  const state = await mockApp(page);
+  await page.goto("/staff/patients/42");
+  await page.getByRole("button", { name: "Start account recovery" }).click();
+  const modal = page.getByRole("dialog", { name: "Account recovery", exact: true });
+  await modal.getByRole("button", { name: "Change registered number" }).click();
+  await modal.getByLabel("New registered mobile number").fill("09987654321");
+  await modal.getByLabel("Your password").fill("StaffPassword1");
+  const issue = modal.getByRole("button", { name: "Issue temporary password" });
+  await expect(issue).toBeDisabled();
+  await modal.getByRole("checkbox").check();
+  await issue.click();
+  await expect(modal.getByRole("status")).toContainText("09987654321");
+  expect(state.recoveries).toEqual([{
+    expected_credential_version: 2,
+    confirmed_phone: "09123456789",
+    staff_password: "StaffPassword1",
+    new_phone: "09987654321",
+    new_phone_verified: true,
+  }]);
+});
 
 test("login offers SMS recovery and explains the in-person fallback", async ({ page }) => {
   const state = await mockApp(page, { signedIn: false });

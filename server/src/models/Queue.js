@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const Doctor = require("./Doctor");
 const Appointment = require("./Appointment");
+const audit = require("../services/auditLog");
 const { projectQueue, alertState } = require("../utils/queueOrder");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const conflict = (message) =>
@@ -400,7 +401,7 @@ const Queue = {
     id,
     status,
     statusReason = null,
-    { patientOnly = false, doctorUserId, cancelledByRole } = {},
+    { patientOnly = false, doctorUserId, cancelledByRole, auditRequest } = {},
   ) =>
     Queue._withTicket(id, async (ticket, conn) => {
       if (status === "done" && ticket.status === "done" && !patientOnly)
@@ -468,6 +469,11 @@ const Queue = {
            VALUES ('queue_cancellation', ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id = id`,
           [ticket.patient_id, ticket.id, recipient, `queue-cancellation:${ticket.id}`],
         );
+        await audit.write(auditRequest, {
+          action: "queue.cancelled",
+          target_type: "queue",
+          target_id: ticket.id,
+        }, conn);
       }
       return Queue._fetchById(id, conn);
     }),
@@ -548,7 +554,7 @@ const Queue = {
     return Queue._fetchById(id, conn);
   }),
 
-  holdRemaining: async () => {
+  holdRemaining: async (auditRequest) => {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
@@ -557,6 +563,13 @@ const Queue = {
         AND ${Queue.daySql()} = CURDATE()
         AND (status IN ('waiting', 'called') OR (status = 'missed' AND grace_expires_at > NOW(3))) FOR UPDATE`);
       const result = await Queue._holdTickets(tickets.map(ticket => ticket.id), conn);
+      if (result.held_count > 0) {
+        await audit.write(auditRequest, {
+          action: "queue.bulk_held",
+          target_type: "queue",
+          details: { held_count: result.held_count },
+        }, conn);
+      }
       await conn.commit();
       return result;
     } catch (err) {

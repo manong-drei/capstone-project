@@ -9,14 +9,11 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import {
-  BarChart3,
   CalendarClock,
   CalendarDays,
-  ChartPie,
   CheckCircle2,
   CircleAlert,
   HeartPulse,
-  ListOrdered,
   MessageSquareWarning,
   Stethoscope,
   Users,
@@ -242,7 +239,6 @@ export default function AdminOverviewTab({
           </div>
           <div className="space-y-3 text-xs">
             <p className="flex items-center gap-2 text-blue-100">
-              <CalendarDays size={16} aria-hidden="true" />
               {new Date().toLocaleDateString("en-PH", {
                 timeZone: "Asia/Manila",
                 weekday: "long",
@@ -252,7 +248,6 @@ export default function AdminOverviewTab({
               })}
             </p>
             <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 font-medium">
-              <Stethoscope size={16} aria-hidden="true" />
               <span
                 className={`h-2 w-2 rounded-full ${availableDoctors ? "bg-emerald-300" : "bg-amber-300"}`}
                 aria-hidden="true"
@@ -267,7 +262,6 @@ export default function AdminOverviewTab({
 
       <div>
         <h2 className="text-lg font-bold text-[#1a3a8f]">Dashboard overview</h2>
-        <p className="mt-1 text-xs text-slate-600">Health center totals</p>
       </div>
       {overviewError && (
         <div
@@ -346,11 +340,6 @@ export default function AdminOverviewTab({
               id="today-queue-heading"
               className="flex items-center gap-2 text-sm font-semibold text-slate-900"
             >
-              <ListOrdered
-                size={18}
-                className="text-blue-700"
-                aria-hidden="true"
-              />
               Queues today
             </h3>
             <div className="mt-4 grid grid-cols-2 gap-4" aria-busy={ovLoading}>
@@ -403,11 +392,6 @@ export default function AdminOverviewTab({
               id="attention-heading"
               className="flex items-center gap-2 text-sm font-semibold text-slate-900"
             >
-              <CircleAlert
-                size={18}
-                className="text-blue-700"
-                aria-hidden="true"
-              />
               Needs attention
             </h3>
             <div className="mt-4 divide-y divide-slate-100">
@@ -463,11 +447,6 @@ export default function AdminOverviewTab({
               id="age-distribution-heading"
               className="flex items-center gap-2 text-sm font-semibold text-slate-900"
             >
-              <ChartPie
-                size={18}
-                className="text-blue-700"
-                aria-hidden="true"
-              />
               Dental Queues by Age Group
             </h3>
             <p className="mb-4 mt-1 text-xs text-slate-500">
@@ -527,7 +506,6 @@ export default function AdminOverviewTab({
             id="patient-volume-heading"
             className="flex items-center gap-2 text-sm font-semibold text-slate-900"
           >
-            <BarChart3 size={18} className="text-blue-700" aria-hidden="true" />
             Patient Volume
           </h3>
           <div
@@ -586,11 +564,6 @@ export default function AdminOverviewTab({
             id="recent-appointments-heading"
             className="flex items-center gap-2 text-sm font-semibold text-slate-900"
           >
-            <CalendarDays
-              size={18}
-              className="text-blue-700"
-              aria-hidden="true"
-            />
             Recent appointments
           </h3>
           <Link

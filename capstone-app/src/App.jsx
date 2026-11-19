@@ -11,6 +11,9 @@ import { useAuth } from "./hooks/useAuth";
 import { ACCOUNT_ROUTES, ROUTES } from "./constants/routes";
 import { ROLES } from "./constants/roles";
 import { PageLoading } from "./components/common/LoadingState";
+import SessionSignIn from "./components/common/SessionSignIn";
+import { UnsavedChangesProvider } from "./hooks/useUnsavedChanges";
+import { AppDialogProvider } from "./hooks/useAppDialog";
 
 // Pages
 const CinematicLandingPage = lazy(
@@ -28,7 +31,7 @@ const GeneralQueueMonitor = lazy(() => import("./pages/GeneralQueueMonitor"));
 const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
 
 function ProtectedRoute({ children, allowedRoles }) {
-  const { user, loading } = useAuth();
+  const { user, expired, loading } = useAuth();
 
   if (loading) {
     return <PageLoading />;
@@ -46,7 +49,14 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to={ROUTES.HOME} replace />;
   }
 
-  return children;
+  return (
+    <>
+      <div key={`${user.user_id}:${user.must_change_password}`} hidden={expired} inert={expired || undefined}>
+        {children}
+      </div>
+      {expired && <SessionSignIn />}
+    </>
+  );
 }
 
 function RoleRedirect() {
@@ -198,7 +208,10 @@ function AppRoutes() {
   );
 }
 
-const router = createBrowserRouter([{ path: "*", element: <AppRoutes /> }]);
+const router = createBrowserRouter([{
+  path: "*",
+  element: <AppDialogProvider><UnsavedChangesProvider><AppRoutes /></UnsavedChangesProvider></AppDialogProvider>,
+}]);
 
 export default function App() {
   return <RouterProvider router={router} />;

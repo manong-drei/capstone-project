@@ -6,6 +6,7 @@
 const pool = require('../config/db');
 const { normalizeSuffix, normalizeMiddleName } = require('../utils/name');
 
+const DEFAULT_WALK_IN_LIMIT = 30;
 const activeRoster = `FROM doctors d JOIN users u ON u.user_id = d.user_id
   AND u.role = 'doctor' AND u.is_active = 1`;
 const defaultActiveDoctorQuery = `SELECT d.doctor_id ${activeRoster} ORDER BY d.doctor_id ASC LIMIT 1`;
@@ -13,6 +14,7 @@ const approvedLeaveToday = `SELECT 1 FROM doctor_leaves l WHERE l.doctor_id = d.
   AND l.status = 'approved' AND DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR) BETWEEN l.start_date AND l.end_date`;
 
 const Doctor = {
+  DEFAULT_WALK_IN_LIMIT,
   defaultActiveDoctorQuery,
 
   countActive: async () => {
@@ -40,7 +42,7 @@ const Doctor = {
   findAll: async () => {
     const [rows] = await pool.query(`
       SELECT d.*, s.specialization_name,
-        COALESCE(dds.walk_in_limit, 0) AS walk_in_limit,
+        COALESCE(dds.walk_in_limit, ?) AS walk_in_limit,
         (SELECT COUNT(*) FROM queues q WHERE q.category = 'dental' AND q.is_walk_in = 1
           AND DATE(q.created_at) = CURDATE() AND q.status != 'cancelled') AS walkin_count,
         IF(EXISTS(${approvedLeaveToday}), 0, COALESCE(dds.is_available, 1)) AS is_available,
@@ -51,7 +53,7 @@ const Doctor = {
       LEFT   JOIN daily_doctor_settings dds
                ON dds.doctor_id = d.doctor_id AND dds.date = CURDATE()
       ORDER  BY d.last_name ASC
-    `);
+    `, [DEFAULT_WALK_IN_LIMIT]);
     return rows;
   },
 
