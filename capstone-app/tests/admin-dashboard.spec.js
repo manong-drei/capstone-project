@@ -442,7 +442,8 @@ test('replacement password SMS reports request and delivery failures', async ({ 
   const responses = await mockAdmin(page);
   await page.clock.install();
   const patient = responses['/api/admin/patients'].patients[0];
-  Object.assign(patient, { must_change_password: true, sms_job_id: 90, sms_state: 'submitted', sms_provider_status: 'sent' });
+  const unexpectedStatus = 'function ActivationSMS({ patient, onReplace, busy, canManage }) { return null; }';
+  Object.assign(patient, { patient_id: 42, must_change_password: true, sms_job_id: 90, sms_state: 'submitted', sms_provider_status: unexpectedStatus });
   let fail = true;
   await page.route('**/api/admin/patients/11/temporary-password', route => {
     expect(route.request().postDataJSON()).toEqual({ identity_confirmed: true });
@@ -455,9 +456,16 @@ test('replacement password SMS reports request and delivery failures', async ({ 
   await page.getByRole('main').getByRole('button', { name: 'Patients', exact: true }).click();
   const replace = page.getByRole('button', { name: 'Issue replacement password' }).filter({ visible: true });
   const confirmation = page.getByRole('dialog', { name: 'Issue a replacement password?' });
-  await expect(replace).toBeVisible();
+  await expect(replace).toHaveCount(1);
+  await expect(page.getByText(/Activation SMS:/)).toHaveCount(0);
+  await expect(page.getByText('Issue replacement password', { exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(replace).toHaveCount(1);
+  await expect(page.getByText(/Activation SMS:/)).toHaveCount(0);
   await expect(page.getByRole('status')).toHaveCount(0);
   await replace.click();
+  await expect(confirmation).toContainText('Activation SMS: submitted');
+  await expect(confirmation).not.toContainText(unexpectedStatus);
   await confirmation.getByRole('button', { name: 'Issue replacement password' }).click();
   await expect(page.getByRole('alert')).toContainText('Unable to issue replacement password.');
   await page.getByRole('button', { name: 'Dismiss notification' }).click();

@@ -101,13 +101,13 @@ function PatientProfile({ id }) {
     user?.role === "doctor"
       ? ROUTES.DOCTOR_PATIENT_HISTORY
       : user?.role === "admin"
-        ? ROUTES.ADMIN_DASHBOARD
+        ? ROUTES.ADMIN_PATIENT_ACCOUNTS
         : ROUTES.STAFF_DASHBOARD;
   const backLabel =
     user?.role === "doctor"
       ? "Back to patient history"
       : user?.role === "admin"
-        ? "Back to admin dashboard"
+        ? "Back to accounts"
         : "Back to staff dashboard";
 
   useLiveData(

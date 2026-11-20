@@ -326,15 +326,21 @@ test("old staff recovery page redirects to Patient Accounts", async ({ page }) =
   await expect(page.getByRole('button', { name: 'Recover account for Ana Test' }).filter({ visible: true })).toBeEnabled();
 });
 
-test("admins can open recovery from patient management and return to their dashboard", async ({ page }) => {
+test("admins can open recovery from patient management and return to patient accounts", async ({ page }) => {
   await mockApp(page, { role: "admin" });
   await page.goto("/admin");
   await selectAdminSection(page, "Accounts");
   await page.getByRole("button", { name: "Patients", exact: true }).click();
-  await page.getByRole("link", { name: "Recover account for Ana Test" }).first().click();
+  const recovery = page.getByLabel("Recover account for Ana Test", { exact: true }).filter({ visible: true });
+  await expect(recovery).toHaveCount(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(recovery).toHaveCount(1);
+  await page.getByRole("link", { name: "Recover account for Ana Test" }).click();
   await expect(page).toHaveURL(/\/admin\/patients\/42$/);
   await expect(page.getByRole("button", { name: "Start account recovery" })).toBeEnabled();
-  await expect(page.getByRole("link", { name: "Back to admin dashboard", exact: true })).toHaveAttribute("href", "/admin");
+  await page.getByRole("link", { name: "Back to accounts", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/accounts\/patients$/);
+  await expect(page.getByRole("heading", { name: "Patient Accounts", exact: true })).toBeVisible();
 });
 
 test("patient temporary login requires password setup and saves the replacement session", async ({ page }) => {

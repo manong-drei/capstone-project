@@ -309,7 +309,7 @@ export const USER_MANUALS = {
           "Complete First Name, Last Name, Phone, Date of Birth, Gender, and Barangay. Set Priority Status only when appropriate, then select “Create Account”.",
           "Check the account confirmation and SMS status. Creating the account queues its activation password message; it does not register a queue ticket.",
           "Use “Search by name, contact, or barangay...” and “Show inactive” to find accounts. To remove access, select “Deactivate”, choose a reason, and confirm. To restore access, select “Reactivate” and confirm.",
-          "For an active account still awaiting its first password change, “Issue replacement password” may be shown. Verify identity and the registered phone, check SMS history, then review the confirmation before replacing the password.",
+          "For an active account still awaiting its first password change, select the message icon in the Actions column to review the activation SMS status. Verify identity and the registered phone before issuing a replacement password.",
         ],
         note: "A replacement makes the previous temporary password and any open password-setup session unusable. If the SMS status is unknown, verify the text-message provider's history before issuing another password.",
       },

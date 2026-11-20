@@ -42,7 +42,7 @@ export default function AdminStaffTab() {
         </div>
       </div>
       <Suspense fallback={<p role="status" style={{ minHeight: "280px" }}>Loading accounts…</p>}>
-        {accountTab === "Staff" ? <StaffManager /> : <PatientManager canRecover />}
+        {accountTab === "Staff" ? <StaffManager /> : <PatientManager />}
       </Suspense>
     </div>
   );

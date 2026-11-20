@@ -138,7 +138,7 @@ test("admin history links use the admin profile route", async ({ page }) => {
   await page.getByRole("link", { name: "Maria Clara Santos", exact: true }).filter({ visible: true }).click();
   await expect(page).toHaveURL(/\/admin\/patients\/42$/);
   await expect(page.getByRole("region", { name: "Maria Clara Santos" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to admin dashboard", exact: true })).toHaveAttribute("href", "/admin");
+  await expect(page.getByRole("link", { name: "Back to accounts", exact: true })).toHaveAttribute("href", "/admin/accounts/patients");
 });
 
 test("eligible walk-in merges preserve confirmation and navigate within the admin role", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { Trash, RotateCcw, SquarePen, UserKey } from "lucide-react";
+import { Trash, RotateCcw, SquarePen, UserKey, MessageSquareText } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const blue = "bg-blue-50 text-blue-700 hover:bg-blue-100";
@@ -15,6 +15,7 @@ const actions = {
     color: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
   },
   recovery: { label: "Account recovery", Icon: UserKey, color: blue },
+  replacePassword: { label: "Issue replacement password", Icon: MessageSquareText, color: blue },
 };
 
 export default function AccountAction({ action, onClick, to, ariaLabel, disabled = false, title }) {

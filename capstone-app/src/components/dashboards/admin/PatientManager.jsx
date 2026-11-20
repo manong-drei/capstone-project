@@ -73,35 +73,8 @@ const labelStyle = {
 };
 
 const PATIENTS_PER_PAGE = 10;
-
-function ActivationSMS({ patient, onReplace, busy, canManage }) {
-  if (!patient.must_change_password) return null;
-  return (
-    <span
-      style={{
-        display: "block",
-        fontSize: "12px",
-        color: "#475569",
-        marginTop: "5px",
-      }}
-    >
-      Activation SMS:{" "}
-      {patient.sms_provider_status ||
-        patient.sms_state ||
-        "Replacement required"}
-      {canManage && patient.is_active ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onReplace(patient)}
-          style={{ display: "block", marginTop: "4px", cursor: "pointer" }}
-        >
-          Issue replacement password
-        </button>
-      ) : null}
-    </span>
-  );
-}
+const SMS_PROVIDER_STATUSES = ["queued", "pending", "sent", "failed", "refunded"];
+const SMS_JOB_STATES = ["queued", "submitting", "submitted", "failed", "unknown", "cancelled"];
 
 function statusBadge(isActive) {
   return isActive
@@ -154,9 +127,14 @@ export default function PatientManager({ canManage = true, canRecover = false })
 
   const replacePassword = async (patient) => {
     if (smsBusy) return;
+    const providerStatus = SMS_PROVIDER_STATUSES.includes(patient.sms_provider_status)
+      ? patient.sms_provider_status
+      : null;
+    const jobState = SMS_JOB_STATES.includes(patient.sms_state) ? patient.sms_state : null;
+    const smsStatus = providerStatus || jobState || "Replacement required";
     const confirmed = await showDialog({
       title: "Issue a replacement password?",
-      message: `Confirm you verified ${patient.full_name}’s identity and registered mobile number. The new temporary password invalidates the old password and setup session.`,
+      message: `Activation SMS: ${smsStatus}\n\nConfirm you verified ${patient.full_name}’s identity and registered mobile number. The new temporary password invalidates the old password and setup session.`,
       confirmLabel: "Issue replacement password",
       destructive: true,
     });
@@ -182,6 +160,13 @@ export default function PatientManager({ canManage = true, canRecover = false })
       setSmsBusy(false);
     }
   };
+  const replacementAction = (patient) => canManage && patient.is_active && patient.must_change_password ? (
+    <AccountAction
+      action="replacePassword"
+      disabled={smsBusy}
+      onClick={() => replacePassword(patient)}
+    />
+  ) : null;
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -330,7 +315,6 @@ export default function PatientManager({ canManage = true, canRecover = false })
             setRecoveryPatient((patient) => patient && ({
               ...patient, account: { ...patient.account, phone, credential_version: version },
             }));
-            setRefresh((value) => value + 1);
           }}
         />
       )}
@@ -784,27 +768,20 @@ export default function PatientManager({ canManage = true, canRecover = false })
                   >
                     {sb.label}
                   </span>
-                  <div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {recoveryAction(patient)}
-                      {canManage && !!patient.patient_id && (
-                        <AccountAction
-                          action="recovery"
-                          to={`/admin/patients/${patient.patient_id}`}
-                          ariaLabel={`Recover account for ${patient.full_name}`}
-                        />
-                      )}
-                      {canManage && <AccountAction
-                        action={isInactive ? "reactivate" : "deactivate"}
-                        onClick={() => openConfirm(patient, isInactive ? "reactivate" : "deactivate")}
-                      />}
-                    </div>
-                    <ActivationSMS
-                      canManage={canManage}
-                      patient={patient}
-                      onReplace={replacePassword}
-                      busy={smsBusy}
-                    />
+                  <div className="flex flex-wrap gap-1.5">
+                    {recoveryAction(patient)}
+                    {canManage && !!patient.patient_id && (
+                      <AccountAction
+                        action="recovery"
+                        to={`/admin/patients/${patient.patient_id}`}
+                        ariaLabel={`Recover account for ${patient.full_name}`}
+                      />
+                    )}
+                    {replacementAction(patient)}
+                    {canManage && <AccountAction
+                      action={isInactive ? "reactivate" : "deactivate"}
+                      onClick={() => openConfirm(patient, isInactive ? "reactivate" : "deactivate")}
+                    />}
                   </div>
                 </div>
               );
@@ -863,12 +840,6 @@ export default function PatientManager({ canManage = true, canRecover = false })
                       Phone number:{" "}
                       {patient.contact_number || patient.phone || "—"}
                     </span>
-                    <ActivationSMS
-                      canManage={canManage}
-                      patient={patient}
-                      onReplace={replacePassword}
-                      busy={smsBusy}
-                    />
                     {patient.barangay && (
                       <span style={{ fontSize: "12px", color: "#9ca3af" }}>
                         {patient.barangay}
@@ -883,6 +854,7 @@ export default function PatientManager({ canManage = true, canRecover = false })
                           ariaLabel={`Recover account for ${patient.full_name}`}
                         />
                       )}
+                      {replacementAction(patient)}
                       {canManage && <AccountAction
                         action={isInactive ? "reactivate" : "deactivate"}
                         onClick={() => openConfirm(patient, isInactive ? "reactivate" : "deactivate")}
