@@ -38,6 +38,27 @@ export function formatPatientDate(value, options = {}) {
   });
 }
 
+const PRIORITY_LABELS = {
+  senior: "Senior Citizen",
+  pwd: "PWD",
+  pregnant: "Pregnant",
+};
+
+export function getWalkInPriorityLabel(patient) {
+  const label = PRIORITY_LABELS[patient.effective_priority_category];
+  return label ? `Priority (${label})` : "Regular";
+}
+
+export function getWalkInPriorityNote(patient) {
+  if (patient.effective_priority_category === "pregnant" && patient.priority_expires_at) {
+    return `Pregnancy priority expires on ${formatPatientDate(patient.priority_expires_at)}.`;
+  }
+  if (!patient.effective_priority_category && patient.priority_category === "pregnant" && !patient.priority_expires_at) {
+    return "Confirm whether the patient is still pregnant before selecting Pregnant.";
+  }
+  return "";
+}
+
 export function getServiceLabels(services) {
   if (typeof services === "string") {
     try { services = JSON.parse(services); } catch { return services.trim() ? [services] : []; }

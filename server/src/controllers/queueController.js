@@ -1,10 +1,11 @@
-const { differenceInYears, isValid, parseISO } = require("date-fns");
+const { isValid, parseISO } = require("date-fns");
 const Queue = require("../models/Queue");
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient");
 const DoctorLeave = require("../models/DoctorLeave");
 const Doctor = require("../models/Doctor");
 const { clinicDay, clinicToday } = require("../utils/clinicDate");
+const { resolveWalkInPriority } = require("../utils/walkInPriority");
 const pool = require("../config/db");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeSuffix, normalizeMiddleName } = require("../utils/name");
@@ -216,6 +217,7 @@ const createWalkIn = async (req, res) => {
     patient_id,
     create_new_confirmed,
     priority_category,
+    clear_priority,
     no_mobile,
     alternate_contact,
   } = req.body;
@@ -307,19 +309,19 @@ const createWalkIn = async (req, res) => {
       .status(400)
       .json({ success: false, message: "A valid address is required." });
   if (
-    priority_category &&
+    priority_category != null && priority_category !== "" &&
     !["senior", "pwd", "pregnant"].includes(priority_category)
   )
     return res
       .status(400)
       .json({ success: false, message: "Invalid priority category." });
-  const isSenior =
-    differenceInYears(parseISO(today), parseISO(date_of_birth)) >= 60;
-  const priorityCategory = isSenior ? "senior" : priority_category;
-  if (type === "priority" && !priorityCategory)
+  if (
+    (clear_priority !== undefined && typeof clear_priority !== "boolean") ||
+    (clear_priority && priority_category)
+  )
     return res
       .status(400)
-      .json({ success: false, message: "A priority category is required." });
+      .json({ success: false, message: "Invalid priority change." });
   if (
     patient_id != null &&
     (!Number.isSafeInteger(Number(patient_id)) || Number(patient_id) <= 0)
@@ -386,13 +388,24 @@ const createWalkIn = async (req, res) => {
     }
 
     let patientId = patient_id ? Number(patient_id) : null;
+    let existing;
     if (patientId) {
-      const [[existing]] = await connection.query(
+      [[existing]] = await connection.query(
         "SELECT * FROM patients WHERE patient_id = ? FOR UPDATE",
         [patientId],
       );
       if (!existing || existing.archived_into_patient_id)
         throw httpError(404, "Patient record not found or archived.");
+    }
+    const priority = resolveWalkInPriority(
+      { ...existing, date_of_birth },
+      new Date(),
+      clear_priority ? null : priority_category || undefined,
+    );
+    if (type === "priority" && !priority.priority_category)
+      throw httpError(400, "A priority category is required.");
+
+    if (existing) {
       effectiveSuffix =
         suffix === undefined ? existing.suffix : normalizedSuffix;
       effectiveMiddleName =
@@ -409,11 +422,11 @@ const createWalkIn = async (req, res) => {
         gender: gender[0].toUpperCase() + gender.slice(1),
         contact_number: contactNumber,
         barangay,
-        priority_category: priorityCategory || existing.priority_category,
+        ...priority,
         ...(alternate ? { emg_contact_no: alternate } : {}),
       })) {
         const old =
-          existing[key] instanceof Date
+          key === "date_of_birth" && existing[key] instanceof Date
             ? clinicDay(existing[key])
             : existing[key];
         if (String(old ?? "") !== String(value ?? ""))
@@ -421,7 +434,7 @@ const createWalkIn = async (req, res) => {
       }
       if (Object.keys(changes).length) {
         await connection.query(
-          "UPDATE patients SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?, date_of_birth = ?, gender = ?, contact_number = ?, barangay = ?, priority_category = ?, emg_contact_no = ? WHERE patient_id = ?",
+          "UPDATE patients SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?, date_of_birth = ?, gender = ?, contact_number = ?, barangay = ?, priority_category = ?, priority_expires_at = ?, emg_contact_no = ? WHERE patient_id = ?",
           [
             first_name,
             effectiveMiddleName ?? null,
@@ -431,7 +444,8 @@ const createWalkIn = async (req, res) => {
             gender,
             contactNumber,
             barangay,
-            priorityCategory || existing.priority_category,
+            priority.priority_category,
+            priority.priority_expires_at,
             alternate ?? existing.emg_contact_no ?? null,
             patientId,
           ],
@@ -479,14 +493,10 @@ const createWalkIn = async (req, res) => {
           contact_number: phone,
           emg_contact_no: alternate,
           barangay,
+          ...priority,
         },
         connection,
       );
-      if (priorityCategory)
-        await connection.query(
-          "UPDATE patients SET priority_category = ? WHERE patient_id = ?",
-          [priorityCategory, patientId],
-        );
       await Patient.audit(
         patientId,
         req.user.user_id,
@@ -508,7 +518,7 @@ const createWalkIn = async (req, res) => {
     if (active)
       throw httpError(409, "This patient already has an active queue today.");
 
-    const queueType = isSenior || type === "priority" ? "priority" : "regular";
+    const queueType = priority.priority_category ? "priority" : "regular";
     const queue = await Queue.create(
       {
         patient_id: patientId,

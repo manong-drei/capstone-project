@@ -16,6 +16,11 @@ import {
 } from "lucide-react";
 import { DENTAL_SERVICES as SERVICES } from "@/constants/medicalServices";
 import api from "@/services/api";
+import {
+  getWalkInPriorityLabel,
+  getWalkInPriorityNote,
+  hasActivePatientPriority,
+} from "@/utils/queueDisplay";
 
 const inputClass =
   "w-full min-w-0 scroll-mt-24 rounded-xl border bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:ring-2";
@@ -91,8 +96,8 @@ export default function WalkInForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [manualPriority, setIsPriority] = useState(false);
-  const [priorityCategory, setPriorityCategory] = useState("");
+  // Undefined uses the saved default. Null opens the category picker and "" selects Regular.
+  const [priorityChoice, setPriorityChoice] = useState();
   const [lookup, setLookup] = useState("");
   const [matches, setMatches] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,8 +107,6 @@ export default function WalkInForm({
   const [alternateContact, setAlternateContact] = useState("");
   const [searching, setSearching] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  useUnsavedChanges(Object.values(form).some(Boolean) || selectedServices.length > 0 ||
-    manualPriority || noMobile || Boolean(alternateContact), loading);
   const today = clinicDay(new Date());
   const [year, month, day] = today.split("-").map(Number);
   const [birthYear, birthMonth, birthDay] = form.dateOfBirth
@@ -114,9 +117,22 @@ export default function WalkInForm({
     birthYear -
     (month < birthMonth || (month === birthMonth && day < birthDay) ? 1 : 0);
   const isSenior = Boolean(form.dateOfBirth) && age >= 60;
-  const isPriority = isSenior || manualPriority;
-  const assignedPriorityCategory = isSenior ? "senior" : priorityCategory;
+  let defaultCategory = selectedPatient?.effective_priority_category ?? "";
+  if (defaultCategory === "senior" && !isSenior) {
+    // A corrected birthday can remove automatic Senior priority.
+    const savedCategory = selectedPatient.priority_category;
+    const active = savedCategory !== "pregnant" ||
+      (selectedPatient.priority_expires_at && hasActivePatientPriority(selectedPatient));
+    defaultCategory = active ? savedCategory ?? "" : "";
+  }
+  const priorityCategory = priorityChoice === undefined ? defaultCategory : priorityChoice;
+  const isPriority = isSenior || priorityCategory !== "";
+  const assignedPriorityCategory = isSenior ? "senior" : priorityCategory ?? "";
   const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
+  const priorityChanged = priorityChoice !== undefined && priorityChoice !== defaultCategory;
+  const priorityNote = selectedPatient && getWalkInPriorityNote(selectedPatient);
+  useUnsavedChanges(Object.values(form).some(Boolean) || selectedServices.length > 0 ||
+    priorityChanged || noMobile || Boolean(alternateContact), loading);
 
   useEffect(() => {
     if (selectedPatient) return;
@@ -173,6 +189,7 @@ export default function WalkInForm({
       const { data } = await api.get(`/patients/${id}`);
       setSearchQuery("");
       setSelectedPatient(data);
+      setPriorityChoice(undefined);
       setForm({
         firstName: data.first_name || "",
         lastName: data.last_name || "",
@@ -274,8 +291,9 @@ export default function WalkInForm({
           noMobile && alternateContact ? "+63" + alternateContact : undefined,
         patient_id: selectedPatient?.patient_id,
         create_new_confirmed: confirmNew,
-        priority_category: isPriority ? assignedPriorityCategory : null,
-        type: isPriority ? "priority" : "regular",
+        ...(!isSenior && priorityChanged && (priorityChoice
+          ? { priority_category: priorityChoice }
+          : { clear_priority: true })),
         category: "dental",
         services: selectedServices,
       });
@@ -296,8 +314,7 @@ export default function WalkInForm({
         contact: "",
       });
       setSelectedServices([]);
-      setIsPriority(false);
-      setPriorityCategory("");
+      setPriorityChoice(undefined);
       setSearchQuery("");
       setSearching(false);
       setSelectedPatient(null);
@@ -443,7 +460,8 @@ export default function WalkInForm({
                       .filter(Boolean)
                       .join(" ")}{" "}
                     · {clinicDay(patient.date_of_birth)} ·{" "}
-                    {patient.masked_contact || "No phone"}
+                    {patient.masked_contact || "No phone"} ·{" "}
+                    {getWalkInPriorityLabel(patient)}
                   </button>
                 ))}
                 <label className="flex items-start gap-2 pt-1 text-sm leading-relaxed text-amber-900">
@@ -476,6 +494,7 @@ export default function WalkInForm({
                     type="button"
                     onClick={() => {
                       setSelectedPatient(null);
+                      setPriorityChoice(undefined);
                       setSubmitted(false);
                       setNoMobile(false);
                       setAlternateContact("");
@@ -496,6 +515,12 @@ export default function WalkInForm({
                     Clear selection
                   </button>
                 </div>
+                <p className="mt-2 font-medium">
+                  {getWalkInPriorityLabel(selectedPatient)}
+                </p>
+                {priorityNote && (
+                  <p className="mt-1">{priorityNote}</p>
+                )}
                 <Link
                   to={`/staff/patients/${selectedPatient.patient_id}`}
                   className="mt-2 inline-block font-medium underline underline-offset-2"
@@ -845,8 +870,7 @@ export default function WalkInForm({
                     disabled={isSenior}
                     checked={isPriority === value}
                     onChange={() => {
-                      setIsPriority(value);
-                      setPriorityCategory("");
+                      setPriorityChoice(value ? null : "");
                       setError("");
                     }}
                     className={value ? "accent-[#c2410c]" : "accent-blue-700"}
@@ -879,7 +903,7 @@ export default function WalkInForm({
                   disabled={isSenior}
                   value={assignedPriorityCategory}
                   onChange={(event) => {
-                    setPriorityCategory(event.target.value);
+                    setPriorityChoice(event.target.value || null);
                     setError("");
                   }}
                   className={fieldClass("priority")}

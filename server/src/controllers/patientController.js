@@ -8,6 +8,7 @@ const audit = require("../services/auditLog");
 const { requireRecoveryActor, requireRecoveryPassword, issueTemporaryPassword } = require("../services/accountAccess");
 const { normalizePhilippineMobilePhone } = require("../utils/phone");
 const { normalizeProfileChanges } = require("../utils/profile");
+const { resolveWalkInPriority } = require("../utils/walkInPriority");
 
 /** GET /api/patients/me */
 const getMyProfile = async (req, res) => {
@@ -83,7 +84,10 @@ const getPatientById = async (req, res) => {
       credential_version: user.credential_version,
     } : null;
     await Patient.audit(patient.patient_id, req.user.user_id, "view", null, pool, req);
-    res.status(200).json({ success: true, data: { ...patient, visits, account } });
+    const priority = ["staff", "admin"].includes(req.user.role)
+      ? { effective_priority_category: resolveWalkInPriority(patient).priority_category }
+      : {};
+    res.status(200).json({ success: true, data: { ...patient, visits, account, ...priority } });
   } catch (err) {
     console.error("getPatientById error:", err);
     res.status(500).json({ success: false, message: "Server error." });
@@ -102,10 +106,18 @@ const searchPatients = async (req, res) => {
     }
     const matches = await Patient.search({ name, phone, date_of_birth });
     for (const match of matches) await Patient.audit(match.patient_id, req.user.user_id, "search");
-    res.json({ success: true, data: matches.map(({ contact_number, ...patient }) => ({
-      ...patient,
-      masked_contact: contact_number ? `•••••••${contact_number.slice(-4)}` : null,
-    })) });
+    const now = new Date();
+    res.json({ success: true, data: matches.map((match) => {
+      const { contact_number, priority_category, priority_expires_at, ...patient } = match;
+      return {
+        ...patient,
+        masked_contact: contact_number ? `•••••••${contact_number.slice(-4)}` : null,
+        effective_priority_category: resolveWalkInPriority(
+          { date_of_birth: patient.date_of_birth, priority_category, priority_expires_at },
+          now,
+        ).priority_category,
+      };
+    }) });
   } catch (err) {
     console.error("searchPatients error:", err);
     res.status(500).json({ success: false, message: "Server error." });

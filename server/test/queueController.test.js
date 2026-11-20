@@ -64,7 +64,8 @@ test("registration assigns source from the endpoint and counts appointment and w
       const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; } };
       await handler({ user: { user_id: 11 }, body: {
         patient_id: 42, full_name: "Ana Santos", date_of_birth: "1990-01-01", gender: "female",
-        contact: "09123456789", address: "Poblacion", priority_category: "senior",
+        contact: "09123456789", address: "Poblacion",
+        ...(type === "priority" ? { priority_category: "senior" } : { clear_priority: true }),
         category: "dental", services: ["CONSULTATION"], type, is_walk_in: !is_walk_in,
       } }, res);
       assert.equal(res.statusCode, 201);

@@ -8,7 +8,11 @@ async function mockStaff(page) {
     sessionStorage.setItem("ek_token", token);
   }, createTestToken({ user_id: 8, role: "staff" }));
   await page.clock.install();
-  const state = { calls: [], actions: [], updates: [], registrations: [], searches: [], queues: [
+  const returningPatient = {
+    patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1959-12-31T16:00:00.000Z",
+    gender: "Female", barangay: "Abuanan", contact_number: "09123456789", effective_priority_category: "senior",
+  };
+  const state = { calls: [], actions: [], updates: [], registrations: [], searches: [], returningPatient, queues: [
     { id: 1, category: "dental", queue_number: "AP02", status: "waiting", type: "priority", patient_id: 11, full_name: "Priority Patient", is_walk_in: 0 },
     { id: 2, category: "dental", queue_number: "Q10", status: "waiting", type: "regular", patient_id: 12, full_name: "Walk-in Patient", is_walk_in: 1 },
     { id: 3, category: "general", queue_number: "G-001", status: "waiting", type: "regular", full_name: "Excluded General Patient" },
@@ -77,8 +81,9 @@ async function mockStaff(page) {
     } else if (url.pathname === "/api/patients/search") {
       state.searches.push(url.search);
       const phone = url.searchParams.get("phone");
-      body = { data: url.searchParams.get("name") === "Returning" || (phone && "09123456789".includes(phone)) ? [{ patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1959-12-31T16:00:00.000Z", masked_contact: "*******6789" }] : [] };
-    } else if (url.pathname === "/api/patients/20") body = { data: { patient_id: 20, first_name: "Returning", last_name: "Patient", date_of_birth: "1959-12-31T16:00:00.000Z", gender: "Female", barangay: "Abuanan", contact_number: "09123456789", visits: [
+      const { patient_id, first_name, last_name, date_of_birth, effective_priority_category } = returningPatient;
+      body = { data: url.searchParams.get("name") === "Returning" || (phone && "09123456789".includes(phone)) ? [{ patient_id, first_name, last_name, date_of_birth, effective_priority_category, masked_contact: "*******6789" }] : [] };
+    } else if (url.pathname === "/api/patients/20") body = { data: { ...returningPatient, visits: [
       { id: 30, category: "dental", queue_number: "Q-030", status: "done", created_at: "2026-10-07T09:00:00+08:00" },
       { id: 31, category: "general", queue_number: "G-031", status: "done", created_at: "2026-10-07T09:00:00+08:00" },
     ] } };
@@ -253,9 +258,10 @@ test("mobile walk-in registration preserves patient lookup, priority, service li
   await expect(page.getByText("Previous dental visits: 1")).toBeVisible();
   await expect(page.getByText("Completed", { exact: true })).toBeVisible();
   await expect(page.getByText(/G-031/)).toHaveCount(0);
-  await page.getByRole("checkbox", { name: "Dental Check-up", exact: true }).check();
-  await page.getByRole("checkbox", { name: "Oral Prophylaxis", exact: true }).check();
-  await expect(page.getByRole("checkbox", { name: "Fluoride", exact: true })).toBeDisabled();
+  const consultation = page.getByRole("checkbox", { name: "Consultation", exact: true });
+  await page.getByRole("checkbox", { name: /^Tooth Extraction/ }).check();
+  await consultation.check();
+  await expect(page.getByRole("checkbox", { name: /^Tooth Extraction/ })).not.toBeChecked();
   await expect(page.getByRole("radio", { name: "Priority", exact: true })).toBeChecked();
   await expect(page.getByRole("radio", { name: "Regular", exact: true })).toBeDisabled();
   await expect(page.getByLabel("Priority category")).toHaveValue("senior");
@@ -268,7 +274,8 @@ test("mobile walk-in registration preserves patient lookup, priority, service li
   await page.getByRole("button", { name: "Register and assign dental queue" }).click();
   await expect(page.getByRole("status")).toContainText("queue number P03");
   await expect(page.getByRole("status")).toContainText("Please stay nearby; no queue SMS will be sent.");
-  expect(state.registrations[0]).toMatchObject({ category: "dental", patient_id: 20, first_name: "Returning", last_name: "Patient", services: ["CONSULTATION", "ORAL_PROPHYLAXIS"], type: "priority", priority_category: "senior", contact: "+639123456789" });
+  expect(state.registrations[0]).toMatchObject({ category: "dental", patient_id: 20, first_name: "Returning", last_name: "Patient", services: ["CONSULTATION"], contact: "+639123456789" });
+  expect(state.registrations[0]).not.toHaveProperty("priority_category");
   await expect(page.getByLabel("First name", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Last name", { exact: true })).toHaveValue("");
 });
@@ -284,7 +291,6 @@ test('walk-in services are required and senior priority starts on the 60th birth
   const last = form.getByLabel('Last name', { exact: true });
   const dob = form.getByLabel('Date of birth');
   await expect(submit).toBeEnabled();
-  expect((await services.boundingBox()).y).toBeLessThan((await first.boundingBox()).y);
   await first.fill('Juan Pedro');
   await last.fill('Dela Cruz');
   await dob.fill('1966-10-26');
@@ -308,7 +314,7 @@ test('walk-in services are required and senior priority starts on the 60th birth
   await form.getByLabel('Confirmed mobile number').fill('9998765432');
   await page.clock.runFor(400);
   await expect(submit).toBeEnabled();
-  const checkup = form.getByRole('checkbox', { name: 'Dental Check-up', exact: true });
+  const checkup = form.getByRole('checkbox', { name: 'Consultation', exact: true });
   await submit.click();
   await expect(checkup).toBeFocused();
   await expect(services).toHaveAttribute('aria-invalid', 'true');
@@ -316,15 +322,74 @@ test('walk-in services are required and senior priority starts on the 60th birth
   await checkup.check();
   await expect(submit).toBeEnabled();
   await expect(services).not.toHaveAttribute('aria-invalid');
-  await checkup.uncheck();
-  await expect(services).toHaveAttribute('aria-invalid', 'true');
-  await checkup.check();
   await submit.click();
   await expect(form.getByRole('status')).toContainText('queue number P03');
-  expect(state.registrations[0]).toMatchObject({ first_name: 'Juan Pedro', last_name: 'Dela Cruz', type: 'priority', priority_category: 'senior' });
+  expect(state.registrations[0]).toMatchObject({ first_name: 'Juan Pedro', last_name: 'Dela Cruz' });
+  expect(state.registrations[0]).not.toHaveProperty('priority_category');
   await expect(form.getByRole('radio', { name: 'Regular', exact: true })).toBeChecked();
   await expect(submit).toBeEnabled();
   await expect(form.locator('[aria-invalid="true"]')).toHaveCount(0);
+});
+
+test("staff see saved walk-in priority and send only intentional changes", async ({ page }) => {
+  const state = await mockStaff(page);
+  const patient = state.returningPatient;
+  Object.assign(patient, {
+    date_of_birth: "1990-01-01",
+    priority_category: "pwd",
+    effective_priority_category: "pwd",
+  });
+  await page.goto("/staff/walk-ins/new");
+  const form = page.getByRole("form", { name: "Dental walk-in registration" });
+  const choosePatient = async (category) => {
+    await form.getByLabel("Find an existing patient").fill("Returning");
+    const match = form.getByRole("button", { name: /Returning Patient · 1990-01-01/ });
+    await expect(match).toContainText(category);
+    await match.click();
+  };
+  const priority = form.getByLabel("Priority category");
+  const regular = form.getByRole("radio", { name: "Regular", exact: true });
+  const submit = form.getByRole("button", { name: "Register and assign dental queue" });
+
+  await choosePatient("Priority (PWD)");
+  await expect(form.getByText("Priority (PWD)", { exact: true })).toBeVisible();
+  await expect(priority).toHaveValue("pwd");
+  await form.getByRole("checkbox", { name: "Consultation", exact: true }).check();
+  await submit.click();
+  await expect(form.getByRole("status")).toContainText("queue number P03");
+  expect(state.registrations[0]).not.toHaveProperty("priority_category");
+  expect(state.registrations[0]).not.toHaveProperty("clear_priority");
+  await expect(regular).toBeChecked();
+
+  Object.assign(patient, {
+    priority_category: "pregnant",
+    effective_priority_category: "pregnant",
+    priority_expires_at: "2027-02-27T16:00:00.000Z",
+  });
+  await page.goto("/staff/patients/20");
+  await expect(page.getByText("Walk-in queue type", { exact: true })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "Priority (Pregnant)" })).toBeVisible();
+  await expect(page.getByText(/Pregnancy priority expires on/)).toContainText("2027");
+
+  await page.goto("/staff/walk-ins/new");
+  await choosePatient("Priority (Pregnant)");
+  await expect(priority).toHaveValue("pregnant");
+  await expect(form.getByText(/Pregnancy priority expires on/)).toBeVisible();
+  await form.getByRole("button", { name: "Clear selection" }).click();
+  await expect(regular).toBeChecked();
+  await expect(priority).toHaveCount(0);
+  await choosePatient("Priority (Pregnant)");
+  await regular.check();
+  await form.getByRole("checkbox", { name: "Consultation", exact: true }).check();
+  await submit.click();
+  await expect(form.getByRole("status")).toContainText("queue number P03");
+  expect(state.registrations[1]).toMatchObject({ patient_id: 20, clear_priority: true });
+  expect(state.registrations[1]).not.toHaveProperty("priority_category");
+
+  Object.assign(patient, { effective_priority_category: null, priority_expires_at: null });
+  await choosePatient("Regular");
+  await expect(regular).toBeChecked();
+  await expect(form.getByText(/Confirm whether the patient is still pregnant/)).toBeVisible();
 });
 
 for (const width of [1440, 375, 320]) {

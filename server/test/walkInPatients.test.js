@@ -24,13 +24,19 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
   let queueInput;
   let patientInput;
   const patientUpdates = [];
+  let savedPriority = [null, null];
+  let pendingPriority;
+  let hasActiveQueue = false;
   let committed = false;
   let rolledBack = false;
   let settings = { walk_in_limit: 5, is_available: 1 };
   let walkinToday = 0;
   const connection = {
     async query(sql, values) {
-      if (sql.startsWith("UPDATE patients SET")) patientUpdates.push({ sql, values });
+      if (sql.startsWith("UPDATE patients SET")) {
+        patientUpdates.push({ sql, values });
+        pendingPriority = values.slice(8, 10);
+      }
       if (sql.includes("GET_LOCK")) return [[{ acquired: 1 }]];
       if (sql.includes("RELEASE_LOCK")) return [[{ released: 1 }]];
       if (sql.includes("FROM doctors")) return [[{ doctor_id: 1 }]];
@@ -42,13 +48,21 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
       }
       if (sql.includes("FROM patients WHERE patient_id")) return [[{
         patient_id: 12, first_name: "Ana", last_name: "Santos", date_of_birth: new Date("1990-01-01T00:00:00+08:00"),
-        gender: "Female", contact_number: "09123456789", barangay: "Poblacion", priority_category: null,
+        gender: "Female", contact_number: "09123456789", barangay: "Poblacion",
+        priority_category: savedPriority[0], priority_expires_at: savedPriority[1],
       }]];
       if (sql.includes("FROM patients p LEFT JOIN users")) return [duplicate ? [{ patient_id: 12 }] : []];
-      if (sql.includes("FROM queues WHERE patient_id")) return [[]];
+      if (sql.includes("FROM queues WHERE patient_id")) return [hasActiveQueue ? [{ id: 1 }] : []];
       return [{}];
     },
-    async beginTransaction() {}, async commit() { committed = true; }, async rollback() { rolledBack = true; }, release() {},
+    async beginTransaction() {},
+    async commit() {
+      committed = true;
+      if (pendingPriority) savedPriority = pendingPriority;
+      pendingPriority = undefined;
+    },
+    async rollback() { rolledBack = true; pendingPriority = undefined; },
+    release() {},
   };
   pool.getConnection = async () => connection;
   Patient.createWalkIn = async (input) => { patientInput = input; created++; return 42; };
@@ -92,7 +106,7 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
       assert.equal(patientInput.last_name, "Dela Cruz");
       assert.equal(queueInput.walk_in_name, "Juan Pedro Dela Cruz");
       assert.equal(queueInput.type, expectedType);
-      assert.equal(patientUpdates.some(update => update.values[0] === "senior"), expectedType === "priority");
+      assert.equal(patientInput.priority_category, expectedType === "priority" ? "senior" : null);
     }
 
     patientUpdates.length = 0;
@@ -110,11 +124,54 @@ test("new, returning, and duplicate walk-ins preserve names and assign senior pr
       assert.equal(queueInput.type, now.startsWith("2028-02-29") ? "priority" : "regular");
     }
 
-    for (const invalid of [{ first_name: "Ana", last_name: "" }, { first_name: "x".repeat(101), last_name: "Santos" }, { services: [] }]) {
+    for (const invalid of [{ first_name: "Ana", last_name: "" }, { first_name: "x".repeat(101), last_name: "Santos" }, { services: [] }, { clear_priority: "true" }, { clear_priority: true, priority_category: "pwd" }]) {
       res = response();
       await createWalkIn({ body: { ...body, ...invalid }, user: { user_id: 3 } }, res);
       assert.equal(res.statusCode, 400);
     }
+
+    await t.test("priority is reused, expires in Manila, and changes only with a successful ticket", async () => {
+      t.mock.timers.setTime(Date.parse("2026-05-30T16:00:00Z"));
+      const issue = async (fields, expectedType, status = 201) => {
+        const responseBody = response();
+        await createWalkIn({ body: { ...body, ...fields }, user: { user_id: 3 } }, responseBody);
+        assert.equal(responseBody.statusCode, status);
+        if (expectedType) assert.equal(queueInput.type, expectedType);
+      };
+      await issue({ priority_category: "pwd" }, "priority");
+      assert.equal(patientInput.priority_category, "pwd");
+      assert.equal(patientInput.priority_expires_at, null);
+      savedPriority = [patientInput.priority_category, patientInput.priority_expires_at];
+      await issue({ patient_id: 12, priority_category: null }, "priority");
+      assert.deepEqual(savedPriority, ["pwd", null]);
+
+      await issue({ priority_category: "pregnant" }, "priority");
+      const expiry = new Date("2027-02-27T16:00:00Z");
+      assert.deepEqual([patientInput.priority_category, patientInput.priority_expires_at], ["pregnant", expiry]);
+      savedPriority = ["pregnant", expiry];
+      t.mock.timers.setTime(expiry.getTime() - 1);
+      await issue({ patient_id: 12 }, "priority");
+      assert.deepEqual(savedPriority, ["pregnant", expiry]);
+
+      hasActiveQueue = true;
+      await issue({ patient_id: 12, clear_priority: true }, null, 409);
+      assert.deepEqual(savedPriority, ["pregnant", expiry]);
+      hasActiveQueue = false;
+      await issue({ patient_id: 12, clear_priority: true }, "regular");
+      assert.deepEqual(savedPriority, [null, null]);
+
+      savedPriority = ["pregnant", expiry];
+      t.mock.timers.setTime(expiry.getTime());
+      await issue({ patient_id: 12 }, "regular");
+      assert.deepEqual(savedPriority, [null, null]);
+
+      savedPriority = ["pregnant", null];
+      await issue({ patient_id: 12 }, "regular");
+      assert.deepEqual(savedPriority, [null, null]);
+      savedPriority = ["pregnant", null];
+      await issue({ patient_id: 12, priority_category: "pregnant" }, "priority");
+      assert.deepEqual(savedPriority, ["pregnant", new Date("2027-11-27T16:00:00Z")]);
+    });
 
     for (const [name, limit, count, expectedStatus] of [
       ["zero walk-in capacity blocks registration", 0, 0, 409],
@@ -181,22 +238,33 @@ test("merge archives only a walk-in source and preserves its queue history on th
   }
 });
 
-test("staff profile returns all visits and search masks phone with an audit entry", async () => {
+test("staff profile and masked search agree on active priority", async (t) => {
+  const expiry = Date.parse("2027-02-27T16:00:00Z");
+  t.mock.timers.enable({ apis: ["Date"], now: expiry - 1 });
   const originals = { findById: Patient.findById, search: Patient.search, audit: Patient.audit, query: pool.query };
   const actions = [];
-  Patient.findById = async () => ({ patient_id: 12, first_name: "Ana", last_name: "Santos" });
-  Patient.search = async () => [{ patient_id: 12, first_name: "Ana", last_name: "Santos", contact_number: "09123456789" }];
+  const patient = { patient_id: 12, first_name: "Ana", last_name: "Santos", contact_number: "09123456789",
+    priority_category: "pregnant", priority_expires_at: new Date(expiry) };
+  Patient.findById = async () => patient;
+  Patient.search = async () => [patient];
   Patient.audit = async (...args) => { actions.push(args[2]); };
   pool.query = async () => [[{ id: 1 }, { id: 2 }]];
   try {
-    const profile = response();
-    await getPatientById({ params: { id: 12 }, user: { user_id: 3 } }, profile);
-    assert.equal(profile.body.data.visits.length, 2);
-    const search = response();
-    await searchPatients({ query: { name: "Ana" }, user: { user_id: 3 } }, search);
-    assert.equal(search.body.data[0].masked_contact, "•••••••6789");
-    assert.equal(search.body.data[0].contact_number, undefined);
-    assert.deepEqual(actions, ["view", "search"]);
+    const user = { user_id: 3, role: "staff" };
+    for (const [now, category] of [[expiry - 1, "pregnant"], [expiry, null]]) {
+      t.mock.timers.setTime(now);
+      const profile = response();
+      await getPatientById({ params: { id: 12 }, user }, profile);
+      assert.equal(profile.body.data.visits.length, 2);
+      assert.equal(profile.body.data.effective_priority_category, category);
+      const search = response();
+      await searchPatients({ query: { name: "Ana" }, user }, search);
+      assert.equal(search.body.data[0].masked_contact, "•••••••6789");
+      assert.equal(search.body.data[0].contact_number, undefined);
+      assert.equal(search.body.data[0].effective_priority_category, category);
+      assert.equal(search.body.data[0].priority_expires_at, undefined);
+    }
+    assert.deepEqual(actions, ["view", "search", "view", "search"]);
   } finally {
     Object.assign(Patient, { findById: originals.findById, search: originals.search, audit: originals.audit });
     pool.query = originals.query;

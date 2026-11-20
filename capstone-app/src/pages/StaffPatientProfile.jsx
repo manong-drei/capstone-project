@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDashboardIdentity } from "@/hooks/useDashboardIdentity";
 import { ROUTES } from "@/constants/routes";
 import { DENTAL_SERVICES } from "@/constants/medicalServices";
+import { getWalkInPriorityLabel, getWalkInPriorityNote } from "@/utils/queueDisplay";
 
 const VISITS_PER_PAGE = 10;
 const SECONDARY_BUTTON =
@@ -249,6 +250,14 @@ function PatientProfile({ id }) {
             "Not recorded",
           Icon: MapPin,
         },
+        ...(canManageAccount && !patient.archived_into_patient_id
+          ? [{
+              label: "Walk-in queue type",
+              value: getWalkInPriorityLabel(patient),
+              note: getWalkInPriorityNote(patient),
+              Icon: ClipboardList,
+            }]
+          : []),
       ]
     : [];
 
@@ -389,6 +398,9 @@ function PatientProfile({ id }) {
                         className={`mt-2 text-sm font-semibold leading-relaxed text-slate-800 [overflow-wrap:anywhere] ${detail.label === "Gender" ? "capitalize" : ""}`}
                       >
                         {detail.value}
+                        {detail.note && (
+                          <span className="mt-1 block font-normal">{detail.note}</span>
+                        )}
                       </dd>
                     </div>
                   ))}

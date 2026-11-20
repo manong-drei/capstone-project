@@ -50,7 +50,8 @@ const Patient = {
     if (!filters.length) return [];
     const [rows] = await connection.query(
       `SELECT p.patient_id, p.first_name, p.middle_name, p.last_name, p.suffix, p.date_of_birth, p.gender,
-              COALESCE(p.contact_number, u.phone) AS contact_number, p.barangay, p.city, p.user_id
+              COALESCE(p.contact_number, u.phone) AS contact_number, p.barangay, p.city, p.user_id,
+              p.priority_category, p.priority_expires_at
        FROM patients p LEFT JOIN users u ON p.user_id = u.user_id
        WHERE p.archived_into_patient_id IS NULL AND (${filters.join(" OR ")})
        ORDER BY (COALESCE(p.contact_number, u.phone) = ?) DESC,
@@ -79,12 +80,14 @@ const Patient = {
       contact_number,
       emg_contact_no,
       barangay,
+      priority_category,
+      priority_expires_at,
     },
     connection,
   ) => {
     const [result] = await connection.query(
-      `INSERT INTO patients (user_id, first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number, emg_contact_no, barangay, city)
-       VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Bago City')`,
+      `INSERT INTO patients (user_id, first_name, middle_name, last_name, suffix, date_of_birth, gender, contact_number, emg_contact_no, barangay, city, priority_category, priority_expires_at)
+       VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Bago City', ?, ?)`,
       [
         first_name,
         normalizeMiddleName(middle_name),
@@ -95,6 +98,8 @@ const Patient = {
         contact_number ?? null,
         emg_contact_no ?? null,
         barangay,
+        priority_category ?? null,
+        priority_expires_at ?? null,
       ],
     );
     return result.insertId;
