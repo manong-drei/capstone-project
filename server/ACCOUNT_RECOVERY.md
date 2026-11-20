@@ -2,7 +2,7 @@
 
 ## Self-service SMS recovery
 
-Apply `npm run migrate:password-recovery` from `server/` after the SMS and audit migrations, then restart the backend. The migration is additive and can be rerun. It creates `password_recoveries`, adds the `password_recovery` SMS purpose and a nullable `sms_jobs.recovery_id`, and preserves existing passwords and history. No new dependency or SMS provider is needed. SMS must be enabled with the existing provider/encryption configuration.
+Run `npm run migrate:password-recovery` from `server/` after the SMS and audit schemas are installed. On Railway, use it as the backend service's Pre-deploy Command with the service root set to `/server`. The database user needs `CREATE` and `ALTER` permissions to add the recovery schema. The command can be rerun. It creates `password_recoveries`, adds the `password_recovery` SMS purpose and a nullable `sms_jobs.recovery_id`, and preserves existing SMS purposes and history. SMS must be enabled with the existing provider and encryption configuration.
 
 Patients select **Forgot password?** on login, enter their registered login mobile number, enter the four-digit SMS code (including any leading zero), and choose a new password. Only active patient accounts linked to an unarchived patient record qualify. Malformed, unknown, inactive and other-role numbers display `invalid phone number`. This intentionally discloses whether a number is eligible, as requested.
 

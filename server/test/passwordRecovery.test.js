@@ -5,8 +5,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const express = require('express');
 const { once } = require('node:events');
-const fs = require('node:fs');
-const path = require('node:path');
 const pool = require('../src/config/db');
 const sms = require('../src/utils/sms');
 const recovery = require('../src/services/passwordRecovery');
@@ -252,15 +250,22 @@ test('recovery SMS worker cancels superseded, expired, inactive and changed acco
 
 test('migration safely resumes without deleting existing recovery or SMS history', async () => {
   const statements = [];
-  let exists = 0;
+  let purpose = "enum('temporary_password','queue_alert','queue_cancellation')";
+  let hasRecoveryId = false;
   const database = { async query(sql) {
     statements.push(sql);
-    if (sql.includes('information_schema.columns')) return [[{ count: exists }]];
-    if (sql.includes('ADD COLUMN')) exists = 1;
+    if (sql.includes("Field = 'purpose'")) return [[{ Type: purpose }]];
+    if (sql.includes("Field = 'recovery_id'")) return [hasRecoveryId ? [{}] : []];
+    if (sql.includes('MODIFY COLUMN purpose')) {
+      purpose = "enum('temporary_password','queue_alert','queue_cancellation','password_recovery')";
+      assert.equal(sql, `ALTER TABLE sms_jobs MODIFY COLUMN purpose ${purpose} NOT NULL`);
+    }
+    if (sql.includes('ADD COLUMN')) hasRecoveryId = true;
     return [{}];
   } };
   await migrate(database); await migrate(database);
   assert.equal(statements.filter(sql => sql.includes('ADD COLUMN')).length, 1);
+  assert.equal(statements.filter(sql => sql.includes('MODIFY COLUMN purpose')).length, 1);
   assert.ok(!statements.some(sql => /DROP|DELETE|TRUNCATE/.test(sql)));
 });
 
@@ -293,10 +298,15 @@ test('MySQL recovery flow uses isolated temporary tables for real SQL, expiry an
     await connection.query('CREATE TEMPORARY TABLE users (user_id INT PRIMARY KEY, phone VARCHAR(11), role VARCHAR(20), is_active BOOLEAN, credential_version INT, password_hash VARCHAR(100), must_change_password BOOLEAN DEFAULT 0, temp_password_expires_at DATETIME NULL, temp_password_used_at DATETIME NULL, login_failures INT DEFAULT 0, login_locked_until DATETIME NULL) ENGINE=InnoDB');
     await connection.query('ALTER TABLE users ADD COLUMN password_changed_at DATETIME NULL');
     await connection.query('CREATE TEMPORARY TABLE patients (patient_id INT PRIMARY KEY, user_id INT, first_name VARCHAR(100), middle_name VARCHAR(100), last_name VARCHAR(100), suffix VARCHAR(20), archived_into_patient_id INT NULL) ENGINE=InnoDB');
-    await connection.query("CREATE TEMPORARY TABLE sms_jobs (id INT AUTO_INCREMENT PRIMARY KEY, purpose VARCHAR(40), user_id INT, patient_id INT, recovery_id CHAR(36), credential_version INT, recipient VARCHAR(11), deduplication_key VARCHAR(100), payload TEXT, state VARCHAR(20) DEFAULT 'queued', provider_status VARCHAR(20), last_error VARCHAR(80)) ENGINE=InnoDB");
-    for (const [file, name] of [['008_password_recovery.sql', 'password_recoveries'], ['006_admin_audit_logs.sql', 'audit_logs']]) {
-      await connection.query(fs.readFileSync(path.join(__dirname, '../migrations', file), 'utf8').replace(`CREATE TABLE IF NOT EXISTS ${name}`, `CREATE TEMPORARY TABLE ${name}`));
-    }
+    await connection.query("CREATE TEMPORARY TABLE sms_jobs (id INT AUTO_INCREMENT PRIMARY KEY, purpose ENUM('temporary_password','queue_alert','queue_cancellation') NOT NULL, user_id INT, patient_id INT, credential_version INT, recipient VARCHAR(11), deduplication_key VARCHAR(100), payload TEXT, state VARCHAR(20) DEFAULT 'queued', provider_status VARCHAR(20), last_error VARCHAR(80)) ENGINE=InnoDB");
+    await connection.query(`CREATE TEMPORARY TABLE audit_logs (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY, actor_user_id INT, actor_name VARCHAR(200), actor_role VARCHAR(20),
+      is_development BOOLEAN, action VARCHAR(64), target_type VARCHAR(32), target_id BIGINT, outcome VARCHAR(10),
+      reason VARCHAR(250), ip_address VARCHAR(45), details JSON, created_at DATETIME(3)) ENGINE=InnoDB`);
+    await connection.query("INSERT INTO sms_jobs (purpose) VALUES ('queue_cancellation')");
+    await migrate({ query: sql => connection.query(sql.replace(/^CREATE TABLE /, 'CREATE TEMPORARY TABLE ')) });
+    const [[existingJob]] = await connection.query('SELECT purpose FROM sms_jobs WHERE id = 1');
+    assert.equal(existingJob.purpose, 'queue_cancellation');
     await connection.query("INSERT INTO users (user_id, phone, role, is_active, credential_version, password_hash) VALUES (7, '09123456789', 'patient', 1, 2, ?)", [await bcrypt.hash('OldPassword1', 4)]);
     await connection.query("INSERT INTO patients (patient_id, user_id, first_name, last_name) VALUES (42, 7, 'Ana', 'Test')");
     const proxy = { query: connection.query.bind(connection), beginTransaction: connection.beginTransaction.bind(connection), commit: connection.commit.bind(connection), rollback: connection.rollback.bind(connection), release() {} };

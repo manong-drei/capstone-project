@@ -220,7 +220,7 @@ All the following scripts are defined in `server/package.json`. SQL migrations `
 | `npm run migrate:sms-reviews` | Adds nullable `sms_jobs.reviewed_at` for acknowledging failures |
 | `npm run migrate:audit` | `006_admin_audit_logs.sql`: creates the current audit table/indexes; preserves a recognized old table as `audit_logs_legacy`, refuses unsafe replacement |
 | `npm run migrate:doctor-leaves` | `007_doctor_leaves.sql`: creates doctor leave requests; preserves bookings and daily settings |
-| `npm run migrate:password-recovery` | `008_password_recovery.sql` plus inline changes to SMS purposes/recovery ID; requires SMS and audit schema first; rerunnable |
+| `npm run migrate:password-recovery` | Creates `password_recoveries` and extends `sms_jobs`. Requires the SMS and audit schemas and can be rerun. |
 | `npm run migrate:password-cooldown` | Adds nullable `users.password_changed_at` when missing. The API also runs this check before accepting requests. Adding the column requires `ALTER` on `users`. |
 | `npm run migrate:prescription-text` | Widens `prescriptions.medication_name` to `TEXT NOT NULL` for free-text recommendations |
 
