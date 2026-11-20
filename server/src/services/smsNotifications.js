@@ -87,13 +87,22 @@ function queueMessage(queue, position) {
 function cancellationMessage(queue) {
   const prefix = `E-KALUSUGAN: Ticket ${queue.queue_number} was cancelled. Reason: `;
   const suffix = " Full reason in app. Do not reply.";
-  const reason = String(queue.status_reason || "").normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "").replace(/[\u2010-\u2015]/g, "-")
-    .replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"')
-    .replace(/[^\x20-\x7e]/g, " ").replace(/\s+/g, " ").trim() || "See app for details.";
+  const reason =
+    String(queue.status_reason || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\u2010-\u2015]/g, "-")
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201c\u201d]/g, '"')
+      .replace(/[^\x20-\x7e]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || "See app for details.";
   const available = 160 - prefix.length - suffix.length;
   // shortcut: SMS reasons are ASCII previews; the patient dialog preserves the complete reason.
-  const preview = reason.length > available ? `${reason.slice(0, available - 3).trimEnd()}...` : reason;
+  const preview =
+    reason.length > available
+      ? `${reason.slice(0, available - 3).trimEnd()}...`
+      : reason;
   return `${prefix}${preview}${suffix}`;
 }
 
@@ -206,8 +215,11 @@ async function submitOne(conn) {
         return;
       }
       if (job.purpose === "queue_cancellation") {
-        if (queue.status !== "cancelled" || !queue.cancelled_by_role
-          || (await queueRecipient(conn, queue)) !== job.recipient) {
+        if (
+          queue.status !== "cancelled" ||
+          !queue.cancelled_by_role ||
+          (await queueRecipient(conn, queue)) !== job.recipient
+        ) {
           await cancelJob(conn, job.id);
           await conn.commit();
           return;

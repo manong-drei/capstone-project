@@ -8,7 +8,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimitByIp = require("./middleware/rateLimitByIp");
-const db = require("./config/db");
+const ensurePasswordCooldown = require("./config/ensurePasswordCooldown");
 const { startWorker } = require("./services/smsNotifications");
 const { startWorker: startQueueExpiry } = require("./services/queueExpiry");
 // Middleware imports
@@ -90,17 +90,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: "Internal server error." });
 });
 
-// ── Start Server & Test Database Connection ─────────────────────────────────
+// ── Start Server ────────────────────────────────────────────────────────────
 const startServer = async () => {
   try {
-    // Attempt to get a connection from the pool to test it
-    const connection = await db.getConnection();
+    await ensurePasswordCooldown();
     console.log(`\n✅ MySQL Database connected successfully!`);
-    connection.release(); // Release the connection back to the pool
     await startQueueExpiry();
     await startWorker();
 
-    // Start the Express server only after DB is verified
     app.listen(PORT, () => {
       console.log(`\n 🚀 E-KALUSUGAN API`);
       console.log(`  Server     : http://localhost:${PORT}`);
@@ -118,9 +115,9 @@ const startServer = async () => {
       }
     });
   } catch (error) {
-    console.error(`\n❌ Failed to connect to the MySQL database:`);
+    console.error(`\n❌ Failed to start the API:`);
     console.error(error.message);
-    process.exit(1); // Stop the server if the database isn't running
+    process.exit(1);
   }
 };
 

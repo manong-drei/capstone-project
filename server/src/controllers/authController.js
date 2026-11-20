@@ -461,7 +461,7 @@ const changePassword = async (req, res) => {
       ...session,
     });
   } catch (err) {
-    console.error("Password change failed internally.");
+    console.error("Password change failed internally.", err.code || err.name);
     res.status(500).json({
       success: false,
       message: "Server error during password change.",

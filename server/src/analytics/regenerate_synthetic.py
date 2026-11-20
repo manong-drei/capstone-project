@@ -1,4 +1,4 @@
-"""Regenerate only the 2012-2019 BOHC teaching rows; keep recorded rows intact."""
+"""Regenerate only the 2014-2019 BOHC teaching rows; keep recorded rows intact."""
 
 import csv
 import io
@@ -66,5 +66,5 @@ def regenerate_data(path=DATA_FILE):
 
 if __name__ == "__main__":
     regenerate_data()
-    print("Regenerated 56 synthetic rows: 2012-2019; 3-4% annual trend with small variations.")
+    print("Regenerated 56 synthetic rows: 2014-2019; 3-4% annual trend with small variations.")
     print("All 42 recorded rows from 2020-2025 are unchanged. Run arima.py to refresh forecasts.")
